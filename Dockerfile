@@ -1,5 +1,5 @@
 # 1단계: 빌드 스테이지 (용량을 줄이기 위해 빌드와 실행 분리)
-FROM public.ecr.aws/amazoncorretto/amazoncorretto:21-al2023 AS build
+FROM eclipse-temurin:21-jdk-jammy AS build
 WORKDIR /app
 
 # Gradle 실행에 필요한 xargs(findutils) 설치
@@ -24,7 +24,7 @@ COPY src src
 RUN ./gradlew bootJar -x test
 
 # 2단계: 실행 스테이지
-FROM public.ecr.aws/amazoncorretto/amazoncorretto:21-al2023-headless
+FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
 # 빌드 스테이지에서 생성된 jar 파일만 가져오기

@@ -5,6 +5,9 @@ import jp.co.translacat.domain.common.enums.PlatformCode;
 import jp.co.translacat.domain.novel.episode.dto.EpisodeResponseDto;
 import jp.co.translacat.domain.user.enums.RecentViewType;
 import jp.co.translacat.domain.user.service.RecentViewService;
+import jp.co.translacat.infrastructure.client.ai.TranslationExecutor;
+import jp.co.translacat.infrastructure.client.ai.common.TranslationType;
+import jp.co.translacat.infrastructure.client.ai.server.AiRuleType;
 import jp.co.translacat.infrastructure.japanese.FuriganaProcessor;
 import jp.co.translacat.domain.novel.episode.entity.Episode;
 import jp.co.translacat.domain.novel.episode.entity.EpisodeContent;
@@ -15,7 +18,6 @@ import jp.co.translacat.domain.novel.episode.respository.EpisodeRepository;
 import jp.co.translacat.domain.novel.novel.entity.Novel;
 import jp.co.translacat.domain.novel.novel.model.RawEpisodeContext;
 import jp.co.translacat.domain.novel.translation.model.TranslationUnit;
-import jp.co.translacat.infrastructure.client.ai.gemini.GeminiBatchService;
 import jp.co.translacat.infrastructure.scraping.common.strategy.EpisodeStrategy;
 import jp.co.translacat.infrastructure.scraping.syosetu.constant.AiGeminiConstant;
 import lombok.RequiredArgsConstructor;
@@ -40,10 +42,10 @@ public class EpisodeService {
     private final EpisodeContentSafeSaver episodeContentSafeSaver;
     private final RecentViewService recentViewService;
 
-    private final GeminiBatchService geminiBatchService;
+    private final TranslationExecutor translationExecutor;
     private final FuriganaProcessor furiganaProcessor;
 
-    private final int BATCH_SIZE = 5;
+    private final int BATCH_SIZE = 1;
 
     public Optional<Episode> findEpisode(Long novelId, String identifier) {
         return this.episodeRepository.findByNovelIdAndIdentifier(novelId, identifier);
@@ -145,10 +147,10 @@ public class EpisodeService {
 
         // 변경된 조각들만 벌크로 Gemini 번역 요청.
         if (!dirtyUnits.isEmpty()) {
-            geminiBatchService.processWithAiGemini(
+            this.translationExecutor.execute(
                 dirtyUnits,
                 this.BATCH_SIZE,
-                AiGeminiConstant.EpisodeRule
+                AiRuleType.EPISODE.getValue()
             );
         }
 
@@ -181,7 +183,7 @@ public class EpisodeService {
 
         // Gemini 에피소드 정보 번역 요청.
         if (!dirtyUnits.isEmpty()) {
-            geminiBatchService.processWithAiGemini(dirtyUnits, BATCH_SIZE, AiGeminiConstant.NovelRule);
+            this.translationExecutor.execute(dirtyUnits, BATCH_SIZE, AiRuleType.NOVEL.getValue());
         }
 
         // 에피소드 저장.

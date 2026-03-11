@@ -1,7 +1,11 @@
 package jp.co.translacat.infrastructure.client.ai.gemini;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import jp.co.translacat.domain.novel.translation.model.Translatable;
+import jp.co.translacat.global.utils.BatchProcessor;
 import jp.co.translacat.global.utils.JsonParser;
+import jp.co.translacat.infrastructure.client.ai.common.AbstractTranslationExecutor;
+import jp.co.translacat.infrastructure.client.ai.common.TranslationType;
 import jp.co.translacat.infrastructure.client.ai.util.AiResponseUtil;
 import jp.co.translacat.infrastructure.scraping.syosetu.constant.AiGeminiConstant;
 import lombok.RequiredArgsConstructor;
@@ -12,77 +16,82 @@ import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class GeminiTranslationExecutor {
+public class GeminiTranslationExecutor extends AbstractTranslationExecutor {
 
     private final AiGeminiClient aiGeminiClient;
     private final JsonParser jsonParser;
+    private final BatchProcessor batchProcessor;
 
     private final Semaphore geminiSemaphore = new Semaphore(10);
 
+    private final int INTERNAL_BATCH_SIZE = 5;
+
+    @Override
     @Retryable(
-        retryFor = { Exception.class },
-        maxAttempts = 3,
-        backoff = @Backoff(
-            delay = 100,
-            multiplier = 1.5,
-            maxDelay = 500
-        ),
-        recover = "recoverTranslation"
+            retryFor = { Exception.class },
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 100, multiplier = 1.5, maxDelay = 500),
+            recover = "recoverTranslation"
     )
-    public <T extends Translatable> List<T> executeTranslation(List<T> batch, String rule) {
+    public <T extends Translatable> List<T> executeTranslation(List<T> sourceList, String rule) {
+        return this.executeTranslation(sourceList, INTERNAL_BATCH_SIZE, rule, null);
+    }
+
+    @Override
+    public <T extends Translatable> List<T> executeTranslation(
+            List<T> sourceList,
+            int batchSize,
+            String rule,
+            Comparator<T> comparator
+    ) {
+        log.info("[Gemini-Direct] Internal parallel processing with sorting. Size: {}", sourceList.size());
+
+        return batchProcessor.processParallel(
+                sourceList,
+                batchSize,
+                batch -> {
+                    try {
+                        return super.executeTranslation(batch, rule);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                },
+                comparator
+        );
+    }
+
+    @Override
+    protected List<String> doTranslate(List<String> texts, String rule) {
         String requestJson = "";
         String responseJson = "";
 
         try {
             this.semaphoreAcquire();
 
-            // 1. 입력 텍스트 추출
-            List<String> japaneseTexts = batch.stream()
-                .map(Translatable::getRawJa)
-                .toList();
+            // 1. JSON 변환
+            requestJson = jsonParser.toJson(texts);
 
-            requestJson = jsonParser.toJson(japaneseTexts);
-
-            // 2. API 호출 및 파싱
+            // 2. 직접 API 호출 (기존 로직 유지)
             String response = aiGeminiClient.call(rule, requestJson, AiGeminiConstant.STRING_LIST_SCHEMA);
             responseJson = AiResponseUtil.extractJsonArray(response);
 
-            // 3. 결과값을 문자열로 파싱.
-            List<String> translatedTexts = jsonParser.parseToList(responseJson, String.class);
+            // 3. 결과 파싱하여 리스트로 반환 (나머지 검증은 부모가 해줌)
+            return jsonParser.parseToList(responseJson, String.class);
 
-            // 4. 무결성 검증.
-            if (japaneseTexts.size() != translatedTexts.size()) {
-                throw new RuntimeException(String.format(
-                        "Translation size mismatch: Expected %d, but received %d",
-                        japaneseTexts.size(), translatedTexts.size()
-                ));
-            }
-
-            // 5. 결과 배분 (인덱스를 활용한 1:1 매핑)
-            for (int i = 0; i < batch.size(); i++) {
-                T item = batch.get(i);
-                String translatedKo = translatedTexts.get(i);
-                item.setKo(translatedKo);
-            }
-
-            return batch;
-
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.error("Gemini processing interrupted", e);
-            return Collections.emptyList();
         } catch (Exception e) {
-            log.error("Gemini batch processing failed!");
+            log.error("Translation Executor batch processing failed!");
             log.error("- Request JSON: {}", requestJson);
             log.error("- Response Cleaned: {}", responseJson);
-            log.error("- Target Batch: {}", batch, e);
-            throw e;
+            log.error("- Target Batch: {}", texts, e);
+
+            return Collections.emptyList();
         } finally {
             this.semaphoreRelease();
         }
@@ -90,9 +99,18 @@ public class GeminiTranslationExecutor {
 
     @Recover
     public <T extends Translatable> List<T> recoverTranslation(Exception e, List<T> batch, String rule) {
-        log.error("Gemini batch processing finally failed after retries!");
-        log.error("Reason: {}, Rule: {}, Batch: {}", e.getMessage(), rule, batch);
+        log.error("[Gemini-Direct] Finally failed after retries! Reason: {}", e.getMessage());
         return Collections.emptyList();
+    }
+
+    @Override
+    public TranslationType getSupportedType() {
+        return TranslationType.DIRECT_GEMINI;
+    }
+
+    @Override
+    protected String getProviderName() {
+        return "Gemini-Direct-Client";
     }
 
     private void semaphoreAcquire() throws InterruptedException {

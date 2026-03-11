@@ -13,6 +13,7 @@ import jp.co.translacat.domain.novel.novel.model.RawEpisodeContext;
 import jp.co.translacat.domain.novel.novel.repository.NovelRepository;
 import jp.co.translacat.domain.user.enums.RecentViewType;
 import jp.co.translacat.domain.user.service.RecentViewService;
+import jp.co.translacat.infrastructure.client.ai.TranslationExecutor;
 import jp.co.translacat.infrastructure.japanese.FuriganaProcessor;
 import jp.co.translacat.domain.novel.episode.entity.Episode;
 import jp.co.translacat.domain.novel.episode.service.EpisodeSafeSaver;
@@ -21,7 +22,6 @@ import jp.co.translacat.domain.novel.platform.entity.Platform;
 import jp.co.translacat.domain.novel.platform.entity.PlatformUrlTemplate;
 import jp.co.translacat.domain.novel.platform.service.PlatformService;
 import jp.co.translacat.domain.novel.translation.model.TranslationUnit;
-import jp.co.translacat.infrastructure.client.ai.gemini.GeminiBatchService;
 import jp.co.translacat.infrastructure.scraping.common.strategy.NovelStrategy;
 import jp.co.translacat.infrastructure.scraping.syosetu.constant.AiGeminiConstant;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +51,7 @@ public class NovelService {
     private final EpisodeService episodeService;
     private final EpisodeSafeSaver episodeSafeSaver;
 
-    private final GeminiBatchService geminiBatchService;
+    private final TranslationExecutor translationExecutor;
     private final FuriganaProcessor furiganaProcessor;
 
     public Optional<Novel> findNovel(Long platformId, String identifier) {
@@ -127,7 +127,7 @@ public class NovelService {
         if (!dirtyUnits.isEmpty()) {
 
             // Gemini 요청 - 한글 번역.
-            geminiBatchService.processWithAiGemini(
+            this.translationExecutor.execute(
                 dirtyUnits,
                 this.BATCH_SIZE,
                 AiGeminiConstant.NovelRule
@@ -161,7 +161,7 @@ public class NovelService {
 
         // Gemini 소설 정보 번역 요청.
         if (!dirtyUnits.isEmpty()) {
-            geminiBatchService.processWithAiGemini(dirtyUnits, AiGeminiConstant.RankRule);
+            this.translationExecutor.execute(dirtyUnits, AiGeminiConstant.RankRule);
         }
 
         // 소설 저장.

@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 public class ExternalApiClient {
@@ -53,6 +55,18 @@ public class ExternalApiClient {
                 .block(); // Mono<T> 형태의 값을 T 값으로 동기 방식으로 변환
     }
 
+    @Retry(name = "externalApiClient")
+    @CircuitBreaker(name = "externalApiClient", fallbackMethod = "postFallback")
+    public <T, R> R post(String uri, T body, Map<String, String> headers, Class<R> responseType) {
+        return webClient.post()
+                .uri(uri)
+                .headers(h -> headers.forEach(h::add))
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(responseType)
+                .block();
+    }
+
     /**
      * GET 요청 실패 시 호출되는 fallback 메서드.
      * - Retry 및 CircuitBreaker를 모두 거친 후 최종적으로 실패했을 때 실행된다.
@@ -82,6 +96,25 @@ public class ExternalApiClient {
         String errorMessage = String.format(
                 "[External API POST Error] URI: %s | Body: %s | Cause: %s",
                 uri, bodyInfo, getErrorMessage(throwable)
+        );
+        throw new ExternalApiInvocationException(errorMessage, throwable);
+    }
+
+    /**
+     * POST 요청 실패 시 호출되는 fallback 메서드.
+     * - Retry 및 CircuitBreaker를 모두 거친 후 최종적으로 실패했을 때 실행된다.
+     *
+     * @param uri 원본 요청 URI
+     * @param body POST 요청 바디
+     * @param responseType 매핑 대상 클래스 타입
+     * @param throwable 발생한 예외 정보
+     * @return throw exception
+     */
+    public <T, R> R postFallback(String uri, T body, Map<String, String> headers, Class<R> responseType, Throwable throwable) {
+        String bodyInfo = (body != null) ? body.toString() : "empty body";
+        String errorMessage = String.format(
+                "[External API POST Error] URI: %s | Headers: %s | Body: %s | Cause: %s",
+                uri, bodyInfo, headers, getErrorMessage(throwable)
         );
         throw new ExternalApiInvocationException(errorMessage, throwable);
     }

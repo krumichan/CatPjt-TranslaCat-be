@@ -1,6 +1,26 @@
 package jp.co.translacat.infrastructure.scraping.syosetu.constant;
 
+import jp.co.translacat.infrastructure.client.ai.server.AiRuleType;
+
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.Map;
+
 public class AiGeminiConstant {
+
+    public final static Map<AiRuleType, InternalInfo> internalMap;
+    static {
+        Map<AiRuleType, InternalInfo> map = new EnumMap<>(AiRuleType.class);
+
+        map.put(AiRuleType.RANK, new InternalInfo(10, AiGeminiConstant.RankRule));
+        map.put(AiRuleType.NOVEL, new InternalInfo(10, AiGeminiConstant.NovelRule));
+        map.put(AiRuleType.EPISODE, new InternalInfo(5, AiGeminiConstant.EpisodeRule));
+        map.put(AiRuleType.VOICE, new InternalInfo(1, AiGeminiConstant.VoiceRule));
+
+        internalMap = Collections.unmodifiableMap(map);
+    }
+
+    public record InternalInfo(int batchSize, String rule) { }
 
     /**
      * 랭킹 정보 번역 (제목, 작가명, 줄거리 등)

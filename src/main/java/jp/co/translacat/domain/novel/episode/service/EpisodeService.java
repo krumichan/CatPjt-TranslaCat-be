@@ -5,6 +5,7 @@ import jp.co.translacat.domain.common.enums.PlatformCode;
 import jp.co.translacat.domain.novel.episode.dto.EpisodeResponseDto;
 import jp.co.translacat.domain.user.enums.RecentViewType;
 import jp.co.translacat.domain.user.service.RecentViewService;
+import jp.co.translacat.global.utils.TransactionUtil;
 import jp.co.translacat.infrastructure.client.ai.TranslationExecutor;
 import jp.co.translacat.infrastructure.client.ai.common.TranslationType;
 import jp.co.translacat.infrastructure.client.ai.server.AiRuleType;
@@ -19,7 +20,6 @@ import jp.co.translacat.domain.novel.novel.entity.Novel;
 import jp.co.translacat.domain.novel.novel.model.RawEpisodeContext;
 import jp.co.translacat.domain.novel.translation.model.TranslationUnit;
 import jp.co.translacat.infrastructure.scraping.common.strategy.EpisodeStrategy;
-import jp.co.translacat.infrastructure.scraping.syosetu.constant.AiGeminiConstant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -92,7 +92,7 @@ public class EpisodeService {
         List<RawEpisodeContext> rawEpisodeContexts = scrappedEpisodeDetail.getNovelDetailContext().getRawEpisodeContexts();
         RawEpisodeContext rawEpisodeContext = rawEpisodeContexts.getFirst();
         Episode maybeEpisode = this.findEpisode(existingNovel.getId(), rawEpisodeContext.getIdentifier()).orElse(null);
-        Episode existingEpisode = this.saveAndGetEpisode(platformCode, existingNovel, maybeEpisode, rawEpisodeContext);
+        Episode existingEpisode = this.saveAndGetEpisode(existingNovel, maybeEpisode, rawEpisodeContext);
 
         // 최근 본 목록에 기록 남기기
         this.recentViewService.save(
@@ -149,8 +149,8 @@ public class EpisodeService {
         if (!dirtyUnits.isEmpty()) {
             this.translationExecutor.execute(
                 dirtyUnits,
-                this.BATCH_SIZE,
-                AiRuleType.EPISODE.getValue()
+                AiRuleType.EPISODE,
+                TranslationType.AI_SERVER
             );
         }
 
@@ -162,7 +162,7 @@ public class EpisodeService {
                     existingEpisode, ctx.getSequence(),
                     ctx.getContent().getRawJa(), ctx.getContent().getJa(), ctx.getContent().getKo()))
                 .toList();
-            this.episodeContentSafeSaver.saveEpisodeContents(existingEpisode, contents);
+            TransactionUtil.runAfterCompletion(() -> this.episodeContentSafeSaver.saveEpisodeContents(existingEpisode, contents));
         }
 
         return EpisodeResponseDto.of(
@@ -171,7 +171,7 @@ public class EpisodeService {
             , scrappedEpisodeContents);
     }
 
-    public Episode saveAndGetEpisode(PlatformCode platformCode, Novel novel, Episode episode, RawEpisodeContext ctx) {
+    public Episode saveAndGetEpisode(Novel novel, Episode episode, RawEpisodeContext ctx) {
 
         // 번역 조각 선별.
         List<TranslationUnit> dirtyUnits = new ArrayList<>(
@@ -183,7 +183,7 @@ public class EpisodeService {
 
         // Gemini 에피소드 정보 번역 요청.
         if (!dirtyUnits.isEmpty()) {
-            this.translationExecutor.execute(dirtyUnits, BATCH_SIZE, AiRuleType.NOVEL.getValue());
+            this.translationExecutor.executeDirect(dirtyUnits, AiRuleType.NOVEL);
         }
 
         // 에피소드 저장.

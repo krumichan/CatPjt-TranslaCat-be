@@ -26,13 +26,13 @@ public class AiServerTranslationExecutor extends AbstractTranslationExecutor {
             backoff = @Backoff(delay = 500, multiplier = 1.5, maxDelay = 2000),
             recover = "recoverTranslation"
     )
-    public <T extends Translatable> List<T> executeTranslation(List<T> batch, String rule) {
+    public <T extends Translatable> List<T> executeTranslation(List<T> batch, AiRuleType rule) {
         return super.executeTranslation(batch, rule);
     }
 
     @Override
-    protected List<String> doTranslate(List<String> texts, String rule) {
-        return aiServerClient.callBatchTranslation(texts, rule);
+    protected List<String> doTranslate(List<String> texts, AiRuleType rule) {
+        return aiServerClient.callBatchTranslation(texts, rule.getValue());
     }
 
     @Recover

@@ -1,6 +1,7 @@
 package jp.co.translacat.infrastructure.client.ai.common;
 
 import jp.co.translacat.domain.novel.translation.model.Translatable;
+import jp.co.translacat.infrastructure.client.ai.server.AiRuleType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -10,7 +11,7 @@ import java.util.List;
 public abstract class AbstractTranslationExecutor implements AiTranslationProvider {
 
     @Override
-    public <T extends Translatable> List<T> executeTranslation(List<T> batch, String rule) {
+    public <T extends Translatable> List<T> executeTranslation(List<T> batch, AiRuleType rule) {
         try {
             // 1. 입력 추출
             List<String> japaneseTexts = batch.stream()
@@ -40,7 +41,7 @@ public abstract class AbstractTranslationExecutor implements AiTranslationProvid
         }
     }
 
-    protected abstract List<String> doTranslate(List<String> texts, String rule);
+    protected abstract List<String> doTranslate(List<String> texts, AiRuleType rule);
     protected abstract String getProviderName();
 
     @Override

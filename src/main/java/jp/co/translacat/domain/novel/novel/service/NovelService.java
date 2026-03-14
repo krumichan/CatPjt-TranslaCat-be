@@ -13,7 +13,9 @@ import jp.co.translacat.domain.novel.novel.model.RawEpisodeContext;
 import jp.co.translacat.domain.novel.novel.repository.NovelRepository;
 import jp.co.translacat.domain.user.enums.RecentViewType;
 import jp.co.translacat.domain.user.service.RecentViewService;
+import jp.co.translacat.global.utils.TransactionUtil;
 import jp.co.translacat.infrastructure.client.ai.TranslationExecutor;
+import jp.co.translacat.infrastructure.client.ai.server.AiRuleType;
 import jp.co.translacat.infrastructure.japanese.FuriganaProcessor;
 import jp.co.translacat.domain.novel.episode.entity.Episode;
 import jp.co.translacat.domain.novel.episode.service.EpisodeSafeSaver;
@@ -23,7 +25,6 @@ import jp.co.translacat.domain.novel.platform.entity.PlatformUrlTemplate;
 import jp.co.translacat.domain.novel.platform.service.PlatformService;
 import jp.co.translacat.domain.novel.translation.model.TranslationUnit;
 import jp.co.translacat.infrastructure.scraping.common.strategy.NovelStrategy;
-import jp.co.translacat.infrastructure.scraping.syosetu.constant.AiGeminiConstant;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -44,7 +45,6 @@ public class NovelService {
     private final NovelSafeSaver novelSafeSaver;
 
     private final PlatformUrlType URL_TYPE = PlatformUrlType.NOVEL;
-    private final int BATCH_SIZE = 20;
 
     private final PlatformService platformService;
     private final RecentViewService recentViewService;
@@ -127,15 +127,14 @@ public class NovelService {
         if (!dirtyUnits.isEmpty()) {
 
             // Gemini 요청 - 한글 번역.
-            this.translationExecutor.execute(
+            this.translationExecutor.executeDirect(
                 dirtyUnits,
-                this.BATCH_SIZE,
-                AiGeminiConstant.NovelRule
+                AiRuleType.NOVEL
             );
         }
 
         // 새로 번역된 내용 DB에 저장.
-        this.episodeSafeSaver.saveEpisodes(existingNovel, scrappedEpisodes);
+        TransactionUtil.runAfterCompletion(() -> this.episodeSafeSaver.saveEpisodes(existingNovel, scrappedEpisodes));
 
         List<NovelResponseDto> episodes = scrappedEpisodes.stream()
             .sorted(Comparator.comparingInt(RawEpisodeContext::getSequence))
@@ -161,7 +160,7 @@ public class NovelService {
 
         // Gemini 소설 정보 번역 요청.
         if (!dirtyUnits.isEmpty()) {
-            this.translationExecutor.execute(dirtyUnits, AiGeminiConstant.RankRule);
+            this.translationExecutor.executeDirect(dirtyUnits, AiRuleType.RANK);
         }
 
         // 소설 저장.

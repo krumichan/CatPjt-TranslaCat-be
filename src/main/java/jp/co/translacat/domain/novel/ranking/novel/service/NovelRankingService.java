@@ -3,7 +3,10 @@ package jp.co.translacat.domain.novel.ranking.novel.service;
 import jakarta.persistence.EntityNotFoundException;
 import jp.co.translacat.domain.common.enums.PlatformCode;
 import jp.co.translacat.domain.common.enums.PlatformUrlType;
+import jp.co.translacat.global.utils.TransactionUtil;
 import jp.co.translacat.infrastructure.client.ai.TranslationExecutor;
+import jp.co.translacat.infrastructure.client.ai.common.TranslationType;
+import jp.co.translacat.infrastructure.client.ai.server.AiRuleType;
 import jp.co.translacat.infrastructure.japanese.FuriganaProcessor;
 import jp.co.translacat.domain.novel.novel.entity.Novel;
 import jp.co.translacat.domain.novel.novel.model.NovelContext;
@@ -17,7 +20,6 @@ import jp.co.translacat.domain.novel.ranking.novel.dto.NovelRankingPeriodRespons
 import jp.co.translacat.domain.novel.ranking.novel.model.NovelRankingContext;
 import jp.co.translacat.domain.novel.translation.model.TranslationUnit;
 import jp.co.translacat.infrastructure.scraping.common.strategy.NovelRankingStrategy;
-import jp.co.translacat.infrastructure.scraping.syosetu.constant.AiGeminiConstant;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -35,7 +37,6 @@ public class NovelRankingService {
     private final List<NovelRankingStrategy> strategies;
 
     private final PlatformUrlType URL_TYPE = PlatformUrlType.RANKING;
-    private final int BATCH_SIZE = 2;
 
     private final PlatformService platformService;
     private final NovelService novelService;
@@ -103,13 +104,13 @@ public class NovelRankingService {
             // Gemini 요청 - 한글 번역.
             this.translationExecutor.execute(
                 dirtyUnits,
-                this.BATCH_SIZE,
-                AiGeminiConstant.RankRule
+                AiRuleType.RANK,
+                TranslationType.AI_SERVER
             );
         }
 
         // 번역된 내용 DB 저장 또는 갱신.
-        this.novelSafeSaver.saveNovels(platform, genreId, scrappedRankings);
+        TransactionUtil.runAfterCompletion(() -> this.novelSafeSaver.saveNovels(platform, genreId, scrappedRankings));
 
         return NovelRankingPageResponseDto.of(scrapped.getPageNumberContext(), scrappedRankings);
     }

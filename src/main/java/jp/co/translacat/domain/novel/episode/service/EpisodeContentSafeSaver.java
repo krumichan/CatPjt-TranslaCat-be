@@ -22,6 +22,7 @@ public class EpisodeContentSafeSaver {
 
     private final FuriganaProcessor processor;
 
+    @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void saveEpisodeContents(Episode episode, List<EpisodeContent> contents) {
 

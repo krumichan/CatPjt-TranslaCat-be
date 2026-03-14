@@ -18,6 +18,14 @@ import java.util.Objects;
 @RestControllerAdvice
 public class ApiExceptionAdvice {
 
+    @ExceptionHandler(BusinessException.class)
+    protected ResponseEntity<ResponseDto<ErrorDto>> handleBusinessException(BusinessException e) {
+        String responseMessage = this.trace(e);
+        log.error("Business logic error: code={}, message={}", e.getErrorCode(), e.getMessage());
+
+        return this.entity(HttpStatus.BAD_REQUEST, e.getErrorCode(), responseMessage, e);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     protected ResponseEntity<ResponseDto<ErrorDto>> handleAccessDeniedException(AccessDeniedException e) {
         String responseMessage = this.trace(e);

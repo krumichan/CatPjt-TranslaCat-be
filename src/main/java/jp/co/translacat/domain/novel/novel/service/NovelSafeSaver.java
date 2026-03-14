@@ -8,12 +8,16 @@ import jp.co.translacat.domain.novel.novel.entity.Novel;
 import jp.co.translacat.domain.novel.novel.model.NovelContext;
 import jp.co.translacat.domain.novel.novel.repository.NovelRepository;
 import jp.co.translacat.domain.novel.platform.entity.Platform;
+import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,12 +37,17 @@ public class NovelSafeSaver {
     // 반드시 성공 시켜야 할 목록으로 별도 트랜잭션 처리.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<Novel> saveNovels(Platform platform, List<NovelContext> contextList) {
-        return this.saveNovels(platform, null, contextList);
+        try {
+            return this.saveNovels(platform, null, contextList).get();
+        } catch (Exception e) {
+            throw new BusinessException("Failed to save novel");
+        }
     }
 
     // 반드시 성공 시켜야 할 목록으로 별도 트랜잭션 처리.
+    @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public List<Novel> saveNovels(Platform platform, String genreIdentifier, List<NovelContext> contextList) {
+    public CompletableFuture<List<Novel>> saveNovels(Platform platform, String genreIdentifier, List<NovelContext> contextList) {
         List<Novel> processedList = new ArrayList<>();
 
         // 소설 존재 여부 확인.
@@ -113,6 +122,6 @@ public class NovelSafeSaver {
             }
         }
 
-        return processedList;
+        return CompletableFuture.completedFuture(processedList);
     }
 }

@@ -35,8 +35,8 @@ jobs:
             
             echo "Waiting for server to start (Max 5 minutes)..."
             SUCCESS=false
-            for i in {1...60}; do
-              if curl -s --head http://localhost:8080 | grep -E "200|401" > /dev/null
+            for i in {1..60}; do
+              if curl -s --head http://localhost:8080 | grep -E "200|401" > /dev/null; then
                 echo "Success!"
                 SUCCESS=true
                 break

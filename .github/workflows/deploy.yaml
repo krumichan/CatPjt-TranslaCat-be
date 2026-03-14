@@ -33,14 +33,21 @@ jobs:
               --name translacat-api-container \
               translacat-api
             
-            echo "Waiting for server to start..."
-            sleep 90
+            echo "Waiting for server to start (Max 5 minutes)..."
+            SUCCESS=false
+            for i in {1...60}; do
+              if curl -s --head http://localhost:8080 | grep -E "200|401" > /dev/null
+                echo "Success!"
+                SUCCESS=true
+                break
+              fi
 
-            if curl -s --head --request GET http://localhost:8080 | grep -E "200|401" > /dev/null
-            then
-              echo "Success:Spring Boot is UP (Response 200 or 401)!"
-            else
-              echo "Error: Spring Boot failed to start. Check logs with 'docker logs translacat-api-container'"
+              echo "Attempt $i: Server not ready yet... waiting 5 seconds."
+              sleep 5
+            done
+
+            if [ "$SUCCESS" = false ]; then
+              echo "Error...."
               docker logs translacat-api-container
               exit 1
             fi

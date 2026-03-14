@@ -28,6 +28,7 @@ jobs:
 
             docker run -d -p 8080:8080 \
               --env-file .env \
+              -e "SPRING_PROFILES_ACTIVE=prod" \
               --memory="1.5g" \
               --name translacat-api-container \
               translacat-api

@@ -38,7 +38,7 @@ Backend はその中で、以下を支える役割を担います。
 
 ```mermaid
 flowchart TD
-    FE[Frontend\nNext.js / React] --> BE[Spring Boot Backend<br/>API Hub / Business Logic / DB]
+    FE[Frontend<br/>Next.js / React] --> BE[Spring Boot Backend<br/>API Hub / Business Logic / DB]
     BE --> AI[FastAPI AI Server<br/>Translation / STT]
     BE --> DB[(MySQL)]
     BE --> EXT[External Novel Platforms<br/>Kakuyomu / Syosetu etc.]

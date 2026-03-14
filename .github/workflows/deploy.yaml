@@ -1,0 +1,44 @@
+name: BE Deploy to OCI
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/CatPjt-TranslaCat-be
+            git pull origin main
+
+            echo "${{ secrets.ENV_FILE_CONTENT }}" > .env
+
+            docker build -t translacat-api .
+            docker stop translacat-api-container || true
+            docker rm translacat-api-container || true
+
+            docker run -d -p 8080:8080 \
+              --env-file .env \
+              --memory="1.5g" \
+              --name translacat-api-container \
+              translacat-api
+            
+            echo "Waiting for server to start..."
+            sleep 90
+
+            if curl -s --head --request GET http://localhost:8080 | grep "200" > /dev/null
+            then
+              echo "Success: Spring Boot is UP and Running!"
+            else
+              echo "Error: Spring Boot failed to start. Check logs with 'docker logs translacat-api-container'"
+              exit 1
+            fi

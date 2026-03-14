@@ -36,10 +36,11 @@ jobs:
             echo "Waiting for server to start..."
             sleep 90
 
-            if curl -s --head --request GET http://localhost:8080 | grep "200" > /dev/null
+            if curl -s --head --request GET http://localhost:8080 | grep -E "200|401" > /dev/null
             then
-              echo "Success: Spring Boot is UP and Running!"
+              echo "Success:Spring Boot is UP (Response 200 or 401)!"
             else
               echo "Error: Spring Boot failed to start. Check logs with 'docker logs translacat-api-container'"
+              docker logs translacat-api-container
               exit 1
             fi

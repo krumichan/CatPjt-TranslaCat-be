@@ -5,7 +5,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jp.co.translacat.global.utils.SecurityUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.entity.ContentType;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingResponseWrapper;
@@ -19,8 +21,16 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(@NotNull HttpServletRequest request,
                                     @NotNull HttpServletResponse response,
-                                    FilterChain chain)
+                                    @NotNull FilterChain chain)
     throws IOException, ServletException {
+
+        // Multipart의 경우, request를 읽어들이면 Controller 단에서 정보가 얻어지지 않음.
+        // 따라서, 바로 반환.
+        String contentType = request.getContentType();
+        if (contentType != null && contentType.contains(MediaType.MULTIPART_FORM_DATA_VALUE)) {
+            chain.doFilter(request, response);
+            return;
+        }
 
         // Caching 가능한 Wrapper 클래스로 원본 Request Body 복사.
         CustomCachingRequestWrapper requestWrapper = new CustomCachingRequestWrapper(request);
@@ -46,6 +56,8 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     private void logRequest(CustomCachingRequestWrapper request) {
         String uri = request.getRequestURI();
         String method = request.getMethod();
+        String username = SecurityUtil.getSafeUsername();
+        String body;
 
         // 본문 내용을 Byte[]로 읽어들임.
         // ContentCachingRequestWrapper는 반드시 누군가 Body를 한 번 읽어들여야,
@@ -53,9 +65,7 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
         // 이는 보통 Controller 측에서 수행을 하나,
         // 우리는 Controller 실행 전에 Request를 로그로 출력하기 위해,
         // CustomCachingRequestWrapper를 만들어 내부적으로 미리 바디 값을 읽어들인다.
-        String body = new String(request.getContentAsByteArray());
-
-        String username = SecurityUtil.getSafeUsername();
+        body = new String(request.getContentAsByteArray());
 
         log.info("[REQUEST] [{}] {} {} | Body: {}", username, method, uri, body);
     }

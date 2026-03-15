@@ -4,7 +4,13 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import jp.co.translacat.global.exception.ExternalApiInvocationException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.Map;
@@ -67,6 +73,19 @@ public class ExternalApiClient {
                 .block();
     }
 
+    @Retry(name = "externalApiClient")
+    @CircuitBreaker(name = "externalApiClient", fallbackMethod = "postMultipartFallback")
+    public <R> R postMultipart(String uri, MultiValueMap<String, HttpEntity<?>> multipartData, Map<String, String> headers, Class<R> responseType) {
+        return webClient.post()
+            .uri(uri)
+            .headers(h -> headers.forEach(h::add))
+            .contentType(MediaType.MULTIPART_FORM_DATA)
+            .body(BodyInserters.fromMultipartData(multipartData))
+            .retrieve()
+            .bodyToMono(responseType)
+            .block();
+    }
+
     /**
      * GET 요청 실패 시 호출되는 fallback 메서드.
      * - Retry 및 CircuitBreaker를 모두 거친 후 최종적으로 실패했을 때 실행된다.
@@ -115,6 +134,14 @@ public class ExternalApiClient {
         String errorMessage = String.format(
                 "[External API POST Error] URI: %s | Headers: %s | Body: %s | Cause: %s",
                 uri, bodyInfo, headers, getErrorMessage(throwable)
+        );
+        throw new ExternalApiInvocationException(errorMessage, throwable);
+    }
+
+    public <R> R postMultipartFallback(String uri, MultiValueMap<String, HttpEntity<?>> multipartData, Map<String, String> headers, Class<R> responseType, Throwable throwable) {
+        String errorMessage = String.format(
+                "[External API Multipart Error] URI: %s | Headers: %s | Body: %s | Cause: %s",
+                uri, headers, multipartData, getErrorMessage(throwable)
         );
         throw new ExternalApiInvocationException(errorMessage, throwable);
     }

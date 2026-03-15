@@ -18,6 +18,14 @@ import java.util.Objects;
 @RestControllerAdvice
 public class ApiExceptionAdvice {
 
+    @ExceptionHandler(AiServerCommunicationException.class)
+    protected ResponseEntity<ResponseDto<ErrorDto>> handleAiServerCommunicationException(AiServerCommunicationException e) {
+        String responseMessage = this.trace(e);
+        log.error("Ai Server Communication logic error: code={}, message={}", e.getErrorCode(), e.getMessage());
+
+        return this.entity(HttpStatus.BAD_REQUEST, e.getErrorCode(), responseMessage, e);
+    }
+
     @ExceptionHandler(BusinessException.class)
     protected ResponseEntity<ResponseDto<ErrorDto>> handleBusinessException(BusinessException e) {
         String responseMessage = this.trace(e);

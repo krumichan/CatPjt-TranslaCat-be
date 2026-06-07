@@ -1,0 +1,33 @@
+package jp.co.translacat.domain.accountbook.dto;
+
+import jp.co.translacat.domain.accountbook.entity.AccountBook;
+
+import java.math.BigDecimal;
+
+public record AccountBookResponseDto(
+        Long id,
+        String name,
+        String description,
+        String category,
+        String currencyCode,
+        String currencySymbol,
+        BigDecimal incomeAmount,
+        BigDecimal expenseAmount,
+        BigDecimal balance,
+        BigDecimal expenseGoalAmount
+) {
+    public static AccountBookResponseDto from(AccountBook accountBook) {
+        return new AccountBookResponseDto(
+                accountBook.getId(),
+                accountBook.getName(),
+                accountBook.getDescription(),
+                accountBook.getCategory(),
+                accountBook.getCurrency().getCode(),
+                accountBook.getCurrency().getSymbol(),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                accountBook.getExpenseGoalAmount()
+        );
+    }
+}

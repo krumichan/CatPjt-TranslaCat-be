@@ -38,6 +38,11 @@ public class UserService {
 
     private final AuthenticationManager authenticationManager;
 
+    public User getById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+    }
+
     public User findByEmail(String email) {
         return userRepository.findByEmail(email).orElse(null);
     }
@@ -89,10 +94,10 @@ public class UserService {
         );
 
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
-        Long userId = userPrincipal.user().getId();
+        User user = userPrincipal.user();
         String username = userPrincipal.getUsername();
 
-        return this.generateUserTokens(userId, username);
+        return this.generateUserTokens(user.getId(), username, user.getAuthority());
     }
 
     public String logout(String token) {
@@ -128,7 +133,7 @@ public class UserService {
                 .build();
     }
 
-    public UserLoginResponseDto generateUserTokens(Long userId, String email) {
+    public UserLoginResponseDto generateUserTokens(Long userId, String email, Role role) {
         String refreshToken = jwtService.generateRefreshToken(userId, email);
 
         LocalDateTime refreshExpiry = jwtService.extractExpiration(refreshToken)
@@ -151,6 +156,7 @@ public class UserService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .accessTokenExpiresIn(accessTokenExpiresIn)
+                .role(role)
                 .build();
     }
 }

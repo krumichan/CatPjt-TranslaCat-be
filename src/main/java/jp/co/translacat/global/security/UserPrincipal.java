@@ -16,6 +16,10 @@ public record UserPrincipal(User user) implements UserDetails {
                 new SimpleGrantedAuthority(user.getAuthority().value()));
     }
 
+    public Long getId() {
+        return user.getId();
+    }
+
     @Override
     public String getPassword() {
         return user.getPassword();

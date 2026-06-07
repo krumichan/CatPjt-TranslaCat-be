@@ -1,11 +1,14 @@
 package jp.co.translacat.global.utils;
 
 import com.querydsl.core.types.OrderSpecifier;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.ComparableExpressionBase;
 import com.querydsl.core.types.dsl.EntityPathBase;
+import com.querydsl.core.types.dsl.StringPath;
 import lombok.experimental.UtilityClass;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.util.StringUtils;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -75,5 +78,42 @@ public class QueryDslUtil {
 
         // OrderSpecifier 배열로 변환 후 반환
         return orderSpecifiers.toArray(new OrderSpecifier[0]);
+    }
+
+    public BooleanExpression containsIgnoreCaseIfHasText(StringPath path, String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+
+        return path.containsIgnoreCase(value.trim());
+    }
+
+    public BooleanExpression eqIfHasText(StringPath path, String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+
+        return path.eq(value.trim());
+    }
+
+    public BooleanExpression anyContainsIgnoreCaseIfHasText(String value, StringPath... paths) {
+        if (!StringUtils.hasText(value) || paths == null || paths.length == 0) {
+            return null;
+        }
+
+        String normalizedValue = value.trim();
+
+        BooleanExpression expression = null;
+
+        for (StringPath path : paths) {
+            if (path == null) {
+                continue;
+            }
+
+            BooleanExpression current = path.containsIgnoreCase(normalizedValue);
+            expression = expression == null ? current : expression.or(current);
+        }
+
+        return expression;
     }
 }

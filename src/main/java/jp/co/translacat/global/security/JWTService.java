@@ -46,46 +46,47 @@ public class JWTService {
      * Access Token 생성
      *
      * @param userId   사용자 ID
-     * @param username 사용자 이름
+     * @param email 사용자 Email
      * @return JWT Access Token (5분 만료)
      */
-    public String generateAccessToken(Long userId, String username) {
+    public String generateAccessToken(Long userId, String email) {
         Map<String, Object> claims = new HashMap<>();
         claims.put(this.KEY_ID, userId);
-        return this.generateToken(username, claims, accessTokenExpiredAt);
+        return this.generateToken(email, claims, accessTokenExpiredAt);
     }
 
     /**
      * Refresh Token 생성
      *
      * @param userId   사용자 ID
-     * @param username 사용자 이름
+     * @param email 사용자 Email
      * @return JWT Refresh Token (7일 만료)
      */
-    public String generateRefreshToken(Long userId, String username) {
+    public String generateRefreshToken(Long userId, String email) {
         Map<String, Object> claims = new HashMap<>();
         claims.put(this.KEY_ID, userId);
-        return this.generateToken(username, claims, refreshTokenExpiredAt);
-     }
+        return this.generateToken(email, claims, refreshTokenExpiredAt);
+    }
 
     /**
      * JWT 생성 공통 메서드
      *
-     * @param username  subject (JWT 주체)
+     * @param subject  subject (JWT 주체)
      * @param claims    JWT payload
      * @param expiredAt 만료 시간(ms)
      * @return JWT 문자열
      */
-    private String generateToken(String username, Map<String, Object> claims, Long expiredAt) {
+
+    private String generateToken(String subject, Map<String, Object> claims, Long expiredAt) {
         return Jwts.builder()
-                .claims()
-                .add(claims)
-                .subject(username)
-                .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + expiredAt))
-                .and()
-                .signWith(getKey())
-                .compact(); // 압축
+            .claims()
+            .add(claims)
+            .subject(subject)
+            .issuedAt(new Date(System.currentTimeMillis()))
+            .expiration(new Date(System.currentTimeMillis() + expiredAt))
+            .and()
+            .signWith(getKey())
+            .compact();
     }
 
     /**
@@ -102,7 +103,10 @@ public class JWTService {
      * JWT에서 username(subject) 추출
      */
     public String extractUsername(String token) {
-        // extract the username from jwt token
+        return extractEmail(token);
+    }
+
+    public String extractEmail(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 

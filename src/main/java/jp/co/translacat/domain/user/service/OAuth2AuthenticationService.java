@@ -22,6 +22,6 @@ public class OAuth2AuthenticationService {
 
         User user = strategy.authenticate(idToken);
 
-        return userService.generateUserTokens(user.getId(), user.getEmail());
+        return userService.generateUserTokens(user.getId(), user.getEmail(), user.getAuthority());
     }
 }

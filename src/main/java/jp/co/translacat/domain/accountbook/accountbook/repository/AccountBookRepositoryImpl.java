@@ -1,11 +1,11 @@
-package jp.co.translacat.domain.accountbook.repository;
+package jp.co.translacat.domain.accountbook.accountbook.repository;
 
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import jp.co.translacat.domain.accountbook.dto.AccountBookResponseDto;
-import jp.co.translacat.domain.accountbook.dto.AccountBookSearchRequestDto;
+import jp.co.translacat.domain.accountbook.accountbook.dto.AccountBookResponseDto;
+import jp.co.translacat.domain.accountbook.accountbook.dto.AccountBookSearchRequestDto;
 import jp.co.translacat.global.utils.QueryDslUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.util.List;
 
- import static jp.co.translacat.domain.accountbook.entity.QAccountBook.accountBook;
+import static jp.co.translacat.domain.accountbook.accountbook.entity.QAccountBook.accountBook;
 
 @Repository
 @RequiredArgsConstructor

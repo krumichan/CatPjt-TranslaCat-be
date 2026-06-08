@@ -1,4 +1,4 @@
-package jp.co.translacat.domain.accountbook.dto;
+package jp.co.translacat.domain.accountbook.accountbook.dto;
 
 import lombok.Getter;
 import lombok.Setter;

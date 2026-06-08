@@ -1,6 +1,6 @@
-package jp.co.translacat.domain.accountbook.dto;
+package jp.co.translacat.domain.accountbook.accountbook.dto;
 
-import jp.co.translacat.domain.accountbook.entity.AccountBook;
+import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 
 import java.math.BigDecimal;
 

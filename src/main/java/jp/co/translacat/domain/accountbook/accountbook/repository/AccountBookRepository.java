@@ -1,6 +1,6 @@
-package jp.co.translacat.domain.accountbook.repository;
+package jp.co.translacat.domain.accountbook.accountbook.repository;
 
-import jp.co.translacat.domain.accountbook.entity.AccountBook;
+import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

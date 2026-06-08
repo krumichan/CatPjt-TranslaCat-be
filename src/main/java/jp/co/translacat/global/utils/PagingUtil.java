@@ -5,6 +5,7 @@ import lombok.experimental.UtilityClass;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 
 import java.util.List;
 import java.util.Objects;
@@ -18,5 +19,9 @@ public class PagingUtil {
                 : pageableDto.getPageRequest();
 
         return new PageImpl<>(contents, pageable, total);
+    }
+
+    public <T> PagedModel<T> toPagedModel(Page<T> page) {
+        return new PagedModel<>(page);
     }
 }

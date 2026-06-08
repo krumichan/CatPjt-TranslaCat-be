@@ -1,16 +1,19 @@
-package jp.co.translacat.domain.accountbook.entity;
+package jp.co.translacat.domain.accountbook.accountbook.entity;
 
 import jakarta.persistence.*;
 import jp.co.translacat.domain.currency.entity.Currency;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.jpa.BaseAuditable;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
 @Entity
 @Getter
 @Table(name = "account_book")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AccountBook extends BaseAuditable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -1,4 +1,4 @@
-package jp.co.translacat.domain.accountbook.dto;
+package jp.co.translacat.domain.accountbook.accountbook.dto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;

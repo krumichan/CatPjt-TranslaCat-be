@@ -1,11 +1,11 @@
-package jp.co.translacat.domain.accountbook.controller;
+package jp.co.translacat.domain.accountbook.accountbook.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
-import jp.co.translacat.domain.accountbook.dto.AccountBookCreateRequestDto;
-import jp.co.translacat.domain.accountbook.dto.AccountBookResponseDto;
-import jp.co.translacat.domain.accountbook.dto.AccountBookSearchRequestDto;
-import jp.co.translacat.domain.accountbook.service.AccountBookService;
+import jp.co.translacat.domain.accountbook.accountbook.dto.AccountBookCreateRequestDto;
+import jp.co.translacat.domain.accountbook.accountbook.dto.AccountBookResponseDto;
+import jp.co.translacat.domain.accountbook.accountbook.dto.AccountBookSearchRequestDto;
+import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookService;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;

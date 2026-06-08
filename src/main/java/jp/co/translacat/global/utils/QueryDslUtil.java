@@ -1,10 +1,7 @@
 package jp.co.translacat.global.utils;
 
 import com.querydsl.core.types.OrderSpecifier;
-import com.querydsl.core.types.dsl.BooleanExpression;
-import com.querydsl.core.types.dsl.ComparableExpressionBase;
-import com.querydsl.core.types.dsl.EntityPathBase;
-import com.querydsl.core.types.dsl.StringPath;
+import com.querydsl.core.types.dsl.*;
 import lombok.experimental.UtilityClass;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -115,5 +112,58 @@ public class QueryDslUtil {
         }
 
         return expression;
+    }
+
+    public <T extends Comparable<?>> BooleanExpression eqIfNotNull(
+            SimpleExpression<T> path,
+            T value
+    ) {
+        if (value == null) {
+            return null;
+        }
+
+        return path.eq(value);
+    }
+
+    public <T extends Comparable<?>> BooleanExpression goeIfNotNull(
+            ComparableExpression<T> path,
+            T value
+    ) {
+        if (value == null) {
+            return null;
+        }
+
+        return path.goe(value);
+    }
+
+    public <T extends Comparable<?>> BooleanExpression loeIfNotNull(
+            ComparableExpression<T> path,
+            T value
+    ) {
+        if (value == null) {
+            return null;
+        }
+
+        return path.loe(value);
+    }
+
+    public <T extends Comparable<?>> BooleanExpression betweenIfNotNull(
+            ComparableExpression<T> path,
+            T startValue,
+            T endValue
+    ) {
+        if (startValue == null && endValue == null) {
+            return null;
+        }
+
+        if (startValue != null && endValue != null) {
+            return path.between(startValue, endValue);
+        }
+
+        if (startValue != null) {
+            return path.goe(startValue);
+        }
+
+        return path.loe(endValue);
     }
 }

@@ -34,8 +34,7 @@ public class AccountBookService {
                 user,
                 currency,
                 dto.name(),
-                dto.category(),
-                dto.expenseGoalAmount()
+                dto.category()
         );
 
         return AccountBookResponseDto.from(accountBookRepository.save(accountBook));

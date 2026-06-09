@@ -8,8 +8,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
 @Entity
 @Getter
 @Table(name = "account_book")
@@ -39,9 +37,6 @@ public class AccountBook extends BaseAuditable {
     @Column(nullable = false)
     private Integer capacity = 100;
 
-    @Column(precision = 19, scale = 2)
-    private BigDecimal expenseGoalAmount;
-
     @Column
     private boolean deleted = false;
 
@@ -49,23 +44,20 @@ public class AccountBook extends BaseAuditable {
             User user,
             String name,
             String category,
-            Currency currency,
-            BigDecimal expenseGoalAmount
+            Currency currency
     ) {
         this.user = user;
         this.name = name;
         this.category = category;
         this.currency = currency;
-        this.expenseGoalAmount = expenseGoalAmount;
     }
 
     public static AccountBook create(
             User user,
             Currency currency,
             String name,
-            String category,
-            BigDecimal expenseGoalAmount
+            String category
     ) {
-        return new AccountBook(user, name, category, currency, expenseGoalAmount);
+        return new AccountBook(user, name, category, currency);
     }
 }

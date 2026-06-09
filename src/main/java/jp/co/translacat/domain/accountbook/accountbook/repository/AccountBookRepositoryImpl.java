@@ -34,8 +34,7 @@ public class AccountBookRepositoryImpl implements AccountBookRepositoryCustom {
                         accountBook.currency.symbol,
                         Expressions.constant(BigDecimal.ZERO),
                         Expressions.constant(BigDecimal.ZERO),
-                        Expressions.constant(BigDecimal.ZERO),
-                        accountBook.expenseGoalAmount
+                        Expressions.constant(BigDecimal.ZERO)
                 ))
                 .from(accountBook)
                 .join(accountBook.currency)

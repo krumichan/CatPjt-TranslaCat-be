@@ -13,8 +13,7 @@ public record AccountBookResponseDto(
         String currencySymbol,
         BigDecimal incomeAmount,
         BigDecimal expenseAmount,
-        BigDecimal balance,
-        BigDecimal expenseGoalAmount
+        BigDecimal balance
 ) {
     public static AccountBookResponseDto from(AccountBook accountBook) {
         return new AccountBookResponseDto(
@@ -26,8 +25,7 @@ public record AccountBookResponseDto(
                 accountBook.getCurrency().getSymbol(),
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                accountBook.getExpenseGoalAmount()
+                BigDecimal.ZERO
         );
     }
 }

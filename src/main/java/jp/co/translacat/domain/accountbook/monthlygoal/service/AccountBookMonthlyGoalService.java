@@ -4,7 +4,6 @@ import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.domain.accountbook.accountbook.repository.AccountBookRepository;
 import jp.co.translacat.domain.accountbook.monthlygoal.dto.AccountBookMonthlyGoalListItemResponseDto;
 import jp.co.translacat.domain.accountbook.monthlygoal.dto.AccountBookMonthlyGoalRequestDto;
-import jp.co.translacat.domain.accountbook.monthlygoal.dto.AccountBookMonthlyGoalResponseDto;
 import jp.co.translacat.domain.accountbook.monthlygoal.entity.AccountBookMonthlyGoal;
 import jp.co.translacat.domain.accountbook.monthlygoal.repository.AccountBookMonthlyGoalRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,63 +20,61 @@ public class AccountBookMonthlyGoalService {
     private final AccountBookRepository accountBookRepository;
     private final AccountBookMonthlyGoalRepository accountBookMonthlyGoalRepository;
 
-    public AccountBookMonthlyGoalResponseDto getMonthlyGoal(
+    public AccountBookMonthlyGoal getMonthlyGoalOrNull(
             Long accountBookId,
             Integer year,
             Integer month
     ) {
         accountBookRepository.findById(accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("Account book not found."));
 
         return accountBookMonthlyGoalRepository
-                .findByAccountBookIdAndTargetYearAndTargetMonth(accountBookId, year, month)
-                .map(AccountBookMonthlyGoalResponseDto::from)
-                .orElseGet(() -> AccountBookMonthlyGoalResponseDto.empty(
+                .findByAccountBookIdAndTargetYearAndTargetMonth(
                         accountBookId,
                         year,
                         month
-                ));
+                )
+                .orElse(null);
     }
 
     public List<AccountBookMonthlyGoalListItemResponseDto> getMonthlyGoalList(
             Long accountBookId
     ) {
         accountBookRepository.findById(accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("Account book not found."));
 
         return accountBookMonthlyGoalRepository
                 .findAllMonthlyGoalsWithExpenseAmount(accountBookId);
     }
 
-
     @Transactional
-    public AccountBookMonthlyGoalResponseDto saveMonthlyGoal(
+    public AccountBookMonthlyGoal saveMonthlyGoal(
             Long accountBookId,
             AccountBookMonthlyGoalRequestDto request
     ) {
         AccountBook accountBook = accountBookRepository.findById(accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("Account book not found."));
 
-        AccountBookMonthlyGoal monthlyGoal = accountBookMonthlyGoalRepository
-                .findByAccountBookIdAndTargetYearAndTargetMonth(
-                        accountBookId,
-                        request.year(),
-                        request.month()
-                )
-                .map(existingGoal -> {
-                    existingGoal.updateGoalAmount(request.goalAmount());
-                    return existingGoal;
-                })
-                .orElseGet(() -> AccountBookMonthlyGoal.create(
-                        accountBook,
-                        request.year(),
-                        request.month(),
-                        request.goalAmount()
-                ));
+        AccountBookMonthlyGoal monthlyGoal =
+                accountBookMonthlyGoalRepository
+                        .findByAccountBookIdAndTargetYearAndTargetMonth(
+                                accountBookId,
+                                request.year(),
+                                request.month()
+                        )
+                        .map(goal -> {
+                            goal.updateGoalAmount(request.goalAmount());
+                            return goal;
+                        })
+                        .orElseGet(() ->
+                                AccountBookMonthlyGoal.create(
+                                        accountBook,
+                                        request.year(),
+                                        request.month(),
+                                        request.goalAmount()
+                                )
+                        );
 
-        AccountBookMonthlyGoal savedMonthlyGoal =
-                accountBookMonthlyGoalRepository.save(monthlyGoal);
-
-        return AccountBookMonthlyGoalResponseDto.from(savedMonthlyGoal);
+        return accountBookMonthlyGoalRepository.save(monthlyGoal);
     }
 }

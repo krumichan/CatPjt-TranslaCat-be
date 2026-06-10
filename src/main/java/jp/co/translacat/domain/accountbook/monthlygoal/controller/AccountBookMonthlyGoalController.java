@@ -4,7 +4,7 @@ import jakarta.validation.Valid;
 import jp.co.translacat.domain.accountbook.monthlygoal.dto.AccountBookMonthlyGoalListItemResponseDto;
 import jp.co.translacat.domain.accountbook.monthlygoal.dto.AccountBookMonthlyGoalRequestDto;
 import jp.co.translacat.domain.accountbook.monthlygoal.dto.AccountBookMonthlyGoalResponseDto;
-import jp.co.translacat.domain.accountbook.monthlygoal.service.AccountBookMonthlyGoalService;
+import jp.co.translacat.domain.accountbook.monthlygoal.facade.AccountBookMonthlyGoalFacade;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.utils.ResponseUtil;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AccountBookMonthlyGoalController {
 
-    private final AccountBookMonthlyGoalService accountBookMonthlyGoalService;
+    private final AccountBookMonthlyGoalFacade accountBookMonthlyGoalFacade;
 
     @GetMapping
     public ResponseDto<AccountBookMonthlyGoalResponseDto> getMonthlyGoal(
@@ -26,7 +26,7 @@ public class AccountBookMonthlyGoalController {
             @RequestParam Integer month
     ) {
         return ResponseUtil.ok(
-                accountBookMonthlyGoalService.getMonthlyGoal(
+                accountBookMonthlyGoalFacade.getMonthlyGoal(
                         accountBookId,
                         year,
                         month
@@ -39,7 +39,7 @@ public class AccountBookMonthlyGoalController {
             @PathVariable Long accountBookId
     ) {
         return ResponseUtil.ok(
-                accountBookMonthlyGoalService.getMonthlyGoalList(accountBookId)
+                accountBookMonthlyGoalFacade.getMonthlyGoalList(accountBookId)
         );
     }
 
@@ -49,7 +49,7 @@ public class AccountBookMonthlyGoalController {
             @RequestBody @Valid AccountBookMonthlyGoalRequestDto request
     ) {
         return ResponseUtil.ok(
-                accountBookMonthlyGoalService.saveMonthlyGoal(
+                accountBookMonthlyGoalFacade.saveMonthlyGoal(
                         accountBookId,
                         request
                 )

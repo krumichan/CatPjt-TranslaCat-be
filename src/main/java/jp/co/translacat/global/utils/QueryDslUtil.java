@@ -9,6 +9,8 @@ import org.springframework.util.StringUtils;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -114,7 +116,7 @@ public class QueryDslUtil {
         return expression;
     }
 
-    public <T extends Comparable<?>> BooleanExpression eqIfNotNull(
+    public <T> BooleanExpression eqIfNotNull(
             SimpleExpression<T> path,
             T value
     ) {
@@ -165,5 +167,37 @@ public class QueryDslUtil {
         }
 
         return path.loe(endValue);
+    }
+
+    public NumberExpression<Integer> yearOf(DateExpression<LocalDate> dateExpression) {
+        return Expressions.numberTemplate(
+                Integer.class,
+                "year({0})",
+                dateExpression
+        );
+    }
+
+    public NumberExpression<Integer> monthOf(DateExpression<LocalDate> dateExpression) {
+        return Expressions.numberTemplate(
+                Integer.class,
+                "month({0})",
+                dateExpression
+        );
+    }
+
+    public NumberExpression<Integer> yearOf(DateTimeExpression<LocalDateTime> dateTimeExpression) {
+        return Expressions.numberTemplate(
+                Integer.class,
+                "year({0})",
+                dateTimeExpression
+        );
+    }
+
+    public NumberExpression<Integer> monthOf(DateTimeExpression<LocalDateTime> dateTimeExpression) {
+        return Expressions.numberTemplate(
+                Integer.class,
+                "month({0})",
+                dateTimeExpression
+        );
     }
 }

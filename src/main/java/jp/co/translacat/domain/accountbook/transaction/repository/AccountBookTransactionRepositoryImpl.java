@@ -1,19 +1,26 @@
 package jp.co.translacat.domain.accountbook.transaction.repository;
 
 import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.Tuple;
 import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionMonthResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionRequestDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionResponseDto;
+import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionType;
 import jp.co.translacat.global.utils.PagingUtil;
 import jp.co.translacat.global.utils.QueryDslUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Objects;
 
 import static jp.co.translacat.domain.accountbook.transaction.entity.QAccountBookTransaction.accountBookTransaction;
 
@@ -48,6 +55,19 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                 accountBookTransaction.transactionDate,
                 startDate,
                 endDate
+        ));
+
+        where.and(QueryDslUtil.eqIfNotNull(
+                accountBookTransaction.type,
+                condition.getType()
+        ));
+
+        where.and(QueryDslUtil.anyContainsIgnoreCaseIfHasText(
+                condition.getKeyword(),
+                accountBookTransaction.title,
+                accountBookTransaction.category,
+                accountBookTransaction.storeName,
+                accountBookTransaction.memo
         ));
 
         List<AccountBookTransactionResponseDto> content = queryFactory
@@ -85,5 +105,66 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                 total != null ? total : 0L,
                 condition
         );
+    }
+
+    @Override
+    public List<AccountBookTransactionMonthResponseDto> findTransactionMonths(Long accountBookId) {
+        NumberExpression<Integer> transactionYear =
+                QueryDslUtil.yearOf(accountBookTransaction.transactionDate);
+
+        NumberExpression<Integer> transactionMonth =
+                QueryDslUtil.monthOf(accountBookTransaction.transactionDate);
+
+        List<Tuple> result = queryFactory
+                .select(transactionYear, transactionMonth)
+                .from(accountBookTransaction)
+                .where(accountBookTransaction.accountBook.id.eq(accountBookId))
+                .groupBy(transactionYear, transactionMonth)
+                .orderBy(transactionYear.desc(), transactionMonth.desc())
+                .fetch();
+
+        YearMonth currentYearMonth = YearMonth.now();
+
+        return result.stream()
+                .map(tuple -> {
+                    Integer year = tuple.get(transactionYear);
+                    Integer month = tuple.get(transactionMonth);
+
+                    if (year == null || month == null) {
+                        return null;
+                    }
+
+                    boolean currentMonth =
+                            Integer.valueOf(currentYearMonth.getYear()).equals(year) &&
+                            Integer.valueOf(currentYearMonth.getMonthValue()).equals(month);
+
+                    return AccountBookTransactionMonthResponseDto.of(
+                            year,
+                            month,
+                            currentMonth
+                    );
+                })
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    @Override
+    public BigDecimal sumExpenseAmountByMonth(
+            Long accountBookId,
+            Integer year,
+            Integer month
+    ) {
+        BigDecimal result = queryFactory
+                .select(accountBookTransaction.amount.sum())
+                .from(accountBookTransaction)
+                .where(
+                        accountBookTransaction.accountBook.id.eq(accountBookId),
+                        accountBookTransaction.type.eq(AccountBookTransactionType.EXPENSE),
+                        QueryDslUtil.yearOf(accountBookTransaction.transactionDate).eq(year),
+                        QueryDslUtil.monthOf(accountBookTransaction.transactionDate).eq(month)
+                )
+                .fetchOne();
+
+        return result == null ? BigDecimal.ZERO : result;
     }
 }

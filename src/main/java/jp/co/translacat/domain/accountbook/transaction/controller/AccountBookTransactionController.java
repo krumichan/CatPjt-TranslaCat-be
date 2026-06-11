@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.accountbook.transaction.controller;
 
 import jakarta.validation.Valid;
+import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookStoreSuggestionResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionListResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionMonthResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionRequestDto;
@@ -35,6 +36,19 @@ public class AccountBookTransactionController {
     ) {
         return ResponseUtil.ok(
                 accountBookTransactionQueryService.getTransactionMonths(accountBookId)
+        );
+    }
+
+    @GetMapping("/stores/suggestions")
+    public ResponseDto<List<AccountBookStoreSuggestionResponseDto>> getStoreSuggestions(
+            @PathVariable Long accountBookId,
+            @RequestParam(required = false) String keyword
+    ) {
+        return ResponseUtil.ok(
+                accountBookTransactionQueryService.getStoreSuggestions(
+                        accountBookId,
+                        keyword
+                )
         );
     }
 }

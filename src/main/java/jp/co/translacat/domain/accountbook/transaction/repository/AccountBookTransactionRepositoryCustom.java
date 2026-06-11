@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.accountbook.transaction.repository;
 
+import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookStoreSuggestionResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionMonthResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionRequestDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionResponseDto;
@@ -21,5 +22,10 @@ public interface AccountBookTransactionRepositoryCustom {
             Long accountBookId,
             Integer year,
             Integer month
+    );
+
+    List<AccountBookStoreSuggestionResponseDto> findStoreSuggestions(
+            Long accountBookId,
+            String keyword
     );
 }

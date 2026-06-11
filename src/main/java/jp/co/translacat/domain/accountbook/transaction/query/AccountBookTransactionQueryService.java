@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.accountbook.transaction.query;
 
+import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookStoreSuggestionResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionMonthResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.repository.AccountBookTransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -55,5 +56,15 @@ public class AccountBookTransactionQueryService {
         }
 
         return months;
+    }
+
+    public List<AccountBookStoreSuggestionResponseDto> getStoreSuggestions(
+            Long accountBookId,
+            String keyword
+    ) {
+        return accountBookTransactionRepository.findStoreSuggestions(
+                accountBookId,
+                keyword
+        );
     }
 }

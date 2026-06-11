@@ -6,6 +6,7 @@ import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookStoreSuggestionResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionMonthResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionRequestDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionResponseDto;
@@ -166,5 +167,31 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                 .fetchOne();
 
         return result == null ? BigDecimal.ZERO : result;
+    }
+
+    @Override
+    public List<AccountBookStoreSuggestionResponseDto> findStoreSuggestions(
+            Long accountBookId,
+            String keyword
+    ) {
+        return queryFactory
+                .select(Projections.constructor(
+                        AccountBookStoreSuggestionResponseDto.class,
+                        accountBookTransaction.storeName
+                ))
+                .from(accountBookTransaction)
+                .where(
+                        accountBookTransaction.accountBook.id.eq(accountBookId),
+                        accountBookTransaction.storeName.isNotNull(),
+                        accountBookTransaction.storeName.ne(""),
+                        QueryDslUtil.containsIgnoreCaseIfHasText(
+                                accountBookTransaction.storeName,
+                                keyword
+                        )
+                )
+                .groupBy(accountBookTransaction.storeName)
+                .orderBy(accountBookTransaction.storeName.asc())
+                .limit(20)
+                .fetch();
     }
 }

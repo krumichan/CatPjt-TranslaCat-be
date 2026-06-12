@@ -51,4 +51,17 @@ public class AccountBookTransactionController {
                 )
         );
     }
+
+    @DeleteMapping("/{transactionId}")
+    public ResponseDto<Boolean> deleteTransaction(
+            @PathVariable Long accountBookId,
+            @PathVariable Long transactionId
+    ) {
+        return ResponseUtil.ok(
+                accountBookTransactionService.deleteTransaction(
+                        accountBookId,
+                        transactionId
+                )
+        );
+    }
 }

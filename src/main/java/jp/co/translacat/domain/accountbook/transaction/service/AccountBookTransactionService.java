@@ -5,6 +5,7 @@ import jp.co.translacat.domain.accountbook.accountbook.repository.AccountBookRep
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionListResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionRequestDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionResponseDto;
+import jp.co.translacat.domain.accountbook.transaction.entity.AccountBookTransaction;
 import jp.co.translacat.domain.accountbook.transaction.repository.AccountBookTransactionRepository;
 import jp.co.translacat.global.utils.PagingUtil;
 import lombok.RequiredArgsConstructor;
@@ -38,5 +39,19 @@ public class AccountBookTransactionService {
                 pagedModel,
                 accountBook.getCurrency().getName()
         );
+    }
+
+    @Transactional
+    public boolean deleteTransaction(
+            Long accountBookId,
+            Long transactionId
+    ) {
+        AccountBookTransaction transaction = accountBookTransactionRepository
+                .findByIdAndAccountBookId(transactionId, accountBookId)
+                .orElseThrow(() -> new IllegalArgumentException("Transaction not found."));
+
+        accountBookTransactionRepository.delete(transaction);
+
+        return true;
     }
 }

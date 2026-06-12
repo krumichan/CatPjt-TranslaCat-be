@@ -1,9 +1,7 @@
 package jp.co.translacat.domain.accountbook.fixedcost.controller;
 
 import jakarta.validation.Valid;
-import jp.co.translacat.domain.accountbook.fixedcost.dto.AccountBookFixedCostActiveRequestDto;
-import jp.co.translacat.domain.accountbook.fixedcost.dto.AccountBookFixedCostRequestDto;
-import jp.co.translacat.domain.accountbook.fixedcost.dto.AccountBookFixedCostResponseDto;
+import jp.co.translacat.domain.accountbook.fixedcost.dto.*;
 import jp.co.translacat.domain.accountbook.fixedcost.service.AccountBookFixedCostService;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.utils.ResponseUtil;
@@ -69,11 +67,38 @@ public class AccountBookFixedCostController {
     }
 
     @DeleteMapping("/{fixedCostId}")
-    public ResponseDto<Void> deleteFixedCost(
+    public ResponseDto<Boolean> deleteFixedCost(
             @PathVariable Long accountBookId,
             @PathVariable Long fixedCostId
     ) {
-        accountBookFixedCostService.deleteFixedCost(accountBookId, fixedCostId);
-        return ResponseUtil.ok(null);
+        return ResponseUtil.ok(accountBookFixedCostService.deleteFixedCost(accountBookId, fixedCostId));
+    }
+
+    @GetMapping("/generation-targets")
+    public ResponseDto<AccountBookFixedCostGenerationTargetsResponseDto> getGenerationTargets(
+            @PathVariable Long accountBookId,
+            @RequestParam Integer year,
+            @RequestParam Integer month
+    ) {
+        return ResponseUtil.ok(
+                accountBookFixedCostService.getGenerationTargets(
+                        accountBookId,
+                        year,
+                        month
+                )
+        );
+    }
+
+    @PostMapping("/generate-transactions")
+    public ResponseDto<AccountBookFixedCostGenerateResponseDto> generateTransactions(
+            @PathVariable Long accountBookId,
+            @Valid @RequestBody AccountBookFixedCostGenerateRequestDto request
+    ) {
+        return ResponseUtil.ok(
+                accountBookFixedCostService.generateTransactions(
+                        accountBookId,
+                        request
+                )
+        );
     }
 }

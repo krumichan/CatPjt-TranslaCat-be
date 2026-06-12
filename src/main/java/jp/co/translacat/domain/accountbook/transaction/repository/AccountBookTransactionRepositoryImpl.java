@@ -75,14 +75,19 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                 .select(Projections.constructor(
                         AccountBookTransactionResponseDto.class,
                         accountBookTransaction.id,
+                        accountBookTransaction.accountBook.id,
                         accountBookTransaction.type,
-                        accountBookTransaction.amount,
                         accountBookTransaction.title,
                         accountBookTransaction.storeName,
                         accountBookTransaction.category,
+                        accountBookTransaction.amount,
                         accountBookTransaction.transactionDate,
                         accountBookTransaction.memo,
-                        accountBookTransaction.createdAt
+                        accountBookTransaction.createdAt,
+                        accountBookTransaction.sourceType,
+                        accountBookTransaction.sourceId,
+                        accountBookTransaction.sourceYear,
+                        accountBookTransaction.sourceMonth
                 ))
                 .from(accountBookTransaction)
                 .where(where)

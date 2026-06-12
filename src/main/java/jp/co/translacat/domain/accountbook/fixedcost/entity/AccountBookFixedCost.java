@@ -2,6 +2,7 @@ package jp.co.translacat.domain.accountbook.fixedcost.entity;
 
 import jakarta.persistence.*;
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
+import jp.co.translacat.global.utils.DomainStringUtil;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -69,14 +70,14 @@ public class AccountBookFixedCost {
             String memo
     ) {
         this.accountBook = accountBook;
-        this.title = normalizeRequired(title, "Title is required.");
-        this.storeName = normalizeNullable(storeName);
-        this.category = normalizeRequired(category, "Category is required.");
+        this.title = DomainStringUtil.normalizeRequired(title, "Title is required.");
+        this.storeName = DomainStringUtil.normalizeNullable(storeName);
+        this.category = DomainStringUtil.normalizeRequired(category, "Category is required.");
         this.amount = amount;
         this.paymentDay = paymentDay;
         this.startMonth = startMonth;
         this.endMonth = endMonth;
-        this.memo = normalizeNullable(memo);
+        this.memo = DomainStringUtil.normalizeNullable(memo);
         this.active = true;
         this.deleted = false;
     }
@@ -115,14 +116,14 @@ public class AccountBookFixedCost {
             LocalDate endMonth,
             String memo
     ) {
-        this.title = normalizeRequired(title, "Title is required.");
-        this.storeName = normalizeNullable(storeName);
-        this.category = normalizeRequired(category, "Category is required.");
+        this.title = DomainStringUtil.normalizeRequired(title, "Title is required.");
+        this.storeName = DomainStringUtil.normalizeNullable(storeName);
+        this.category = DomainStringUtil.normalizeRequired(category, "Category is required.");
         this.amount = amount;
         this.paymentDay = paymentDay;
         this.startMonth = startMonth;
         this.endMonth = endMonth;
-        this.memo = normalizeNullable(memo);
+        this.memo = DomainStringUtil.normalizeNullable(memo);
     }
 
     public void delete() {
@@ -141,21 +142,5 @@ public class AccountBookFixedCost {
 
     public void updateLastGeneratedMonth(LocalDate lastGeneratedMonth) {
         this.lastGeneratedMonth = lastGeneratedMonth;
-    }
-
-    private static String normalizeRequired(String value, String message) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(message);
-        }
-
-        return value.trim();
-    }
-
-    private static String normalizeNullable(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-
-        return value.trim();
     }
 }

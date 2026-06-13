@@ -44,9 +44,14 @@ public class AccountBookController {
         return ResponseUtil.created(accountBookService.register(userPrincipal.getId(), dto));
     }
 
-
-
-//    @GetMapping("/{accontBookId}")
-//    @Operation(summary = "가계부 조회", description = "등록되어 있는 가계부 상세를 조회한다.")
-//    public ResponseDto<>
+    @GetMapping("/{accountBookId}")
+    @Operation(summary = "가계부 상세 조회", description = "등록되어 있는 가계부 상세를 조회한다.")
+    public ResponseDto<AccountBookResponseDto> get(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long accountBookId
+    ) {
+        return ResponseUtil.ok(
+                accountBookService.get(userPrincipal.getId(), accountBookId)
+        );
+    }
 }

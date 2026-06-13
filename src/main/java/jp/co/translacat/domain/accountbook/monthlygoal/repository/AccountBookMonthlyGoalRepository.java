@@ -4,6 +4,7 @@ import jp.co.translacat.domain.accountbook.monthlygoal.entity.AccountBookMonthly
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -15,5 +16,10 @@ public interface AccountBookMonthlyGoalRepository
             Long accountBookId,
             Integer targetYear,
             Integer targetMonth
+    );
+
+    List<AccountBookMonthlyGoal> findByAccountBookIdAndTargetYear(
+            Long accountBookId,
+            Integer year
     );
 }

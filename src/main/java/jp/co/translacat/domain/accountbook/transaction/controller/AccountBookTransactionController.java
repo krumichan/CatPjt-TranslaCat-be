@@ -1,10 +1,7 @@
 package jp.co.translacat.domain.accountbook.transaction.controller;
 
 import jakarta.validation.Valid;
-import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookStoreSuggestionResponseDto;
-import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionListResponseDto;
-import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionMonthResponseDto;
-import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionRequestDto;
+import jp.co.translacat.domain.accountbook.transaction.dto.*;
 import jp.co.translacat.domain.accountbook.transaction.query.AccountBookTransactionQueryService;
 import jp.co.translacat.domain.accountbook.transaction.service.AccountBookTransactionService;
 import jp.co.translacat.global.dto.ResponseDto;
@@ -48,6 +45,31 @@ public class AccountBookTransactionController {
                 accountBookTransactionQueryService.getStoreSuggestions(
                         accountBookId,
                         keyword
+                )
+        );
+    }
+
+    @PostMapping("/register")
+    public ResponseDto<AccountBookTransactionResponseDto> createTransaction(
+            @PathVariable Long accountBookId,
+            @RequestBody @Valid AccountBookTransactionCreateRequestDto request
+    ) {
+        return ResponseUtil.ok(
+                accountBookTransactionService.createTransaction(accountBookId, request)
+        );
+    }
+
+    @PutMapping("/{transactionId}")
+    public ResponseDto<AccountBookTransactionResponseDto> updateTransaction(
+            @PathVariable Long accountBookId,
+            @PathVariable Long transactionId,
+            @RequestBody @Valid AccountBookTransactionUpdateRequestDto request
+    ) {
+        return ResponseUtil.ok(
+                accountBookTransactionService.updateTransaction(
+                        accountBookId,
+                        transactionId,
+                        request
                 )
         );
     }

@@ -149,6 +149,17 @@ public class QueryDslUtil {
         return path.loe(value);
     }
 
+    public static <T extends Comparable<?>> BooleanExpression ltIfNotNull(
+            ComparableExpression<T> path,
+            T value
+    ) {
+        if (value == null) {
+            return null;
+        }
+
+        return path.lt(value);
+    }
+
     public <T extends Comparable<?>> BooleanExpression betweenIfNotNull(
             ComparableExpression<T> path,
             T startValue,

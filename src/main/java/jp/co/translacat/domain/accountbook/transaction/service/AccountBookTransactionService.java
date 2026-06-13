@@ -2,9 +2,7 @@ package jp.co.translacat.domain.accountbook.transaction.service;
 
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.domain.accountbook.accountbook.repository.AccountBookRepository;
-import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionListResponseDto;
-import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionRequestDto;
-import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionResponseDto;
+import jp.co.translacat.domain.accountbook.transaction.dto.*;
 import jp.co.translacat.domain.accountbook.transaction.entity.AccountBookTransaction;
 import jp.co.translacat.domain.accountbook.transaction.repository.AccountBookTransactionRepository;
 import jp.co.translacat.global.utils.PagingUtil;
@@ -39,6 +37,54 @@ public class AccountBookTransactionService {
                 pagedModel,
                 accountBook.getCurrency().getName()
         );
+    }
+
+    @Transactional
+    public AccountBookTransactionResponseDto createTransaction(
+            Long accountBookId,
+            AccountBookTransactionCreateRequestDto request
+    ) {
+        AccountBook accountBook = accountBookRepository.findById(accountBookId)
+                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+
+        AccountBookTransaction transaction = AccountBookTransaction.create(
+                accountBook,
+                request.type(),
+                request.amount(),
+                request.title(),
+                request.storeName(),
+                request.category(),
+                request.transactionDate(),
+                request.memo()
+        );
+
+        AccountBookTransaction savedTransaction =
+                accountBookTransactionRepository.save(transaction);
+
+        return AccountBookTransactionResponseDto.from(savedTransaction);
+    }
+
+    @Transactional
+    public AccountBookTransactionResponseDto updateTransaction(
+            Long accountBookId,
+            Long transactionId,
+            AccountBookTransactionUpdateRequestDto request
+    ) {
+        AccountBookTransaction transaction = accountBookTransactionRepository
+                .findByIdAndAccountBookId(transactionId, accountBookId)
+                .orElseThrow(() -> new IllegalArgumentException("Transaction not found."));
+
+        transaction.update(
+                request.type(),
+                request.amount(),
+                request.title(),
+                request.storeName(),
+                request.category(),
+                request.transactionDate(),
+                request.memo()
+        );
+
+        return AccountBookTransactionResponseDto.from(transaction);
     }
 
     @Transactional

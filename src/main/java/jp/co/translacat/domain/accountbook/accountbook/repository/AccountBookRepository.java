@@ -3,12 +3,13 @@ package jp.co.translacat.domain.accountbook.accountbook.repository;
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
 import java.util.Optional;
 
 public interface AccountBookRepository extends JpaRepository<AccountBook, Long>, AccountBookRepositoryCustom {
 
-    List<AccountBook> findAllByUserIdAndDeletedFalseOrderByCreatedAtDesc(Long userId);
-
     Optional<AccountBook> findByIdAndUserIdAndDeletedFalse(Long id, Long userId);
+
+    Optional<AccountBook> findByIdAndDeletedFalse(Long accountBookId);
+
+    Optional<AccountBook> findByIdAndUser_IdAndDeletedIsNull(Long id, Long userId);
 }

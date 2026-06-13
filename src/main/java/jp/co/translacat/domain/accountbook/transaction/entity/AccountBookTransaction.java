@@ -12,7 +12,6 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Getter
 @Entity
@@ -114,13 +113,11 @@ public class AccountBookTransaction extends BaseAuditable {
         this.accountBook = accountBook;
         this.type = type;
         this.amount = amount;
-        this.title = title;
-        this.storeName = storeName;
-        this.category = category;
+        this.title = DomainStringUtil.normalizeRequired(title, "Title is required.");
+        this.storeName = DomainStringUtil.normalizeNullable(storeName);
+        this.category = DomainStringUtil.normalizeRequired(category, "Category is required.");
         this.transactionDate = transactionDate;
-        this.memo = memo;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        this.memo = DomainStringUtil.normalizeNullable(memo);
     }
 
     public static AccountBookTransaction create(
@@ -173,5 +170,23 @@ public class AccountBookTransaction extends BaseAuditable {
         transaction.sourceMonth = sourceMonth;
 
         return transaction;
+    }
+
+    public void update(
+            AccountBookTransactionType type,
+            BigDecimal amount,
+            String title,
+            String storeName,
+            String category,
+            LocalDate transactionDate,
+            String memo
+    ) {
+        this.type = type;
+        this.amount = amount;
+        this.title = DomainStringUtil.normalizeRequired(title, "Title is required.");
+        this.storeName = DomainStringUtil.normalizeNullable(storeName);
+        this.category = DomainStringUtil.normalizeRequired(category, "Category is required.");
+        this.transactionDate = transactionDate;
+        this.memo = DomainStringUtil.normalizeNullable(memo);
     }
 }

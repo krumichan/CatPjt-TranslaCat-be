@@ -6,10 +6,13 @@ import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import jp.co.translacat.domain.accountbook.chart.dto.AccountBookMonthlyTransactionAggregateDto;
+import jp.co.translacat.domain.accountbook.chart.dto.AccountBookRankingChartAggregateDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookStoreSuggestionResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionMonthResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionRequestDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionResponseDto;
+import jp.co.translacat.domain.accountbook.transaction.entity.QAccountBookTransaction;
 import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionType;
 import jp.co.translacat.global.utils.PagingUtil;
 import jp.co.translacat.global.utils.QueryDslUtil;
@@ -197,6 +200,107 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                 .groupBy(accountBookTransaction.storeName)
                 .orderBy(accountBookTransaction.storeName.asc())
                 .limit(20)
+                .fetch();
+    }
+
+    @Override
+    public List<AccountBookMonthlyTransactionAggregateDto> aggregateMonthlyAmounts(
+            Long accountBookId,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        QAccountBookTransaction transaction =
+                QAccountBookTransaction.accountBookTransaction;
+
+        NumberExpression<Integer> monthExpression =
+                Expressions.numberTemplate(
+                        Integer.class,
+                        "month({0})",
+                        transaction.transactionDate
+                );
+
+        return queryFactory
+                .select(
+                        Projections.constructor(
+                                AccountBookMonthlyTransactionAggregateDto.class,
+                                monthExpression,
+                                transaction.type,
+                                transaction.amount.sum().coalesce(BigDecimal.ZERO)
+                        )
+                )
+                .from(transaction)
+                .where(
+                        transaction.accountBook.id.eq(accountBookId),
+                        transaction.transactionDate.goe(startDate),
+                        transaction.transactionDate.lt(endDate)
+                )
+                .groupBy(
+                        monthExpression,
+                        transaction.type
+                )
+                .orderBy(monthExpression.asc())
+                .fetch();
+    }
+
+    @Override
+    public List<AccountBookRankingChartAggregateDto> aggregateExpenseAmountsByCategory(
+            Long accountBookId,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        NumberExpression<BigDecimal> amountSum =
+                accountBookTransaction.amount.sum();
+
+        return queryFactory
+                .select(
+                        Projections.constructor(
+                                AccountBookRankingChartAggregateDto.class,
+                                accountBookTransaction.category,
+                                amountSum.coalesce(BigDecimal.ZERO),
+                                accountBookTransaction.id.count()
+                        )
+                )
+                .from(accountBookTransaction)
+                .where(
+                        accountBookTransaction.accountBook.id.eq(accountBookId),
+                        accountBookTransaction.type.eq(AccountBookTransactionType.EXPENSE),
+                        QueryDslUtil.goeIfNotNull(accountBookTransaction.transactionDate, startDate),
+                        QueryDslUtil.ltIfNotNull(accountBookTransaction.transactionDate, endDate)
+                )
+                .groupBy(accountBookTransaction.category)
+                .orderBy(amountSum.desc())
+                .fetch();
+    }
+
+    @Override
+    public List<AccountBookRankingChartAggregateDto> aggregateExpenseAmountsByStore(
+            Long accountBookId,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        NumberExpression<BigDecimal> amountSum =
+                accountBookTransaction.amount.sum();
+
+        return queryFactory
+                .select(
+                        Projections.constructor(
+                                AccountBookRankingChartAggregateDto.class,
+                                accountBookTransaction.storeName,
+                                amountSum.coalesce(BigDecimal.ZERO),
+                                accountBookTransaction.id.count()
+                        )
+                )
+                .from(accountBookTransaction)
+                .where(
+                        accountBookTransaction.accountBook.id.eq(accountBookId),
+                        accountBookTransaction.type.eq(AccountBookTransactionType.EXPENSE),
+                        accountBookTransaction.storeName.isNotNull(),
+                        accountBookTransaction.storeName.ne(""),
+                        QueryDslUtil.goeIfNotNull(accountBookTransaction.transactionDate, startDate),
+                        QueryDslUtil.ltIfNotNull(accountBookTransaction.transactionDate, endDate)
+                )
+                .groupBy(accountBookTransaction.storeName)
+                .orderBy(amountSum.desc())
                 .fetch();
     }
 }

@@ -40,6 +40,15 @@ public class AccountBookService {
         return AccountBookResponseDto.from(accountBookRepository.save(accountBook));
     }
 
+    @Transactional(readOnly = true)
+    public AccountBookResponseDto get(Long userId, Long accountBookId) {
+        AccountBook accountBook = accountBookRepository
+                .findByIdAndUserIdAndDeletedFalse(accountBookId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+
+        return AccountBookResponseDto.from(accountBook);
+    }
+
     public List<AccountBookResponseDto> list(
             Long userId,
             AccountBookSearchRequestDto searchDto

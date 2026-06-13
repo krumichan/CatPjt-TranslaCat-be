@@ -1,7 +1,6 @@
 package jp.co.translacat.domain.accountbook.chart.service;
 
-import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
-import jp.co.translacat.domain.accountbook.accountbook.repository.AccountBookRepository;
+import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookAccessService;
 import jp.co.translacat.domain.accountbook.chart.dto.*;
 import jp.co.translacat.domain.accountbook.monthlygoal.service.AccountBookMonthlyGoalQueryService;
 import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionType;
@@ -25,17 +24,16 @@ import java.util.stream.IntStream;
 @Transactional(readOnly = true)
 public class AccountBookChartService {
 
-    private final AccountBookRepository accountBookRepository;
+    private final AccountBookAccessService accountBookAccessService;
     private final AccountBookTransactionRepository accountBookTransactionRepository;
-
     private final AccountBookMonthlyGoalQueryService accountBookMonthlyGoalQueryService;
 
     public AccountBookMonthlyChartResponseDto getMonthlyChart(
             Long accountBookId,
-            Integer year
+            Integer year,
+            Long userId
     ) {
-        accountBookRepository.findByIdAndDeletedFalse(accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+        accountBookAccessService.validateAccessible(accountBookId, userId);
 
         LocalDate startDate = Year.of(year).atMonth(1).atDay(1);
         LocalDate endDate = startDate.plusYears(1);
@@ -67,14 +65,19 @@ public class AccountBookChartService {
         List<AccountBookMonthlyChartItemResponseDto> months =
                 IntStream.rangeClosed(1, 12)
                         .mapToObj(month -> {
-                            BigDecimal incomeAmount =
-                                    incomeAmountMap.getOrDefault(month, BigDecimal.ZERO);
-                            BigDecimal expenseAmount =
-                                    expenseAmountMap.getOrDefault(month, BigDecimal.ZERO);
-                            BigDecimal balance =
-                                    incomeAmount.subtract(expenseAmount);
-                            BigDecimal expenseGoalAmount =
-                                    goalAmountMap.get(month);
+                            BigDecimal incomeAmount = incomeAmountMap.getOrDefault(
+                                    month,
+                                    BigDecimal.ZERO
+                            );
+
+                            BigDecimal expenseAmount = expenseAmountMap.getOrDefault(
+                                    month,
+                                    BigDecimal.ZERO
+                            );
+
+                            BigDecimal balance = incomeAmount.subtract(expenseAmount);
+
+                            BigDecimal expenseGoalAmount = goalAmountMap.get(month);
 
                             return new AccountBookMonthlyChartItemResponseDto(
                                     year,
@@ -93,10 +96,10 @@ public class AccountBookChartService {
     public AccountBookRankingChartResponseDto getCategoryChart(
             Long accountBookId,
             Integer year,
-            Integer month
+            Integer month,
+            Long userId
     ) {
-        accountBookRepository.findById(accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+        accountBookAccessService.validateAccessible(accountBookId, userId);
 
         ChartDateRange dateRange = resolveDateRange(year, month);
 
@@ -113,10 +116,10 @@ public class AccountBookChartService {
     public AccountBookRankingChartResponseDto getStoreChart(
             Long accountBookId,
             Integer year,
-            Integer month
+            Integer month,
+            Long userId
     ) {
-        accountBookRepository.findById(accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+        accountBookAccessService.validateAccessible(accountBookId, userId);
 
         ChartDateRange dateRange = resolveDateRange(year, month);
 
@@ -169,7 +172,10 @@ public class AccountBookChartService {
                 .divide(totalAmount, 2, RoundingMode.HALF_UP);
     }
 
-    private ChartDateRange resolveDateRange(Integer year, Integer month) {
+    private ChartDateRange resolveDateRange(
+            Integer year,
+            Integer month
+    ) {
         if (year == null && month == null) {
             return new ChartDateRange(null, null);
         }

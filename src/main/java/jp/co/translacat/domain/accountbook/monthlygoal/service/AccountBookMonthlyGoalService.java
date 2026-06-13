@@ -2,6 +2,7 @@ package jp.co.translacat.domain.accountbook.monthlygoal.service;
 
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.domain.accountbook.accountbook.repository.AccountBookRepository;
+import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookAccessService;
 import jp.co.translacat.domain.accountbook.monthlygoal.dto.AccountBookMonthlyGoalListItemResponseDto;
 import jp.co.translacat.domain.accountbook.monthlygoal.dto.AccountBookMonthlyGoalRequestDto;
 import jp.co.translacat.domain.accountbook.monthlygoal.entity.AccountBookMonthlyGoal;
@@ -17,16 +18,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AccountBookMonthlyGoalService {
 
-    private final AccountBookRepository accountBookRepository;
+    private final AccountBookAccessService accountBookAccessService;
     private final AccountBookMonthlyGoalRepository accountBookMonthlyGoalRepository;
 
     public AccountBookMonthlyGoal getMonthlyGoalOrNull(
             Long accountBookId,
             Integer year,
-            Integer month
+            Integer month,
+            Long userId
     ) {
-        accountBookRepository.findById(accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("Account book not found."));
+        getAccessibleAccountBook(accountBookId, userId);
 
         return accountBookMonthlyGoalRepository
                 .findByAccountBookIdAndTargetYearAndTargetMonth(
@@ -38,10 +39,10 @@ public class AccountBookMonthlyGoalService {
     }
 
     public List<AccountBookMonthlyGoalListItemResponseDto> getMonthlyGoalList(
-            Long accountBookId
+            Long accountBookId,
+            Long userId
     ) {
-        accountBookRepository.findById(accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("Account book not found."));
+        getAccessibleAccountBook(accountBookId, userId);
 
         return accountBookMonthlyGoalRepository
                 .findAllMonthlyGoalsWithExpenseAmount(accountBookId);
@@ -50,10 +51,10 @@ public class AccountBookMonthlyGoalService {
     @Transactional
     public AccountBookMonthlyGoal saveMonthlyGoal(
             Long accountBookId,
-            AccountBookMonthlyGoalRequestDto request
+            AccountBookMonthlyGoalRequestDto request,
+            Long userId
     ) {
-        AccountBook accountBook = accountBookRepository.findById(accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("Account book not found."));
+        AccountBook accountBook = getAccessibleAccountBook(accountBookId, userId);
 
         AccountBookMonthlyGoal monthlyGoal =
                 accountBookMonthlyGoalRepository
@@ -76,5 +77,15 @@ public class AccountBookMonthlyGoalService {
                         );
 
         return accountBookMonthlyGoalRepository.save(monthlyGoal);
+    }
+
+    private AccountBook getAccessibleAccountBook(
+            Long accountBookId,
+            Long userId
+    ) {
+        return accountBookAccessService.getAccessibleAccountBook(
+                accountBookId,
+                userId
+        );
     }
 }

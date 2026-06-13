@@ -8,6 +8,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Getter
 @Table(name = "account_book")
@@ -40,6 +42,9 @@ public class AccountBook extends BaseAuditable {
     @Column
     private boolean deleted = false;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     private AccountBook(
             User user,
             String name,
@@ -59,5 +64,20 @@ public class AccountBook extends BaseAuditable {
             String category
     ) {
         return new AccountBook(user, name, category, currency);
+    }
+
+    public void update(
+            String name,
+            String description,
+            String category
+    ) {
+        this.name = name;
+        this.description = description;
+        this.category = category;
+    }
+
+    public void softDelete() {
+        this.deleted = true;
+        this.deletedAt = LocalDateTime.now();
     }
 }

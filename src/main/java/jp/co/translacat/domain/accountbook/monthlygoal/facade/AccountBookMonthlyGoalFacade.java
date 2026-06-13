@@ -24,13 +24,15 @@ public class AccountBookMonthlyGoalFacade {
     public AccountBookMonthlyGoalResponseDto getMonthlyGoal(
             Long accountBookId,
             Integer year,
-            Integer month
+            Integer month,
+            Long userId
     ) {
         AccountBookMonthlyGoal monthlyGoal =
                 accountBookMonthlyGoalService.getMonthlyGoalOrNull(
                         accountBookId,
                         year,
-                        month
+                        month,
+                        userId
                 );
 
         BigDecimal expenseAmount =
@@ -50,20 +52,26 @@ public class AccountBookMonthlyGoalFacade {
     }
 
     public List<AccountBookMonthlyGoalListItemResponseDto> getMonthlyGoalList(
-            Long accountBookId
+            Long accountBookId,
+            Long userId
     ) {
-        return accountBookMonthlyGoalService.getMonthlyGoalList(accountBookId);
+        return accountBookMonthlyGoalService.getMonthlyGoalList(
+                accountBookId,
+                userId
+        );
     }
 
     @Transactional
     public AccountBookMonthlyGoalResponseDto saveMonthlyGoal(
             Long accountBookId,
-            AccountBookMonthlyGoalRequestDto request
+            AccountBookMonthlyGoalRequestDto request,
+            Long userId
     ) {
         AccountBookMonthlyGoal savedGoal =
                 accountBookMonthlyGoalService.saveMonthlyGoal(
                         accountBookId,
-                        request
+                        request,
+                        userId
                 );
 
         BigDecimal expenseAmount =

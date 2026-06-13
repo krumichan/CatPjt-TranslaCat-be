@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.accountbook.fixedcost.service;
 
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
-import jp.co.translacat.domain.accountbook.accountbook.repository.AccountBookRepository;
+import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookAccessService;
 import jp.co.translacat.domain.accountbook.category.service.AccountBookCategoryService;
 import jp.co.translacat.domain.accountbook.fixedcost.dto.AccountBookFixedCostGenerateRequestDto;
 import jp.co.translacat.domain.accountbook.fixedcost.dto.AccountBookFixedCostGenerateResponseDto;
@@ -28,13 +28,16 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class AccountBookFixedCostService {
 
-    private final AccountBookRepository accountBookRepository;
+    private final AccountBookAccessService accountBookAccessService;
     private final AccountBookFixedCostRepository accountBookFixedCostRepository;
     private final AccountBookCategoryService accountBookCategoryService;
     private final AccountBookTransactionRepository accountBookTransactionRepository;
 
-    public List<AccountBookFixedCostResponseDto> getFixedCosts(Long accountBookId) {
-        validateAccountBook(accountBookId);
+    public List<AccountBookFixedCostResponseDto> getFixedCosts(
+            Long accountBookId,
+            Long userId
+    ) {
+        accountBookAccessService.validateAccessible(accountBookId, userId);
 
         return accountBookFixedCostRepository
                 .findByAccountBookIdAndDeletedFalseOrderByActiveDescPaymentDayAscIdDesc(accountBookId)
@@ -46,9 +49,13 @@ public class AccountBookFixedCostService {
     @Transactional
     public AccountBookFixedCostResponseDto createFixedCost(
             Long accountBookId,
-            AccountBookFixedCostRequestDto request
+            AccountBookFixedCostRequestDto request,
+            Long userId
     ) {
-        AccountBook accountBook = getAccountBook(accountBookId);
+        AccountBook accountBook = accountBookAccessService.getAccessibleAccountBook(
+                accountBookId,
+                userId
+        );
 
         validateEndMonth(request);
 
@@ -78,11 +85,17 @@ public class AccountBookFixedCostService {
     public AccountBookFixedCostResponseDto updateFixedCost(
             Long accountBookId,
             Long fixedCostId,
-            AccountBookFixedCostRequestDto request
+            AccountBookFixedCostRequestDto request,
+            Long userId
     ) {
+        accountBookAccessService.validateAccessible(accountBookId, userId);
+
         validateEndMonth(request);
 
-        AccountBookFixedCost fixedCost = getFixedCost(accountBookId, fixedCostId);
+        AccountBookFixedCost fixedCost = getFixedCost(
+                accountBookId,
+                fixedCostId
+        );
 
         accountBookCategoryService.findOrCreateCategory(
                 accountBookId,
@@ -107,9 +120,15 @@ public class AccountBookFixedCostService {
     public AccountBookFixedCostResponseDto updateActive(
             Long accountBookId,
             Long fixedCostId,
-            Boolean active
+            Boolean active,
+            Long userId
     ) {
-        AccountBookFixedCost fixedCost = getFixedCost(accountBookId, fixedCostId);
+        accountBookAccessService.validateAccessible(accountBookId, userId);
+
+        AccountBookFixedCost fixedCost = getFixedCost(
+                accountBookId,
+                fixedCostId
+        );
 
         if (Boolean.TRUE.equals(active)) {
             fixedCost.activate();
@@ -121,8 +140,18 @@ public class AccountBookFixedCostService {
     }
 
     @Transactional
-    public boolean deleteFixedCost(Long accountBookId, Long fixedCostId) {
-        AccountBookFixedCost fixedCost = getFixedCost(accountBookId, fixedCostId);
+    public boolean deleteFixedCost(
+            Long accountBookId,
+            Long fixedCostId,
+            Long userId
+    ) {
+        accountBookAccessService.validateAccessible(accountBookId, userId);
+
+        AccountBookFixedCost fixedCost = getFixedCost(
+                accountBookId,
+                fixedCostId
+        );
+
         fixedCost.delete();
 
         return true;
@@ -131,9 +160,10 @@ public class AccountBookFixedCostService {
     public AccountBookFixedCostGenerationTargetsResponseDto getGenerationTargets(
             Long accountBookId,
             Integer year,
-            Integer month
+            Integer month,
+            Long userId
     ) {
-        validateAccountBook(accountBookId);
+        accountBookAccessService.validateAccessible(accountBookId, userId);
 
         YearMonth targetMonth = toYearMonth(year, month);
 
@@ -153,10 +183,18 @@ public class AccountBookFixedCostService {
     @Transactional
     public AccountBookFixedCostGenerateResponseDto generateTransactions(
             Long accountBookId,
-            AccountBookFixedCostGenerateRequestDto request
+            AccountBookFixedCostGenerateRequestDto request,
+            Long userId
     ) {
-        AccountBook accountBook = getAccountBook(accountBookId);
-        YearMonth targetMonth = toYearMonth(request.year(), request.month());
+        AccountBook accountBook = accountBookAccessService.getAccessibleAccountBook(
+                accountBookId,
+                userId
+        );
+
+        YearMonth targetMonth = toYearMonth(
+                request.year(),
+                request.month()
+        );
 
         List<AccountBookFixedCost> generatableFixedCosts =
                 getGeneratableFixedCosts(accountBookId, targetMonth);
@@ -245,18 +283,10 @@ public class AccountBookFixedCostService {
         }
     }
 
-    private AccountBook getAccountBook(Long accountBookId) {
-        return accountBookRepository.findById(accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("Account book not found."));
-    }
-
-    private void validateAccountBook(Long accountBookId) {
-        if (!accountBookRepository.existsById(accountBookId)) {
-            throw new IllegalArgumentException("Account book not found.");
-        }
-    }
-
-    private AccountBookFixedCost getFixedCost(Long accountBookId, Long fixedCostId) {
+    private AccountBookFixedCost getFixedCost(
+            Long accountBookId,
+            Long fixedCostId
+    ) {
         return accountBookFixedCostRepository.findById(fixedCostId)
                 .filter(fixedCost -> fixedCost.getAccountBook().getId().equals(accountBookId))
                 .filter(fixedCost -> !Boolean.TRUE.equals(fixedCost.getDeleted()))
@@ -292,8 +322,15 @@ public class AccountBookFixedCostService {
     }
 
     private void validateEndMonth(AccountBookFixedCostRequestDto request) {
-        LocalDate startMonth = toMonthDate(request.startYear(), request.startMonth());
-        LocalDate endMonth = toNullableMonthDate(request.endYear(), request.endMonth());
+        LocalDate startMonth = toMonthDate(
+                request.startYear(),
+                request.startMonth()
+        );
+
+        LocalDate endMonth = toNullableMonthDate(
+                request.endYear(),
+                request.endMonth()
+        );
 
         if (endMonth != null && endMonth.isBefore(startMonth)) {
             throw new IllegalArgumentException("End month must be after start month.");
@@ -319,9 +356,11 @@ public class AccountBookFixedCostService {
         return !targetMonth.isAfter(endMonth);
     }
 
-    private LocalDate toTransactionDate(YearMonth yearMonth, Integer paymentDay) {
+    private LocalDate toTransactionDate(
+            YearMonth yearMonth,
+            Integer paymentDay
+    ) {
         int day = Math.min(paymentDay, yearMonth.lengthOfMonth());
-
         return yearMonth.atDay(day);
     }
 

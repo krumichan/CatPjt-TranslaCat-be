@@ -6,8 +6,10 @@ import jp.co.translacat.domain.accountbook.monthlygoal.dto.AccountBookMonthlyGoa
 import jp.co.translacat.domain.accountbook.monthlygoal.dto.AccountBookMonthlyGoalResponseDto;
 import jp.co.translacat.domain.accountbook.monthlygoal.facade.AccountBookMonthlyGoalFacade;
 import jp.co.translacat.global.dto.ResponseDto;
+import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +23,7 @@ public class AccountBookMonthlyGoalController {
 
     @GetMapping
     public ResponseDto<AccountBookMonthlyGoalResponseDto> getMonthlyGoal(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long accountBookId,
             @RequestParam Integer year,
             @RequestParam Integer month
@@ -29,29 +32,36 @@ public class AccountBookMonthlyGoalController {
                 accountBookMonthlyGoalFacade.getMonthlyGoal(
                         accountBookId,
                         year,
-                        month
+                        month,
+                        userPrincipal.getId()
+
                 )
         );
     }
 
     @GetMapping("/list")
     public ResponseDto<List<AccountBookMonthlyGoalListItemResponseDto>> getMonthlyGoalList(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long accountBookId
     ) {
         return ResponseUtil.ok(
-                accountBookMonthlyGoalFacade.getMonthlyGoalList(accountBookId)
+                accountBookMonthlyGoalFacade.getMonthlyGoalList(
+                        accountBookId,
+                        userPrincipal.getId())
         );
     }
 
     @PutMapping
     public ResponseDto<AccountBookMonthlyGoalResponseDto> saveMonthlyGoal(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long accountBookId,
             @RequestBody @Valid AccountBookMonthlyGoalRequestDto request
     ) {
         return ResponseUtil.ok(
                 accountBookMonthlyGoalFacade.saveMonthlyGoal(
                         accountBookId,
-                        request
+                        request,
+                        userPrincipal.getId()
                 )
         );
     }

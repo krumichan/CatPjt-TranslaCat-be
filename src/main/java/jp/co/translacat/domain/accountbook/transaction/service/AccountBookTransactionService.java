@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.accountbook.transaction.service;
 
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
-import jp.co.translacat.domain.accountbook.accountbook.repository.AccountBookRepository;
+import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookAccessService;
 import jp.co.translacat.domain.accountbook.transaction.dto.*;
 import jp.co.translacat.domain.accountbook.transaction.entity.AccountBookTransaction;
 import jp.co.translacat.domain.accountbook.transaction.repository.AccountBookTransactionRepository;
@@ -17,18 +17,24 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class AccountBookTransactionService {
 
-    private final AccountBookRepository accountBookRepository;
+    private final AccountBookAccessService accountBookAccessService;
     private final AccountBookTransactionRepository accountBookTransactionRepository;
 
     public AccountBookTransactionListResponseDto getTransactions(
             Long accountBookId,
-            AccountBookTransactionRequestDto request
+            AccountBookTransactionRequestDto request,
+            Long userId
     ) {
-        AccountBook accountBook = accountBookRepository.findById(accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+        AccountBook accountBook = accountBookAccessService.getAccessibleAccountBook(
+                accountBookId,
+                userId
+        );
 
         Page<AccountBookTransactionResponseDto> page =
-                accountBookTransactionRepository.findAllWithPage(accountBookId, request);
+                accountBookTransactionRepository.findAllWithPage(
+                        accountBookId,
+                        request
+                );
 
         PagedModel<AccountBookTransactionResponseDto> pagedModel =
                 PagingUtil.toPagedModel(page);
@@ -42,10 +48,13 @@ public class AccountBookTransactionService {
     @Transactional
     public AccountBookTransactionResponseDto createTransaction(
             Long accountBookId,
-            AccountBookTransactionCreateRequestDto request
+            AccountBookTransactionCreateRequestDto request,
+            Long userId
     ) {
-        AccountBook accountBook = accountBookRepository.findById(accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+        AccountBook accountBook = accountBookAccessService.getAccessibleAccountBook(
+                accountBookId,
+                userId
+        );
 
         AccountBookTransaction transaction = AccountBookTransaction.create(
                 accountBook,
@@ -68,8 +77,11 @@ public class AccountBookTransactionService {
     public AccountBookTransactionResponseDto updateTransaction(
             Long accountBookId,
             Long transactionId,
-            AccountBookTransactionUpdateRequestDto request
+            AccountBookTransactionUpdateRequestDto request,
+            Long userId
     ) {
+        accountBookAccessService.validateAccessible(accountBookId, userId);
+
         AccountBookTransaction transaction = accountBookTransactionRepository
                 .findByIdAndAccountBookId(transactionId, accountBookId)
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found."));
@@ -90,8 +102,11 @@ public class AccountBookTransactionService {
     @Transactional
     public boolean deleteTransaction(
             Long accountBookId,
-            Long transactionId
+            Long transactionId,
+            Long userId
     ) {
+        accountBookAccessService.validateAccessible(accountBookId, userId);
+
         AccountBookTransaction transaction = accountBookTransactionRepository
                 .findByIdAndAccountBookId(transactionId, accountBookId)
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found."));

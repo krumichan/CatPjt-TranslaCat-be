@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jp.co.translacat.domain.accountbook.accountbook.dto.AccountBookCreateRequestDto;
 import jp.co.translacat.domain.accountbook.accountbook.dto.AccountBookResponseDto;
 import jp.co.translacat.domain.accountbook.accountbook.dto.AccountBookSearchRequestDto;
+import jp.co.translacat.domain.accountbook.accountbook.dto.AccountBookUpdateRequestDto;
 import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookService;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
@@ -53,5 +54,30 @@ public class AccountBookController {
         return ResponseUtil.ok(
                 accountBookService.get(userPrincipal.getId(), accountBookId)
         );
+    }
+
+    @PutMapping("/{accountBookId}")
+    @Operation(summary = "가계부 수정", description = "등록되어 있는 가계부 내용을 수정한다.")
+    public ResponseDto<AccountBookResponseDto> updateAccountBook(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long accountBookId,
+            @RequestBody @Valid AccountBookUpdateRequestDto request
+    ) {
+        AccountBookResponseDto response = accountBookService.updateAccountBook(
+                accountBookId,
+                request,
+                userPrincipal.getId()
+        );
+
+        return ResponseUtil.ok(response);
+    }
+
+    @DeleteMapping("/{accountBookId}")
+    @Operation(summary = "가계부 삭제", description = "등록되어 있는 가계부를 삭제 상태로 전환한다.")
+    public ResponseDto<Boolean> deleteAccountBook(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long accountBookId
+    ) {
+        return ResponseUtil.ok(accountBookService.deleteAccountBook(accountBookId, userPrincipal.getId()));
     }
 }

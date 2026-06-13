@@ -11,5 +11,5 @@ public interface AccountBookRepository extends JpaRepository<AccountBook, Long>,
 
     Optional<AccountBook> findByIdAndDeletedFalse(Long accountBookId);
 
-    Optional<AccountBook> findByIdAndUser_IdAndDeletedIsNull(Long id, Long userId);
+    Optional<AccountBook> findByIdAndUser_IdAndDeletedFalse(Long id, Long userId);
 }

@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static jp.co.translacat.domain.accountbook.accountbook.entity.QAccountBook.accountBook;
+import static jp.co.translacat.domain.accountbook.member.entity.QAccountBookMember.accountBookMember;
 
 @Repository
 @RequiredArgsConstructor
@@ -38,8 +39,12 @@ public class AccountBookRepositoryImpl implements AccountBookRepositoryCustom {
                 ))
                 .from(accountBook)
                 .join(accountBook.currency)
+                .join(accountBookMember).on(
+                        accountBookMember.accountBook.eq(accountBook),
+                        accountBookMember.user.id.eq(userId),
+                        accountBookMember.deleted.isFalse()
+                )
                 .where(
-                        accountBook.user.id.eq(userId),
                         accountBook.deleted.isFalse(),
                         keywordContains(condition.getKeyword()),
                         QueryDslUtil.eqIfHasText(

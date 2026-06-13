@@ -1,11 +1,9 @@
 package jp.co.translacat.domain.accountbook.member.dto;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 public record AccountBookMemberInviteRequestDto(
         @NotBlank
-        @Email
-        String email
+        String publicId
 ) {
 }

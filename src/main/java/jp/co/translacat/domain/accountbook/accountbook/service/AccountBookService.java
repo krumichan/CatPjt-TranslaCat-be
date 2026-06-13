@@ -7,6 +7,7 @@ import jp.co.translacat.domain.accountbook.accountbook.dto.AccountBookResponseDt
 import jp.co.translacat.domain.accountbook.accountbook.dto.AccountBookSearchRequestDto;
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.domain.accountbook.member.entity.AccountBookMember;
+import jp.co.translacat.domain.accountbook.member.enums.AccountBookMemberRole;
 import jp.co.translacat.domain.accountbook.member.repository.AccountBookMemberRepository;
 import jp.co.translacat.domain.currency.entity.Currency;
 import jp.co.translacat.domain.currency.service.CurrencyService;
@@ -51,9 +52,13 @@ public class AccountBookService {
                 AccountBookMember.createOwner(savedAccountBook, user)
         );
 
-        return AccountBookResponseDto.from(savedAccountBook);
+        return AccountBookResponseDto.from(
+                savedAccountBook,
+                AccountBookMemberRole.OWNER
+        );
     }
 
+    @Transactional(readOnly = true)
     public AccountBookResponseDto get(
             Long userId,
             Long accountBookId
@@ -61,7 +66,10 @@ public class AccountBookService {
         AccountBook accountBook = accountBookAccessService
                 .getAccessibleAccountBook(accountBookId, userId);
 
-        return AccountBookResponseDto.from(accountBook);
+        return AccountBookResponseDto.from(
+                accountBook,
+                getMyRole(accountBookId, userId)
+        );
     }
 
     public List<AccountBookResponseDto> list(
@@ -78,7 +86,10 @@ public class AccountBookService {
         AccountBook accountBook = accountBookAccessService
                 .getAccessibleAccountBook(accountBookId, userId);
 
-        return AccountBookResponseDto.from(accountBook);
+        return AccountBookResponseDto.from(
+                accountBook,
+                getMyRole(accountBookId, userId)
+        );
     }
 
     @Transactional
@@ -110,5 +121,18 @@ public class AccountBookService {
         accountBook.softDelete();
 
         return true;
+    }
+
+    private AccountBookMemberRole getMyRole(
+            Long accountBookId,
+            Long userId
+    ) {
+        return accountBookMemberRepository
+                .findByAccountBook_IdAndUser_IdAndDeletedFalse(
+                        accountBookId,
+                        userId
+                )
+                .map(AccountBookMember::getRole)
+                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
     }
 }

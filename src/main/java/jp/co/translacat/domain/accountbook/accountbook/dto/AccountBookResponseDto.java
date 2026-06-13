@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.accountbook.accountbook.dto;
 
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
+import jp.co.translacat.domain.accountbook.member.enums.AccountBookMemberRole;
 
 import java.math.BigDecimal;
 
@@ -13,9 +14,13 @@ public record AccountBookResponseDto(
         String currencySymbol,
         BigDecimal incomeAmount,
         BigDecimal expenseAmount,
-        BigDecimal balance
+        BigDecimal balance,
+        AccountBookMemberRole myRole
 ) {
-    public static AccountBookResponseDto from(AccountBook accountBook) {
+    public static AccountBookResponseDto from(
+            AccountBook accountBook,
+            AccountBookMemberRole myRole
+    ) {
         return new AccountBookResponseDto(
                 accountBook.getId(),
                 accountBook.getName(),
@@ -25,7 +30,12 @@ public record AccountBookResponseDto(
                 accountBook.getCurrency().getSymbol(),
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
-                BigDecimal.ZERO
+                BigDecimal.ZERO,
+                myRole
         );
+    }
+
+    public static AccountBookResponseDto from(AccountBook accountBook) {
+        return from(accountBook, null);
     }
 }

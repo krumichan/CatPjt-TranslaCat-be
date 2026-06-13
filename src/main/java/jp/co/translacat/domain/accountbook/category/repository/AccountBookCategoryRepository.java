@@ -16,9 +16,4 @@ public interface AccountBookCategoryRepository extends JpaRepository<AccountBook
             Long accountBookId,
             String name
     );
-
-    boolean existsByAccountBookIdAndName(
-            Long accountBookId,
-            String name
-    );
 }

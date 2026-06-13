@@ -14,7 +14,7 @@ import lombok.*;
 public class User extends BaseAuditable {
 
     @Builder(access = AccessLevel.PRIVATE)
-    private User(String email, String password, String username, String socialId, SocialType socialType, Role authority) {
+    private User(String email, String password, String username, String socialId, SocialType socialType, Role authority, String publicId) {
         this.email = email;
         this.password = password;
         this.username = username;
@@ -45,23 +45,28 @@ public class User extends BaseAuditable {
     @Enumerated(EnumType.STRING)
     private Role authority;
 
-    public static User createLocalUser(String email, String password, String username, Role authority) {
+    @Column(name = "public_id", nullable = false, unique = true, updatable = false, length = 20)
+    private String publicId;
+
+    public static User createLocalUser(String email, String password, String username, Role authority, String publicId) {
         return User.builder()
                 .email(email)
                 .password(password)
                 .username(username)
                 .socialType(SocialType.LOCAL)
                 .authority(authority)
+                .publicId(publicId)
                 .build();
     }
 
-    public static User createSocialUser(String email, String username, SocialType socialType,  String socialId, Role authority) {
+    public static User createSocialUser(String email, String username, SocialType socialType,  String socialId, Role authority, String publicId) {
         return User.builder()
                 .email(email)
                 .username(username)
                 .socialType(socialType)
                 .socialId(socialId)
                 .authority(authority)
+                .publicId(publicId)
                 .build();
     }
 }

@@ -1,7 +1,6 @@
 package jp.co.translacat.domain.accountbook.monthlygoal.service;
 
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
-import jp.co.translacat.domain.accountbook.accountbook.repository.AccountBookRepository;
 import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookAccessService;
 import jp.co.translacat.domain.accountbook.monthlygoal.dto.AccountBookMonthlyGoalListItemResponseDto;
 import jp.co.translacat.domain.accountbook.monthlygoal.dto.AccountBookMonthlyGoalRequestDto;
@@ -27,7 +26,7 @@ public class AccountBookMonthlyGoalService {
             Integer month,
             Long userId
     ) {
-        getAccessibleAccountBook(accountBookId, userId);
+        accountBookAccessService.validateAccessible(accountBookId, userId);
 
         return accountBookMonthlyGoalRepository
                 .findByAccountBookIdAndTargetYearAndTargetMonth(
@@ -42,7 +41,7 @@ public class AccountBookMonthlyGoalService {
             Long accountBookId,
             Long userId
     ) {
-        getAccessibleAccountBook(accountBookId, userId);
+        accountBookAccessService.validateAccessible(accountBookId, userId);
 
         return accountBookMonthlyGoalRepository
                 .findAllMonthlyGoalsWithExpenseAmount(accountBookId);
@@ -54,7 +53,8 @@ public class AccountBookMonthlyGoalService {
             AccountBookMonthlyGoalRequestDto request,
             Long userId
     ) {
-        AccountBook accountBook = getAccessibleAccountBook(accountBookId, userId);
+        AccountBook accountBook = accountBookAccessService
+                .getAccessibleAccountBook(accountBookId, userId);
 
         AccountBookMonthlyGoal monthlyGoal =
                 accountBookMonthlyGoalRepository
@@ -79,13 +79,24 @@ public class AccountBookMonthlyGoalService {
         return accountBookMonthlyGoalRepository.save(monthlyGoal);
     }
 
-    private AccountBook getAccessibleAccountBook(
+    @Transactional
+    public void deleteMonthlyGoal(
             Long accountBookId,
+            Integer year,
+            Integer month,
             Long userId
     ) {
-        return accountBookAccessService.getAccessibleAccountBook(
+        accountBookAccessService.getAccessibleAccountBook(
                 accountBookId,
                 userId
         );
+
+        accountBookMonthlyGoalRepository
+                .findByAccountBookIdAndTargetYearAndTargetMonth(
+                        accountBookId,
+                        year,
+                        month
+                )
+                .ifPresent(accountBookMonthlyGoalRepository::delete);
     }
 }

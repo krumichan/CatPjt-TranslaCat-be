@@ -5,8 +5,10 @@ import jp.co.translacat.domain.accountbook.category.dto.AccountBookCategoryReque
 import jp.co.translacat.domain.accountbook.category.dto.AccountBookCategoryResponseDto;
 import jp.co.translacat.domain.accountbook.category.service.AccountBookCategoryService;
 import jp.co.translacat.global.dto.ResponseDto;
+import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,20 +22,29 @@ public class AccountBookCategoryController {
 
     @GetMapping
     public ResponseDto<List<AccountBookCategoryResponseDto>> getCategories(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long accountBookId
     ) {
         return ResponseUtil.ok(
-                accountBookCategoryService.getCategories(accountBookId)
+                accountBookCategoryService.getCategories(
+                        accountBookId,
+                        userPrincipal.getId()
+                )
         );
     }
 
     @PostMapping
     public ResponseDto<AccountBookCategoryResponseDto> createCategory(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long accountBookId,
             @Valid @RequestBody AccountBookCategoryRequestDto request
     ) {
         return ResponseUtil.ok(
-                accountBookCategoryService.createCategory(accountBookId, request)
+                accountBookCategoryService.createCategory(
+                        accountBookId,
+                        request,
+                        userPrincipal.getId()
+                )
         );
     }
 }

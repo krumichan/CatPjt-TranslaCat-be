@@ -16,6 +16,11 @@ public interface AccountBookMemberRepository extends JpaRepository<AccountBookMe
             Long userId
     );
 
+    Optional<AccountBookMember> findByAccountBook_IdAndUser_IdAndDeletedFalse(
+            Long accountBookId,
+            Long userId
+    );
+
     boolean existsByAccountBook_IdAndUser_IdAndRoleAndDeletedFalse(
             Long accountBookId,
             Long userId,

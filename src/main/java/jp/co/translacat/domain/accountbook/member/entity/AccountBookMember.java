@@ -81,4 +81,9 @@ public class AccountBookMember extends BaseAuditable {
     public void delete() {
         this.deleted = true;
     }
+
+    public void restoreAsMember() {
+        this.deleted = false;
+        this.role = AccountBookMemberRole.MEMBER;
+    }
 }

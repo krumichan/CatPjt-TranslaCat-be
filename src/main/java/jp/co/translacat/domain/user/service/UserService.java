@@ -13,6 +13,7 @@ import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.domain.user.dto.UserLoginRequestDto;
 import jp.co.translacat.domain.user.dto.UserCreateRequestDto;
 import jp.co.translacat.domain.user.dto.UserLoginResponseDto;
+import jp.co.translacat.global.utils.PublicIdGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -47,6 +48,10 @@ public class UserService {
         return userRepository.findByEmail(email).orElse(null);
     }
 
+    public User findByPublicId(String publicId) {
+        return userRepository.findByPublicId(publicId).orElse(null);
+    }
+
     public Optional<UserAllowed> findUserAllowedByEmail(String email) {
         return userAllowedRepository.findByEmail(email);
     }
@@ -61,7 +66,8 @@ public class UserService {
                 userCreateRequestDto.getEmail(),
                 userCreateRequestDto.getPassword(),
                 userCreateRequestDto.getUsername(),
-                Role.USER);
+                Role.USER,
+                generateUniquePublicId());
 
         return userRepository.save(user);
     }
@@ -80,7 +86,13 @@ public class UserService {
                 return userRepository.save(existingUser);
             })
             .orElseGet(() -> {
-                User newUser = User.createSocialUser(email, username, socialType, socialId, Role.USER);
+                User newUser = User.createSocialUser(
+                        email,
+                        username,
+                        socialType,
+                        socialId,
+                        Role.USER,
+                        generateUniquePublicId());
                 return userRepository.save(newUser);
             });
     }
@@ -158,5 +170,17 @@ public class UserService {
                 .accessTokenExpiresIn(accessTokenExpiresIn)
                 .role(role)
                 .build();
+    }
+
+    private String generateUniquePublicId() {
+        for (int i = 0; i < 10; i++) {
+            String publicId = PublicIdGenerator.generate();
+
+            if (!userRepository.existsByPublicId(publicId)) {
+                return publicId;
+            }
+        }
+
+        throw new IllegalStateException("Failed to generate public id.");
     }
 }

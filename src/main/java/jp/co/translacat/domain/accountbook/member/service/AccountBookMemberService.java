@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -48,7 +49,7 @@ public class AccountBookMemberService {
         AccountBook accountBook = accountBookAccessService
                 .getOwnerAccountBook(accountBookId, ownerUserId);
 
-        User invitedUser = userService.findByEmail(request.email());
+        User invitedUser = userService.findByPublicId(request.publicId());
 
         if (invitedUser == null) {
             throw new IllegalArgumentException("초대할 사용자를 찾을 수 없습니다.");
@@ -58,14 +59,22 @@ public class AccountBookMemberService {
             throw new IllegalArgumentException("자기 자신은 초대할 수 없습니다.");
         }
 
-        boolean alreadyMember = accountBookMemberRepository
-                .existsByAccountBook_IdAndUser_IdAndDeletedFalse(
+        Optional<AccountBookMember> existingMember =
+                accountBookMemberRepository.findByAccountBook_IdAndUser_Id(
                         accountBookId,
                         invitedUser.getId()
                 );
 
-        if (alreadyMember) {
-            throw new IllegalArgumentException("이미 가계부 멤버입니다.");
+        if (existingMember.isPresent()) {
+            AccountBookMember member = existingMember.get();
+
+            if (!member.isDeleted()) {
+                throw new IllegalArgumentException("이미 가계부 멤버입니다.");
+            }
+
+            member.restoreAsMember();
+
+            return AccountBookMemberResponseDto.from(member);
         }
 
         AccountBookMember member = AccountBookMember.createMember(

@@ -38,7 +38,7 @@ public class AccountBookFixedCostBatchService {
         for (Long accountBookId : accountBookIds) {
             try {
                 AccountBookFixedCostGenerateResponseDto response =
-                        accountBookFixedCostService.generateTransactions(
+                        accountBookFixedCostService.generateTransactionsForBatch(
                                 accountBookId,
                                 new AccountBookFixedCostGenerateRequestDto(
                                         targetMonth.getYear(),

@@ -219,6 +219,16 @@ public class AccountBookFixedCostService {
         );
     }
 
+    @Transactional
+    public AccountBookFixedCostGenerateResponseDto generateTransactionsForBatch(
+            Long accountBookId,
+            AccountBookFixedCostGenerateRequestDto request
+    ) {
+        AccountBook accountBook = accountBookAccessService.getActiveAccountBook(accountBookId);
+
+        return generateTransactionsInternal(accountBook, request);
+    }
+
     private List<AccountBookFixedCost> getGeneratableFixedCosts(
             Long accountBookId,
             YearMonth targetMonth
@@ -378,5 +388,39 @@ public class AccountBookFixedCostService {
                         year,
                         month
                 );
+    }
+
+    private AccountBookFixedCostGenerateResponseDto generateTransactionsInternal(
+            AccountBook accountBook,
+            AccountBookFixedCostGenerateRequestDto request
+    ) {
+        Long accountBookId = accountBook.getId();
+
+        YearMonth targetMonth = toYearMonth(
+                request.year(),
+                request.month()
+        );
+
+        List<AccountBookFixedCost> generatableFixedCosts =
+                getGeneratableFixedCosts(accountBookId, targetMonth);
+
+        List<AccountBookTransaction> transactions = generatableFixedCosts
+                .stream()
+                .map(fixedCost -> toTransaction(accountBook, fixedCost, targetMonth))
+                .toList();
+
+        accountBookTransactionRepository.saveAll(transactions);
+
+        LocalDate generatedMonth = targetMonth.atDay(1);
+
+        generatableFixedCosts.forEach(fixedCost ->
+                updateLastGeneratedMonthIfAfter(fixedCost, generatedMonth)
+        );
+
+        return new AccountBookFixedCostGenerateResponseDto(
+                request.year(),
+                request.month(),
+                transactions.size()
+        );
     }
 }

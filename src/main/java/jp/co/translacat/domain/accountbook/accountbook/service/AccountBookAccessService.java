@@ -16,13 +16,17 @@ public class AccountBookAccessService {
     private final AccountBookRepository accountBookRepository;
     private final AccountBookMemberRepository accountBookMemberRepository;
 
+    public AccountBook getActiveAccountBook(Long accountBookId) {
+        return accountBookRepository
+                .findByIdAndDeletedFalse(accountBookId)
+                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+    }
+
     public AccountBook getAccessibleAccountBook(
             Long accountBookId,
             Long userId
     ) {
-        AccountBook accountBook = accountBookRepository
-                .findByIdAndDeletedFalse(accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+        AccountBook accountBook = getActiveAccountBook(accountBookId);
 
         boolean accessible = accountBookMemberRepository
                 .existsByAccountBook_IdAndUser_IdAndDeletedFalse(

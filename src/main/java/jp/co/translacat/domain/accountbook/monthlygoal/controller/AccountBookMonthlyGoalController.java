@@ -65,4 +65,21 @@ public class AccountBookMonthlyGoalController {
                 )
         );
     }
+
+    @DeleteMapping
+    public ResponseDto<Boolean> deleteMonthlyGoal(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long accountBookId,
+            @RequestParam int year,
+            @RequestParam int month
+    ) {
+        return ResponseUtil.ok(
+                accountBookMonthlyGoalFacade.deleteMonthlyGoal(
+                        accountBookId,
+                        year,
+                        month,
+                        userPrincipal.getId()
+                )
+        );
+    }
 }

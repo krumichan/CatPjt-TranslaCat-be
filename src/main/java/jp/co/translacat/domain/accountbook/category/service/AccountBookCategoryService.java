@@ -2,6 +2,7 @@ package jp.co.translacat.domain.accountbook.category.service;
 
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.domain.accountbook.accountbook.repository.AccountBookRepository;
+import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookAccessService;
 import jp.co.translacat.domain.accountbook.category.dto.AccountBookCategoryRequestDto;
 import jp.co.translacat.domain.accountbook.category.dto.AccountBookCategoryResponseDto;
 import jp.co.translacat.domain.accountbook.category.entity.AccountBookCategory;
@@ -20,8 +21,13 @@ public class AccountBookCategoryService {
     private final AccountBookRepository accountBookRepository;
     private final AccountBookCategoryRepository accountBookCategoryRepository;
 
-    public List<AccountBookCategoryResponseDto> getCategories(Long accountBookId) {
-        validateAccountBook(accountBookId);
+    private final AccountBookAccessService accountBookAccessService;
+
+    public List<AccountBookCategoryResponseDto> getCategories(
+            Long accountBookId,
+            Long userId
+    ) {
+        accountBookAccessService.validateAccessible(accountBookId, userId);
 
         return accountBookCategoryRepository
                 .findByAccountBookIdAndActiveTrueOrderByDisplayOrderAscNameAsc(accountBookId)
@@ -33,9 +39,12 @@ public class AccountBookCategoryService {
     @Transactional
     public AccountBookCategoryResponseDto createCategory(
             Long accountBookId,
-            AccountBookCategoryRequestDto request
+            AccountBookCategoryRequestDto request,
+            Long userId
     ) {
-        AccountBook accountBook = getAccountBook(accountBookId);
+        AccountBook accountBook = accountBookAccessService
+                .getAccessibleAccountBook(accountBookId, userId);
+
         String name = normalizeName(request.name());
 
         accountBookCategoryRepository
@@ -79,12 +88,6 @@ public class AccountBookCategoryService {
     private AccountBook getAccountBook(Long accountBookId) {
         return accountBookRepository.findById(accountBookId)
                 .orElseThrow(() -> new IllegalArgumentException("Account book not found."));
-    }
-
-    private void validateAccountBook(Long accountBookId) {
-        if (!accountBookRepository.existsById(accountBookId)) {
-            throw new IllegalArgumentException("Account book not found.");
-        }
     }
 
     private Integer getNextDisplayOrder(Long accountBookId) {

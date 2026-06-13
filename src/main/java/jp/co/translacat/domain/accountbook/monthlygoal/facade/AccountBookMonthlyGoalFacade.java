@@ -89,4 +89,21 @@ public class AccountBookMonthlyGoalFacade {
                 expenseAmount
         );
     }
+
+    @Transactional
+    public Boolean deleteMonthlyGoal(
+            Long accountBookId,
+            Integer year,
+            Integer month,
+            Long userId
+    ) {
+        accountBookMonthlyGoalService.deleteMonthlyGoal(
+                accountBookId,
+                year,
+                month,
+                userId
+        );
+
+        return true;
+    }
 }

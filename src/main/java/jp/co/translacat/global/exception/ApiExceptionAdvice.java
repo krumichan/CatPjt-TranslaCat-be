@@ -11,12 +11,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.Objects;
 
 @Slf4j
 @RestControllerAdvice
 public class ApiExceptionAdvice {
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ResponseDto<ErrorDto>> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException e
+    ) {
+        String responseMessage = this.trace(e);
+        log.error("Upload file size exceeded: ", e);
+        return this.entity(HttpStatus.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE", responseMessage, e);
+    }
 
     @ExceptionHandler(AiServerCommunicationException.class)
     protected ResponseEntity<ResponseDto<ErrorDto>> handleAiServerCommunicationException(AiServerCommunicationException e) {

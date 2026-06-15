@@ -1,23 +1,24 @@
 package jp.co.translacat.infrastructure.client.ai.server.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.List;
 
 public record AiReceiptAnalysisOptions(
-        @JsonProperty("currency_code")
-        String currencyCode,
-
-        @JsonProperty("ocr_language")
-        String ocrLanguage,
-
-        @JsonProperty("stop_keywords")
-        List<String> stopKeywords,
-
-        @JsonProperty("important_keywords")
-        List<String> importantKeywords,
-
-        @JsonProperty("exclude_item_keywords")
-        List<String> excludeItemKeywords
+        @JsonProperty("currency_code") String currencyCode,
+        @JsonProperty("ocr_language") String ocrLanguage,
+        @JsonProperty("analysis_mode") String analysisMode,
+        @JsonProperty("stop_keywords") List<String> stopKeywords,
+        @JsonProperty("important_keywords") List<String> importantKeywords,
+        @JsonProperty("exclude_item_keywords") List<String> excludeItemKeywords
 ) {
+        public AiReceiptAnalysisOptions withAnalysisMode(String analysisMode) {
+                return new AiReceiptAnalysisOptions(
+                        currencyCode,
+                        ocrLanguage,
+                        analysisMode,
+                        stopKeywords,
+                        importantKeywords,
+                        excludeItemKeywords
+                );
+        }
 }

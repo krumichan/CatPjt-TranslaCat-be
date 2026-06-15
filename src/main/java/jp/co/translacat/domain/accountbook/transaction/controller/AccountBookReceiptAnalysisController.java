@@ -25,12 +25,14 @@ public class AccountBookReceiptAnalysisController {
     public ResponseDto<ReceiptAnalysisResponseDto> analyzeReceipt(
             @PathVariable Long accountBookId,
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestPart("file") MultipartFile file
+            @RequestPart("file") MultipartFile file,
+            @RequestPart(value = "analysisMode", required = false) String analysisMode
     ) {
         ReceiptAnalysisResponseDto response = accountBookReceiptAnalysisFacade.analyze(
                 accountBookId,
                 userPrincipal.getId(),
-                file
+                file,
+                analysisMode
         );
 
         return ResponseUtil.ok(response);

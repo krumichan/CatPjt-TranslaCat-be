@@ -36,6 +36,7 @@ public class ReceiptAnalysisOptionQueryService {
         return new AiReceiptAnalysisOptions(
                 normalizedCurrencyCode,
                 ocrLanguage,
+                null,
                 nullIfEmpty(keywordMap.get(ReceiptKeywordType.STOP_AFTER)),
                 nullIfEmpty(keywordMap.get(ReceiptKeywordType.IMPORTANT)),
                 nullIfEmpty(keywordMap.get(ReceiptKeywordType.EXCLUDE_ITEM))

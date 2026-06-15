@@ -4,17 +4,16 @@ import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookAccessService;
 import jp.co.translacat.domain.accountbook.receiptkeyword.service.ReceiptAnalysisOptionQueryService;
 import jp.co.translacat.domain.accountbook.transaction.dto.ReceiptAnalysisResponseDto;
+import jp.co.translacat.domain.accountbook.transaction.enums.ReceiptAnalysisMode;
 import jp.co.translacat.infrastructure.client.ai.server.AiServerClient;
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptAnalysisOptions;
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptAnalysisResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 @Component
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class AccountBookReceiptAnalysisFacade {
 
     private final AccountBookAccessService accountBookAccessService;
@@ -24,7 +23,8 @@ public class AccountBookReceiptAnalysisFacade {
     public ReceiptAnalysisResponseDto analyze(
             Long accountBookId,
             Long userId,
-            MultipartFile file
+            MultipartFile file,
+            String analysisMode
     ) {
         AccountBook accountBook = accountBookAccessService.getAccessibleAccountBook(
                 accountBookId,
@@ -33,9 +33,11 @@ public class AccountBookReceiptAnalysisFacade {
 
         String currencyCode = resolveCurrencyCode(accountBook);
 
-        AiReceiptAnalysisOptions options = receiptAnalysisOptionQueryService.getOptions(
-                currencyCode
-        );
+        AiReceiptAnalysisOptions options = receiptAnalysisOptionQueryService
+                .getOptions(currencyCode)
+                .withAnalysisMode(
+                        ReceiptAnalysisMode.fromNullable(analysisMode).name()
+                );
 
         AiReceiptAnalysisResponse aiResponse = aiServerClient.callReceiptAnalysis(
                 file,

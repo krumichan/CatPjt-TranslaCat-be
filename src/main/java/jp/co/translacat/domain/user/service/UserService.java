@@ -24,8 +24,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -107,9 +105,8 @@ public class UserService {
 
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         User user = userPrincipal.user();
-        String username = userPrincipal.getUsername();
 
-        return this.generateUserTokens(user.getId(), username, user.getAuthority());
+        return this.generateUserTokens(user);
     }
 
     public String logout(String token) {
@@ -132,8 +129,10 @@ public class UserService {
             throw new RuntimeException("Refresh Token Expired. Please login again.");
         }
 
-        String username = jwtService.extractUsername(refreshToken);
-        String newAccessToken = jwtService.generateAccessToken(userId, username);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        String newAccessToken = jwtService.generateAccessToken(userId, user.getEmail());
 
         Date accessExpiry = jwtService.extractExpiration(newAccessToken);
         long accessTokenExpiresIn = (accessExpiry.getTime() - System.currentTimeMillis()) / 1000;
@@ -142,11 +141,16 @@ public class UserService {
                 .accessToken(newAccessToken)
                 .refreshToken(refreshToken)
                 .accessTokenExpiresIn(accessTokenExpiresIn)
+                .role(user.getAuthority())
+                .publicId(user.getPublicId())
                 .build();
     }
 
-    public UserLoginResponseDto generateUserTokens(Long userId, String email, Role role) {
-        String refreshToken = jwtService.generateRefreshToken(userId, email);
+    public UserLoginResponseDto generateUserTokens(User user) {
+        String refreshToken = jwtService.generateRefreshToken(
+                user.getId(),
+                user.getEmail()
+        );
 
         LocalDateTime refreshExpiry = jwtService.extractExpiration(refreshToken)
                 .toInstant()
@@ -154,21 +158,26 @@ public class UserService {
                 .toLocalDateTime();
 
         RefreshToken rt = new RefreshToken();
-        rt.setUserId(userId);
+        rt.setUserId(user.getId());
         rt.setToken(refreshToken);
         rt.setExpireDate(refreshExpiry);
         refreshTokenRepository.save(rt);
 
-        String accessToken = jwtService.generateAccessToken(userId, email);
+        String accessToken = jwtService.generateAccessToken(
+                user.getId(),
+                user.getEmail()
+        );
 
         Date accessExpiry = jwtService.extractExpiration(accessToken);
-        long accessTokenExpiresIn = (accessExpiry.getTime() - System.currentTimeMillis()) / 1000;
+        long accessTokenExpiresIn =
+                (accessExpiry.getTime() - System.currentTimeMillis()) / 1000;
 
         return UserLoginResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .accessTokenExpiresIn(accessTokenExpiresIn)
-                .role(role)
+                .role(user.getAuthority())
+                .publicId(user.getPublicId())
                 .build();
     }
 

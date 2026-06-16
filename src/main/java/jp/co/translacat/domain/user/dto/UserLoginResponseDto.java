@@ -11,4 +11,5 @@ public class UserLoginResponseDto {
     private String refreshToken;
     private Long accessTokenExpiresIn;
     private Role role;
+    private String publicId;
 }

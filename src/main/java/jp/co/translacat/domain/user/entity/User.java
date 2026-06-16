@@ -21,6 +21,7 @@ public class User extends BaseAuditable {
         this.socialType = socialType;
         this.socialId = socialId;
         this.authority = authority;
+        this.publicId = publicId;
     }
 
     @Id

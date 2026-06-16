@@ -33,20 +33,21 @@ public class AccountBookMemberController {
         );
     }
 
-    @PostMapping
-    public ResponseDto<AccountBookMemberResponseDto> inviteMember(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId,
-            @RequestBody @Valid AccountBookMemberInviteRequestDto request
-    ) {
-        return ResponseUtil.ok(
-                accountBookMemberService.inviteMember(
-                        accountBookId,
-                        request,
-                        userPrincipal.getId()
-                )
-        );
-    }
+    // TODO: 초대 승락/거절 모드 생기면서 제거.
+//    @PostMapping
+//    public ResponseDto<AccountBookMemberResponseDto> inviteMember(
+//            @AuthenticationPrincipal UserPrincipal userPrincipal,
+//            @PathVariable Long accountBookId,
+//            @RequestBody @Valid AccountBookMemberInviteRequestDto request
+//    ) {
+//        return ResponseUtil.ok(
+//                accountBookMemberService.inviteMember(
+//                        accountBookId,
+//                        request,
+//                        userPrincipal.getId()
+//                )
+//        );
+//    }
 
     @DeleteMapping("/{targetUserId}")
     public ResponseDto<Boolean> removeMember(

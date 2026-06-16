@@ -74,6 +74,18 @@ public class AccountBookMember extends BaseAuditable {
         );
     }
 
+    public static AccountBookMember createMember(
+            AccountBook accountBook,
+            User user,
+            AccountBookMemberRole role
+    ) {
+        return new AccountBookMember(
+                accountBook,
+                user,
+                role
+        );
+    }
+
     public boolean isOwner() {
         return this.role == AccountBookMemberRole.OWNER;
     }
@@ -85,5 +97,10 @@ public class AccountBookMember extends BaseAuditable {
     public void restoreAsMember() {
         this.deleted = false;
         this.role = AccountBookMemberRole.MEMBER;
+    }
+
+    public void restoreAsRole(AccountBookMemberRole role) {
+        this.deleted = false;
+        this.role = role;
     }
 }

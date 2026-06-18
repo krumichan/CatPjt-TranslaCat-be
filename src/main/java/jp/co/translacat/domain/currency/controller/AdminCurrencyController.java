@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jp.co.translacat.domain.currency.dto.AdminCurrencyResponseDto;
 import jp.co.translacat.domain.currency.dto.CurrencyCreateRequestDto;
 import jp.co.translacat.domain.currency.dto.CurrencyEnabledUpdateRequestDto;
+import jp.co.translacat.domain.currency.dto.CurrencyUpdateRequestDto;
 import jp.co.translacat.domain.currency.service.CurrencyService;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.utils.ResponseUtil;
@@ -34,6 +35,29 @@ public class AdminCurrencyController {
             @Valid @RequestBody CurrencyCreateRequestDto dto
     ) {
         return ResponseUtil.created(currencyService.create(dto));
+    }
+
+    @PutMapping("/{currencyId}")
+    @Operation(
+            summary = "관리자 통화 수정",
+            description = "관리자가 통화 이름, 심볼, 소수점 자릿수를 수정한다."
+    )
+    public ResponseDto<AdminCurrencyResponseDto> update(
+            @PathVariable Long currencyId,
+            @Valid @RequestBody CurrencyUpdateRequestDto dto
+    ) {
+        return ResponseUtil.ok(currencyService.update(currencyId, dto));
+    }
+
+    @DeleteMapping("/{currencyId}")
+    @Operation(
+            summary = "관리자 통화 삭제",
+            description = "관리자가 미사용 통화를 삭제한다."
+    )
+    public ResponseDto<Boolean> delete(
+            @PathVariable Long currencyId
+    ) {
+        return ResponseUtil.ok(currencyService.delete(currencyId));
     }
 
     @PatchMapping("/{currencyId}/enabled")

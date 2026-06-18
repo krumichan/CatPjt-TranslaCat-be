@@ -1,9 +1,7 @@
 package jp.co.translacat.domain.currency.service;
 
-import jp.co.translacat.domain.currency.dto.AdminCurrencyResponseDto;
-import jp.co.translacat.domain.currency.dto.CurrencyCreateRequestDto;
-import jp.co.translacat.domain.currency.dto.CurrencyEnabledUpdateRequestDto;
-import jp.co.translacat.domain.currency.dto.CurrencyResponseDto;
+import jp.co.translacat.domain.accountbook.accountbook.repository.AccountBookRepository;
+import jp.co.translacat.domain.currency.dto.*;
 import jp.co.translacat.domain.currency.entity.Currency;
 import jp.co.translacat.domain.currency.repository.CurrencyRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +16,7 @@ import java.util.List;
 public class CurrencyService {
 
     private final CurrencyRepository currencyRepository;
+    private final AccountBookRepository accountBookRepository;
 
     public Currency getEnabledCurrencyByCode(String currencyCode) {
         String normalizedCode = normalizeCode(currencyCode);
@@ -66,6 +65,41 @@ public class CurrencyService {
         );
 
         return AdminCurrencyResponseDto.from(currencyRepository.save(currency));
+    }
+
+    @Transactional
+    public AdminCurrencyResponseDto update(
+            Long currencyId,
+            CurrencyUpdateRequestDto dto
+    ) {
+        Currency currency = currencyRepository.findById(currencyId)
+                .orElseThrow(() -> new IllegalArgumentException("통화를 찾을 수 없습니다."));
+
+        currency.update(
+                dto.name().trim(),
+                dto.symbol() == null ? null : dto.symbol().trim(),
+                dto.decimalPlaces()
+        );
+
+        return AdminCurrencyResponseDto.from(currency);
+    }
+
+    @Transactional
+    public Boolean delete(Long currencyId) {
+        Currency currency = currencyRepository.findById(currencyId)
+                .orElseThrow(() -> new IllegalArgumentException("통화를 찾을 수 없습니다."));
+
+        if (currency.isBaseCurrency()) {
+            throw new IllegalArgumentException("기본 통화는 삭제할 수 없습니다.");
+        }
+
+        if (accountBookRepository.existsByCurrency_Id(currencyId)) {
+            throw new IllegalArgumentException("사용 중인 통화는 삭제할 수 없습니다. 비활성화로 전환해주세요.");
+        }
+
+        currencyRepository.delete(currency);
+
+        return true;
     }
 
     private void unsetAllBaseCurrencies() {

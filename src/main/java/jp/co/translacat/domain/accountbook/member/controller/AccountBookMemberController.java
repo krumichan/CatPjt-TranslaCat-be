@@ -63,4 +63,17 @@ public class AccountBookMemberController {
                 )
         );
     }
+
+    @DeleteMapping("/me")
+    public ResponseDto<Boolean> leaveAccountBook(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long accountBookId
+    ) {
+        return ResponseUtil.ok(
+                accountBookMemberService.leaveAccountBook(
+                        accountBookId,
+                        userPrincipal.getId()
+                )
+        );
+    }
 }

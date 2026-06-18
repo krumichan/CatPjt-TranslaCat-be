@@ -76,6 +76,13 @@ public class AccountBookCategoryService {
 
         return accountBookCategoryRepository
                 .findByAccountBookIdAndName(accountBookId, normalizedName)
+                .map(category -> {
+                    if (!Boolean.TRUE.equals(category.getActive())) {
+                        category.activate();
+                    }
+
+                    return category;
+                })
                 .orElseGet(() -> accountBookCategoryRepository.save(
                         AccountBookCategory.create(
                                 accountBook,

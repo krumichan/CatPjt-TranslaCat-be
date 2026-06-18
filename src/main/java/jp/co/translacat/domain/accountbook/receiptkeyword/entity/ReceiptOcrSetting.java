@@ -32,4 +32,12 @@ public class ReceiptOcrSetting extends BaseAuditable {
 
     @Column(nullable = false)
     private Boolean deleted = false;
+
+    public void update(
+            String ocrLanguage,
+            Boolean enabled
+    ) {
+        this.ocrLanguage = ocrLanguage;
+        this.enabled = Boolean.TRUE.equals(enabled);
+    }
 }

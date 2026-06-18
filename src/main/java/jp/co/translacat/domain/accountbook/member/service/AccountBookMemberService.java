@@ -88,6 +88,24 @@ public class AccountBookMemberService {
     }
 
     @Transactional
+    public boolean leaveAccountBook(
+            Long accountBookId,
+            Long userId
+    ) {
+        AccountBookMember member = accountBookMemberRepository
+                .findByAccountBook_IdAndUser_IdAndDeletedFalse(
+                        accountBookId,
+                        userId
+                )
+                .filter(accountBookMember -> !accountBookMember.isOwner())
+                .orElseThrow(() -> new IllegalArgumentException("나갈 수 있는 멤버를 찾을 수 없습니다."));
+
+        member.delete();
+
+        return true;
+    }
+
+    @Transactional
     public boolean removeMember(
             Long accountBookId,
             Long targetUserId,

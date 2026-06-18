@@ -2,6 +2,8 @@ package jp.co.translacat.domain.accountbook.transaction.service;
 
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookAccessService;
+import jp.co.translacat.domain.accountbook.category.entity.AccountBookCategory;
+import jp.co.translacat.domain.accountbook.category.service.AccountBookCategoryService;
 import jp.co.translacat.domain.accountbook.transaction.dto.*;
 import jp.co.translacat.domain.accountbook.transaction.entity.AccountBookTransaction;
 import jp.co.translacat.domain.accountbook.transaction.repository.AccountBookTransactionRepository;
@@ -19,6 +21,7 @@ public class AccountBookTransactionService {
 
     private final AccountBookAccessService accountBookAccessService;
     private final AccountBookTransactionRepository accountBookTransactionRepository;
+    private final AccountBookCategoryService accountBookCategoryService;
 
     public AccountBookTransactionListResponseDto getTransactions(
             Long accountBookId,
@@ -56,13 +59,18 @@ public class AccountBookTransactionService {
                 userId
         );
 
+        AccountBookCategory category = accountBookCategoryService.findOrCreateCategory(
+                accountBookId,
+                request.category()
+        );
+
         AccountBookTransaction transaction = AccountBookTransaction.create(
                 accountBook,
                 request.type(),
                 request.amount(),
                 request.title(),
                 request.storeName(),
-                request.category(),
+                category.getName(),
                 request.transactionDate(),
                 request.memo()
         );
@@ -86,12 +94,17 @@ public class AccountBookTransactionService {
                 .findByIdAndAccountBookId(transactionId, accountBookId)
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found."));
 
+        AccountBookCategory category = accountBookCategoryService.findOrCreateCategory(
+                accountBookId,
+                request.category()
+        );
+
         transaction.update(
                 request.type(),
                 request.amount(),
                 request.title(),
                 request.storeName(),
-                request.category(),
+                category.getName(),
                 request.transactionDate(),
                 request.memo()
         );

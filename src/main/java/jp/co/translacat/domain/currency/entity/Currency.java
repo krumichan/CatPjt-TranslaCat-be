@@ -67,6 +67,16 @@ public class Currency extends BaseAuditable {
         );
     }
 
+    public void update(
+            String name,
+            String symbol,
+            Integer decimalPlaces
+    ) {
+        this.name = name;
+        this.symbol = symbol;
+        this.decimalPlaces = decimalPlaces;
+    }
+
     public void changeEnabled(boolean enabled) {
         this.enabled = enabled;
     }

@@ -46,4 +46,58 @@ public class ReceiptKeyword extends BaseAuditable {
 
     @Column(nullable = false)
     private Boolean deleted = false;
+
+    private ReceiptKeyword(
+            String currencyCode,
+            String ocrLanguage,
+            ReceiptKeywordType keywordType,
+            String keyword,
+            Boolean enabled,
+            Integer displayOrder
+    ) {
+        this.currencyCode = currencyCode;
+        this.ocrLanguage = ocrLanguage;
+        this.keywordType = keywordType;
+        this.keyword = keyword;
+        this.enabled = Boolean.TRUE.equals(enabled);
+        this.displayOrder = displayOrder == null ? 0 : displayOrder;
+    }
+
+    public static ReceiptKeyword create(
+            String currencyCode,
+            String ocrLanguage,
+            ReceiptKeywordType keywordType,
+            String keyword,
+            Boolean enabled,
+            Integer displayOrder
+    ) {
+        return new ReceiptKeyword(
+                currencyCode,
+                ocrLanguage,
+                keywordType,
+                keyword,
+                enabled,
+                displayOrder
+        );
+    }
+
+    public void update(
+            String currencyCode,
+            String ocrLanguage,
+            ReceiptKeywordType keywordType,
+            String keyword,
+            Boolean enabled,
+            Integer displayOrder
+    ) {
+        this.currencyCode = currencyCode;
+        this.ocrLanguage = ocrLanguage;
+        this.keywordType = keywordType;
+        this.keyword = keyword;
+        this.enabled = Boolean.TRUE.equals(enabled);
+        this.displayOrder = displayOrder == null ? 0 : displayOrder;
+    }
+
+    public void delete() {
+        this.deleted = true;
+    }
 }

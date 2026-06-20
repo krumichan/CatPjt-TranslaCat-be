@@ -98,6 +98,10 @@ public class AccountBookService {
             AccountBookUpdateRequestDto request,
             Long userId
     ) {
+        AccountBookMember member = accountBookMemberRepository
+                .findByAccountBook_IdAndUser_IdAndDeletedFalse(accountBookId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+
         AccountBook accountBook = accountBookAccessService
                 .getOwnerAccountBook(accountBookId, userId);
 
@@ -107,7 +111,7 @@ public class AccountBookService {
                 request.category()
         );
 
-        return AccountBookResponseDto.from(accountBook);
+        return AccountBookResponseDto.from(accountBook, member.getRole());
     }
 
     @Transactional

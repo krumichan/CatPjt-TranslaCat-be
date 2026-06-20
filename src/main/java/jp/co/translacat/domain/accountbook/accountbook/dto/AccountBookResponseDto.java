@@ -15,8 +15,10 @@ public record AccountBookResponseDto(
         BigDecimal incomeAmount,
         BigDecimal expenseAmount,
         BigDecimal balance,
+        Long transactionCount,
         AccountBookMemberRole myRole
 ) {
+
     public static AccountBookResponseDto from(
             AccountBook accountBook,
             AccountBookMemberRole myRole
@@ -31,11 +33,8 @@ public record AccountBookResponseDto(
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
+                0L,
                 myRole
         );
-    }
-
-    public static AccountBookResponseDto from(AccountBook accountBook) {
-        return from(accountBook, null);
     }
 }

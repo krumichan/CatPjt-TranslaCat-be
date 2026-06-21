@@ -11,9 +11,13 @@ import jp.co.translacat.domain.chat.message.dto.response.ChatMessageTranslationR
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
+import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationRequestedEvent;
 import jp.co.translacat.domain.chat.translation.repository.ChatMessageTranslationRepository;
 import jp.co.translacat.global.exception.BusinessException;
+import jp.co.translacat.global.utils.ValidationUtil;
+import jp.co.translacat.global.utils.ValueUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +37,7 @@ public class ChatMessageCommandService {
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final ChatRoomMemberQueryService chatRoomMemberQueryService;
     private final ChatLanguageSettingResolver chatLanguageSettingResolver;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public ChatMessageResponseDto createTextMessage(
             Long loginUserId,
@@ -49,7 +54,7 @@ public class ChatMessageCommandService {
         ChatMessage message = ChatMessage.createUserTextMessage(
                 senderMember.getChatRoom(),
                 senderMember.getUser(),
-                normalizeContent(request.content())
+                ValueUtil.normalizeContent(request.content())
         );
 
         ChatMessage savedMessage = chatMessageRepository.save(message);
@@ -59,6 +64,12 @@ public class ChatMessageCommandService {
                         savedMessage,
                         senderMember
                 );
+
+        publishTranslationRequestedEvent(
+                savedMessage,
+                senderMember,
+                translations
+        );
 
         List<ChatMessageTranslationResponseDto> translationResponses =
                 translations.stream()
@@ -93,7 +104,7 @@ public class ChatMessageCommandService {
 
             String targetLanguageCode = languageSetting.translationLanguageCode();
 
-            if (isBlank(targetLanguageCode)) {
+            if (ValidationUtil.isBlank(targetLanguageCode)) {
                 continue;
             }
 
@@ -115,7 +126,7 @@ public class ChatMessageCommandService {
     }
 
     private void validateCreateRequest(ChatMessageCreateRequestDto request) {
-        if (request == null || isBlank(request.content())) {
+        if (request == null || ValidationUtil.isBlank(request.content())) {
             throw new BusinessException("메시지 내용은 필수입니다.");
         }
 
@@ -124,11 +135,26 @@ public class ChatMessageCommandService {
         }
     }
 
-    private String normalizeContent(String content) {
-        return content.trim();
-    }
+    private void publishTranslationRequestedEvent(
+            ChatMessage message,
+            ChatRoomMember senderMember,
+            List<ChatMessageTranslation> translations
+    ) {
+        if (translations.isEmpty()) {
+            return;
+        }
 
-    private boolean isBlank(String value) {
-        return value == null || value.trim().isEmpty();
+        List<Long> translationIds = translations.stream()
+                .map(ChatMessageTranslation::getId)
+                .toList();
+
+        applicationEventPublisher.publishEvent(
+                ChatMessageTranslationRequestedEvent.of(
+                        message.getChatRoom().getId(),
+                        message.getId(),
+                        senderMember.getUser().getId(),
+                        translationIds
+                )
+        );
     }
 }

@@ -14,4 +14,8 @@ public final class ValueUtil {
     public static <T> T defaultIfNull(T value, Supplier<T> defaultValueSupplier) {
         return value == null ? defaultValueSupplier.get() : value;
     }
+
+    public static String normalizeContent(String content) {
+        return content.trim();
+    }
 }

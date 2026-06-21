@@ -27,4 +27,8 @@ public class ValidationUtil {
                (c >= 0x4E00 && c <= 0x9FFF) || // 한자
                (c >= 0xF900 && c <= 0xFAFF);   // 한자 호환
     }
+
+    public static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
 }

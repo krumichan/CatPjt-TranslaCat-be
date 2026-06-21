@@ -26,6 +26,8 @@ import java.util.Set;
 @Transactional
 public class ChatMessageCommandService {
 
+    private static final int MAX_MESSAGE_CONTENT_LENGTH = 5000;
+
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMessageTranslationRepository chatMessageTranslationRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
@@ -115,6 +117,10 @@ public class ChatMessageCommandService {
     private void validateCreateRequest(ChatMessageCreateRequestDto request) {
         if (request == null || isBlank(request.content())) {
             throw new BusinessException("메시지 내용은 필수입니다.");
+        }
+
+        if (request.content().trim().length() > MAX_MESSAGE_CONTENT_LENGTH) {
+            throw new BusinessException("메시지는 5000자 이하로 입력해주세요.");
         }
     }
 

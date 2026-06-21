@@ -9,6 +9,7 @@ import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
 import jp.co.translacat.domain.chat.translation.repository.ChatMessageTranslationRepository;
+import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +36,7 @@ public class ChatMessageQueryService {
             Long chatRoomId,
             Long cursorId
     ) {
+        validateCursorId(cursorId);
         validateChatRoomMember(loginUserId, chatRoomId);
 
         List<ChatMessage> fetchedMessages = fetchMessages(
@@ -75,6 +77,12 @@ public class ChatMessageQueryService {
                 nextCursorId,
                 hasNext
         );
+    }
+
+    private void validateCursorId(Long cursorId) {
+        if (cursorId != null && cursorId <= 0) {
+            throw new BusinessException("cursorId는 1 이상이어야 합니다.");
+        }
     }
 
     private void validateChatRoomMember(

@@ -154,6 +154,8 @@ public class ChatRoomMember extends BaseAuditable {
     public void resetLanguageSetting() {
         this.originalLanguageCode = null;
         this.translationLanguageCode = null;
+        this.showOriginal = true;
+        this.showTranslation = true;
     }
 
     public boolean hasRoomLanguageSetting() {

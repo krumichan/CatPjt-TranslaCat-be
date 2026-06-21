@@ -16,6 +16,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final ChatWebSocketAuthInterceptor chatWebSocketAuthInterceptor;
 
+    /*
+     * Client publish destination:
+     *   /app/chat/rooms/{chatRoomId}/messages
+     *
+     * Server subscribe destination:
+     *   /topic/chat/rooms/{chatRoomId}
+     */
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         registry.enableSimpleBroker(

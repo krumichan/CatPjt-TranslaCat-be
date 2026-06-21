@@ -14,7 +14,7 @@ import static jp.co.translacat.domain.chat.room.entity.QChatRoom.chatRoom;
 
 @Repository
 @RequiredArgsConstructor
-public class ChatRoomRepositoryImpl {
+public class ChatRoomRepositoryImpl implements ChatRoomRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
 

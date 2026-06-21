@@ -34,15 +34,80 @@ public class ChatRoomCommandService {
 
         User owner = userService.getById(loginUserId);
 
-        ChatRoom chatRoom = switch (request.roomType()) {
-            case DIRECT -> ChatRoom.createDirectRoom(owner);
-            case GROUP -> ChatRoom.createGroupRoom(
-                    request.name(),
-                    request.description(),
-                    owner
+        if (request.roomType() == ChatRoomType.DIRECT) {
+            return createOrGetDirectRoom(
+                    loginUserId,
+                    owner,
+                    request
             );
-            case OPEN -> throw new BusinessException("오픈 채팅방은 1차 MVP 생성 대상이 아닙니다.");
-        };
+        }
+
+        if (request.roomType() == ChatRoomType.GROUP) {
+            return createGroupRoom(owner, request);
+        }
+
+        throw new BusinessException("오픈 채팅방은 1차 MVP 생성 대상이 아닙니다.");
+    }
+
+    private ChatRoom createOrGetDirectRoom(
+            Long loginUserId,
+            User owner,
+            ChatRoomCreateRequestDto request
+    ) {
+        Long targetUserId = getDistinctMemberUserIds(request.memberUserIds())
+                .iterator()
+                .next();
+
+        return chatRoomRepository
+                .findActiveDirectRoomByUserIds(
+                        loginUserId,
+                        targetUserId
+                )
+                .orElseGet(() -> createDirectRoom(
+                        owner,
+                        targetUserId
+                ));
+    }
+
+    private ChatRoom createDirectRoom(
+            User owner,
+            Long targetUserId
+    ) {
+        User targetUser = userService.getById(targetUserId);
+
+        ChatRoom chatRoom = ChatRoom.createDirectRoom(owner);
+        ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
+
+        chatRoomMemberRepository.save(
+                ChatRoomMember.createOwner(
+                        savedChatRoom,
+                        owner,
+                        null,
+                        null
+                )
+        );
+
+        chatRoomMemberRepository.save(
+                ChatRoomMember.createMember(
+                        savedChatRoom,
+                        targetUser,
+                        null,
+                        null
+                )
+        );
+
+        return savedChatRoom;
+    }
+
+    private ChatRoom createGroupRoom(
+            User owner,
+            ChatRoomCreateRequestDto request
+    ) {
+        ChatRoom chatRoom = ChatRoom.createGroupRoom(
+                request.name(),
+                request.description(),
+                owner
+        );
 
         ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
 

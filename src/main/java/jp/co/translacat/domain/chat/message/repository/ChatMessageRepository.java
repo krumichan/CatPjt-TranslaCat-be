@@ -17,12 +17,12 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
             Long chatRoomId
     );
 
-    List<ChatMessage> findTop100ByChatRoomIdAndStatusAndDeletedAtIsNullOrderByIdDesc(
+    List<ChatMessage> findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullOrderByIdDesc(
             Long chatRoomId,
             ChatMessageStatus status
     );
 
-    List<ChatMessage> findTop100ByChatRoomIdAndStatusAndDeletedAtIsNullAndIdLessThanOrderByIdDesc(
+    List<ChatMessage> findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullAndIdLessThanOrderByIdDesc(
             Long chatRoomId,
             ChatMessageStatus status,
             Long cursorId

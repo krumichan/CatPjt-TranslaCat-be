@@ -17,21 +17,17 @@ import java.time.LocalDateTime;
         uniqueConstraints = {
                 @UniqueConstraint(
                         name = "uk_chat_message_translation_message_language",
-                        columnNames = {"chat_message_id", "target_language_code"}
+                        columnNames = {"chat_message_id", "language_code"}
                 )
         },
         indexes = {
                 @Index(
-                        name = "idx_chat_message_translation_message_id",
+                        name = "idx_chat_translation_message_id",
                         columnList = "chat_message_id"
                 ),
                 @Index(
-                        name = "idx_chat_message_translation_status",
+                        name = "idx_chat_translation_status",
                         columnList = "status"
-                ),
-                @Index(
-                        name = "idx_chat_message_translation_target_language",
-                        columnList = "target_language_code"
                 )
         }
 )
@@ -46,10 +42,10 @@ public class ChatMessageTranslation extends BaseAuditable {
     @JoinColumn(name = "chat_message_id", nullable = false)
     private ChatMessage chatMessage;
 
-    @Column(name = "target_language_code", nullable = false, length = 10)
-    private String targetLanguageCode;
+    @Column(nullable = false, length = 10)
+    private String languageCode;
 
-    @Column(name = "translated_content", columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String translatedContent;
 
     @Enumerated(EnumType.STRING)
@@ -57,50 +53,50 @@ public class ChatMessageTranslation extends BaseAuditable {
     private ChatMessageTranslationStatus status;
 
     @Column(length = 1000)
-    private String errorMessage;
+    private String failureReason;
 
     @Column
-    private LocalDateTime translatedAt;
+    private LocalDateTime completedAt;
 
     @Column
     private LocalDateTime deletedAt;
 
     private ChatMessageTranslation(
             ChatMessage chatMessage,
-            String targetLanguageCode
+            String languageCode
     ) {
         this.chatMessage = chatMessage;
-        this.targetLanguageCode = targetLanguageCode;
+        this.languageCode = languageCode;
         this.status = ChatMessageTranslationStatus.PENDING;
     }
 
     public static ChatMessageTranslation createPending(
             ChatMessage chatMessage,
-            String targetLanguageCode
+            String languageCode
     ) {
         return new ChatMessageTranslation(
                 chatMessage,
-                targetLanguageCode
+                languageCode
         );
     }
 
     public void complete(String translatedContent) {
         this.translatedContent = translatedContent;
         this.status = ChatMessageTranslationStatus.COMPLETED;
-        this.errorMessage = null;
-        this.translatedAt = LocalDateTime.now();
+        this.failureReason = null;
+        this.completedAt = LocalDateTime.now();
     }
 
-    public void fail(String errorMessage) {
+    public void fail(String failureReason) {
         this.status = ChatMessageTranslationStatus.FAILED;
-        this.errorMessage = errorMessage;
-        this.translatedAt = null;
+        this.failureReason = failureReason;
+        this.completedAt = null;
     }
 
     public void retry() {
         this.status = ChatMessageTranslationStatus.PENDING;
-        this.errorMessage = null;
-        this.translatedAt = null;
+        this.failureReason = null;
+        this.completedAt = null;
     }
 
     public void softDelete() {

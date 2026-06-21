@@ -18,9 +18,14 @@ import java.time.LocalDateTime;
 @Table(
         name = "chat_message",
         indexes = {
-                @Index(name = "idx_chat_message_room_id_id", columnList = "chat_room_id, id"),
-                @Index(name = "idx_chat_message_room_created_at", columnList = "chat_room_id, created_at"),
-                @Index(name = "idx_chat_message_sender_user_id", columnList = "sender_user_id")
+                @Index(
+                        name = "idx_chat_message_room_created_id",
+                        columnList = "chat_room_id, created_at, id"
+                ),
+                @Index(
+                        name = "idx_chat_message_room_id_id",
+                        columnList = "chat_room_id, id"
+                )
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

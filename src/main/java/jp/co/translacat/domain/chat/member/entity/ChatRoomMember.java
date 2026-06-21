@@ -151,6 +151,16 @@ public class ChatRoomMember extends BaseAuditable {
         this.deletedAt = null;
     }
 
+    public void resetLanguageSetting() {
+        this.originalLanguageCode = null;
+        this.translationLanguageCode = null;
+    }
+
+    public boolean hasRoomLanguageSetting() {
+        return this.originalLanguageCode != null
+                || this.translationLanguageCode != null;
+    }
+
     public void softDelete() {
         this.active = false;
         this.leftAt = LocalDateTime.now();

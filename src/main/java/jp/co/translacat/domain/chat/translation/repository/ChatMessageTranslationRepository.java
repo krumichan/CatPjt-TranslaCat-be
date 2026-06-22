@@ -39,6 +39,11 @@ public interface ChatMessageTranslationRepository extends JpaRepository<ChatMess
             ChatMessageTranslationStatus status
     );
 
+    List<ChatMessageTranslation> findByIdInAndStatusAndDeletedAtIsNull(
+            List<Long> ids,
+            ChatMessageTranslationStatus status
+    );
+
     boolean existsByChatMessageIdAndLanguageCodeAndDeletedAtIsNull(
             Long chatMessageId,
             String languageCode

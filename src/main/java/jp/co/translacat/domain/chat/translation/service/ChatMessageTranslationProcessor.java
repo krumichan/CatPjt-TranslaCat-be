@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.translation.service;
 
+import jp.co.translacat.domain.chat.translation.client.ChatTranslationClient;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
 import jp.co.translacat.domain.chat.translation.enums.ChatMessageTranslationStatus;
 import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationRequestedEvent;
@@ -16,7 +17,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ChatMessageTranslationProcessor {
 
+    private static final int MAX_FAILURE_REASON_LENGTH = 1000;
+
     private final ChatMessageTranslationRepository chatMessageTranslationRepository;
+    private final ChatTranslationClient chatTranslationClient;
 
     @Transactional
     public void process(ChatMessageTranslationRequestedEvent event) {
@@ -46,17 +50,41 @@ public class ChatMessageTranslationProcessor {
                 pendingTranslations.size()
         );
 
-        /*
-         * TODO:
-         *  다음 단계에서 pendingTranslations를 순회하면서 AI 번역을 수행한다.
-         *
-         *  1. translation.getChatMessage().getContent() 원문 조회
-         *  2. translation.getLanguageCode() 대상 언어 확인
-         *  3. AI 번역 Client 호출
-         *  4. 성공 시 translation.complete(translatedContent)
-         *  5. 실패 시 translation.fail(reason)
-         *  6. 완료 후 WebSocket으로 chat.translation.completed 이벤트 발행
-         */
+        for (ChatMessageTranslation translation : pendingTranslations) {
+            processPendingTranslation(translation);
+        }
+    }
+
+    private void processPendingTranslation(ChatMessageTranslation translation) {
+        try {
+            String originalText = translation.getChatMessage().getContent();
+            String targetLanguageCode = translation.getLanguageCode();
+
+            String translatedContent = chatTranslationClient.translate(
+                    originalText,
+                    targetLanguageCode
+            );
+
+            translation.complete(translatedContent);
+
+            log.debug(
+                    "Chat message translation completed. messageId={}, translationId={}, languageCode={}",
+                    translation.getChatMessage().getId(),
+                    translation.getId(),
+                    translation.getLanguageCode()
+            );
+        } catch (Exception exception) {
+            String failureReason = resolveFailureReason(exception);
+
+            translation.fail(failureReason);
+
+            log.warn(
+                    "Chat message translation failed. translationId={}, reason={}",
+                    translation.getId(),
+                    failureReason,
+                    exception
+            );
+        }
     }
 
     private List<ChatMessageTranslation> findPendingTranslations(
@@ -75,5 +103,19 @@ public class ChatMessageTranslationProcessor {
                                 && translation.getChatMessage().getId().equals(event.messageId())
                 )
                 .toList();
+    }
+
+    private String resolveFailureReason(Exception exception) {
+        String message = exception.getMessage();
+
+        if (message == null || message.isBlank()) {
+            message = exception.getClass().getSimpleName();
+        }
+
+        if (message.length() <= MAX_FAILURE_REASON_LENGTH) {
+            return message;
+        }
+
+        return message.substring(0, MAX_FAILURE_REASON_LENGTH);
     }
 }

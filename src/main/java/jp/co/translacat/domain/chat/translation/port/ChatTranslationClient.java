@@ -1,4 +1,4 @@
-package jp.co.translacat.domain.chat.translation.client;
+package jp.co.translacat.domain.chat.translation.port;
 
 public interface ChatTranslationClient {
 

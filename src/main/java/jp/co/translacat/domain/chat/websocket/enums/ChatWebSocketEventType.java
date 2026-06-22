@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 public enum ChatWebSocketEventType {
 
     MESSAGE_CREATED("chat.message.created"),
+    TRANSLATION_COMPLETED("chat.translation.completed"),
     ERROR("chat.error");
 
     private final String eventName;

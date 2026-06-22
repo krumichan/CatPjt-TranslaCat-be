@@ -1,12 +1,14 @@
 package jp.co.translacat.domain.chat.translation.service;
 
-import jp.co.translacat.domain.chat.translation.client.ChatTranslationClient;
+import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationCompletedEvent;
+import jp.co.translacat.domain.chat.translation.port.ChatTranslationClient;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
 import jp.co.translacat.domain.chat.translation.enums.ChatMessageTranslationStatus;
 import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationRequestedEvent;
 import jp.co.translacat.domain.chat.translation.repository.ChatMessageTranslationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,7 @@ public class ChatMessageTranslationProcessor {
 
     private final ChatMessageTranslationRepository chatMessageTranslationRepository;
     private final ChatTranslationClient chatTranslationClient;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Transactional
     public void process(ChatMessageTranslationRequestedEvent event) {
@@ -66,6 +69,10 @@ public class ChatMessageTranslationProcessor {
             );
 
             translation.complete(translatedContent);
+
+            applicationEventPublisher.publishEvent(
+                    ChatMessageTranslationCompletedEvent.from(translation)
+            );
 
             log.debug(
                     "Chat message translation completed. messageId={}, translationId={}, languageCode={}",

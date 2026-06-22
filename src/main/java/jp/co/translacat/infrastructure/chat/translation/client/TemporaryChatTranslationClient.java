@@ -1,5 +1,6 @@
-package jp.co.translacat.domain.chat.translation.client;
+package jp.co.translacat.infrastructure.chat.translation.client;
 
+import jp.co.translacat.domain.chat.translation.port.ChatTranslationClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 

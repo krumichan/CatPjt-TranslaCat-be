@@ -14,6 +14,7 @@ public record ChatRoomResponseDto(
         String name,
         String description,
         Long ownerId,
+        long memberCount,
         boolean active,
         String originalLanguageCode,
         String translationLanguageCode,
@@ -24,7 +25,8 @@ public record ChatRoomResponseDto(
 
     public static ChatRoomResponseDto from(
             ChatRoom chatRoom,
-            ChatLanguageSettingResult languageSetting
+            ChatLanguageSettingResult languageSetting,
+            long memberCount
     ) {
         return new ChatRoomResponseDto(
                 chatRoom.getId(),
@@ -33,6 +35,7 @@ public record ChatRoomResponseDto(
                 chatRoom.getName(),
                 chatRoom.getDescription(),
                 chatRoom.getOwner() != null ? chatRoom.getOwner().getId() : null,
+                memberCount,
                 chatRoom.isActive(),
                 languageSetting.originalLanguageCode(),
                 languageSetting.translationLanguageCode(),

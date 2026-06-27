@@ -70,7 +70,14 @@ public class ChatRoomQueryService {
         ChatLanguageSettingResult languageSetting =
                 chatLanguageSettingResolver.resolve(chatRoomMember);
 
-        return ChatRoomResponseDto.from(chatRoom, languageSetting);
+        long memberCount = chatRoomMemberRepository
+                .countByChatRoomIdAndActiveTrueAndDeletedAtIsNull(chatRoom.getId());
+
+        return ChatRoomResponseDto.from(
+                chatRoom,
+                languageSetting,
+                memberCount
+        );
     }
 
     public ChatRoom getAccessibleChatRoom(

@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.chat.translation.listener;
 
 import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationCompletedEvent;
+import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationFailedEvent;
 import jp.co.translacat.domain.chat.websocket.service.ChatWebSocketEventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,5 +26,17 @@ public class ChatMessageTranslationWebSocketEventListener {
         );
 
         chatWebSocketEventPublisher.publishTranslationCompleted(event);
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handle(ChatMessageTranslationFailedEvent event) {
+        log.debug(
+                "Publish chat translation failed event. messageId={}, translationId={}, languageCode={}",
+                event.messageId(),
+                event.translationId(),
+                event.languageCode()
+        );
+
+        chatWebSocketEventPublisher.publishTranslationFailed(event);
     }
 }

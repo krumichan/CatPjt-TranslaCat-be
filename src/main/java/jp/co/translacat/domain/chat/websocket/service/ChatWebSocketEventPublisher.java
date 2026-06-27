@@ -3,7 +3,9 @@ package jp.co.translacat.domain.chat.websocket.service;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageResponseDto;
 import jp.co.translacat.domain.chat.message.dto.websocket.event.ChatMessageCreatedEventDto;
 import jp.co.translacat.domain.chat.translation.dto.websocket.event.ChatTranslationCompletedEventDto;
+import jp.co.translacat.domain.chat.translation.dto.websocket.event.ChatTranslationFailedEventDto;
 import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationCompletedEvent;
+import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationFailedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -37,6 +39,18 @@ public class ChatWebSocketEventPublisher {
     ) {
         ChatTranslationCompletedEventDto eventDto =
                 ChatTranslationCompletedEventDto.from(event);
+
+        messagingTemplate.convertAndSend(
+                CHAT_ROOM_TOPIC_PREFIX + event.chatRoomId(),
+                eventDto
+        );
+    }
+
+    public void publishTranslationFailed(
+            ChatMessageTranslationFailedEvent event
+    ) {
+        ChatTranslationFailedEventDto eventDto =
+                ChatTranslationFailedEventDto.from(event);
 
         messagingTemplate.convertAndSend(
                 CHAT_ROOM_TOPIC_PREFIX + event.chatRoomId(),

@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.chat.translation.service;
 
 import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationCompletedEvent;
+import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationFailedEvent;
 import jp.co.translacat.domain.chat.translation.port.ChatTranslationClient;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
 import jp.co.translacat.domain.chat.translation.enums.ChatMessageTranslationStatus;
@@ -84,6 +85,10 @@ public class ChatMessageTranslationProcessor {
             String failureReason = resolveFailureReason(exception);
 
             translation.fail(failureReason);
+
+            applicationEventPublisher.publishEvent(
+                    ChatMessageTranslationFailedEvent.from(translation)
+            );
 
             log.warn(
                     "Chat message translation failed. translationId={}, reason={}",

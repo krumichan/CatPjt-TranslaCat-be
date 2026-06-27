@@ -34,7 +34,17 @@ public class ChatRoomQueryService {
                 .map(ChatRoomMember::getChatRoom)
                 .filter(chatRoom -> chatRoom.isActive() && !chatRoom.isDeleted())
                 .sorted(Comparator.comparing(ChatRoom::getUpdatedAt).reversed())
-                .map(ChatRoomListItemResponseDto::from)
+                .map(chatRoom -> {
+                    long memberCount = chatRoomMemberRepository
+                            .countByChatRoomIdAndActiveTrueAndDeletedAtIsNull(
+                                    chatRoom.getId()
+                            );
+
+                    return ChatRoomListItemResponseDto.from(
+                            chatRoom,
+                            memberCount
+                    );
+                })
                 .toList();
 
         return ChatRoomListResponseDto.from(chatRooms);

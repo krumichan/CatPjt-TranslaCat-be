@@ -11,17 +11,22 @@ public record ChatRoomListItemResponseDto(
         String name,
         String description,
         Long ownerId,
+        long memberCount,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
 
-    public static ChatRoomListItemResponseDto from(ChatRoom chatRoom) {
+    public static ChatRoomListItemResponseDto from(
+            ChatRoom chatRoom,
+            long memberCount
+    ) {
         return new ChatRoomListItemResponseDto(
                 chatRoom.getId(),
                 chatRoom.getRoomType(),
                 chatRoom.getName(),
                 chatRoom.getDescription(),
                 chatRoom.getOwner() != null ? chatRoom.getOwner().getId() : null,
+                memberCount,
                 chatRoom.getCreatedAt(),
                 chatRoom.getUpdatedAt()
         );

@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.chat.room.entity;
 
 import jakarta.persistence.*;
+import jp.co.translacat.domain.chat.room.enums.ChatRoomSourceType;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.jpa.BaseAuditable;
@@ -16,7 +17,8 @@ import java.time.LocalDateTime;
         name = "chat_room",
         indexes = {
                 @Index(name = "idx_chat_room_owner_id", columnList = "owner_id"),
-                @Index(name = "idx_chat_room_room_type", columnList = "room_type")
+                @Index(name = "idx_chat_room_room_type", columnList = "room_type"),
+                @Index(name = "idx_chat_room_source_type", columnList = "source_type")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -29,6 +31,10 @@ public class ChatRoom extends BaseAuditable {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private ChatRoomType roomType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source_type", nullable = false, length = 30)
+    private ChatRoomSourceType sourceType = ChatRoomSourceType.MANUAL;
 
     @Column(length = 100)
     private String name;
@@ -48,19 +54,29 @@ public class ChatRoom extends BaseAuditable {
 
     private ChatRoom(
             ChatRoomType roomType,
+            ChatRoomSourceType sourceType,
             String name,
             String description,
             User owner
     ) {
         this.roomType = roomType;
+        this.sourceType = sourceType;
         this.name = name;
         this.description = description;
         this.owner = owner;
     }
 
     public static ChatRoom createDirectRoom(User owner) {
+        return createDirectRoom(owner, ChatRoomSourceType.MANUAL);
+    }
+
+    public static ChatRoom createDirectRoom(
+            User owner,
+            ChatRoomSourceType sourceType
+    ) {
         return new ChatRoom(
                 ChatRoomType.DIRECT,
+                sourceType,
                 null,
                 null,
                 owner
@@ -72,8 +88,23 @@ public class ChatRoom extends BaseAuditable {
             String description,
             User owner
     ) {
+        return createGroupRoom(
+                name,
+                description,
+                owner,
+                ChatRoomSourceType.MANUAL
+        );
+    }
+
+    public static ChatRoom createGroupRoom(
+            String name,
+            String description,
+            User owner,
+            ChatRoomSourceType sourceType
+    ) {
         return new ChatRoom(
                 ChatRoomType.GROUP,
+                sourceType,
                 name,
                 description,
                 owner

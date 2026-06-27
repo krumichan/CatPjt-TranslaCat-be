@@ -4,6 +4,7 @@ import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.room.dto.request.ChatRoomCreateRequestDto;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
+import jp.co.translacat.domain.chat.room.enums.ChatRoomSourceType;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.chat.room.repository.ChatRoomRepository;
 import jp.co.translacat.domain.user.entity.User;
@@ -58,24 +59,29 @@ public class ChatRoomCommandService {
                 .iterator()
                 .next();
 
+        ChatRoomSourceType sourceType = ChatRoomSourceType.MANUAL;
+
         return chatRoomRepository
-                .findActiveDirectRoomByUserIds(
+                .findActiveDirectRoomByUserIdsAndSourceType(
                         loginUserId,
-                        targetUserId
+                        targetUserId,
+                        sourceType
                 )
                 .orElseGet(() -> createDirectRoom(
                         owner,
-                        targetUserId
+                        targetUserId,
+                        sourceType
                 ));
     }
 
     private ChatRoom createDirectRoom(
             User owner,
-            Long targetUserId
+            Long targetUserId,
+            ChatRoomSourceType sourceType
     ) {
         User targetUser = userService.getById(targetUserId);
 
-        ChatRoom chatRoom = ChatRoom.createDirectRoom(owner);
+        ChatRoom chatRoom = ChatRoom.createDirectRoom(owner, sourceType);
         ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
 
         chatRoomMemberRepository.save(

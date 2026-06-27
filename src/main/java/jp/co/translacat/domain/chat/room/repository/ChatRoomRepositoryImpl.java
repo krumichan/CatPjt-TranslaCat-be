@@ -4,6 +4,7 @@ import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jp.co.translacat.domain.chat.member.entity.QChatRoomMember;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
+import jp.co.translacat.domain.chat.room.enums.ChatRoomSourceType;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -18,9 +19,23 @@ public class ChatRoomRepositoryImpl implements ChatRoomRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
 
+    @Override
     public Optional<ChatRoom> findActiveDirectRoomByUserIds(
             Long userId1,
             Long userId2
+    ) {
+        return findActiveDirectRoomByUserIdsAndSourceType(
+                userId1,
+                userId2,
+                ChatRoomSourceType.MANUAL
+        );
+    }
+
+    @Override
+    public Optional<ChatRoom> findActiveDirectRoomByUserIdsAndSourceType(
+            Long userId1,
+            Long userId2,
+            ChatRoomSourceType sourceType
     ) {
         QChatRoomMember loginMember = new QChatRoomMember("loginMember");
         QChatRoomMember targetMember = new QChatRoomMember("targetMember");
@@ -33,6 +48,7 @@ public class ChatRoomRepositoryImpl implements ChatRoomRepositoryCustom {
                 .join(targetMember).on(targetMember.chatRoom.eq(chatRoom))
                 .where(
                         chatRoom.roomType.eq(ChatRoomType.DIRECT),
+                        chatRoom.sourceType.eq(sourceType),
                         chatRoom.active.isTrue(),
                         chatRoom.deletedAt.isNull(),
 

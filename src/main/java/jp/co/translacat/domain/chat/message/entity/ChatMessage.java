@@ -97,7 +97,7 @@ public class ChatMessage extends BaseAuditable {
         return new ChatMessage(
                 chatRoom,
                 null,
-                ChatMessageSenderType.AI,
+                ChatMessageSenderType.SYSTEM,
                 ChatMessageType.SYSTEM,
                 content
         );

@@ -20,8 +20,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -126,13 +125,12 @@ class UserProfileControllerTest {
     @Test
     @DisplayName("로그인하지 않은 사용자는 내 프로필을 조회할 수 없다")
     void failToGetMyProfileWhenUnauthenticated() {
-        BusinessException exception = catchThrowableOfType(
-                () -> userProfileController.getMyProfile(null),
-                BusinessException.class
-        );
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> userProfileController.getMyProfile(null))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
+                );
 
-        assertThat(exception).isNotNull();
-        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED");
         verify(userProfileService, never()).getMyProfile(anyLong());
     }
 
@@ -145,13 +143,12 @@ class UserProfileControllerTest {
                 null
         );
 
-        BusinessException exception = catchThrowableOfType(
-                () -> userProfileController.updateMyProfile(null, request),
-                BusinessException.class
-        );
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> userProfileController.updateMyProfile(null, request))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
+                );
 
-        assertThat(exception).isNotNull();
-        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED");
         verify(userProfileService, never()).updateMyProfile(anyLong(), any(UserProfileUpdateRequestDto.class));
     }
 

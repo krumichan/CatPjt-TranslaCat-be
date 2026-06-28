@@ -17,8 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,15 +67,11 @@ class UserSearchServiceTest {
 
         when(userRepository.findByPublicId("UNKNOWN")).thenReturn(Optional.empty());
 
-        // when
-        BusinessException exception = catchThrowableOfType(
-                () -> userSearchService.searchByPublicId(loginUserId, "UNKNOWN"),
-                BusinessException.class
-        );
-
-        // then
-        assertThat(exception).isNotNull();
-        assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_NOT_FOUND");
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> userSearchService.searchByPublicId(loginUserId, "UNKNOWN"))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_NOT_FOUND")
+                );
     }
 
     @Test
@@ -108,15 +103,11 @@ class UserSearchServiceTest {
         // given
         Long loginUserId = 1L;
 
-        // when
-        BusinessException exception = catchThrowableOfType(
-                () -> userSearchService.searchByPublicId(loginUserId, "   "),
-                BusinessException.class
-        );
-
-        // then
-        assertThat(exception).isNotNull();
-        assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_REQUIRED");
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> userSearchService.searchByPublicId(loginUserId, "   "))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_REQUIRED")
+                );
     }
 
     private User createUser(

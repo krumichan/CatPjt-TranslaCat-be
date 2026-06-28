@@ -17,8 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -128,15 +127,11 @@ class UserProfileServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-        // when
-        BusinessException exception = catchThrowableOfType(
-                () -> userProfileService.getMyProfile(userId),
-                BusinessException.class
-        );
-
-        // then
-        assertThat(exception).isNotNull();
-        assertThat(exception.getErrorCode()).isEqualTo("USER_NOT_FOUND");
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> userProfileService.getMyProfile(userId))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("USER_NOT_FOUND")
+                );
     }
 
     private User createUser(

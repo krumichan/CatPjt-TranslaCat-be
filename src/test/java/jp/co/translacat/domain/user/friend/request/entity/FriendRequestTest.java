@@ -7,8 +7,7 @@ import jp.co.translacat.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.assertj.core.api.Assertions.*;
 
 class FriendRequestTest {
 
@@ -38,22 +37,18 @@ class FriendRequestTest {
         User requester = createUser(1L, "requester@example.com", "requester", "TCAT-00000001");
         User receiver = createUser(1L, "requester@example.com", "requester", "TCAT-00000001");
 
-        // when
-        BusinessException exception = catchThrowableOfType(
-                () -> FriendRequest.create(requester, receiver),
-                BusinessException.class
-        );
-
-        // then
-        assertThat(exception).isNotNull();
-        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_SELF_NOT_ALLOWED");
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> FriendRequest.create(requester, receiver))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_SELF_NOT_ALLOWED")
+                );
     }
 
     @Test
     @DisplayName("친구 요청 수락 상태 전이 테스트")
     void acceptFriendRequest() {
         // given
-        FriendRequest friendRequest = createFriendRequest();
+        FriendRequest friendRequest = createPendingFriendRequest();
 
         // when
         friendRequest.accept();
@@ -68,7 +63,7 @@ class FriendRequestTest {
     @DisplayName("친구 요청 거절 상태 전이 테스트")
     void rejectFriendRequest() {
         // given
-        FriendRequest friendRequest = createFriendRequest();
+        FriendRequest friendRequest = createPendingFriendRequest();
 
         // when
         friendRequest.reject();
@@ -83,7 +78,7 @@ class FriendRequestTest {
     @DisplayName("친구 요청 취소 상태 전이 테스트")
     void cancelFriendRequest() {
         // given
-        FriendRequest friendRequest = createFriendRequest();
+        FriendRequest friendRequest = createPendingFriendRequest();
 
         // when
         friendRequest.cancel();
@@ -98,21 +93,18 @@ class FriendRequestTest {
     @DisplayName("이미 처리된 요청은 재처리할 수 없다")
     void failWhenAlreadyProcessedRequest() {
         // given
-        FriendRequest friendRequest = createFriendRequest();
+        FriendRequest friendRequest = createPendingFriendRequest();
         friendRequest.accept();
 
-        // when
-        BusinessException exception = catchThrowableOfType(
-                friendRequest::reject,
-                BusinessException.class
-        );
-
-        // then
-        assertThat(exception).isNotNull();
-        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PROCESSED");
+        // when & then
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(friendRequest::reject)
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PROCESSED")
+                );
     }
 
-    private FriendRequest createFriendRequest() {
+    private FriendRequest createPendingFriendRequest() {
         User requester = createUser(1L, "requester@example.com", "requester", "TCAT-00000001");
         User receiver = createUser(2L, "receiver@example.com", "receiver", "TCAT-00000002");
         return FriendRequest.create(requester, receiver);

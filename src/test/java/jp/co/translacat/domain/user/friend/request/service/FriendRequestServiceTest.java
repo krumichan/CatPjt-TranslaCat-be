@@ -15,8 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -58,15 +57,13 @@ class FriendRequestServiceTest {
 
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(true);
 
-        // when
-        BusinessException exception = catchThrowableOfType(
-                () -> friendRequestService.createPendingRequest(requester, receiver),
-                BusinessException.class
-        );
+        // when & then
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> friendRequestService.createPendingRequest(requester, receiver))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PENDING")
+                );
 
-        // then
-        assertThat(exception).isNotNull();
-        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PENDING");
         verify(friendRequestRepository, never()).save(any(FriendRequest.class));
     }
 
@@ -78,15 +75,12 @@ class FriendRequestServiceTest {
 
         when(friendRequestRepository.findByIdAndDeletedFalse(requestId)).thenReturn(Optional.empty());
 
-        // when
-        BusinessException exception = catchThrowableOfType(
-                () -> friendRequestService.getFriendRequest(requestId),
-                BusinessException.class
-        );
-
-        // then
-        assertThat(exception).isNotNull();
-        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_FOUND");
+        // when & then
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> friendRequestService.getFriendRequest(requestId))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_FOUND")
+                );
     }
 
     @Test

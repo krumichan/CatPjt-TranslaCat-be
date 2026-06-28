@@ -11,8 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.util.Arrays;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.assertj.core.api.Assertions.*;
 
 class UserProfileTest {
 
@@ -105,15 +104,11 @@ class UserProfileTest {
                 createUser(1L, "test@example.com", "testUser", "TCAT-00000001")
         );
 
-        // when
-        BusinessException exception = catchThrowableOfType(
-                () -> userProfile.update("   ", null, null),
-                BusinessException.class
-        );
-
-        // then
-        assertThat(exception).isNotNull();
-        assertThat(exception.getErrorCode()).isEqualTo("USER_PROFILE_NICKNAME_REQUIRED");
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> userProfile.update("   ", null, null))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("USER_PROFILE_NICKNAME_REQUIRED")
+                );
     }
 
     @Test
@@ -125,15 +120,11 @@ class UserProfileTest {
         );
         String tooLongBio = "a".repeat(UserProfile.BIO_MAX_LENGTH + 1);
 
-        // when
-        BusinessException exception = catchThrowableOfType(
-                () -> userProfile.update("testUser", null, tooLongBio),
-                BusinessException.class
-        );
-
-        // then
-        assertThat(exception).isNotNull();
-        assertThat(exception.getErrorCode()).isEqualTo("USER_PROFILE_BIO_TOO_LONG");
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> userProfile.update("testUser", null, tooLongBio))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("USER_PROFILE_BIO_TOO_LONG")
+                );
     }
 
     private User createUser(

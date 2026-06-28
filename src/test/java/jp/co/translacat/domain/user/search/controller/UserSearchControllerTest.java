@@ -17,8 +17,7 @@ import org.springframework.security.web.method.annotation.AuthenticationPrincipa
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -80,15 +79,12 @@ class UserSearchControllerTest {
     @Test
     @DisplayName("로그인하지 않은 사용자는 publicId 사용자 검색을 할 수 없다")
     void failWhenUnauthenticated() {
-        // when
-        BusinessException exception = catchThrowableOfType(
-                () -> userSearchController.searchByPublicId(null, "TCAT-00000002"),
-                BusinessException.class
-        );
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> userSearchController.searchByPublicId(null, "TCAT-00000002"))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
+                );
 
-        // then
-        assertThat(exception).isNotNull();
-        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED");
         verify(userSearchService, never()).searchByPublicId(anyLong(), anyString());
     }
 

@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.user.friend.request.service;
 
 import jp.co.translacat.domain.user.entity.User;
+import jp.co.translacat.domain.user.friend.service.FriendService;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestListItemResponseDto;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestResponseDto;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestSendRequestDto;
@@ -25,6 +26,7 @@ public class FriendRequestService {
     private final FriendRequestRepository friendRequestRepository;
     private final UserRepository userRepository;
     private final UserProfileService userProfileService;
+    private final FriendService friendService;
 
     @Transactional
     public FriendRequestResponseDto sendFriendRequest(
@@ -81,12 +83,10 @@ public class FriendRequestService {
 
         friendRequest.accept();
 
-        /*
-         * Friend 도메인 구현 후 아래 처리를 추가한다.
-         *
-         * - 친구 요청 수락 시 Friend 관계 생성
-         * - 이미 Friend 관계가 있으면 중복 생성 방지
-         */
+        friendService.createFriend(
+                friendRequest.getRequesterUser(),
+                friendRequest.getReceiverUser()
+        );
 
         return toListItemResponse(friendRequest);
     }
@@ -245,11 +245,17 @@ public class FriendRequestService {
             );
         }
 
+        if (friendService != null && friendService.areFriends(
+                requesterUser.getId(),
+                receiverUser.getId()
+        )) {
+            throw new BusinessException(
+                    "이미 친구 관계입니다.",
+                    "FRIEND_ALREADY_EXISTS"
+            );
+        }
+
         /*
-         * Friend 도메인 구현 후 아래 검증을 추가한다.
-         *
-         * - 이미 친구인 사용자에게 요청할 수 없다.
-         *
          * UserBlock 도메인 구현 후 아래 검증을 추가한다.
          *
          * - 내가 상대를 차단한 경우 요청할 수 없다.

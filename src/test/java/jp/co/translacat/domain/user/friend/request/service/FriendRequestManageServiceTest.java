@@ -6,6 +6,7 @@ import jp.co.translacat.domain.user.friend.request.dto.FriendRequestListItemResp
 import jp.co.translacat.domain.user.friend.request.entity.FriendRequest;
 import jp.co.translacat.domain.user.friend.request.enums.FriendRequestStatus;
 import jp.co.translacat.domain.user.friend.request.repository.FriendRequestRepository;
+import jp.co.translacat.domain.user.friend.service.FriendService;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
 import jp.co.translacat.domain.user.profile.service.UserProfileService;
 import jp.co.translacat.domain.user.repository.UserRepository;
@@ -35,6 +36,9 @@ class FriendRequestManageServiceTest {
 
     @Mock
     private UserProfileService userProfileService;
+
+    @Mock
+    private FriendService friendService;
 
     @InjectMocks
     private FriendRequestService friendRequestService;
@@ -90,7 +94,7 @@ class FriendRequestManageServiceTest {
     }
 
     @Test
-    @DisplayName("친구 요청 수락")
+    @DisplayName("친구 요청 수락 시 친구 관계를 생성한다")
     void acceptFriendRequest() {
         // given
         User requester = createUser(1L, "requester@example.com", "requester", "TCAT-00000001");
@@ -106,6 +110,8 @@ class FriendRequestManageServiceTest {
         // then
         assertThat(response.status()).isEqualTo(FriendRequestStatus.ACCEPTED);
         assertThat(response.respondedAt()).isNotNull();
+
+        verify(friendService).createFriend(requester, receiver);
     }
 
     @Test
@@ -124,6 +130,8 @@ class FriendRequestManageServiceTest {
                 .satisfies(exception ->
                         assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_RECEIVER")
                 );
+
+        verify(friendService, never()).createFriend(any(User.class), any(User.class));
     }
 
     @Test
@@ -143,6 +151,8 @@ class FriendRequestManageServiceTest {
         // then
         assertThat(response.status()).isEqualTo(FriendRequestStatus.REJECTED);
         assertThat(response.respondedAt()).isNotNull();
+
+        verify(friendService, never()).createFriend(any(User.class), any(User.class));
     }
 
     @Test
@@ -162,6 +172,8 @@ class FriendRequestManageServiceTest {
         // then
         assertThat(response.status()).isEqualTo(FriendRequestStatus.CANCELED);
         assertThat(response.respondedAt()).isNotNull();
+
+        verify(friendService, never()).createFriend(any(User.class), any(User.class));
     }
 
     @Test
@@ -199,6 +211,8 @@ class FriendRequestManageServiceTest {
                 .satisfies(exception ->
                         assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PROCESSED")
                 );
+
+        verify(friendService, never()).createFriend(any(User.class), any(User.class));
     }
 
     private void mockProfiles(

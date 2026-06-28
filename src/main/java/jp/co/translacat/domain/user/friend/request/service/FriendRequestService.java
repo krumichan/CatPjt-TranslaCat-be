@@ -1,9 +1,11 @@
 package jp.co.translacat.domain.user.friend.request.service;
 
 import jp.co.translacat.domain.user.entity.User;
+import jp.co.translacat.domain.user.friend.request.dto.FriendRequestListItemResponseDto;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestResponseDto;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestSendRequestDto;
 import jp.co.translacat.domain.user.friend.request.entity.FriendRequest;
+import jp.co.translacat.domain.user.friend.request.enums.FriendRequestStatus;
 import jp.co.translacat.domain.user.friend.request.repository.FriendRequestRepository;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
 import jp.co.translacat.domain.user.profile.service.UserProfileService;
@@ -12,6 +14,8 @@ import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +47,74 @@ public class FriendRequestService {
                 friendRequest,
                 receiverProfile
         );
+    }
+
+    public List<FriendRequestListItemResponseDto> getReceivedPendingRequests(Long loginUserId) {
+        return friendRequestRepository
+                .findAllByReceiverUserIdAndStatusAndDeletedFalseOrderByRequestedAtDesc(
+                        loginUserId,
+                        FriendRequestStatus.PENDING
+                )
+                .stream()
+                .map(this::toListItemResponse)
+                .toList();
+    }
+
+    public List<FriendRequestListItemResponseDto> getSentPendingRequests(Long loginUserId) {
+        return friendRequestRepository
+                .findAllByRequesterUserIdAndStatusAndDeletedFalseOrderByRequestedAtDesc(
+                        loginUserId,
+                        FriendRequestStatus.PENDING
+                )
+                .stream()
+                .map(this::toListItemResponse)
+                .toList();
+    }
+
+    @Transactional
+    public FriendRequestListItemResponseDto acceptFriendRequest(
+            Long loginUserId,
+            Long requestId
+    ) {
+        FriendRequest friendRequest = getFriendRequest(requestId);
+        validateReceiver(friendRequest, loginUserId);
+
+        friendRequest.accept();
+
+        /*
+         * Friend 도메인 구현 후 아래 처리를 추가한다.
+         *
+         * - 친구 요청 수락 시 Friend 관계 생성
+         * - 이미 Friend 관계가 있으면 중복 생성 방지
+         */
+
+        return toListItemResponse(friendRequest);
+    }
+
+    @Transactional
+    public FriendRequestListItemResponseDto rejectFriendRequest(
+            Long loginUserId,
+            Long requestId
+    ) {
+        FriendRequest friendRequest = getFriendRequest(requestId);
+        validateReceiver(friendRequest, loginUserId);
+
+        friendRequest.reject();
+
+        return toListItemResponse(friendRequest);
+    }
+
+    @Transactional
+    public FriendRequestListItemResponseDto cancelFriendRequest(
+            Long loginUserId,
+            Long requestId
+    ) {
+        FriendRequest friendRequest = getFriendRequest(requestId);
+        validateRequester(friendRequest, loginUserId);
+
+        friendRequest.cancel();
+
+        return toListItemResponse(friendRequest);
     }
 
     @Transactional
@@ -84,6 +156,43 @@ public class FriendRequestService {
     public FriendRequest cancel(FriendRequest friendRequest) {
         friendRequest.cancel();
         return friendRequest;
+    }
+
+    private FriendRequestListItemResponseDto toListItemResponse(FriendRequest friendRequest) {
+        UserSummaryProfileResponseDto requesterProfile =
+                userProfileService.getSummaryByUser(friendRequest.getRequesterUser());
+        UserSummaryProfileResponseDto receiverProfile =
+                userProfileService.getSummaryByUser(friendRequest.getReceiverUser());
+
+        return FriendRequestListItemResponseDto.of(
+                friendRequest,
+                requesterProfile,
+                receiverProfile
+        );
+    }
+
+    private void validateReceiver(
+            FriendRequest friendRequest,
+            Long loginUserId
+    ) {
+        if (!friendRequest.isReceivedBy(loginUserId)) {
+            throw new BusinessException(
+                    "친구 요청 수신자만 처리할 수 있습니다.",
+                    "FRIEND_REQUEST_NOT_RECEIVER"
+            );
+        }
+    }
+
+    private void validateRequester(
+            FriendRequest friendRequest,
+            Long loginUserId
+    ) {
+        if (!friendRequest.isRequestedBy(loginUserId)) {
+            throw new BusinessException(
+                    "친구 요청 발신자만 취소할 수 있습니다.",
+                    "FRIEND_REQUEST_NOT_REQUESTER"
+            );
+        }
     }
 
     private User getUser(Long userId) {

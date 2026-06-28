@@ -6,7 +6,7 @@ import jp.co.translacat.domain.user.friend.dto.FriendResponseDto;
 import jp.co.translacat.domain.user.friend.entity.Friend;
 import jp.co.translacat.domain.user.friend.repository.FriendRepository;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
-import jp.co.translacat.domain.user.profile.service.UserProfileService;
+import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FriendApiServiceTest {
@@ -33,7 +33,7 @@ class FriendApiServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private UserProfileService userProfileService;
+    private UserProfileQueryService userProfileQueryService;
 
     @InjectMocks
     private FriendService friendService;
@@ -47,7 +47,7 @@ class FriendApiServiceTest {
         Friend friend = Friend.create(loginUser, friendUser);
 
         when(friendRepository.findActiveFriendsByUserId(1L)).thenReturn(List.of(friend));
-        when(userProfileService.getSummaryByUser(friendUser)).thenReturn(new UserSummaryProfileResponseDto(
+        when(userProfileQueryService.getSummaryByUser(friendUser)).thenReturn(new UserSummaryProfileResponseDto(
                 friendUser.getId(),
                 friendUser.getPublicId(),
                 friendUser.getUsername(),
@@ -73,7 +73,7 @@ class FriendApiServiceTest {
         Friend friend = Friend.create(loginUser, friendUser);
 
         when(friendRepository.findActiveFriendsByUserId(2L)).thenReturn(List.of(friend));
-        when(userProfileService.getSummaryByUser(friendUser)).thenReturn(new UserSummaryProfileResponseDto(
+        when(userProfileQueryService.getSummaryByUser(friendUser)).thenReturn(new UserSummaryProfileResponseDto(
                 friendUser.getId(),
                 friendUser.getPublicId(),
                 friendUser.getUsername(),

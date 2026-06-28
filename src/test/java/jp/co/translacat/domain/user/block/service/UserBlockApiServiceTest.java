@@ -8,7 +8,7 @@ import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.domain.user.friend.service.FriendService;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
-import jp.co.translacat.domain.user.profile.service.UserProfileService;
+import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
@@ -38,7 +38,7 @@ class UserBlockApiServiceTest {
     private FriendService friendService;
 
     @Mock
-    private UserProfileService userProfileService;
+    private UserProfileQueryService userProfileQueryService;
 
     @InjectMocks
     private UserBlockService userBlockService;
@@ -57,7 +57,7 @@ class UserBlockApiServiceTest {
         when(userBlockRepository.findByBlockerAndBlocked(1L, 2L)).thenReturn(Optional.empty());
         when(userBlockRepository.save(any(UserBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(friendService.areFriends(1L, 2L)).thenReturn(false);
-        when(userProfileService.getSummaryByUser(blocked)).thenReturn(createSummary(blocked));
+        when(userProfileQueryService.getSummaryByUser(blocked)).thenReturn(createSummary(blocked));
 
         // when
         UserBlockResponseDto response = userBlockService.blockUser(1L, request);
@@ -79,7 +79,7 @@ class UserBlockApiServiceTest {
         UserBlock userBlock = UserBlock.create(blocker, blocked);
 
         when(userBlockRepository.findActiveBlocksByBlockerUserId(1L)).thenReturn(List.of(userBlock));
-        when(userProfileService.getSummaryByUser(blocked)).thenReturn(createSummary(blocked));
+        when(userProfileQueryService.getSummaryByUser(blocked)).thenReturn(createSummary(blocked));
 
         // when
         List<UserBlockResponseDto> responses = userBlockService.getBlockedUsers(1L);

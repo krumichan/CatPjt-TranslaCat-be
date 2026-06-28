@@ -1,15 +1,15 @@
 package jp.co.translacat.domain.user.friend.request.service;
 
 import jp.co.translacat.domain.user.entity.User;
-import jp.co.translacat.domain.user.friend.service.FriendService;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestListItemResponseDto;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestResponseDto;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestSendRequestDto;
 import jp.co.translacat.domain.user.friend.request.entity.FriendRequest;
 import jp.co.translacat.domain.user.friend.request.enums.FriendRequestStatus;
 import jp.co.translacat.domain.user.friend.request.repository.FriendRequestRepository;
+import jp.co.translacat.domain.user.friend.service.FriendService;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
-import jp.co.translacat.domain.user.profile.service.UserProfileService;
+import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,7 @@ public class FriendRequestService {
 
     private final FriendRequestRepository friendRequestRepository;
     private final UserRepository userRepository;
-    private final UserProfileService userProfileService;
+    private final UserProfileQueryService userProfileQueryService;
     private final FriendService friendService;
 
     @Transactional
@@ -43,7 +43,7 @@ public class FriendRequestService {
                 receiverUser
         );
 
-        UserSummaryProfileResponseDto receiverProfile = userProfileService.getSummaryByUser(receiverUser);
+        UserSummaryProfileResponseDto receiverProfile = userProfileQueryService.getSummaryByUser(receiverUser);
 
         return FriendRequestResponseDto.of(
                 friendRequest,
@@ -160,9 +160,9 @@ public class FriendRequestService {
 
     private FriendRequestListItemResponseDto toListItemResponse(FriendRequest friendRequest) {
         UserSummaryProfileResponseDto requesterProfile =
-                userProfileService.getSummaryByUser(friendRequest.getRequesterUser());
+                userProfileQueryService.getSummaryByUser(friendRequest.getRequesterUser());
         UserSummaryProfileResponseDto receiverProfile =
-                userProfileService.getSummaryByUser(friendRequest.getReceiverUser());
+                userProfileQueryService.getSummaryByUser(friendRequest.getReceiverUser());
 
         return FriendRequestListItemResponseDto.of(
                 friendRequest,
@@ -245,7 +245,7 @@ public class FriendRequestService {
             );
         }
 
-        if (friendService != null && friendService.areFriends(
+        if (friendService.areFriends(
                 requesterUser.getId(),
                 receiverUser.getId()
         )) {

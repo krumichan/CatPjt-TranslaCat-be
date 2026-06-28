@@ -2,7 +2,7 @@ package jp.co.translacat.domain.user.search.service;
 
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
-import jp.co.translacat.domain.user.profile.service.UserProfileService;
+import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.domain.user.search.dto.UserSearchResponseDto;
 import jp.co.translacat.domain.user.search.enums.UserSearchFriendStatus;
@@ -17,9 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserSearchService {
 
     private final UserRepository userRepository;
-    private final UserProfileService userProfileService;
+    private final UserProfileQueryService userProfileQueryService;
 
-    @Transactional
     public UserSearchResponseDto searchByPublicId(
             Long loginUserId,
             String publicId
@@ -32,10 +31,13 @@ public class UserSearchService {
                         "PUBLIC_ID_NOT_FOUND"
                 ));
 
-        UserSummaryProfileResponseDto profile = userProfileService.getSummaryByUser(targetUser);
+        UserSummaryProfileResponseDto profile = userProfileQueryService.getSummaryByUser(targetUser);
         UserSearchFriendStatus friendStatus = resolveFriendStatus(loginUserId, targetUser);
 
-        return UserSearchResponseDto.of(profile, friendStatus);
+        return UserSearchResponseDto.of(
+                profile,
+                friendStatus
+        );
     }
 
     private UserSearchFriendStatus resolveFriendStatus(
@@ -55,6 +57,7 @@ public class UserSearchService {
          * - REQUEST_RECEIVED
          * - BLOCKED
          */
+
         return UserSearchFriendStatus.NONE;
     }
 

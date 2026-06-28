@@ -5,7 +5,7 @@ import jp.co.translacat.domain.user.friend.dto.FriendResponseDto;
 import jp.co.translacat.domain.user.friend.entity.Friend;
 import jp.co.translacat.domain.user.friend.repository.FriendRepository;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
-import jp.co.translacat.domain.user.profile.service.UserProfileService;
+import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +21,7 @@ public class FriendService {
 
     private final FriendRepository friendRepository;
     private final UserRepository userRepository;
-    private final UserProfileService userProfileService;
+    private final UserProfileQueryService userProfileQueryService;
 
     @Transactional
     public Friend createFriend(
@@ -91,7 +91,7 @@ public class FriendService {
             Long loginUserId
     ) {
         User friendUser = extractFriendUser(friend, loginUserId);
-        UserSummaryProfileResponseDto friendProfile = userProfileService.getSummaryByUser(friendUser);
+        UserSummaryProfileResponseDto friendProfile = userProfileQueryService.getSummaryByUser(friendUser);
 
         return FriendResponseDto.of(
                 friend,

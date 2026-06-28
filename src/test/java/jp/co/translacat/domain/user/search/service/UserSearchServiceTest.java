@@ -3,7 +3,7 @@ package jp.co.translacat.domain.user.search.service;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
-import jp.co.translacat.domain.user.profile.service.UserProfileService;
+import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.domain.user.search.dto.UserSearchResponseDto;
 import jp.co.translacat.domain.user.search.enums.UserSearchFriendStatus;
@@ -17,7 +17,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,7 +28,7 @@ class UserSearchServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private UserProfileService userProfileService;
+    private UserProfileQueryService userProfileQueryService;
 
     @InjectMocks
     private UserSearchService userSearchService;
@@ -46,7 +47,7 @@ class UserSearchServiceTest {
         );
 
         when(userRepository.findByPublicId("TCAT-00000002")).thenReturn(Optional.of(targetUser));
-        when(userProfileService.getSummaryByUser(targetUser)).thenReturn(profile);
+        when(userProfileQueryService.getSummaryByUser(targetUser)).thenReturn(profile);
 
         // when
         UserSearchResponseDto response = userSearchService.searchByPublicId(loginUserId, "TCAT-00000002");
@@ -88,7 +89,7 @@ class UserSearchServiceTest {
         );
 
         when(userRepository.findByPublicId("TCAT-00000001")).thenReturn(Optional.of(loginUser));
-        when(userProfileService.getSummaryByUser(loginUser)).thenReturn(profile);
+        when(userProfileQueryService.getSummaryByUser(loginUser)).thenReturn(profile);
 
         // when
         UserSearchResponseDto response = userSearchService.searchByPublicId(loginUserId, "TCAT-00000001");
@@ -104,7 +105,7 @@ class UserSearchServiceTest {
         Long loginUserId = 1L;
 
         assertThatExceptionOfType(BusinessException.class)
-                .isThrownBy(() -> userSearchService.searchByPublicId(loginUserId, "   "))
+                .isThrownBy(() -> userSearchService.searchByPublicId(loginUserId, " "))
                 .satisfies(exception ->
                         assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_REQUIRED")
                 );

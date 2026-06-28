@@ -7,7 +7,7 @@ import jp.co.translacat.domain.user.block.repository.UserBlockRepository;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.friend.service.FriendService;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
-import jp.co.translacat.domain.user.profile.service.UserProfileService;
+import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,7 @@ public class UserBlockService {
     private final UserBlockRepository userBlockRepository;
     private final UserRepository userRepository;
     private final FriendService friendService;
-    private final UserProfileService userProfileService;
+    private final UserProfileQueryService userProfileQueryService;
 
     @Transactional
     public UserBlockResponseDto blockUser(
@@ -135,7 +135,7 @@ public class UserBlockService {
 
     private UserBlockResponseDto toResponse(UserBlock userBlock) {
         UserSummaryProfileResponseDto blockedUserProfile =
-                userProfileService.getSummaryByUser(userBlock.getBlockedUser());
+                userProfileQueryService.getSummaryByUser(userBlock.getBlockedUser());
 
         return UserBlockResponseDto.of(
                 userBlock,

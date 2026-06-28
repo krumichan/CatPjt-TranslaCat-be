@@ -1,9 +1,13 @@
 package jp.co.translacat.domain.user.block.service;
 
+import jp.co.translacat.domain.user.block.dto.UserBlockRequestDto;
+import jp.co.translacat.domain.user.block.dto.UserBlockResponseDto;
 import jp.co.translacat.domain.user.block.entity.UserBlock;
 import jp.co.translacat.domain.user.block.repository.UserBlockRepository;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.friend.service.FriendService;
+import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
+import jp.co.translacat.domain.user.profile.service.UserProfileService;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +24,30 @@ public class UserBlockService {
     private final UserBlockRepository userBlockRepository;
     private final UserRepository userRepository;
     private final FriendService friendService;
+    private final UserProfileService userProfileService;
+
+    @Transactional
+    public UserBlockResponseDto blockUser(
+            Long blockerUserId,
+            UserBlockRequestDto request
+    ) {
+        validateBlockRequest(request);
+
+        User blockedUser = getUserByPublicId(request.blockedPublicId());
+        UserBlock userBlock = blockUser(
+                blockerUserId,
+                blockedUser.getId()
+        );
+
+        return toResponse(userBlock);
+    }
+
+    public List<UserBlockResponseDto> getBlockedUsers(Long blockerUserId) {
+        return userBlockRepository.findActiveBlocksByBlockerUserId(blockerUserId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
 
     @Transactional
     public UserBlock blockUser(
@@ -105,6 +133,25 @@ public class UserBlockService {
                 ));
     }
 
+    private UserBlockResponseDto toResponse(UserBlock userBlock) {
+        UserSummaryProfileResponseDto blockedUserProfile =
+                userProfileService.getSummaryByUser(userBlock.getBlockedUser());
+
+        return UserBlockResponseDto.of(
+                userBlock,
+                blockedUserProfile
+        );
+    }
+
+    private void validateBlockRequest(UserBlockRequestDto request) {
+        if (request == null || request.blockedPublicId() == null || request.blockedPublicId().trim().isEmpty()) {
+            throw new BusinessException(
+                    "차단 대상 publicId는 필수입니다.",
+                    "BLOCKED_PUBLIC_ID_REQUIRED"
+            );
+        }
+    }
+
     private UserBlock restoreOrThrowIfActive(UserBlock userBlock) {
         if (userBlock.isActive()) {
             throw new BusinessException(
@@ -122,6 +169,14 @@ public class UserBlockService {
                 .orElseThrow(() -> new BusinessException(
                         "사용자를 찾을 수 없습니다.",
                         "USER_NOT_FOUND"
+                ));
+    }
+
+    private User getUserByPublicId(String publicId) {
+        return userRepository.findByPublicId(publicId.trim())
+                .orElseThrow(() -> new BusinessException(
+                        "사용자를 찾을 수 없습니다.",
+                        "PUBLIC_ID_NOT_FOUND"
                 ));
     }
 }

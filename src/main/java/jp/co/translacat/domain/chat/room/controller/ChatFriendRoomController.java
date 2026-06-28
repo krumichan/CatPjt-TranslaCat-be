@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.chat.room.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import jp.co.translacat.domain.chat.room.dto.request.FriendGroupChatRoomCreateRequestDto;
 import jp.co.translacat.domain.chat.room.dto.response.ChatRoomResponseDto;
 import jp.co.translacat.domain.chat.room.facade.ChatRoomFacade;
 import jp.co.translacat.global.dto.ResponseDto;
@@ -32,6 +33,23 @@ public class ChatFriendRoomController {
         return ResponseUtil.ok(chatRoomFacade.createOrGetFriendDirectRoom(
                 loginUserId,
                 friendUserId
+        ));
+    }
+
+    @PostMapping("/group-rooms")
+    @Operation(
+            summary = "친구 그룹 채팅방 생성",
+            description = "친구 목록에서 선택한 사용자들과 FRIEND sourceType의 그룹 채팅방을 생성한다."
+    )
+    public ResponseDto<ChatRoomResponseDto> createFriendGroupRoom(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestBody FriendGroupChatRoomCreateRequestDto request
+    ) {
+        Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
+
+        return ResponseUtil.ok(chatRoomFacade.createFriendGroupRoom(
+                loginUserId,
+                request
         ));
     }
 }

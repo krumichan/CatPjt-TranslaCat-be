@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.chat.room.facade;
 
 import jp.co.translacat.domain.chat.room.dto.request.ChatRoomCreateRequestDto;
+import jp.co.translacat.domain.chat.room.dto.request.FriendGroupChatRoomCreateRequestDto;
 import jp.co.translacat.domain.chat.room.dto.response.ChatRoomListResponseDto;
 import jp.co.translacat.domain.chat.room.dto.response.ChatRoomResponseDto;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
@@ -38,6 +39,21 @@ public class ChatRoomFacade {
         ChatRoom chatRoom = chatRoomCommandService.createOrGetFriendDirectRoom(
                 loginUserId,
                 friendUserId
+        );
+
+        return chatRoomQueryService.getChatRoom(
+                loginUserId,
+                chatRoom.getId()
+        );
+    }
+
+    public ChatRoomResponseDto createFriendGroupRoom(
+            Long loginUserId,
+            FriendGroupChatRoomCreateRequestDto request
+    ) {
+        ChatRoom chatRoom = chatRoomCommandService.createFriendGroupRoom(
+                loginUserId,
+                request
         );
 
         return chatRoomQueryService.getChatRoom(

@@ -3,6 +3,7 @@ package jp.co.translacat.domain.chat.room.service;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.room.dto.request.ChatRoomCreateRequestDto;
+import jp.co.translacat.domain.chat.room.dto.request.FriendGroupChatRoomCreateRequestDto;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomSourceType;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
@@ -73,6 +74,55 @@ public class ChatRoomCommandService {
                         friendUserId,
                         ChatRoomSourceType.FRIEND
                 ));
+    }
+
+    public ChatRoom createFriendGroupRoom(
+            Long loginUserId,
+            FriendGroupChatRoomCreateRequestDto request
+    ) {
+        validateFriendGroupCreateRequest(request);
+
+        Set<Long> distinctMemberUserIds = getDistinctMemberUserIds(request.memberUserIds());
+
+        friendChatValidationService.validateGroupMembers(
+                loginUserId,
+                request.memberUserIds()
+        );
+
+        User owner = userService.getById(loginUserId);
+
+        ChatRoom chatRoom = ChatRoom.createGroupRoom(
+                request.name(),
+                request.description(),
+                owner,
+                ChatRoomSourceType.FRIEND
+        );
+
+        ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
+
+        chatRoomMemberRepository.save(
+                ChatRoomMember.createOwner(
+                        savedChatRoom,
+                        owner,
+                        null,
+                        null
+                )
+        );
+
+        for (Long memberUserId : distinctMemberUserIds) {
+            User memberUser = userService.getById(memberUserId);
+
+            chatRoomMemberRepository.save(
+                    ChatRoomMember.createMember(
+                            savedChatRoom,
+                            memberUser,
+                            null,
+                            null
+                    )
+            );
+        }
+
+        return savedChatRoom;
     }
 
     private ChatRoom createOrGetDirectRoom(
@@ -201,6 +251,22 @@ public class ChatRoomCommandService {
 
         if (request.roomType() == ChatRoomType.GROUP && distinctMemberUserIds.isEmpty()) {
             throw new BusinessException("그룹 채팅방은 최소 1명 이상의 멤버가 필요합니다.");
+        }
+    }
+
+    private void validateFriendGroupCreateRequest(FriendGroupChatRoomCreateRequestDto request) {
+        if (request == null) {
+            throw new BusinessException(
+                    "친구 그룹 채팅 생성 요청은 필수입니다.",
+                    "FRIEND_GROUP_CREATE_REQUEST_REQUIRED"
+            );
+        }
+
+        if (request.memberUserIds() == null || request.memberUserIds().isEmpty()) {
+            throw new BusinessException(
+                    "친구 그룹 채팅 멤버는 최소 1명 이상 필요합니다.",
+                    "FRIEND_GROUP_MEMBER_REQUIRED"
+            );
         }
     }
 

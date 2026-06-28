@@ -8,7 +8,7 @@ import jp.co.translacat.domain.user.friend.request.enums.FriendRequestStatus;
 import jp.co.translacat.domain.user.friend.request.repository.FriendRequestRepository;
 import jp.co.translacat.domain.user.friend.service.FriendService;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
-import jp.co.translacat.domain.user.profile.service.UserProfileService;
+import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
@@ -35,7 +35,7 @@ class FriendRequestManageServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private UserProfileService userProfileService;
+    private UserProfileQueryService userProfileQueryService;
 
     @Mock
     private FriendService friendService;
@@ -219,13 +219,13 @@ class FriendRequestManageServiceTest {
             User requester,
             User receiver
     ) {
-        when(userProfileService.getSummaryByUser(requester)).thenReturn(new UserSummaryProfileResponseDto(
+        when(userProfileQueryService.getSummaryByUser(requester)).thenReturn(new UserSummaryProfileResponseDto(
                 requester.getId(),
                 requester.getPublicId(),
                 requester.getUsername(),
                 null
         ));
-        when(userProfileService.getSummaryByUser(receiver)).thenReturn(new UserSummaryProfileResponseDto(
+        when(userProfileQueryService.getSummaryByUser(receiver)).thenReturn(new UserSummaryProfileResponseDto(
                 receiver.getId(),
                 receiver.getPublicId(),
                 receiver.getUsername(),

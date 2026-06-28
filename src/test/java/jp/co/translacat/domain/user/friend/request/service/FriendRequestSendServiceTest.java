@@ -7,8 +7,9 @@ import jp.co.translacat.domain.user.friend.request.dto.FriendRequestSendRequestD
 import jp.co.translacat.domain.user.friend.request.entity.FriendRequest;
 import jp.co.translacat.domain.user.friend.request.enums.FriendRequestStatus;
 import jp.co.translacat.domain.user.friend.request.repository.FriendRequestRepository;
+import jp.co.translacat.domain.user.friend.service.FriendService;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
-import jp.co.translacat.domain.user.profile.service.UserProfileService;
+import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
@@ -20,7 +21,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,7 +35,10 @@ class FriendRequestSendServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private UserProfileService userProfileService;
+    private UserProfileQueryService userProfileQueryService;
+
+    @Mock
+    private FriendService friendService;
 
     @InjectMocks
     private FriendRequestService friendRequestService;
@@ -47,18 +52,14 @@ class FriendRequestSendServiceTest {
         User receiverUser = createUser(2L, "receiver@example.com", "receiver", "TCAT-00000002");
         FriendRequestSendRequestDto request = new FriendRequestSendRequestDto("TCAT-00000002");
 
-        UserSummaryProfileResponseDto receiverProfile = new UserSummaryProfileResponseDto(
-                2L,
-                "TCAT-00000002",
-                "receiver",
-                null
-        );
+        UserSummaryProfileResponseDto receiverProfile = createSummary(receiverUser);
 
         when(userRepository.findById(requesterUserId)).thenReturn(Optional.of(requesterUser));
         when(userRepository.findByPublicId("TCAT-00000002")).thenReturn(Optional.of(receiverUser));
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(false);
+        when(friendService.areFriends(1L, 2L)).thenReturn(false);
         when(friendRequestRepository.save(any(FriendRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(userProfileService.getSummaryByUser(receiverUser)).thenReturn(receiverProfile);
+        when(userProfileQueryService.getSummaryByUser(receiverUser)).thenReturn(receiverProfile);
 
         // when
         FriendRequestResponseDto response = friendRequestService.sendFriendRequest(
@@ -89,6 +90,7 @@ class FriendRequestSendServiceTest {
         when(userRepository.findById(requesterUserId)).thenReturn(Optional.of(requesterUser));
         when(userRepository.findByPublicId("UNKNOWN")).thenReturn(Optional.empty());
 
+        // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.sendFriendRequest(requesterUserId, request))
                 .satisfies(exception ->
@@ -109,7 +111,9 @@ class FriendRequestSendServiceTest {
         when(userRepository.findById(requesterUserId)).thenReturn(Optional.of(requesterUser));
         when(userRepository.findByPublicId("TCAT-00000001")).thenReturn(Optional.of(requesterUser));
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 1L)).thenReturn(false);
+        when(friendService.areFriends(1L, 1L)).thenReturn(false);
 
+        // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.sendFriendRequest(requesterUserId, request))
                 .satisfies(exception ->
@@ -132,13 +136,47 @@ class FriendRequestSendServiceTest {
         when(userRepository.findByPublicId("TCAT-00000002")).thenReturn(Optional.of(receiverUser));
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(true);
 
+        // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.sendFriendRequest(requesterUserId, request))
                 .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("예외코드")
+                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PENDING")
                 );
 
         verify(friendRequestRepository, never()).save(any(FriendRequest.class));
+    }
+
+    @Test
+    @DisplayName("이미 친구 관계이면 친구 요청을 전송할 수 없다")
+    void failWhenAlreadyFriend() {
+        // given
+        Long requesterUserId = 1L;
+        User requesterUser = createUser(1L, "requester@example.com", "requester", "TCAT-00000001");
+        User receiverUser = createUser(2L, "receiver@example.com", "receiver", "TCAT-00000002");
+        FriendRequestSendRequestDto request = new FriendRequestSendRequestDto("TCAT-00000002");
+
+        when(userRepository.findById(requesterUserId)).thenReturn(Optional.of(requesterUser));
+        when(userRepository.findByPublicId("TCAT-00000002")).thenReturn(Optional.of(receiverUser));
+        when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(false);
+        when(friendService.areFriends(1L, 2L)).thenReturn(true);
+
+        // when & then
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> friendRequestService.sendFriendRequest(requesterUserId, request))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_ALREADY_EXISTS")
+                );
+
+        verify(friendRequestRepository, never()).save(any(FriendRequest.class));
+    }
+
+    private UserSummaryProfileResponseDto createSummary(User user) {
+        return new UserSummaryProfileResponseDto(
+                user.getId(),
+                user.getPublicId(),
+                user.getUsername(),
+                null
+        );
     }
 
     private User createUser(

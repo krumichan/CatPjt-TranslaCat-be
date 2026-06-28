@@ -5,6 +5,9 @@ import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.domain.user.friend.request.entity.FriendRequest;
 import jp.co.translacat.domain.user.friend.request.enums.FriendRequestStatus;
 import jp.co.translacat.domain.user.friend.request.repository.FriendRequestRepository;
+import jp.co.translacat.domain.user.friend.service.FriendService;
+import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
+import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,7 +18,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -23,6 +27,15 @@ class FriendRequestServiceTest {
 
     @Mock
     private FriendRequestRepository friendRequestRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private UserProfileQueryService userProfileQueryService;
+
+    @Mock
+    private FriendService friendService;
 
     @InjectMocks
     private FriendRequestService friendRequestService;
@@ -35,6 +48,7 @@ class FriendRequestServiceTest {
         User receiver = createUser(2L, "receiver@example.com", "receiver", "TCAT-00000002");
 
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(false);
+        when(friendService.areFriends(1L, 2L)).thenReturn(false);
         when(friendRequestRepository.save(any(FriendRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
@@ -62,6 +76,26 @@ class FriendRequestServiceTest {
                 .isThrownBy(() -> friendRequestService.createPendingRequest(requester, receiver))
                 .satisfies(exception ->
                         assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PENDING")
+                );
+
+        verify(friendRequestRepository, never()).save(any(FriendRequest.class));
+    }
+
+    @Test
+    @DisplayName("이미 친구 관계이면 친구 요청을 생성할 수 없다")
+    void failWhenAlreadyFriend() {
+        // given
+        User requester = createUser(1L, "requester@example.com", "requester", "TCAT-00000001");
+        User receiver = createUser(2L, "receiver@example.com", "receiver", "TCAT-00000002");
+
+        when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(false);
+        when(friendService.areFriends(1L, 2L)).thenReturn(true);
+
+        // when & then
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> friendRequestService.createPendingRequest(requester, receiver))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_ALREADY_EXISTS")
                 );
 
         verify(friendRequestRepository, never()).save(any(FriendRequest.class));

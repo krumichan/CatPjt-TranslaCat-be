@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.user.friend.request.service;
 
+import jp.co.translacat.domain.user.block.service.UserBlockService;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestListItemResponseDto;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestResponseDto;
@@ -27,6 +28,7 @@ public class FriendRequestService {
     private final UserRepository userRepository;
     private final UserProfileQueryService userProfileQueryService;
     private final FriendService friendService;
+    private final UserBlockService userBlockService;
 
     @Transactional
     public FriendRequestResponseDto sendFriendRequest(
@@ -43,12 +45,32 @@ public class FriendRequestService {
                 receiverUser
         );
 
-        UserSummaryProfileResponseDto receiverProfile = userProfileQueryService.getSummaryByUser(receiverUser);
+        UserSummaryProfileResponseDto receiverProfile =
+                userProfileQueryService.getSummaryByUser(receiverUser);
 
         return FriendRequestResponseDto.of(
                 friendRequest,
                 receiverProfile
         );
+    }
+
+    @Transactional
+    public FriendRequest createPendingRequest(
+            User requesterUser,
+            User receiverUser
+    ) {
+        validateUsers(requesterUser, receiverUser);
+        validateSelfRequest(requesterUser, receiverUser);
+        validateBlockRelation(requesterUser, receiverUser);
+        validateDuplicatePendingRequest(requesterUser, receiverUser);
+        validateAlreadyFriend(requesterUser, receiverUser);
+
+        FriendRequest friendRequest = FriendRequest.create(
+                requesterUser,
+                receiverUser
+        );
+
+        return friendRequestRepository.save(friendRequest);
     }
 
     public List<FriendRequestListItemResponseDto> getReceivedPendingRequests(Long loginUserId) {
@@ -79,16 +101,20 @@ public class FriendRequestService {
             Long requestId
     ) {
         FriendRequest friendRequest = getFriendRequest(requestId);
-        validateReceiver(friendRequest, loginUserId);
 
-        friendRequest.accept();
-
-        friendService.createFriend(
-                friendRequest.getRequesterUser(),
-                friendRequest.getReceiverUser()
+        validateReceiver(
+                friendRequest,
+                loginUserId
         );
 
-        return toListItemResponse(friendRequest);
+        FriendRequest acceptedRequest = accept(friendRequest);
+
+        friendService.createFriend(
+                acceptedRequest.getRequesterUser(),
+                acceptedRequest.getReceiverUser()
+        );
+
+        return toListItemResponse(acceptedRequest);
     }
 
     @Transactional
@@ -97,11 +123,13 @@ public class FriendRequestService {
             Long requestId
     ) {
         FriendRequest friendRequest = getFriendRequest(requestId);
-        validateReceiver(friendRequest, loginUserId);
 
-        friendRequest.reject();
+        validateReceiver(
+                friendRequest,
+                loginUserId
+        );
 
-        return toListItemResponse(friendRequest);
+        return toListItemResponse(reject(friendRequest));
     }
 
     @Transactional
@@ -110,26 +138,13 @@ public class FriendRequestService {
             Long requestId
     ) {
         FriendRequest friendRequest = getFriendRequest(requestId);
-        validateRequester(friendRequest, loginUserId);
 
-        friendRequest.cancel();
-
-        return toListItemResponse(friendRequest);
-    }
-
-    @Transactional
-    public FriendRequest createPendingRequest(
-            User requesterUser,
-            User receiverUser
-    ) {
-        validateDuplicatePendingRequest(requesterUser, receiverUser);
-
-        FriendRequest friendRequest = FriendRequest.create(
-                requesterUser,
-                receiverUser
+        validateRequester(
+                friendRequest,
+                loginUserId
         );
 
-        return friendRequestRepository.save(friendRequest);
+        return toListItemResponse(cancel(friendRequest));
     }
 
     public FriendRequest getFriendRequest(Long requestId) {
@@ -161,6 +176,7 @@ public class FriendRequestService {
     private FriendRequestListItemResponseDto toListItemResponse(FriendRequest friendRequest) {
         UserSummaryProfileResponseDto requesterProfile =
                 userProfileQueryService.getSummaryByUser(friendRequest.getRequesterUser());
+
         UserSummaryProfileResponseDto receiverProfile =
                 userProfileQueryService.getSummaryByUser(friendRequest.getReceiverUser());
 
@@ -169,6 +185,109 @@ public class FriendRequestService {
                 requesterProfile,
                 receiverProfile
         );
+    }
+
+    private User getUser(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(
+                        "사용자를 찾을 수 없습니다.",
+                        "USER_NOT_FOUND"
+                ));
+    }
+
+    private User getUserByPublicId(String publicId) {
+        return userRepository.findByPublicId(publicId.trim())
+                .orElseThrow(() -> new BusinessException(
+                        "사용자를 찾을 수 없습니다.",
+                        "PUBLIC_ID_NOT_FOUND"
+                ));
+    }
+
+    private void validateSendRequest(FriendRequestSendRequestDto request) {
+        if (request == null
+                || request.receiverPublicId() == null
+                || request.receiverPublicId().trim().isEmpty()) {
+            throw new BusinessException(
+                    "친구 요청 대상 publicId는 필수입니다.",
+                    "RECEIVER_PUBLIC_ID_REQUIRED"
+            );
+        }
+    }
+
+    private void validateUsers(
+            User requesterUser,
+            User receiverUser
+    ) {
+        if (requesterUser == null || receiverUser == null) {
+            throw new BusinessException(
+                    "친구 요청 사용자를 찾을 수 없습니다.",
+                    "USER_NOT_FOUND"
+            );
+        }
+
+        if (requesterUser.getId() == null || receiverUser.getId() == null) {
+            throw new BusinessException(
+                    "친구 요청 사용자를 찾을 수 없습니다.",
+                    "USER_NOT_FOUND"
+            );
+        }
+    }
+
+    private void validateSelfRequest(
+            User requesterUser,
+            User receiverUser
+    ) {
+        if (requesterUser.getId().equals(receiverUser.getId())) {
+            throw new BusinessException(
+                    "자기 자신에게 친구 요청을 보낼 수 없습니다.",
+                    "FRIEND_REQUEST_SELF_NOT_ALLOWED"
+            );
+        }
+    }
+
+    private void validateBlockRelation(
+            User requesterUser,
+            User receiverUser
+    ) {
+        if (userBlockService.isBlockedBetween(
+                requesterUser.getId(),
+                receiverUser.getId()
+        )) {
+            throw new BusinessException(
+                    "차단 관계가 있는 사용자에게 친구 요청을 보낼 수 없습니다.",
+                    "USER_BLOCKED_BETWEEN"
+            );
+        }
+    }
+
+    private void validateDuplicatePendingRequest(
+            User requesterUser,
+            User receiverUser
+    ) {
+        if (friendRequestRepository.existsPendingBetweenUsers(
+                requesterUser.getId(),
+                receiverUser.getId()
+        )) {
+            throw new BusinessException(
+                    "이미 대기 중인 친구 요청이 있습니다.",
+                    "FRIEND_REQUEST_ALREADY_PENDING"
+            );
+        }
+    }
+
+    private void validateAlreadyFriend(
+            User requesterUser,
+            User receiverUser
+    ) {
+        if (friendService.areFriends(
+                requesterUser.getId(),
+                receiverUser.getId()
+        )) {
+            throw new BusinessException(
+                    "이미 친구 관계인 사용자입니다.",
+                    "FRIEND_ALREADY_EXISTS"
+            );
+        }
     }
 
     private void validateReceiver(
@@ -193,73 +312,5 @@ public class FriendRequestService {
                     "FRIEND_REQUEST_NOT_REQUESTER"
             );
         }
-    }
-
-    private User getUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(
-                        "사용자를 찾을 수 없습니다.",
-                        "USER_NOT_FOUND"
-                ));
-    }
-
-    private User getUserByPublicId(String publicId) {
-        return userRepository.findByPublicId(publicId.trim())
-                .orElseThrow(() -> new BusinessException(
-                        "사용자를 찾을 수 없습니다.",
-                        "PUBLIC_ID_NOT_FOUND"
-                ));
-    }
-
-    private void validateSendRequest(FriendRequestSendRequestDto request) {
-        if (request == null || request.receiverPublicId() == null || request.receiverPublicId().trim().isEmpty()) {
-            throw new BusinessException(
-                    "친구 요청 대상 publicId는 필수입니다.",
-                    "RECEIVER_PUBLIC_ID_REQUIRED"
-            );
-        }
-    }
-
-    private void validateDuplicatePendingRequest(
-            User requesterUser,
-            User receiverUser
-    ) {
-        if (requesterUser == null || receiverUser == null) {
-            throw new BusinessException(
-                    "친구 요청 사용자를 찾을 수 없습니다.",
-                    "USER_NOT_FOUND"
-            );
-        }
-
-        if (requesterUser.getId() == null || receiverUser.getId() == null) {
-            return;
-        }
-
-        if (friendRequestRepository.existsPendingBetweenUsers(
-                requesterUser.getId(),
-                receiverUser.getId()
-        )) {
-            throw new BusinessException(
-                    "이미 대기 중인 친구 요청이 있습니다.",
-                    "FRIEND_REQUEST_ALREADY_PENDING"
-            );
-        }
-
-        if (friendService.areFriends(
-                requesterUser.getId(),
-                receiverUser.getId()
-        )) {
-            throw new BusinessException(
-                    "이미 친구 관계입니다.",
-                    "FRIEND_ALREADY_EXISTS"
-            );
-        }
-
-        /*
-         * UserBlock 도메인 구현 후 아래 검증을 추가한다.
-         *
-         * - 내가 상대를 차단한 경우 요청할 수 없다.
-         * - 상대가 나를 차단한 경우 요청할 수 없다.
-         */
     }
 }

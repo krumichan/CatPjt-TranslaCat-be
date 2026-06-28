@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.user.friend.request.service;
 
+import jp.co.translacat.domain.user.block.service.UserBlockService;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestListItemResponseDto;
@@ -39,6 +40,9 @@ class FriendRequestManageServiceTest {
 
     @Mock
     private FriendService friendService;
+
+    @Mock
+    private UserBlockService userBlockService;
 
     @InjectMocks
     private FriendRequestService friendRequestService;

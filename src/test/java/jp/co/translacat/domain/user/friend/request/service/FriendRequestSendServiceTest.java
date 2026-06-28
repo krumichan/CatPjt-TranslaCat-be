@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.user.friend.request.service;
 
+import jp.co.translacat.domain.user.block.service.UserBlockService;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestResponseDto;
@@ -40,6 +41,9 @@ class FriendRequestSendServiceTest {
     @Mock
     private FriendService friendService;
 
+    @Mock
+    private UserBlockService userBlockService;
+
     @InjectMocks
     private FriendRequestService friendRequestService;
 
@@ -56,6 +60,7 @@ class FriendRequestSendServiceTest {
 
         when(userRepository.findById(requesterUserId)).thenReturn(Optional.of(requesterUser));
         when(userRepository.findByPublicId("TCAT-00000002")).thenReturn(Optional.of(receiverUser));
+        when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(false);
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(false);
         when(friendService.areFriends(1L, 2L)).thenReturn(false);
         when(friendRequestRepository.save(any(FriendRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -110,14 +115,35 @@ class FriendRequestSendServiceTest {
 
         when(userRepository.findById(requesterUserId)).thenReturn(Optional.of(requesterUser));
         when(userRepository.findByPublicId("TCAT-00000001")).thenReturn(Optional.of(requesterUser));
-        when(friendRequestRepository.existsPendingBetweenUsers(1L, 1L)).thenReturn(false);
-        when(friendService.areFriends(1L, 1L)).thenReturn(false);
 
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.sendFriendRequest(requesterUserId, request))
                 .satisfies(exception ->
                         assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_SELF_NOT_ALLOWED")
+                );
+
+        verify(friendRequestRepository, never()).save(any(FriendRequest.class));
+    }
+
+    @Test
+    @DisplayName("차단 관계가 있으면 친구 요청을 전송할 수 없다")
+    void failWhenBlockedBetweenUsers() {
+        // given
+        Long requesterUserId = 1L;
+        User requesterUser = createUser(1L, "requester@example.com", "requester", "TCAT-00000001");
+        User receiverUser = createUser(2L, "receiver@example.com", "receiver", "TCAT-00000002");
+        FriendRequestSendRequestDto request = new FriendRequestSendRequestDto("TCAT-00000002");
+
+        when(userRepository.findById(requesterUserId)).thenReturn(Optional.of(requesterUser));
+        when(userRepository.findByPublicId("TCAT-00000002")).thenReturn(Optional.of(receiverUser));
+        when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(true);
+
+        // when & then
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> friendRequestService.sendFriendRequest(requesterUserId, request))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("USER_BLOCKED_BETWEEN")
                 );
 
         verify(friendRequestRepository, never()).save(any(FriendRequest.class));
@@ -134,6 +160,7 @@ class FriendRequestSendServiceTest {
 
         when(userRepository.findById(requesterUserId)).thenReturn(Optional.of(requesterUser));
         when(userRepository.findByPublicId("TCAT-00000002")).thenReturn(Optional.of(receiverUser));
+        when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(false);
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(true);
 
         // when & then
@@ -157,6 +184,7 @@ class FriendRequestSendServiceTest {
 
         when(userRepository.findById(requesterUserId)).thenReturn(Optional.of(requesterUser));
         when(userRepository.findByPublicId("TCAT-00000002")).thenReturn(Optional.of(receiverUser));
+        when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(false);
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(false);
         when(friendService.areFriends(1L, 2L)).thenReturn(true);
 

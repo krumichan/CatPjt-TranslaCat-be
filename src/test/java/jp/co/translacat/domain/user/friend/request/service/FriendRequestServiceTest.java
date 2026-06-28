@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.user.friend.request.service;
 
+import jp.co.translacat.domain.user.block.service.UserBlockService;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.domain.user.friend.request.entity.FriendRequest;
@@ -37,6 +38,9 @@ class FriendRequestServiceTest {
     @Mock
     private FriendService friendService;
 
+    @Mock
+    private UserBlockService userBlockService;
+
     @InjectMocks
     private FriendRequestService friendRequestService;
 
@@ -47,6 +51,7 @@ class FriendRequestServiceTest {
         User requester = createUser(1L, "requester@example.com", "requester", "TCAT-00000001");
         User receiver = createUser(2L, "receiver@example.com", "receiver", "TCAT-00000002");
 
+        when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(false);
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(false);
         when(friendService.areFriends(1L, 2L)).thenReturn(false);
         when(friendRequestRepository.save(any(FriendRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -63,12 +68,32 @@ class FriendRequestServiceTest {
     }
 
     @Test
+    @DisplayName("차단 관계가 있으면 친구 요청을 생성할 수 없다")
+    void failWhenBlockedBetweenUsers() {
+        // given
+        User requester = createUser(1L, "requester@example.com", "requester", "TCAT-00000001");
+        User receiver = createUser(2L, "receiver@example.com", "receiver", "TCAT-00000002");
+
+        when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(true);
+
+        // when & then
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> friendRequestService.createPendingRequest(requester, receiver))
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo("USER_BLOCKED_BETWEEN")
+                );
+
+        verify(friendRequestRepository, never()).save(any(FriendRequest.class));
+    }
+
+    @Test
     @DisplayName("중복 PENDING 친구 요청은 생성할 수 없다")
     void failWhenPendingRequestAlreadyExists() {
         // given
         User requester = createUser(1L, "requester@example.com", "requester", "TCAT-00000001");
         User receiver = createUser(2L, "receiver@example.com", "receiver", "TCAT-00000002");
 
+        when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(false);
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(true);
 
         // when & then
@@ -88,6 +113,7 @@ class FriendRequestServiceTest {
         User requester = createUser(1L, "requester@example.com", "requester", "TCAT-00000001");
         User receiver = createUser(2L, "receiver@example.com", "receiver", "TCAT-00000002");
 
+        when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(false);
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(false);
         when(friendService.areFriends(1L, 2L)).thenReturn(true);
 

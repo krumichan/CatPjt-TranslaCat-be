@@ -1,6 +1,11 @@
 package jp.co.translacat.domain.user.search.service;
 
+import jp.co.translacat.domain.user.block.service.UserBlockService;
 import jp.co.translacat.domain.user.entity.User;
+import jp.co.translacat.domain.user.friend.request.entity.FriendRequest;
+import jp.co.translacat.domain.user.friend.request.enums.FriendRequestStatus;
+import jp.co.translacat.domain.user.friend.request.repository.FriendRequestRepository;
+import jp.co.translacat.domain.user.friend.service.FriendService;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
 import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
 import jp.co.translacat.domain.user.repository.UserRepository;
@@ -18,11 +23,15 @@ public class UserSearchService {
 
     private final UserRepository userRepository;
     private final UserProfileQueryService userProfileQueryService;
+    private final FriendService friendService;
+    private final FriendRequestRepository friendRequestRepository;
+    private final UserBlockService userBlockService;
 
     public UserSearchResponseDto searchByPublicId(
             Long loginUserId,
             String publicId
     ) {
+        validateLoginUser(loginUserId);
         validatePublicId(publicId);
 
         User targetUser = userRepository.findByPublicId(publicId.trim())
@@ -44,21 +53,54 @@ public class UserSearchService {
             Long loginUserId,
             User targetUser
     ) {
-        if (targetUser.getId().equals(loginUserId)) {
+        Long targetUserId = targetUser.getId();
+
+        if (targetUserId.equals(loginUserId)) {
             return UserSearchFriendStatus.SELF;
         }
 
-        /*
-         * Phase 1.5 후속 이슈에서 FriendRequest/Friend/UserBlock 도메인이 추가되면
-         * 아래 상태를 확장한다.
-         *
-         * - FRIEND
-         * - REQUEST_SENT
-         * - REQUEST_RECEIVED
-         * - BLOCKED
-         */
+        if (userBlockService.isBlockedBetween(loginUserId, targetUserId)) {
+            return UserSearchFriendStatus.BLOCKED;
+        }
+
+        if (friendService.areFriends(loginUserId, targetUserId)) {
+            return UserSearchFriendStatus.FRIEND;
+        }
+
+        return friendRequestRepository.findBetweenUsersByStatus(
+                        loginUserId,
+                        targetUserId,
+                        FriendRequestStatus.PENDING
+                )
+                .map(friendRequest -> resolvePendingRequestStatus(
+                        friendRequest,
+                        loginUserId
+                ))
+                .orElse(UserSearchFriendStatus.NONE);
+    }
+
+    private UserSearchFriendStatus resolvePendingRequestStatus(
+            FriendRequest friendRequest,
+            Long loginUserId
+    ) {
+        if (friendRequest.isRequestedBy(loginUserId)) {
+            return UserSearchFriendStatus.REQUEST_SENT;
+        }
+
+        if (friendRequest.isReceivedBy(loginUserId)) {
+            return UserSearchFriendStatus.REQUEST_RECEIVED;
+        }
 
         return UserSearchFriendStatus.NONE;
+    }
+
+    private void validateLoginUser(Long loginUserId) {
+        if (loginUserId == null) {
+            throw new BusinessException(
+                    "로그인이 필요합니다.",
+                    "UNAUTHORIZED"
+            );
+        }
     }
 
     private void validatePublicId(String publicId) {

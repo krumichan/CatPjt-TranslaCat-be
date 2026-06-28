@@ -1,8 +1,11 @@
 package jp.co.translacat.domain.user.friend.service;
 
 import jp.co.translacat.domain.user.entity.User;
+import jp.co.translacat.domain.user.friend.dto.FriendResponseDto;
 import jp.co.translacat.domain.user.friend.entity.Friend;
 import jp.co.translacat.domain.user.friend.repository.FriendRepository;
+import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
+import jp.co.translacat.domain.user.profile.service.UserProfileService;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +21,7 @@ public class FriendService {
 
     private final FriendRepository friendRepository;
     private final UserRepository userRepository;
+    private final UserProfileService userProfileService;
 
     @Transactional
     public Friend createFriend(
@@ -66,13 +70,51 @@ public class FriendService {
         return friendRepository.findActiveFriendsByUserId(userId);
     }
 
+    public List<FriendResponseDto> getFriends(Long loginUserId) {
+        return friendRepository.findActiveFriendsByUserId(loginUserId)
+                .stream()
+                .map(friend -> toResponse(friend, loginUserId))
+                .toList();
+    }
+
     @Transactional
     public void deleteFriend(
-            Long userId1,
-            Long userId2
+            Long loginUserId,
+            Long friendUserId
     ) {
-        Friend friend = getActiveFriend(userId1, userId2);
+        Friend friend = getActiveFriend(loginUserId, friendUserId);
         friend.softDelete();
+    }
+
+    private FriendResponseDto toResponse(
+            Friend friend,
+            Long loginUserId
+    ) {
+        User friendUser = extractFriendUser(friend, loginUserId);
+        UserSummaryProfileResponseDto friendProfile = userProfileService.getSummaryByUser(friendUser);
+
+        return FriendResponseDto.of(
+                friend,
+                friendProfile
+        );
+    }
+
+    private User extractFriendUser(
+            Friend friend,
+            Long loginUserId
+    ) {
+        if (friend.getUserLow().getId().equals(loginUserId)) {
+            return friend.getUserHigh();
+        }
+
+        if (friend.getUserHigh().getId().equals(loginUserId)) {
+            return friend.getUserLow();
+        }
+
+        throw new BusinessException(
+                "친구 관계에 포함된 사용자가 아닙니다.",
+                "FRIEND_USER_NOT_INCLUDED"
+        );
     }
 
     private Friend restoreOrThrowIfActive(Friend friend) {

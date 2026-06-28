@@ -20,7 +20,25 @@ public class ChatRoomFacade {
             Long loginUserId,
             ChatRoomCreateRequestDto request
     ) {
-        ChatRoom chatRoom = chatRoomCommandService.create(loginUserId, request);
+        ChatRoom chatRoom = chatRoomCommandService.create(
+                loginUserId,
+                request
+        );
+
+        return chatRoomQueryService.getChatRoom(
+                loginUserId,
+                chatRoom.getId()
+        );
+    }
+
+    public ChatRoomResponseDto createOrGetFriendDirectRoom(
+            Long loginUserId,
+            Long friendUserId
+    ) {
+        ChatRoom chatRoom = chatRoomCommandService.createOrGetFriendDirectRoom(
+                loginUserId,
+                friendUserId
+        );
 
         return chatRoomQueryService.getChatRoom(
                 loginUserId,

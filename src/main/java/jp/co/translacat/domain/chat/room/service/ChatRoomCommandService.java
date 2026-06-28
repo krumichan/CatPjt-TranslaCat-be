@@ -7,7 +7,9 @@ import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomSourceType;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.chat.room.repository.ChatRoomRepository;
+import jp.co.translacat.domain.user.block.service.UserBlockService;
 import jp.co.translacat.domain.user.entity.User;
+import jp.co.translacat.domain.user.friend.service.FriendService;
 import jp.co.translacat.domain.user.service.UserService;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,8 @@ public class ChatRoomCommandService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final UserService userService;
+    private final FriendService friendService;
+    private final UserBlockService userBlockService;
 
     public ChatRoom create(
             Long loginUserId,
@@ -48,6 +52,30 @@ public class ChatRoomCommandService {
         }
 
         throw new BusinessException("오픈 채팅방은 1차 MVP 생성 대상이 아닙니다.");
+    }
+
+    public ChatRoom createOrGetFriendDirectRoom(
+            Long loginUserId,
+            Long friendUserId
+    ) {
+        validateFriendDirectRoomRequest(loginUserId, friendUserId);
+
+        validateFriendRelation(loginUserId, friendUserId);
+        validateBlockRelation(loginUserId, friendUserId);
+
+        User owner = userService.getById(loginUserId);
+
+        return chatRoomRepository
+                .findActiveDirectRoomByUserIdsAndSourceType(
+                        loginUserId,
+                        friendUserId,
+                        ChatRoomSourceType.FRIEND
+                )
+                .orElseGet(() -> createDirectRoom(
+                        owner,
+                        friendUserId,
+                        ChatRoomSourceType.FRIEND
+                ));
     }
 
     private ChatRoom createOrGetDirectRoom(
@@ -81,7 +109,11 @@ public class ChatRoomCommandService {
     ) {
         User targetUser = userService.getById(targetUserId);
 
-        ChatRoom chatRoom = ChatRoom.createDirectRoom(owner, sourceType);
+        ChatRoom chatRoom = ChatRoom.createDirectRoom(
+                owner,
+                sourceType
+        );
+
         ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
 
         chatRoomMemberRepository.save(
@@ -140,6 +172,56 @@ public class ChatRoomCommandService {
         }
 
         return savedChatRoom;
+    }
+
+    private void validateFriendDirectRoomRequest(
+            Long loginUserId,
+            Long friendUserId
+    ) {
+        if (loginUserId == null) {
+            throw new BusinessException(
+                    "로그인이 필요합니다.",
+                    "UNAUTHORIZED"
+            );
+        }
+
+        if (friendUserId == null) {
+            throw new BusinessException(
+                    "친구 사용자 ID는 필수입니다.",
+                    "FRIEND_USER_ID_REQUIRED"
+            );
+        }
+
+        if (loginUserId.equals(friendUserId)) {
+            throw new BusinessException(
+                    "자기 자신과 친구 채팅을 시작할 수 없습니다.",
+                    "FRIEND_DIRECT_ROOM_SELF_NOT_ALLOWED"
+            );
+        }
+    }
+
+    private void validateFriendRelation(
+            Long loginUserId,
+            Long friendUserId
+    ) {
+        if (!friendService.areFriends(loginUserId, friendUserId)) {
+            throw new BusinessException(
+                    "친구 관계인 사용자와만 채팅을 시작할 수 있습니다.",
+                    "FRIEND_RELATION_REQUIRED"
+            );
+        }
+    }
+
+    private void validateBlockRelation(
+            Long loginUserId,
+            Long friendUserId
+    ) {
+        if (userBlockService.isBlockedBetween(loginUserId, friendUserId)) {
+            throw new BusinessException(
+                    "차단 관계가 있는 사용자와 채팅을 시작할 수 없습니다.",
+                    "USER_BLOCKED_BETWEEN"
+            );
+        }
     }
 
     private void validateCreateRequest(

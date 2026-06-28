@@ -1,5 +1,7 @@
 package jp.co.translacat.global.utils;
 
+import jp.co.translacat.global.exception.BusinessException;
+import jp.co.translacat.global.security.UserPrincipal;
 import lombok.experimental.UtilityClass;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -81,5 +83,16 @@ public class SecurityUtil {
         }
 
         return principal.toString();
+    }
+
+    public static Long getLoginUserId(UserPrincipal userPrincipal) {
+        if (userPrincipal == null) {
+            throw new BusinessException(
+                    "로그인이 필요합니다.",
+                    "UNAUTHORIZED"
+            );
+        }
+
+        return userPrincipal.getId();
     }
 }

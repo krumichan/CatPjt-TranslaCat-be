@@ -3,6 +3,7 @@ package jp.co.translacat.domain.chat.translation.repository;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
 import jp.co.translacat.domain.chat.translation.enums.ChatMessageTranslationStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
@@ -37,6 +38,11 @@ public interface ChatMessageTranslationRepository extends JpaRepository<ChatMess
 
     List<ChatMessageTranslation> findTop100ByStatusAndDeletedAtIsNullOrderByIdAsc(
             ChatMessageTranslationStatus status
+    );
+
+    List<ChatMessageTranslation> findByStatusAndDeletedAtIsNullOrderByIdAsc(
+            ChatMessageTranslationStatus status,
+            Pageable pageable
     );
 
     List<ChatMessageTranslation> findByIdInAndStatusAndDeletedAtIsNull(

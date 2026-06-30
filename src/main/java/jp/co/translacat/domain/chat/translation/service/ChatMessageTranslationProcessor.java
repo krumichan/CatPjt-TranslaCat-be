@@ -1,15 +1,16 @@
 package jp.co.translacat.domain.chat.translation.service;
 
-import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationCompletedEvent;
-import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationFailedEvent;
-import jp.co.translacat.domain.chat.translation.port.ChatTranslationClient;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
 import jp.co.translacat.domain.chat.translation.enums.ChatMessageTranslationStatus;
+import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationCompletedEvent;
+import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationFailedEvent;
 import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationRequestedEvent;
+import jp.co.translacat.domain.chat.translation.port.ChatTranslationClient;
 import jp.co.translacat.domain.chat.translation.repository.ChatMessageTranslationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,8 @@ import java.util.List;
 public class ChatMessageTranslationProcessor {
 
     private static final int MAX_FAILURE_REASON_LENGTH = 1000;
+    private static final int DEFAULT_RETRY_LIMIT = 50;
+    private static final int MAX_RETRY_LIMIT = 100;
 
     private final ChatMessageTranslationRepository chatMessageTranslationRepository;
     private final ChatTranslationClient chatTranslationClient;
@@ -36,8 +39,7 @@ public class ChatMessageTranslationProcessor {
             return;
         }
 
-        List<ChatMessageTranslation> pendingTranslations =
-                findPendingTranslations(event);
+        List<ChatMessageTranslation> pendingTranslations = findPendingTranslations(event);
 
         if (pendingTranslations.isEmpty()) {
             log.debug(
@@ -55,11 +57,62 @@ public class ChatMessageTranslationProcessor {
         );
 
         for (ChatMessageTranslation translation : pendingTranslations) {
-            processPendingTranslation(translation);
+            processTranslation(translation);
         }
     }
 
-    private void processPendingTranslation(ChatMessageTranslation translation) {
+    @Transactional
+    public ChatMessageTranslationRetryResult retryFailedTranslations(
+            Integer limit
+    ) {
+        int safeLimit = resolveRetryLimit(limit);
+
+        List<ChatMessageTranslation> failedTranslations =
+                chatMessageTranslationRepository.findByStatusAndDeletedAtIsNullOrderByIdAsc(
+                        ChatMessageTranslationStatus.FAILED,
+                        PageRequest.of(0, safeLimit)
+                );
+
+        if (failedTranslations.isEmpty()) {
+            return new ChatMessageTranslationRetryResult(0, 0, 0);
+        }
+
+        int successCount = 0;
+        int failedCount = 0;
+
+        log.info(
+                "Retry failed chat message translations started. targetCount={}, limit={}",
+                failedTranslations.size(),
+                safeLimit
+        );
+
+        for (ChatMessageTranslation translation : failedTranslations) {
+            translation.retry();
+
+            boolean success = processTranslation(translation);
+
+            if (success) {
+                successCount++;
+            } else {
+                failedCount++;
+            }
+        }
+
+        log.info(
+                "Retry failed chat message translations finished. targetCount={}, successCount={}, failedCount={}",
+                failedTranslations.size(),
+                successCount,
+                failedCount
+        );
+
+        return new ChatMessageTranslationRetryResult(
+                failedTranslations.size(),
+                successCount,
+                failedCount
+        );
+    }
+
+    private boolean processTranslation(ChatMessageTranslation translation) {
         try {
             String originalText = translation.getChatMessage().getContent();
             String targetLanguageCode = translation.getLanguageCode();
@@ -81,6 +134,8 @@ public class ChatMessageTranslationProcessor {
                     translation.getId(),
                     translation.getLanguageCode()
             );
+
+            return true;
         } catch (Exception exception) {
             String failureReason = resolveFailureReason(exception);
 
@@ -96,18 +151,19 @@ public class ChatMessageTranslationProcessor {
                     failureReason,
                     exception
             );
+
+            return false;
         }
     }
 
     private List<ChatMessageTranslation> findPendingTranslations(
             ChatMessageTranslationRequestedEvent event
     ) {
-        List<ChatMessageTranslation> translations =
-                chatMessageTranslationRepository
-                        .findByIdInAndStatusAndDeletedAtIsNull(
-                                event.translationIds(),
-                                ChatMessageTranslationStatus.PENDING
-                        );
+        List<ChatMessageTranslation> translations = chatMessageTranslationRepository
+                .findByIdInAndStatusAndDeletedAtIsNull(
+                        event.translationIds(),
+                        ChatMessageTranslationStatus.PENDING
+                );
 
         return translations.stream()
                 .filter(translation ->
@@ -115,6 +171,14 @@ public class ChatMessageTranslationProcessor {
                                 && translation.getChatMessage().getId().equals(event.messageId())
                 )
                 .toList();
+    }
+
+    private int resolveRetryLimit(Integer limit) {
+        if (limit == null || limit <= 0) {
+            return DEFAULT_RETRY_LIMIT;
+        }
+
+        return Math.min(limit, MAX_RETRY_LIMIT);
     }
 
     private String resolveFailureReason(Exception exception) {

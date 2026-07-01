@@ -76,13 +76,8 @@ public class ChatMessageCommandService {
         );
 
         /*
-         * REST 메시지 생성도 실시간 채팅 화면에 반영되어야 한다.
-         *
-         * 현재 FE는 STOMP SEND가 불안정해서 메시지 송신을 REST로 고정하고 있다.
-         * 따라서 REST 생성 성공 후에도 /topic/chat/rooms/{chatRoomId}로
-         * chat.message.created 이벤트를 publish해야 다른 접속 클라이언트가 즉시 갱신된다.
-         *
-         * 송신자 본인도 이 이벤트를 받을 수 있지만, FE는 message.id 기준으로 merge/dedupe한다.
+         * REST 생성과 WebSocket SEND 생성 모두 이 Service를 통과한다.
+         * 따라서 message.created publish도 여기에서 일원화한다.
          */
         chatWebSocketEventPublisher.publishMessageCreated(
                 savedMessage.getChatRoom().getId(),

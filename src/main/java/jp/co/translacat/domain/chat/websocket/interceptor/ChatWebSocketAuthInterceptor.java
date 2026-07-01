@@ -12,6 +12,7 @@ import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
@@ -27,8 +28,10 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+
     private static final Pattern CHAT_ROOM_TOPIC_PATTERN =
             Pattern.compile("^/topic/chat/rooms/(\\d+)$");
+
     private static final Pattern CHAT_ROOM_SEND_PATTERN =
             Pattern.compile("^/app/chat/rooms/(\\d+)/messages$");
 
@@ -49,14 +52,16 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
             return message;
         }
 
+        boolean authenticationUpdated = false;
+
         switch (command) {
-            case CONNECT -> authenticate(accessor);
+            case CONNECT -> authenticationUpdated = authenticate(accessor);
             case SUBSCRIBE -> {
-                ensureAuthenticated(accessor);
+                authenticationUpdated = ensureAuthenticated(accessor);
                 validateSubscribe(accessor);
             }
             case SEND -> {
-                ensureAuthenticated(accessor);
+                authenticationUpdated = ensureAuthenticated(accessor);
                 validateSend(accessor);
             }
             default -> {
@@ -64,28 +69,37 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
             }
         }
 
-        return message;
+        if (!authenticationUpdated) {
+            return message;
+        }
+
+        /*
+         * 중요:
+         * accessor.setUser(authentication)만 호출하고 원본 message를 그대로 반환하면,
+         * 환경에 따라 @MessageMapping 메서드의 Principal 파라미터까지 인증 정보가
+         * 전달되지 않는 경우가 있다.
+         *
+         * 인증 정보가 반영된 MessageHeaders로 새 Message를 반환해
+         * simpUser 헤더가 이후 HandlerMapping/Controller까지 확실히 전달되도록 한다.
+         */
+        return MessageBuilder.createMessage(
+                message.getPayload(),
+                accessor.getMessageHeaders()
+        );
     }
 
-    private void ensureAuthenticated(StompHeaderAccessor accessor) {
+    private boolean ensureAuthenticated(StompHeaderAccessor accessor) {
         Principal principal = accessor.getUser();
 
         if (principal instanceof Authentication authentication
                 && authentication.getPrincipal() instanceof UserPrincipal) {
-            return;
+            return false;
         }
 
-        /*
-         * CONNECT에서 setUser를 해도 환경/설정에 따라 SUBSCRIBE/SEND 프레임에서
-         * accessor.getUser()가 비어 있는 경우가 있다.
-         *
-         * FE는 SUBSCRIBE/SEND에도 Authorization native header를 보내고 있으므로,
-         * Principal이 없을 때는 같은 토큰으로 다시 인증해 준다.
-         */
-        authenticate(accessor);
+        return authenticate(accessor);
     }
 
-    private void authenticate(StompHeaderAccessor accessor) {
+    private boolean authenticate(StompHeaderAccessor accessor) {
         String token = extractBearerToken(accessor);
 
         if (token == null) {
@@ -93,6 +107,7 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
         }
 
         String username = jwtService.extractUsername(token);
+
         UserPrincipal userPrincipal =
                 (UserPrincipal) myUserDetailsService.loadUserByUsername(username);
 
@@ -100,13 +115,15 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
             throw new BusinessException("유효하지 않은 WebSocket 인증 토큰입니다.");
         }
 
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-                userPrincipal,
-                null,
-                userPrincipal.getAuthorities()
-        );
+        Authentication authentication =
+                new UsernamePasswordAuthenticationToken(
+                        userPrincipal,
+                        null,
+                        userPrincipal.getAuthorities()
+                );
 
         accessor.setUser(authentication);
+        return true;
     }
 
     private String extractBearerToken(StompHeaderAccessor accessor) {
@@ -119,7 +136,8 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
 
         String authorizationHeader = authorizationHeaders.get(0);
 
-        if (authorizationHeader == null || !authorizationHeader.startsWith(BEARER_PREFIX)) {
+        if (authorizationHeader == null
+                || !authorizationHeader.startsWith(BEARER_PREFIX)) {
             return null;
         }
 

@@ -20,9 +20,15 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -38,12 +44,15 @@ class UserProfileControllerTest {
     @BeforeEach
     void setUp() {
         userProfileService = mock(UserProfileService.class);
-        userProfileController = new UserProfileController(userProfileService);
+        userProfileController =
+                new UserProfileController(userProfileService);
         objectMapper = new ObjectMapper();
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(userProfileController)
-                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                .setCustomArgumentResolvers(
+                        new AuthenticationPrincipalArgumentResolver()
+                )
                 .build();
     }
 
@@ -58,98 +67,145 @@ class UserProfileControllerTest {
         Long loginUserId = 1L;
         setAuthentication(loginUserId);
 
-        UserProfileResponseDto response = new UserProfileResponseDto(
-                loginUserId,
-                "TCAT-00000001",
-                "testUser",
-                null,
-                "안녕하세요",
-                LocalDateTime.of(2026, 6, 28, 10, 0),
-                LocalDateTime.of(2026, 6, 28, 10, 0)
-        );
+        UserProfileResponseDto response =
+                new UserProfileResponseDto(
+                        loginUserId,
+                        "TCAT-00000001",
+                        "testUser",
+                        null,
+                        null,
+                        "안녕하세요",
+                        LocalDateTime.of(2026, 6, 28, 10, 0),
+                        LocalDateTime.of(2026, 6, 28, 10, 0)
+                );
 
-        when(userProfileService.getMyProfile(loginUserId)).thenReturn(response);
+        when(userProfileService.getMyProfile(loginUserId))
+                .thenReturn(response);
 
         mockMvc.perform(get("/api/v1/users/me/profile"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value(200))
-                .andExpect(jsonPath("$.body.userId").value(loginUserId))
-                .andExpect(jsonPath("$.body.publicId").value("TCAT-00000001"))
-                .andExpect(jsonPath("$.body.nickname").value("testUser"))
-                .andExpect(jsonPath("$.body.bio").value("안녕하세요"));
+                .andExpect(
+                        jsonPath("$.body.userId").value(loginUserId)
+                )
+                .andExpect(
+                        jsonPath("$.body.publicId")
+                                .value("TCAT-00000001")
+                )
+                .andExpect(
+                        jsonPath("$.body.nickname").value("testUser")
+                )
+                .andExpect(
+                        jsonPath("$.body.bio").value("안녕하세요")
+                );
 
         verify(userProfileService).getMyProfile(loginUserId);
     }
 
     @Test
-    @DisplayName("내 프로필 수정 API 테스트")
+    @DisplayName("내 프로필 텍스트 수정 API 테스트")
     void updateMyProfile() throws Exception {
         Long loginUserId = 1L;
         setAuthentication(loginUserId);
 
-        UserProfileUpdateRequestDto request = new UserProfileUpdateRequestDto(
-                "updatedNickname",
-                "https://example.com/profile.png",
-                "수정된 자기소개"
-        );
+        UserProfileUpdateRequestDto request =
+                new UserProfileUpdateRequestDto(
+                        "updatedNickname",
+                        "수정된 자기소개"
+                );
 
-        UserProfileResponseDto response = new UserProfileResponseDto(
-                loginUserId,
-                "TCAT-00000001",
-                "updatedNickname",
-                "https://example.com/profile.png",
-                "수정된 자기소개",
-                LocalDateTime.of(2026, 6, 28, 10, 0),
-                LocalDateTime.of(2026, 6, 28, 10, 5)
-        );
+        UserProfileResponseDto response =
+                new UserProfileResponseDto(
+                        loginUserId,
+                        "TCAT-00000001",
+                        "updatedNickname",
+                        null,
+                        null,
+                        "수정된 자기소개",
+                        LocalDateTime.of(2026, 6, 28, 10, 0),
+                        LocalDateTime.of(2026, 6, 28, 10, 5)
+                );
 
-        when(userProfileService.updateMyProfile(eq(loginUserId), any(UserProfileUpdateRequestDto.class)))
-                .thenReturn(response);
+        when(userProfileService.updateMyProfile(
+                eq(loginUserId),
+                any(UserProfileUpdateRequestDto.class)
+        )).thenReturn(response);
 
         mockMvc.perform(
                         patch("/api/v1/users/me/profile")
                                 .contentType("application/json")
-                                .content(objectMapper.writeValueAsString(request))
+                                .content(
+                                        objectMapper.writeValueAsString(
+                                                request
+                                        )
+                                )
                 )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value(200))
-                .andExpect(jsonPath("$.body.userId").value(loginUserId))
-                .andExpect(jsonPath("$.body.publicId").value("TCAT-00000001"))
-                .andExpect(jsonPath("$.body.nickname").value("updatedNickname"))
-                .andExpect(jsonPath("$.body.profileImageUrl").value("https://example.com/profile.png"))
-                .andExpect(jsonPath("$.body.bio").value("수정된 자기소개"));
+                .andExpect(
+                        jsonPath("$.body.userId").value(loginUserId)
+                )
+                .andExpect(
+                        jsonPath("$.body.publicId")
+                                .value("TCAT-00000001")
+                )
+                .andExpect(
+                        jsonPath("$.body.nickname")
+                                .value("updatedNickname")
+                )
+                .andExpect(
+                        jsonPath("$.body.bio")
+                                .value("수정된 자기소개")
+                );
 
-        verify(userProfileService).updateMyProfile(eq(loginUserId), any(UserProfileUpdateRequestDto.class));
+        verify(userProfileService).updateMyProfile(
+                eq(loginUserId),
+                any(UserProfileUpdateRequestDto.class)
+        );
     }
 
     @Test
     @DisplayName("로그인하지 않은 사용자는 내 프로필을 조회할 수 없다")
     void failToGetMyProfileWhenUnauthenticated() {
         assertThatExceptionOfType(BusinessException.class)
-                .isThrownBy(() -> userProfileController.getMyProfile(null))
+                .isThrownBy(
+                        () -> userProfileController.getMyProfile(null)
+                )
                 .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
+                        assertThat(exception.getErrorCode())
+                                .isEqualTo("UNAUTHORIZED")
                 );
 
-        verify(userProfileService, never()).getMyProfile(anyLong());
+        verify(userProfileService, never())
+                .getMyProfile(anyLong());
     }
 
     @Test
     @DisplayName("로그인하지 않은 사용자는 내 프로필을 수정할 수 없다")
     void failToUpdateMyProfileWhenUnauthenticated() {
-        UserProfileUpdateRequestDto request = new UserProfileUpdateRequestDto(
-                "updatedNickname",
-                null,
-                null
-        );
-
-        assertThatExceptionOfType(BusinessException.class)
-                .isThrownBy(() -> userProfileController.updateMyProfile(null, request))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
+        UserProfileUpdateRequestDto request =
+                new UserProfileUpdateRequestDto(
+                        "updatedNickname",
+                        null
                 );
 
-        verify(userProfileService, never()).updateMyProfile(anyLong(), any(UserProfileUpdateRequestDto.class));
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(
+                        () -> userProfileController.updateMyProfile(
+                                null,
+                                request
+                        )
+                )
+                .satisfies(exception ->
+                        assertThat(exception.getErrorCode())
+                                .isEqualTo("UNAUTHORIZED")
+                );
+
+        verify(userProfileService, never())
+                .updateMyProfile(
+                        anyLong(),
+                        any(UserProfileUpdateRequestDto.class)
+                );
     }
 
     private void setAuthentication(Long userId) {
@@ -160,6 +216,7 @@ class UserProfileControllerTest {
                 Role.USER,
                 "TCAT-00000001"
         );
+
         user.setId(userId);
 
         UserPrincipal userPrincipal = new UserPrincipal(user);
@@ -171,6 +228,8 @@ class UserProfileControllerTest {
                         userPrincipal.getAuthorities()
                 );
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+        SecurityContextHolder
+                .getContext()
+                .setAuthentication(authentication);
     }
 }

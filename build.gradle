@@ -69,6 +69,10 @@ dependencies {
     // Logback JSON encoder
     implementation 'net.logstash.logback:logstash-logback-encoder:9.0'
 
+    // S3-compatible object storage (Cloudflare R2)
+    implementation platform('software.amazon.awssdk:bom:2.46.21')
+    implementation 'software.amazon.awssdk:s3'
+
     // retry
     implementation 'org.springframework.retry:spring-retry'
     implementation 'org.springframework:spring-aspects'

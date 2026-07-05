@@ -5,6 +5,7 @@ import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
 import jp.co.translacat.domain.user.profile.entity.UserProfile;
 import jp.co.translacat.domain.user.profile.repository.UserProfileRepository;
+import jp.co.translacat.domain.user.profile.storage.service.UserProfileImageUrlResolver;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +30,9 @@ class UserProfileQueryServiceTest {
     @Mock
     private UserProfileRepository userProfileRepository;
 
+    @Mock
+    private UserProfileImageUrlResolver imageUrlResolver;
+
     @InjectMocks
     private UserProfileQueryService userProfileQueryService;
 
@@ -36,13 +40,24 @@ class UserProfileQueryServiceTest {
     @DisplayName("사용자 요약 프로필 조회 테스트")
     void getSummaryByUser() {
         // given
-        User user = createUser(1L, "user@example.com", "user", "TCAT-00000001");
+        User user = createUser(
+                1L,
+                "user@example.com",
+                "user",
+                "TCAT-00000001"
+        );
+
         UserProfile userProfile = UserProfile.createDefault(user);
 
-        when(userProfileRepository.findByUserAndDeletedFalse(user)).thenReturn(Optional.of(userProfile));
+        when(userProfileRepository.findByUserAndDeletedFalse(user))
+                .thenReturn(Optional.of(userProfile));
+
+        when(imageUrlResolver.resolveProfileImageUrl(userProfile))
+                .thenReturn(null);
 
         // when
-        UserSummaryProfileResponseDto response = userProfileQueryService.getSummaryByUser(user);
+        UserSummaryProfileResponseDto response =
+                userProfileQueryService.getSummaryByUser(user);
 
         // then
         assertThat(response.userId()).isEqualTo(1L);
@@ -55,66 +70,102 @@ class UserProfileQueryServiceTest {
     @DisplayName("프로필이 없으면 저장 없이 기본 요약 프로필을 반환한다")
     void getSummaryByUserWithoutProfile() {
         // given
-        User user = createUser(1L, "user@example.com", "user", "TCAT-00000001");
+        User user = createUser(
+                1L,
+                "user@example.com",
+                "user",
+                "TCAT-00000001"
+        );
 
-        when(userProfileRepository.findByUserAndDeletedFalse(user)).thenReturn(Optional.empty());
+        when(userProfileRepository.findByUserAndDeletedFalse(user))
+                .thenReturn(Optional.empty());
 
         // when
-        UserSummaryProfileResponseDto response = userProfileQueryService.getSummaryByUser(user);
+        UserSummaryProfileResponseDto response =
+                userProfileQueryService.getSummaryByUser(user);
 
         // then
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.publicId()).isEqualTo("TCAT-00000001");
         assertThat(response.nickname()).isEqualTo("user");
+        assertThat(response.profileImageUrl()).isNull();
 
-        verify(userProfileRepository, never()).save(any(UserProfile.class));
+        verify(userProfileRepository, never())
+                .save(any(UserProfile.class));
     }
 
     @Test
     @DisplayName("userId 기반 사용자 요약 프로필 조회 테스트")
     void getSummaryByUserId() {
         // given
-        User user = createUser(1L, "user@example.com", "user", "TCAT-00000001");
+        User user = createUser(
+                1L,
+                "user@example.com",
+                "user",
+                "TCAT-00000001"
+        );
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userProfileRepository.findByUserAndDeletedFalse(user)).thenReturn(Optional.empty());
+        when(userRepository.findById(1L))
+                .thenReturn(Optional.of(user));
+
+        when(userProfileRepository.findByUserAndDeletedFalse(user))
+                .thenReturn(Optional.empty());
 
         // when
-        UserSummaryProfileResponseDto response = userProfileQueryService.getSummaryByUserId(1L);
+        UserSummaryProfileResponseDto response =
+                userProfileQueryService.getSummaryByUserId(1L);
 
         // then
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.publicId()).isEqualTo("TCAT-00000001");
+        assertThat(response.profileImageUrl()).isNull();
     }
 
     @Test
     @DisplayName("publicId 기반 사용자 요약 프로필 조회 테스트")
     void getSummaryByPublicId() {
         // given
-        User user = createUser(1L, "user@example.com", "user", "TCAT-00000001");
+        User user = createUser(
+                1L,
+                "user@example.com",
+                "user",
+                "TCAT-00000001"
+        );
 
-        when(userRepository.findByPublicId("TCAT-00000001")).thenReturn(Optional.of(user));
-        when(userProfileRepository.findByUserAndDeletedFalse(user)).thenReturn(Optional.empty());
+        when(userRepository.findByPublicId("TCAT-00000001"))
+                .thenReturn(Optional.of(user));
+
+        when(userProfileRepository.findByUserAndDeletedFalse(user))
+                .thenReturn(Optional.empty());
 
         // when
-        UserSummaryProfileResponseDto response = userProfileQueryService.getSummaryByPublicId("TCAT-00000001");
+        UserSummaryProfileResponseDto response =
+                userProfileQueryService.getSummaryByPublicId(
+                        "TCAT-00000001"
+                );
 
         // then
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.publicId()).isEqualTo("TCAT-00000001");
+        assertThat(response.profileImageUrl()).isNull();
     }
 
     @Test
     @DisplayName("존재하지 않는 publicId는 실패한다")
     void failWhenPublicIdDoesNotExist() {
         // given
-        when(userRepository.findByPublicId("UNKNOWN")).thenReturn(Optional.empty());
+        when(userRepository.findByPublicId("UNKNOWN"))
+                .thenReturn(Optional.empty());
 
         // when & then
         assertThatExceptionOfType(BusinessException.class)
-                .isThrownBy(() -> userProfileQueryService.getSummaryByPublicId("UNKNOWN"))
+                .isThrownBy(
+                        () -> userProfileQueryService
+                                .getSummaryByPublicId("UNKNOWN")
+                )
                 .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_NOT_FOUND")
+                        assertThat(exception.getErrorCode())
+                                .isEqualTo("PUBLIC_ID_NOT_FOUND")
                 );
     }
 
@@ -131,6 +182,7 @@ class UserProfileQueryServiceTest {
                 Role.USER,
                 publicId
         );
+
         user.setId(id);
         return user;
     }

@@ -4,7 +4,6 @@ import jp.co.translacat.domain.user.profile.dto.UserProfileResponseDto;
 import jp.co.translacat.domain.user.profile.dto.UserProfileUpdateRequestDto;
 import jp.co.translacat.domain.user.profile.service.UserProfileService;
 import jp.co.translacat.global.dto.ResponseDto;
-import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
 import jp.co.translacat.global.utils.SecurityUtil;
@@ -24,7 +23,9 @@ public class UserProfileController {
             @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
-        return ResponseUtil.ok(userProfileService.getMyProfile(loginUserId));
+        return ResponseUtil.ok(
+                userProfileService.getMyProfile(loginUserId)
+        );
     }
 
     @PatchMapping
@@ -33,6 +34,8 @@ public class UserProfileController {
             @RequestBody UserProfileUpdateRequestDto request
     ) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
-        return ResponseUtil.ok(userProfileService.updateMyProfile(loginUserId, request));
+        return ResponseUtil.ok(
+                userProfileService.updateMyProfile(loginUserId, request)
+        );
     }
 }

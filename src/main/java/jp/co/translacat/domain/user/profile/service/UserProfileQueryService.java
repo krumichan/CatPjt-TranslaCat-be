@@ -4,6 +4,7 @@ import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
 import jp.co.translacat.domain.user.profile.entity.UserProfile;
 import jp.co.translacat.domain.user.profile.repository.UserProfileRepository;
+import jp.co.translacat.domain.user.profile.storage.service.UserProfileImageUrlResolver;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -17,14 +18,19 @@ public class UserProfileQueryService {
 
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
+    private final UserProfileImageUrlResolver imageUrlResolver;
 
     public UserSummaryProfileResponseDto getSummaryByUser(User user) {
         validateUser(user);
 
-        UserProfile userProfile = userProfileRepository.findByUserAndDeletedFalse(user)
+        UserProfile userProfile = userProfileRepository
+                .findByUserAndDeletedFalse(user)
                 .orElseGet(() -> UserProfile.createDefault(user));
 
-        return UserSummaryProfileResponseDto.from(userProfile);
+        return UserSummaryProfileResponseDto.from(
+                userProfile,
+                imageUrlResolver.resolveProfileImageUrl(userProfile)
+        );
     }
 
     public UserSummaryProfileResponseDto getSummaryByUserId(Long userId) {

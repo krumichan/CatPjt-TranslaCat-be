@@ -6,6 +6,7 @@ import jp.co.translacat.domain.user.profile.dto.UserProfileUpdateRequestDto;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
 import jp.co.translacat.domain.user.profile.entity.UserProfile;
 import jp.co.translacat.domain.user.profile.repository.UserProfileRepository;
+import jp.co.translacat.domain.user.profile.storage.service.UserProfileImageUrlResolver;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -19,11 +20,14 @@ public class UserProfileService {
 
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
+    private final UserProfileImageUrlResolver imageUrlResolver;
 
     @Transactional
     public UserProfile getOrCreateByUser(User user) {
         return userProfileRepository.findByUserAndDeletedFalse(user)
-                .orElseGet(() -> userProfileRepository.save(UserProfile.createDefault(user)));
+                .orElseGet(() ->
+                        userProfileRepository.save(UserProfile.createDefault(user))
+                );
     }
 
     @Transactional
@@ -35,7 +39,7 @@ public class UserProfileService {
     @Transactional
     public UserProfileResponseDto getMyProfile(Long userId) {
         UserProfile userProfile = getOrCreateByUserId(userId);
-        return UserProfileResponseDto.from(userProfile);
+        return toResponse(userProfile);
     }
 
     @Transactional
@@ -44,18 +48,31 @@ public class UserProfileService {
             UserProfileUpdateRequestDto request
     ) {
         UserProfile userProfile = getOrCreateByUserId(userId);
-        userProfile.update(
+
+        userProfile.updateText(
                 request.nickname(),
-                request.profileImageUrl(),
                 request.bio()
         );
-        return UserProfileResponseDto.from(userProfile);
+
+        return toResponse(userProfile);
     }
 
     @Transactional
     public UserSummaryProfileResponseDto getSummaryByUser(User user) {
         UserProfile userProfile = getOrCreateByUser(user);
-        return UserSummaryProfileResponseDto.from(userProfile);
+
+        return UserSummaryProfileResponseDto.from(
+                userProfile,
+                imageUrlResolver.resolveProfileImageUrl(userProfile)
+        );
+    }
+
+    public UserProfileResponseDto toResponse(UserProfile userProfile) {
+        return UserProfileResponseDto.from(
+                userProfile,
+                imageUrlResolver.resolveProfileImageUrl(userProfile),
+                imageUrlResolver.resolveProfileBackgroundImageUrl(userProfile)
+        );
     }
 
     private User getUser(Long userId) {

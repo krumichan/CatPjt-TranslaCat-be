@@ -15,14 +15,17 @@ import java.time.LocalDateTime;
 @Table(
         name = "user_profile",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_user_profile_user_id", columnNames = "user_id")
+                @UniqueConstraint(
+                        name = "uk_user_profile_user_id",
+                        columnNames = "user_id"
+                )
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserProfile extends BaseAuditable {
 
     public static final int NICKNAME_MAX_LENGTH = 30;
-    public static final int PROFILE_IMAGE_URL_MAX_LENGTH = 500;
+    public static final int IMAGE_OBJECT_KEY_MAX_LENGTH = 500;
     public static final int BIO_MAX_LENGTH = 200;
 
     @Id
@@ -36,8 +39,17 @@ public class UserProfile extends BaseAuditable {
     @Column(nullable = false, length = NICKNAME_MAX_LENGTH)
     private String nickname;
 
-    @Column(name = "profile_image_url", length = PROFILE_IMAGE_URL_MAX_LENGTH)
-    private String profileImageUrl;
+    @Column(
+            name = "profile_image_object_key",
+            length = IMAGE_OBJECT_KEY_MAX_LENGTH
+    )
+    private String profileImageObjectKey;
+
+    @Column(
+            name = "profile_background_image_object_key",
+            length = IMAGE_OBJECT_KEY_MAX_LENGTH
+    )
+    private String profileBackgroundImageObjectKey;
 
     @Column(length = BIO_MAX_LENGTH)
     private String bio;
@@ -51,12 +63,10 @@ public class UserProfile extends BaseAuditable {
     private UserProfile(
             User user,
             String nickname,
-            String profileImageUrl,
             String bio
     ) {
         this.user = user;
         this.nickname = validateNickname(nickname);
-        this.profileImageUrl = validateProfileImageUrl(profileImageUrl);
         this.bio = validateBio(bio);
     }
 
@@ -64,19 +74,40 @@ public class UserProfile extends BaseAuditable {
         return new UserProfile(
                 user,
                 buildDefaultNickname(user),
-                null,
                 null
         );
     }
 
-    public void update(
+    public void updateText(
             String nickname,
-            String profileImageUrl,
             String bio
     ) {
         this.nickname = validateNickname(nickname);
-        this.profileImageUrl = validateProfileImageUrl(profileImageUrl);
         this.bio = validateBio(bio);
+    }
+
+    public String replaceProfileImageObjectKey(String objectKey) {
+        String oldObjectKey = this.profileImageObjectKey;
+        this.profileImageObjectKey = validateObjectKey(objectKey);
+        return oldObjectKey;
+    }
+
+    public String replaceProfileBackgroundImageObjectKey(String objectKey) {
+        String oldObjectKey = this.profileBackgroundImageObjectKey;
+        this.profileBackgroundImageObjectKey = validateObjectKey(objectKey);
+        return oldObjectKey;
+    }
+
+    public String clearProfileImage() {
+        String oldObjectKey = this.profileImageObjectKey;
+        this.profileImageObjectKey = null;
+        return oldObjectKey;
+    }
+
+    public String clearProfileBackgroundImage() {
+        String oldObjectKey = this.profileBackgroundImageObjectKey;
+        this.profileBackgroundImageObjectKey = null;
+        return oldObjectKey;
     }
 
     public void softDelete() {
@@ -123,17 +154,20 @@ public class UserProfile extends BaseAuditable {
         return trimmed;
     }
 
-    private static String validateProfileImageUrl(String profileImageUrl) {
-        if (!hasText(profileImageUrl)) {
-            return null;
+    private static String validateObjectKey(String objectKey) {
+        if (!hasText(objectKey)) {
+            throw new BusinessException(
+                    "이미지 object key는 필수입니다.",
+                    "PROFILE_IMAGE_OBJECT_KEY_REQUIRED"
+            );
         }
 
-        String trimmed = profileImageUrl.trim();
+        String trimmed = objectKey.trim();
 
-        if (trimmed.length() > PROFILE_IMAGE_URL_MAX_LENGTH) {
+        if (trimmed.length() > IMAGE_OBJECT_KEY_MAX_LENGTH) {
             throw new BusinessException(
-                    "프로필 이미지 URL은 " + PROFILE_IMAGE_URL_MAX_LENGTH + "자 이하로 입력해주세요.",
-                    "USER_PROFILE_IMAGE_URL_TOO_LONG"
+                    "이미지 object key 길이가 허용 범위를 초과했습니다.",
+                    "PROFILE_IMAGE_OBJECT_KEY_TOO_LONG"
             );
         }
 
@@ -163,9 +197,11 @@ public class UserProfile extends BaseAuditable {
 
     private static String trimToMax(String value, int maxLength) {
         String trimmed = value.trim();
+
         if (trimmed.length() <= maxLength) {
             return trimmed;
         }
+
         return trimmed.substring(0, maxLength);
     }
 }

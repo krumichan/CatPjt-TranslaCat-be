@@ -9,12 +9,15 @@ public record UserSummaryProfileResponseDto(
         String profileImageUrl
 ) {
 
-    public static UserSummaryProfileResponseDto from(UserProfile userProfile) {
+    public static UserSummaryProfileResponseDto from(
+            UserProfile userProfile,
+            String profileImageUrl
+    ) {
         return new UserSummaryProfileResponseDto(
                 userProfile.getUser().getId(),
                 userProfile.getUser().getPublicId(),
                 userProfile.getNickname(),
-                userProfile.getProfileImageUrl()
+                profileImageUrl
         );
     }
 }

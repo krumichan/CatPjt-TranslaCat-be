@@ -9,17 +9,23 @@ public record UserProfileResponseDto(
         String publicId,
         String nickname,
         String profileImageUrl,
+        String profileBackgroundImageUrl,
         String bio,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
 
-    public static UserProfileResponseDto from(UserProfile userProfile) {
+    public static UserProfileResponseDto from(
+            UserProfile userProfile,
+            String profileImageUrl,
+            String profileBackgroundImageUrl
+    ) {
         return new UserProfileResponseDto(
                 userProfile.getUser().getId(),
                 userProfile.getUser().getPublicId(),
                 userProfile.getNickname(),
-                userProfile.getProfileImageUrl(),
+                profileImageUrl,
+                profileBackgroundImageUrl,
                 userProfile.getBio(),
                 userProfile.getCreatedAt(),
                 userProfile.getUpdatedAt()

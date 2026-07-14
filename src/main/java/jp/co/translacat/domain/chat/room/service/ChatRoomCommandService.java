@@ -1,5 +1,7 @@
 package jp.co.translacat.domain.chat.room.service;
 
+import jp.co.translacat.domain.chat.language.dto.ChatLanguageSettingResult;
+import jp.co.translacat.domain.chat.language.service.UserChatLanguageSettingService;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.room.dto.request.ChatRoomCreateRequestDto;
@@ -28,13 +30,13 @@ public class ChatRoomCommandService {
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final UserService userService;
     private final FriendChatValidationService friendChatValidationService;
+    private final UserChatLanguageSettingService userChatLanguageSettingService;
 
     public ChatRoom create(
             Long loginUserId,
             ChatRoomCreateRequestDto request
     ) {
         validateCreateRequest(loginUserId, request);
-
         User owner = userService.getById(loginUserId);
 
         if (request.roomType() == ChatRoomType.DIRECT) {
@@ -60,7 +62,6 @@ public class ChatRoomCommandService {
                 loginUserId,
                 friendUserId
         );
-
         User owner = userService.getById(loginUserId);
 
         return chatRoomRepository
@@ -81,14 +82,11 @@ public class ChatRoomCommandService {
             FriendGroupChatRoomCreateRequestDto request
     ) {
         validateFriendGroupCreateRequest(request);
-
         Set<Long> distinctMemberUserIds = getDistinctMemberUserIds(request.memberUserIds());
-
         friendChatValidationService.validateGroupMembers(
                 loginUserId,
                 request.memberUserIds()
         );
-
         User owner = userService.getById(loginUserId);
 
         ChatRoom chatRoom = ChatRoom.createGroupRoom(
@@ -97,29 +95,13 @@ public class ChatRoomCommandService {
                 owner,
                 ChatRoomSourceType.FRIEND
         );
-
         ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
 
-        chatRoomMemberRepository.save(
-                ChatRoomMember.createOwner(
-                        savedChatRoom,
-                        owner,
-                        null,
-                        null
-                )
-        );
+        chatRoomMemberRepository.save(createOwnerMember(savedChatRoom, owner));
 
         for (Long memberUserId : distinctMemberUserIds) {
             User memberUser = userService.getById(memberUserId);
-
-            chatRoomMemberRepository.save(
-                    ChatRoomMember.createMember(
-                            savedChatRoom,
-                            memberUser,
-                            null,
-                            null
-                    )
-            );
+            chatRoomMemberRepository.save(createNormalMember(savedChatRoom, memberUser));
         }
 
         return savedChatRoom;
@@ -133,7 +115,6 @@ public class ChatRoomCommandService {
         Long targetUserId = getDistinctMemberUserIds(request.memberUserIds())
                 .iterator()
                 .next();
-
         ChatRoomSourceType sourceType = ChatRoomSourceType.MANUAL;
 
         return chatRoomRepository
@@ -155,31 +136,14 @@ public class ChatRoomCommandService {
             ChatRoomSourceType sourceType
     ) {
         User targetUser = userService.getById(targetUserId);
-
         ChatRoom chatRoom = ChatRoom.createDirectRoom(
                 owner,
                 sourceType
         );
-
         ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
 
-        chatRoomMemberRepository.save(
-                ChatRoomMember.createOwner(
-                        savedChatRoom,
-                        owner,
-                        null,
-                        null
-                )
-        );
-
-        chatRoomMemberRepository.save(
-                ChatRoomMember.createMember(
-                        savedChatRoom,
-                        targetUser,
-                        null,
-                        null
-                )
-        );
+        chatRoomMemberRepository.save(createOwnerMember(savedChatRoom, owner));
+        chatRoomMemberRepository.save(createNormalMember(savedChatRoom, targetUser));
 
         return savedChatRoom;
     }
@@ -193,32 +157,48 @@ public class ChatRoomCommandService {
                 request.description(),
                 owner
         );
-
         ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
 
-        chatRoomMemberRepository.save(
-                ChatRoomMember.createOwner(
-                        savedChatRoom,
-                        owner,
-                        null,
-                        null
-                )
-        );
+        chatRoomMemberRepository.save(createOwnerMember(savedChatRoom, owner));
 
         for (Long memberUserId : getDistinctMemberUserIds(request.memberUserIds())) {
             User memberUser = userService.getById(memberUserId);
-
-            chatRoomMemberRepository.save(
-                    ChatRoomMember.createMember(
-                            savedChatRoom,
-                            memberUser,
-                            null,
-                            null
-                    )
-            );
+            chatRoomMemberRepository.save(createNormalMember(savedChatRoom, memberUser));
         }
 
         return savedChatRoom;
+    }
+
+    private ChatRoomMember createOwnerMember(
+            ChatRoom chatRoom,
+            User user
+    ) {
+        ChatLanguageSettingResult languageSetting = userChatLanguageSettingService
+                .resolveDefault(user.getId());
+        return ChatRoomMember.createOwner(
+                chatRoom,
+                user,
+                languageSetting.originalLanguageCode(),
+                languageSetting.translationLanguageCode(),
+                languageSetting.showOriginal(),
+                languageSetting.showTranslation()
+        );
+    }
+
+    private ChatRoomMember createNormalMember(
+            ChatRoom chatRoom,
+            User user
+    ) {
+        ChatLanguageSettingResult languageSetting = userChatLanguageSettingService
+                .resolveDefault(user.getId());
+        return ChatRoomMember.createMember(
+                chatRoom,
+                user,
+                languageSetting.originalLanguageCode(),
+                languageSetting.translationLanguageCode(),
+                languageSetting.showOriginal(),
+                languageSetting.showTranslation()
+        );
     }
 
     private void validateCreateRequest(
@@ -234,7 +214,6 @@ public class ChatRoomCommandService {
         }
 
         List<Long> memberUserIds = request.memberUserIds();
-
         if (memberUserIds == null || memberUserIds.isEmpty()) {
             throw new BusinessException("채팅방 멤버는 최소 1명 이상 필요합니다.");
         }

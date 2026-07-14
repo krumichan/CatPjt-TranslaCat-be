@@ -1,36 +1,41 @@
 package jp.co.translacat.domain.chat.language.service;
 
 import jp.co.translacat.domain.chat.language.dto.ChatLanguageSettingResult;
+import jp.co.translacat.domain.chat.language.enums.ChatLanguageSettingSource;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class ChatLanguageSettingResolver {
 
-    private static final String SYSTEM_DEFAULT_ORIGINAL_LANGUAGE_CODE = "ko";
-    private static final String SYSTEM_DEFAULT_TRANSLATION_LANGUAGE_CODE = "ja";
+    private final UserChatLanguageSettingService userChatLanguageSettingService;
 
     public ChatLanguageSettingResult resolve(ChatRoomMember chatRoomMember) {
-        // TODO: 사용자 기본 언어 설정 도입 후, User/Profile/Setting 값으로 fallback 변경
-        String defaultOriginalLanguageCode = SYSTEM_DEFAULT_ORIGINAL_LANGUAGE_CODE;
-        String defaultTranslationLanguageCode = SYSTEM_DEFAULT_TRANSLATION_LANGUAGE_CODE;
+        ChatLanguageSettingResult defaultResult = userChatLanguageSettingService
+                .resolveDefault(chatRoomMember.getUser().getId());
 
-        String effectiveOriginalLanguageCode =
-                chatRoomMember.getOriginalLanguageCode() != null
-                        ? chatRoomMember.getOriginalLanguageCode()
-                        : defaultOriginalLanguageCode;
+        if (!chatRoomMember.hasRoomLanguageSetting()) {
+            return defaultResult;
+        }
 
-        String effectiveTranslationLanguageCode =
-                chatRoomMember.getTranslationLanguageCode() != null
-                        ? chatRoomMember.getTranslationLanguageCode()
-                        : defaultTranslationLanguageCode;
-
-        boolean roomLanguageSettingApplied = chatRoomMember.hasRoomLanguageSetting();
+        String originalLanguageCode = ChatLanguageSettingSupport.normalizeOrDefault(
+                chatRoomMember.getOriginalLanguageCode(),
+                defaultResult.originalLanguageCode()
+        );
+        String translationLanguageCode = ChatLanguageSettingSupport.normalizeOrDefault(
+                chatRoomMember.getTranslationLanguageCode(),
+                defaultResult.translationLanguageCode()
+        );
 
         return new ChatLanguageSettingResult(
-                effectiveOriginalLanguageCode,
-                effectiveTranslationLanguageCode,
-                roomLanguageSettingApplied
+                originalLanguageCode,
+                translationLanguageCode,
+                chatRoomMember.isShowOriginal(),
+                chatRoomMember.isShowTranslation(),
+                true,
+                ChatLanguageSettingSource.ROOM_OVERRIDE
         );
     }
 }

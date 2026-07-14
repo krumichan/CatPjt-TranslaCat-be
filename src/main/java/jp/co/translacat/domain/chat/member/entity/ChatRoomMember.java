@@ -1,6 +1,18 @@
 package jp.co.translacat.domain.chat.member.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.user.entity.User;
@@ -22,8 +34,14 @@ import java.time.LocalDateTime;
                 )
         },
         indexes = {
-                @Index(name = "idx_chat_room_member_user_active", columnList = "user_id, active"),
-                @Index(name = "idx_chat_room_member_room_active", columnList = "chat_room_id, active")
+                @Index(
+                        name = "idx_chat_room_member_user_active",
+                        columnList = "user_id, active"
+                ),
+                @Index(
+                        name = "idx_chat_room_member_room_active",
+                        columnList = "chat_room_id, active"
+                )
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -74,14 +92,36 @@ public class ChatRoomMember extends BaseAuditable {
             User user,
             ChatRoomMemberRole role,
             String originalLanguageCode,
-            String translationLanguageCode
+            String translationLanguageCode,
+            boolean showOriginal,
+            boolean showTranslation
     ) {
         this.chatRoom = chatRoom;
         this.user = user;
         this.role = role;
         this.originalLanguageCode = originalLanguageCode;
         this.translationLanguageCode = translationLanguageCode;
+        this.showOriginal = showOriginal;
+        this.showTranslation = showTranslation;
         this.joinedAt = LocalDateTime.now();
+    }
+
+    private ChatRoomMember(
+            ChatRoom chatRoom,
+            User user,
+            ChatRoomMemberRole role,
+            String originalLanguageCode,
+            String translationLanguageCode
+    ) {
+        this(
+                chatRoom,
+                user,
+                role,
+                originalLanguageCode,
+                translationLanguageCode,
+                true,
+                true
+        );
     }
 
     public static ChatRoomMember createOwner(
@@ -99,6 +139,25 @@ public class ChatRoomMember extends BaseAuditable {
         );
     }
 
+    public static ChatRoomMember createOwner(
+            ChatRoom chatRoom,
+            User user,
+            String originalLanguageCode,
+            String translationLanguageCode,
+            boolean showOriginal,
+            boolean showTranslation
+    ) {
+        return new ChatRoomMember(
+                chatRoom,
+                user,
+                ChatRoomMemberRole.OWNER,
+                originalLanguageCode,
+                translationLanguageCode,
+                showOriginal,
+                showTranslation
+        );
+    }
+
     public static ChatRoomMember createMember(
             ChatRoom chatRoom,
             User user,
@@ -111,6 +170,25 @@ public class ChatRoomMember extends BaseAuditable {
                 ChatRoomMemberRole.MEMBER,
                 originalLanguageCode,
                 translationLanguageCode
+        );
+    }
+
+    public static ChatRoomMember createMember(
+            ChatRoom chatRoom,
+            User user,
+            String originalLanguageCode,
+            String translationLanguageCode,
+            boolean showOriginal,
+            boolean showTranslation
+    ) {
+        return new ChatRoomMember(
+                chatRoom,
+                user,
+                ChatRoomMemberRole.MEMBER,
+                originalLanguageCode,
+                translationLanguageCode,
+                showOriginal,
+                showTranslation
         );
     }
 
@@ -151,6 +229,24 @@ public class ChatRoomMember extends BaseAuditable {
         this.deletedAt = null;
     }
 
+    public void restore(
+            ChatRoomMemberRole role,
+            String originalLanguageCode,
+            String translationLanguageCode,
+            boolean showOriginal,
+            boolean showTranslation
+    ) {
+        this.role = role;
+        this.originalLanguageCode = originalLanguageCode;
+        this.translationLanguageCode = translationLanguageCode;
+        this.showOriginal = showOriginal;
+        this.showTranslation = showTranslation;
+        this.active = true;
+        this.joinedAt = LocalDateTime.now();
+        this.leftAt = null;
+        this.deletedAt = null;
+    }
+
     public void resetLanguageSetting() {
         this.originalLanguageCode = null;
         this.translationLanguageCode = null;
@@ -159,8 +255,7 @@ public class ChatRoomMember extends BaseAuditable {
     }
 
     public boolean hasRoomLanguageSetting() {
-        return this.originalLanguageCode != null
-                || this.translationLanguageCode != null;
+        return this.originalLanguageCode != null || this.translationLanguageCode != null;
     }
 
     public void softDelete() {

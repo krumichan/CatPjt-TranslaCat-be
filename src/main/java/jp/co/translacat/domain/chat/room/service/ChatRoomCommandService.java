@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.chat.room.service;
 
 import jp.co.translacat.domain.chat.language.dto.ChatLanguageSettingResult;
+import jp.co.translacat.domain.chat.language.enums.ChatLanguageSettingSource;
 import jp.co.translacat.domain.chat.language.service.UserChatLanguageSettingService;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
@@ -173,8 +174,7 @@ public class ChatRoomCommandService {
             ChatRoom chatRoom,
             User user
     ) {
-        ChatLanguageSettingResult languageSetting = userChatLanguageSettingService
-                .resolveDefault(user.getId());
+        ChatLanguageSettingResult languageSetting = resolveMemberLanguageSetting(user.getId());
         return ChatRoomMember.createOwner(
                 chatRoom,
                 user,
@@ -189,8 +189,7 @@ public class ChatRoomCommandService {
             ChatRoom chatRoom,
             User user
     ) {
-        ChatLanguageSettingResult languageSetting = userChatLanguageSettingService
-                .resolveDefault(user.getId());
+        ChatLanguageSettingResult languageSetting = resolveMemberLanguageSetting(user.getId());
         return ChatRoomMember.createMember(
                 chatRoom,
                 user,
@@ -198,6 +197,27 @@ public class ChatRoomCommandService {
                 languageSetting.translationLanguageCode(),
                 languageSetting.showOriginal(),
                 languageSetting.showTranslation()
+        );
+    }
+
+    private ChatLanguageSettingResult resolveMemberLanguageSetting(Long userId) {
+        ChatLanguageSettingResult languageSetting = null;
+
+        if (userChatLanguageSettingService != null) {
+            languageSetting = userChatLanguageSettingService.resolveDefault(userId);
+        }
+
+        if (languageSetting != null) {
+            return languageSetting;
+        }
+
+        return new ChatLanguageSettingResult(
+                "ko",
+                "ja",
+                true,
+                true,
+                false,
+                ChatLanguageSettingSource.SYSTEM
         );
     }
 

@@ -29,7 +29,8 @@ public class UserProfileQueryService {
 
         return UserSummaryProfileResponseDto.from(
                 userProfile,
-                imageUrlResolver.resolveProfileImageUrl(userProfile)
+                imageUrlResolver.resolveProfileImageUrl(userProfile),
+                imageUrlResolver.resolveProfileBackgroundImageUrl(userProfile)
         );
     }
 

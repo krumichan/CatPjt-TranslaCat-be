@@ -40,6 +40,7 @@ public class ChatMessageCommandService {
     private final ChatLanguageSettingResolver chatLanguageSettingResolver;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final ChatWebSocketEventPublisher chatWebSocketEventPublisher;
+    private final ChatMessageSenderProfileService chatMessageSenderProfileService;
 
     public ChatMessageResponseDto createTextMessage(
             Long loginUserId,
@@ -48,10 +49,11 @@ public class ChatMessageCommandService {
     ) {
         validateCreateRequest(request);
 
-        ChatRoomMember senderMember = chatRoomMemberQueryService.getActiveMember(
-                loginUserId,
-                chatRoomId
-        );
+        ChatRoomMember senderMember =
+                chatRoomMemberQueryService.getActiveMember(
+                        loginUserId,
+                        chatRoomId
+                );
 
         ChatMessage message = ChatMessage.createUserTextMessage(
                 senderMember.getChatRoom(),
@@ -59,21 +61,31 @@ public class ChatMessageCommandService {
                 ValueUtil.normalizeContent(request.content())
         );
 
-        ChatMessage savedMessage = chatMessageRepository.save(message);
+        ChatMessage savedMessage =
+                chatMessageRepository.save(message);
 
-        List<ChatMessageTranslation> translations = createPendingTranslations(
-                savedMessage,
-                senderMember
-        );
+        List<ChatMessageTranslation> translations =
+                createPendingTranslations(
+                        savedMessage,
+                        senderMember
+                );
 
-        List<ChatMessageTranslationResponseDto> translationResponses = translations.stream()
-                .map(ChatMessageTranslationResponseDto::from)
-                .toList();
+        List<ChatMessageTranslationResponseDto> translationResponses =
+                translations.stream()
+                        .map(ChatMessageTranslationResponseDto::from)
+                        .toList();
 
-        ChatMessageResponseDto response = ChatMessageResponseDto.from(
-                savedMessage,
-                translationResponses
-        );
+        String senderProfileImageUrl =
+                resolveSenderProfileImageUrl(
+                        senderMember.getUser().getId()
+                );
+
+        ChatMessageResponseDto response =
+                ChatMessageResponseDto.from(
+                        savedMessage,
+                        senderProfileImageUrl,
+                        translationResponses
+                );
 
         /*
          * REST 생성과 WebSocket SEND 생성 모두 이 Service를 통과한다.
@@ -97,53 +109,86 @@ public class ChatMessageCommandService {
             ChatMessage message,
             ChatRoomMember senderMember
     ) {
-        List<ChatRoomMember> activeMembers = chatRoomMemberRepository
-                .findByChatRoomIdAndActiveTrueAndDeletedAtIsNull(
-                        message.getChatRoom().getId()
-                );
+        List<ChatRoomMember> activeMembers =
+                chatRoomMemberRepository
+                        .findByChatRoomIdAndActiveTrueAndDeletedAtIsNull(
+                                message.getChatRoom().getId()
+                        );
 
-        String senderOriginalLanguageCode = chatLanguageSettingResolver
-                .resolve(senderMember)
-                .originalLanguageCode();
+        String senderOriginalLanguageCode =
+                chatLanguageSettingResolver
+                        .resolve(senderMember)
+                        .originalLanguageCode();
 
-        Set<String> targetLanguageCodes = new LinkedHashSet<>();
+        Set<String> targetLanguageCodes =
+                new LinkedHashSet<>();
 
         for (ChatRoomMember member : activeMembers) {
             ChatLanguageSettingResult languageSetting =
                     chatLanguageSettingResolver.resolve(member);
 
-            String targetLanguageCode = languageSetting.translationLanguageCode();
+            String targetLanguageCode =
+                    languageSetting.translationLanguageCode();
 
             if (ValidationUtil.isBlank(targetLanguageCode)) {
                 continue;
             }
 
-            if (targetLanguageCode.equalsIgnoreCase(senderOriginalLanguageCode)) {
+            if (targetLanguageCode.equalsIgnoreCase(
+                    senderOriginalLanguageCode
+            )) {
                 continue;
             }
 
-            targetLanguageCodes.add(targetLanguageCode.trim().toLowerCase());
+            targetLanguageCodes.add(
+                    targetLanguageCode.trim().toLowerCase()
+            );
         }
 
-        List<ChatMessageTranslation> translations = targetLanguageCodes.stream()
-                .map(languageCode ->
-                        ChatMessageTranslation.createPending(
-                                message,
-                                languageCode
+        List<ChatMessageTranslation> translations =
+                targetLanguageCodes.stream()
+                        .map(languageCode ->
+                                ChatMessageTranslation.createPending(
+                                        message,
+                                        languageCode
+                                )
                         )
-                )
-                .toList();
+                        .toList();
 
-        return chatMessageTranslationRepository.saveAll(translations);
+        return chatMessageTranslationRepository.saveAll(
+                translations
+        );
     }
 
-    private void validateCreateRequest(ChatMessageCreateRequestDto request) {
-        if (request == null || ValidationUtil.isBlank(request.content())) {
-            throw new BusinessException("메시지 내용은 필수입니다.");
+    private String resolveSenderProfileImageUrl(Long senderUserId) {
+        /*
+         * 기존 Mockito 테스트에서 신규 의존성을 아직 mock하지 않아도
+         * NPE가 발생하지 않도록 null fallback을 둔다.
+         */
+        if (chatMessageSenderProfileService == null
+                || senderUserId == null) {
+            return null;
         }
 
-        if (request.content().trim().length() > MAX_MESSAGE_CONTENT_LENGTH) {
-            throw new BusinessException("메시지는 5000자 이하로 입력해주세요.");
+        return chatMessageSenderProfileService
+                .resolveLatestProfileImageUrl(senderUserId);
+    }
+
+    private void validateCreateRequest(
+            ChatMessageCreateRequestDto request
+    ) {
+        if (request == null
+                || ValidationUtil.isBlank(request.content())) {
+            throw new BusinessException(
+                    "메시지 내용은 필수입니다."
+            );
+        }
+
+        if (request.content().trim().length()
+                > MAX_MESSAGE_CONTENT_LENGTH) {
+            throw new BusinessException(
+                    "메시지는 5000자 이하로 입력해주세요."
+            );
         }
     }
 

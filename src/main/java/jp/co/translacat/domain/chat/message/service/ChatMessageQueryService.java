@@ -18,6 +18,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,6 +32,7 @@ public class ChatMessageQueryService {
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMessageTranslationRepository chatMessageTranslationRepository;
     private final ChatRoomMemberQueryService chatRoomMemberQueryService;
+    private final ChatMessageSenderProfileService chatMessageSenderProfileService;
 
     public ChatMessageListResponseDto getMessages(
             Long loginUserId,
@@ -45,7 +48,6 @@ public class ChatMessageQueryService {
         );
 
         boolean hasNext = fetchedMessages.size() > MESSAGE_PAGE_SIZE;
-
         List<ChatMessage> pageMessages = trimToPageSize(fetchedMessages);
 
         /*
@@ -57,9 +59,20 @@ public class ChatMessageQueryService {
         Map<Long, List<ChatMessageTranslationResponseDto>> translationMap =
                 getTranslationMap(pageMessages);
 
+        /*
+         * 메시지별로 프로필을 조회하지 않고 현재 페이지의 발신자 ID를 모아
+         * 한 번에 조회한다. 과거 메시지도 항상 현재 프로필 이미지를 표시한다.
+         */
+        Map<Long, String> senderProfileImageUrlMap =
+                getSenderProfileImageUrlMap(pageMessages);
+
         List<ChatMessageResponseDto> messages = pageMessages.stream()
                 .map(message -> ChatMessageResponseDto.from(
                         message,
+                        resolveSenderProfileImageUrl(
+                                message,
+                                senderProfileImageUrlMap
+                        ),
                         translationMap.getOrDefault(
                                 message.getId(),
                                 List.of()
@@ -81,7 +94,9 @@ public class ChatMessageQueryService {
 
     private void validateCursorId(Long cursorId) {
         if (cursorId != null && cursorId <= 0) {
-            throw new BusinessException("cursorId는 1 이상이어야 합니다.");
+            throw new BusinessException(
+                    "cursorId는 1 이상이어야 합니다."
+            );
         }
     }
 
@@ -115,7 +130,9 @@ public class ChatMessageQueryService {
                 );
     }
 
-    private List<ChatMessage> trimToPageSize(List<ChatMessage> fetchedMessages) {
+    private List<ChatMessage> trimToPageSize(
+            List<ChatMessage> fetchedMessages
+    ) {
         if (fetchedMessages.size() <= MESSAGE_PAGE_SIZE) {
             return new ArrayList<>(fetchedMessages);
         }
@@ -128,9 +145,8 @@ public class ChatMessageQueryService {
         );
     }
 
-    private Map<Long, List<ChatMessageTranslationResponseDto>> getTranslationMap(
-            List<ChatMessage> messages
-    ) {
+    private Map<Long, List<ChatMessageTranslationResponseDto>>
+    getTranslationMap(List<ChatMessage> messages) {
         if (messages.isEmpty()) {
             return Map.of();
         }
@@ -141,16 +157,50 @@ public class ChatMessageQueryService {
 
         List<ChatMessageTranslation> translations =
                 chatMessageTranslationRepository
-                        .findByChatMessageIdInAndDeletedAtIsNull(messageIds);
+                        .findByChatMessageIdInAndDeletedAtIsNull(
+                                messageIds
+                        );
 
         return translations.stream()
                 .collect(Collectors.groupingBy(
-                        translation -> translation.getChatMessage().getId(),
+                        translation ->
+                                translation.getChatMessage().getId(),
                         Collectors.mapping(
                                 ChatMessageTranslationResponseDto::from,
                                 Collectors.toList()
                         )
                 ));
+    }
+
+    private Map<Long, String> getSenderProfileImageUrlMap(
+            List<ChatMessage> messages
+    ) {
+        if (messages.isEmpty()
+                || chatMessageSenderProfileService == null) {
+            return Map.of();
+        }
+
+        Set<Long> senderUserIds = messages.stream()
+                .map(ChatMessage::getSenderUser)
+                .filter(Objects::nonNull)
+                .map(user -> user.getId())
+                .collect(Collectors.toSet());
+
+        return chatMessageSenderProfileService
+                .resolveLatestProfileImageUrlMap(senderUserIds);
+    }
+
+    private String resolveSenderProfileImageUrl(
+            ChatMessage message,
+            Map<Long, String> senderProfileImageUrlMap
+    ) {
+        if (message.getSenderUser() == null) {
+            return null;
+        }
+
+        return senderProfileImageUrlMap.get(
+                message.getSenderUser().getId()
+        );
     }
 
     private Long resolveNextCursorId(

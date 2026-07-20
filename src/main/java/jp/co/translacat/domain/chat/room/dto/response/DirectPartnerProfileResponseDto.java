@@ -8,7 +8,9 @@ public record DirectPartnerProfileResponseDto(
         Long userId,
         String publicId,
         String displayName,
-        String profileImageUrl
+        String profileImageUrl,
+        String profileBackgroundImageUrl,
+        String bio
 ) {
 
     public static DirectPartnerProfileResponseDto from(
@@ -24,7 +26,9 @@ public record DirectPartnerProfileResponseDto(
                 user.getId(),
                 user.getPublicId(),
                 resolveDisplayName(user, userProfile),
-                resolveProfileImageUrl(userProfile, imageUrlResolver)
+                resolveProfileImageUrl(userProfile, imageUrlResolver),
+                resolveProfileBackgroundImageUrl(userProfile, imageUrlResolver),
+                resolveBio(userProfile)
         );
     }
 
@@ -52,6 +56,25 @@ public record DirectPartnerProfileResponseDto(
         }
 
         return imageUrlResolver.resolveProfileImageUrl(userProfile);
+    }
+
+    private static String resolveProfileBackgroundImageUrl(
+            UserProfile userProfile,
+            UserProfileImageUrlResolver imageUrlResolver
+    ) {
+        if (userProfile == null || imageUrlResolver == null) {
+            return null;
+        }
+
+        return imageUrlResolver.resolveProfileBackgroundImageUrl(userProfile);
+    }
+
+    private static String resolveBio(UserProfile userProfile) {
+        if (userProfile == null || !hasText(userProfile.getBio())) {
+            return null;
+        }
+
+        return userProfile.getBio();
     }
 
     private static boolean hasText(String value) {

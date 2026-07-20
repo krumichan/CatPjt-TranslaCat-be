@@ -2,11 +2,16 @@ package jp.co.translacat.domain.chat.room.repository;
 
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+
+import jakarta.persistence.LockModeType;
+
 import jp.co.translacat.domain.chat.member.entity.QChatRoomMember;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomSourceType;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -18,6 +23,23 @@ import static jp.co.translacat.domain.chat.room.entity.QChatRoom.chatRoom;
 public class ChatRoomRepositoryImpl implements ChatRoomRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
+
+    @Override
+    public Optional<ChatRoom> findActiveByIdForUpdate(
+            Long chatRoomId
+    ) {
+        ChatRoom result = queryFactory
+                .selectFrom(chatRoom)
+                .where(
+                        chatRoom.id.eq(chatRoomId),
+                        chatRoom.active.isTrue(),
+                        chatRoom.deletedAt.isNull()
+                )
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .fetchOne();
+
+        return Optional.ofNullable(result);
+    }
 
     @Override
     public Optional<ChatRoom> findActiveDirectRoomByUserIds(

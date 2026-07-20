@@ -44,12 +44,25 @@ public class ChatRoomMemberQueryService {
     ) {
         getActiveMember(loginUserId, chatRoomId);
 
-        List<ChatRoomMemberResponseDto> members = chatRoomMemberRepository
-                .findByChatRoomIdAndActiveTrueAndDeletedAtIsNull(chatRoomId)
-                .stream()
-                .sorted(Comparator.comparing(ChatRoomMember::getJoinedAt))
-                .map(ChatRoomMemberResponseDto::from)
-                .toList();
+        List<ChatRoomMemberResponseDto> members =
+                chatRoomMemberRepository
+                        .findByChatRoomIdAndActiveTrueAndDeletedAtIsNull(
+                                chatRoomId
+                        )
+                        .stream()
+                        .sorted(Comparator.comparing(
+                                ChatRoomMember::getJoinedAt
+                        ))
+                        .map(member ->
+                                ChatRoomMemberResponseDto.from(
+                                        member,
+                                        userProfileQueryService
+                                                .getSummaryByUser(
+                                                        member.getUser()
+                                                )
+                                )
+                        )
+                        .toList();
 
         return ChatRoomMemberListResponseDto.from(members);
     }
@@ -67,7 +80,9 @@ public class ChatRoomMemberQueryService {
         User targetUser = targetMember.getUser();
 
         UserSummaryProfileResponseDto profile =
-                userProfileQueryService.getSummaryByUser(targetUser);
+                userProfileQueryService.getSummaryByUser(
+                        targetUser
+                );
 
         UserSearchFriendStatus friendStatus =
                 UserFriendStatusResolver.resolve(
@@ -92,7 +107,9 @@ public class ChatRoomMemberQueryService {
                 getActiveMember(loginUserId, chatRoomId);
 
         ChatLanguageSettingResult languageSetting =
-                chatLanguageSettingResolver.resolve(chatRoomMember);
+                chatLanguageSettingResolver.resolve(
+                        chatRoomMember
+                );
 
         return ChatRoomLanguageSettingResponseDto.from(
                 chatRoomMember,

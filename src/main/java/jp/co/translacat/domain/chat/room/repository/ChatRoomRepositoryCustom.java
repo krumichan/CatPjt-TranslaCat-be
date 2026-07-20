@@ -7,6 +7,10 @@ import java.util.Optional;
 
 public interface ChatRoomRepositoryCustom {
 
+    Optional<ChatRoom> findActiveByIdForUpdate(
+            Long chatRoomId
+    );
+
     Optional<ChatRoom> findActiveDirectRoomByUserIds(
             Long userId1,
             Long userId2

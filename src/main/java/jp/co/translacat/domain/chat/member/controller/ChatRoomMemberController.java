@@ -5,9 +5,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 
 import jp.co.translacat.domain.chat.member.dto.request.ChatRoomLanguageSettingUpdateRequestDto;
+import jp.co.translacat.domain.chat.member.dto.request.ChatRoomMemberInvitationRequestDto;
+import jp.co.translacat.domain.chat.member.dto.response.ChatRoomInvitationResponseDto;
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomLanguageSettingResponseDto;
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberListResponseDto;
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberProfileResponseDto;
+import jp.co.translacat.domain.chat.member.service.ChatRoomInvitationService;
 import jp.co.translacat.domain.chat.member.service.ChatRoomMemberCommandService;
 import jp.co.translacat.domain.chat.member.service.ChatRoomMemberQueryService;
 import jp.co.translacat.global.dto.ResponseDto;
@@ -16,6 +19,7 @@ import jp.co.translacat.global.utils.ResponseUtil;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,11 +30,12 @@ public class ChatRoomMemberController {
 
     private final ChatRoomMemberQueryService chatRoomMemberQueryService;
     private final ChatRoomMemberCommandService chatRoomMemberCommandService;
+    private final ChatRoomInvitationService chatRoomInvitationService;
 
     @GetMapping
     @Operation(
             summary = "채팅방 멤버 목록 조회",
-            description = "로그인 사용자가 참여 중인 채팅방의 멤버 목록을 조회한다."
+            description = "로그인 사용자가 참여 중인 채팅방의 최신 멤버 프로필 Summary를 조회한다."
     )
     public ResponseDto<ChatRoomMemberListResponseDto> getMembers(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
@@ -44,22 +49,45 @@ public class ChatRoomMemberController {
         );
     }
 
+    @PostMapping("/invitations")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(
+            summary = "그룹 채팅방 멤버 초대",
+            description = "OWNER 또는 ADMIN이 기존 GROUP 채팅방에 사용자를 초대한다."
+    )
+    public ResponseDto<ChatRoomInvitationResponseDto> inviteMembers(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long chatRoomId,
+            @Valid @RequestBody
+            ChatRoomMemberInvitationRequestDto request
+    ) {
+        return ResponseUtil.created(
+                chatRoomInvitationService.inviteMembers(
+                        userPrincipal.getId(),
+                        chatRoomId,
+                        request
+                )
+        );
+    }
+
     @GetMapping("/{targetUserId}/profile")
     @Operation(
             summary = "채팅방 멤버 프로필 조회",
             description = "같은 채팅방에 참여 중인 멤버의 최신 프로필과 친구 관계 상태를 조회한다."
     )
-    public ResponseDto<ChatRoomMemberProfileResponseDto> getMemberProfile(
+    public ResponseDto<ChatRoomMemberProfileResponseDto>
+    getMemberProfile(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long chatRoomId,
             @PathVariable Long targetUserId
     ) {
         return ResponseUtil.ok(
-                chatRoomMemberQueryService.getMemberProfile(
-                        userPrincipal.getId(),
-                        chatRoomId,
-                        targetUserId
-                )
+                chatRoomMemberQueryService
+                        .getMemberProfile(
+                                userPrincipal.getId(),
+                                chatRoomId,
+                                targetUserId
+                        )
         );
     }
 
@@ -68,15 +96,17 @@ public class ChatRoomMemberController {
             summary = "내 채팅방 언어 설정 조회",
             description = "로그인 사용자의 해당 채팅방 언어 설정을 조회한다."
     )
-    public ResponseDto<ChatRoomLanguageSettingResponseDto> getMyLanguageSetting(
+    public ResponseDto<ChatRoomLanguageSettingResponseDto>
+    getMyLanguageSetting(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long chatRoomId
     ) {
         return ResponseUtil.ok(
-                chatRoomMemberQueryService.getMyLanguageSetting(
-                        userPrincipal.getId(),
-                        chatRoomId
-                )
+                chatRoomMemberQueryService
+                        .getMyLanguageSetting(
+                                userPrincipal.getId(),
+                                chatRoomId
+                        )
         );
     }
 
@@ -85,17 +115,20 @@ public class ChatRoomMemberController {
             summary = "내 채팅방 언어 설정 변경",
             description = "로그인 사용자의 해당 채팅방 한정 언어 설정을 변경한다."
     )
-    public ResponseDto<ChatRoomLanguageSettingResponseDto> updateMyLanguageSetting(
+    public ResponseDto<ChatRoomLanguageSettingResponseDto>
+    updateMyLanguageSetting(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long chatRoomId,
-            @Valid @RequestBody ChatRoomLanguageSettingUpdateRequestDto request
+            @Valid @RequestBody
+            ChatRoomLanguageSettingUpdateRequestDto request
     ) {
         return ResponseUtil.ok(
-                chatRoomMemberCommandService.updateMyLanguageSetting(
-                        userPrincipal.getId(),
-                        chatRoomId,
-                        request
-                )
+                chatRoomMemberCommandService
+                        .updateMyLanguageSetting(
+                                userPrincipal.getId(),
+                                chatRoomId,
+                                request
+                        )
         );
     }
 
@@ -104,15 +137,17 @@ public class ChatRoomMemberController {
             summary = "내 채팅방 언어 설정 초기화",
             description = "로그인 사용자의 해당 채팅방 언어 설정을 초기화하고 기본 언어 설정을 따르도록 되돌린다."
     )
-    public ResponseDto<ChatRoomLanguageSettingResponseDto> resetMyLanguageSetting(
+    public ResponseDto<ChatRoomLanguageSettingResponseDto>
+    resetMyLanguageSetting(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long chatRoomId
     ) {
         return ResponseUtil.ok(
-                chatRoomMemberCommandService.resetMyLanguageSetting(
-                        userPrincipal.getId(),
-                        chatRoomId
-                )
+                chatRoomMemberCommandService
+                        .resetMyLanguageSetting(
+                                userPrincipal.getId(),
+                                chatRoomId
+                        )
         );
     }
 }

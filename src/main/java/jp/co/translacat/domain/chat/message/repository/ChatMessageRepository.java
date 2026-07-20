@@ -3,32 +3,56 @@ package jp.co.translacat.domain.chat.message.repository;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
+public interface ChatMessageRepository
+        extends JpaRepository<ChatMessage, Long> {
 
-    Optional<ChatMessage> findByIdAndDeletedAtIsNull(Long id);
+    Optional<ChatMessage> findByIdAndDeletedAtIsNull(
+            Long id
+    );
 
-    Optional<ChatMessage> findByIdAndChatRoomIdAndDeletedAtIsNull(
+    Optional<ChatMessage>
+    findByIdAndChatRoomIdAndDeletedAtIsNull(
             Long id,
             Long chatRoomId
     );
 
-    List<ChatMessage> findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullOrderByIdDesc(
+    List<ChatMessage>
+    findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullOrderByIdDesc(
             Long chatRoomId,
             ChatMessageStatus status
     );
 
-    List<ChatMessage> findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullAndIdLessThanOrderByIdDesc(
+    List<ChatMessage>
+    findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullAndIdLessThanOrderByIdDesc(
             Long chatRoomId,
             ChatMessageStatus status,
             Long cursorId
     );
 
-    List<ChatMessage> findByChatRoomAndStatusAndDeletedAtIsNullOrderByIdAsc(
+    List<ChatMessage>
+    findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullAndCreatedAtGreaterThanEqualOrderByIdDesc(
+            Long chatRoomId,
+            ChatMessageStatus status,
+            LocalDateTime joinedAt
+    );
+
+    List<ChatMessage>
+    findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullAndCreatedAtGreaterThanEqualAndIdLessThanOrderByIdDesc(
+            Long chatRoomId,
+            ChatMessageStatus status,
+            LocalDateTime joinedAt,
+            Long cursorId
+    );
+
+    List<ChatMessage>
+    findByChatRoomAndStatusAndDeletedAtIsNullOrderByIdAsc(
             ChatRoom chatRoom,
             ChatMessageStatus status
     );

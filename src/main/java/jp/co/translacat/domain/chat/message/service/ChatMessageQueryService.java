@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.message.service;
 
+import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.service.ChatRoomMemberQueryService;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageListResponseDto;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageResponseDto;
@@ -10,10 +11,13 @@ import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
 import jp.co.translacat.domain.chat.translation.repository.ChatMessageTranslationRepository;
 import jp.co.translacat.global.exception.BusinessException;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -40,45 +44,54 @@ public class ChatMessageQueryService {
             Long cursorId
     ) {
         validateCursorId(cursorId);
-        validateChatRoomMember(loginUserId, chatRoomId);
+
+        ChatRoomMember currentMember =
+                chatRoomMemberQueryService.getActiveMember(
+                        loginUserId,
+                        chatRoomId
+                );
 
         List<ChatMessage> fetchedMessages = fetchMessages(
                 chatRoomId,
-                cursorId
+                cursorId,
+                currentMember.getJoinedAt()
         );
 
-        boolean hasNext = fetchedMessages.size() > MESSAGE_PAGE_SIZE;
-        List<ChatMessage> pageMessages = trimToPageSize(fetchedMessages);
+        boolean hasNext =
+                fetchedMessages.size() > MESSAGE_PAGE_SIZE;
+
+        List<ChatMessage> pageMessages =
+                trimToPageSize(fetchedMessages);
 
         /*
          * Repository에서는 최신순 DESC로 가져오고,
-         * 응답은 화면 표시를 위해 오래된 메시지 → 최신 메시지 ASC 순서로 반환한다.
+         * 응답은 오래된 메시지 → 최신 메시지 ASC로 반환한다.
          */
         Collections.reverse(pageMessages);
 
-        Map<Long, List<ChatMessageTranslationResponseDto>> translationMap =
+        Map<Long, List<ChatMessageTranslationResponseDto>>
+                translationMap =
                 getTranslationMap(pageMessages);
 
-        /*
-         * 메시지별로 프로필을 조회하지 않고 현재 페이지의 발신자 ID를 모아
-         * 한 번에 조회한다. 과거 메시지도 항상 현재 프로필 이미지를 표시한다.
-         */
         Map<Long, String> senderProfileImageUrlMap =
                 getSenderProfileImageUrlMap(pageMessages);
 
-        List<ChatMessageResponseDto> messages = pageMessages.stream()
-                .map(message -> ChatMessageResponseDto.from(
-                        message,
-                        resolveSenderProfileImageUrl(
-                                message,
-                                senderProfileImageUrlMap
-                        ),
-                        translationMap.getOrDefault(
-                                message.getId(),
-                                List.of()
+        List<ChatMessageResponseDto> messages =
+                pageMessages.stream()
+                        .map(message ->
+                                ChatMessageResponseDto.from(
+                                        message,
+                                        resolveSenderProfileImageUrl(
+                                                message,
+                                                senderProfileImageUrlMap
+                                        ),
+                                        translationMap.getOrDefault(
+                                                message.getId(),
+                                                List.of()
+                                        )
+                                )
                         )
-                ))
-                .toList();
+                        .toList();
 
         Long nextCursorId = resolveNextCursorId(
                 pageMessages,
@@ -100,32 +113,25 @@ public class ChatMessageQueryService {
         }
     }
 
-    private void validateChatRoomMember(
-            Long loginUserId,
-            Long chatRoomId
-    ) {
-        chatRoomMemberQueryService.getActiveMember(
-                loginUserId,
-                chatRoomId
-        );
-    }
-
     private List<ChatMessage> fetchMessages(
             Long chatRoomId,
-            Long cursorId
+            Long cursorId,
+            LocalDateTime joinedAt
     ) {
         if (cursorId == null) {
             return chatMessageRepository
-                    .findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullOrderByIdDesc(
+                    .findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullAndCreatedAtGreaterThanEqualOrderByIdDesc(
                             chatRoomId,
-                            ChatMessageStatus.SENT
+                            ChatMessageStatus.SENT,
+                            joinedAt
                     );
         }
 
         return chatMessageRepository
-                .findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullAndIdLessThanOrderByIdDesc(
+                .findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullAndCreatedAtGreaterThanEqualAndIdLessThanOrderByIdDesc(
                         chatRoomId,
                         ChatMessageStatus.SENT,
+                        joinedAt,
                         cursorId
                 );
     }
@@ -187,7 +193,9 @@ public class ChatMessageQueryService {
                 .collect(Collectors.toSet());
 
         return chatMessageSenderProfileService
-                .resolveLatestProfileImageUrlMap(senderUserIds);
+                .resolveLatestProfileImageUrlMap(
+                        senderUserIds
+                );
     }
 
     private String resolveSenderProfileImageUrl(

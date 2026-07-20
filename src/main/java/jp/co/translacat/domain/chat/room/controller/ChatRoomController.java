@@ -1,15 +1,22 @@
 package jp.co.translacat.domain.chat.room.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+
 import jakarta.validation.Valid;
+
+import jp.co.translacat.domain.chat.member.dto.response.ChatRoomInvitationResponseDto;
+import jp.co.translacat.domain.chat.member.service.ChatRoomInvitationService;
 import jp.co.translacat.domain.chat.room.dto.request.ChatRoomCreateRequestDto;
+import jp.co.translacat.domain.chat.room.dto.request.ChatRoomGroupConversionRequestDto;
 import jp.co.translacat.domain.chat.room.dto.response.ChatRoomListResponseDto;
 import jp.co.translacat.domain.chat.room.dto.response.ChatRoomResponseDto;
 import jp.co.translacat.domain.chat.room.facade.ChatRoomFacade;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 public class ChatRoomController {
 
     private final ChatRoomFacade chatRoomFacade;
+    private final ChatRoomInvitationService chatRoomInvitationService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -39,6 +47,29 @@ public class ChatRoomController {
         );
     }
 
+    @PostMapping("/{chatRoomId}/group-conversion")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(
+            summary = "DIRECT 채팅방에서 신규 GROUP 생성",
+            description = "기존 FRIEND DIRECT 채팅방을 유지하면서 기존 상대와 초대 대상을 포함한 신규 GROUP 채팅방을 생성한다."
+    )
+    public ResponseDto<ChatRoomInvitationResponseDto>
+    convertDirectToGroup(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long chatRoomId,
+            @Valid @RequestBody
+            ChatRoomGroupConversionRequestDto request
+    ) {
+        return ResponseUtil.created(
+                chatRoomInvitationService
+                        .convertDirectToGroup(
+                                userPrincipal.getId(),
+                                chatRoomId,
+                                request
+                        )
+        );
+    }
+
     @GetMapping
     @Operation(
             summary = "내 채팅방 목록 조회",
@@ -48,7 +79,9 @@ public class ChatRoomController {
             @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
         return ResponseUtil.ok(
-                chatRoomFacade.getMyChatRooms(userPrincipal.getId())
+                chatRoomFacade.getMyChatRooms(
+                        userPrincipal.getId()
+                )
         );
     }
 

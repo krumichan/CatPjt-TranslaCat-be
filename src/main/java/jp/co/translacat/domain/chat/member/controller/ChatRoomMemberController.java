@@ -1,16 +1,21 @@
 package jp.co.translacat.domain.chat.member.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+
 import jakarta.validation.Valid;
+
 import jp.co.translacat.domain.chat.member.dto.request.ChatRoomLanguageSettingUpdateRequestDto;
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomLanguageSettingResponseDto;
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberListResponseDto;
+import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberProfileResponseDto;
 import jp.co.translacat.domain.chat.member.service.ChatRoomMemberCommandService;
 import jp.co.translacat.domain.chat.member.service.ChatRoomMemberQueryService;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,6 +40,25 @@ public class ChatRoomMemberController {
                 chatRoomMemberQueryService.getMembers(
                         userPrincipal.getId(),
                         chatRoomId
+                )
+        );
+    }
+
+    @GetMapping("/{targetUserId}/profile")
+    @Operation(
+            summary = "채팅방 멤버 프로필 조회",
+            description = "같은 채팅방에 참여 중인 멤버의 최신 프로필과 친구 관계 상태를 조회한다."
+    )
+    public ResponseDto<ChatRoomMemberProfileResponseDto> getMemberProfile(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long chatRoomId,
+            @PathVariable Long targetUserId
+    ) {
+        return ResponseUtil.ok(
+                chatRoomMemberQueryService.getMemberProfile(
+                        userPrincipal.getId(),
+                        chatRoomId,
+                        targetUserId
                 )
         );
     }

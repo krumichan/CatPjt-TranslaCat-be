@@ -1,38 +1,35 @@
-package jp.co.translacat.domain.chat.openchat.repository;
+package jp.co.translacat.domain.chat.openchat.event;
 
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 
 import java.time.LocalDateTime;
 
-public record OpenChatMemberProfileQueryRow(
-        Long chatRoomId,
+public record OpenChatProfileUpdatedApplicationEvent(
+        Long roomId,
         Long openChatMemberId,
         String memberCode,
         String nickname,
         String profileImageObjectKey,
         ChatRoomMemberRole role,
-        boolean active,
-        LocalDateTime joinedAt
+        LocalDateTime occurredAt
 ) {
 
-    public OpenChatMemberProfileQueryRow(
-            Long chatRoomId,
+    public static OpenChatProfileUpdatedApplicationEvent of(
+            Long roomId,
             Long openChatMemberId,
             String memberCode,
             String nickname,
             String profileImageObjectKey,
-            ChatRoomMemberRole role,
-            LocalDateTime joinedAt
+            ChatRoomMemberRole role
     ) {
-        this(
-                chatRoomId,
+        return new OpenChatProfileUpdatedApplicationEvent(
+                roomId,
                 openChatMemberId,
                 memberCode,
                 nickname,
                 profileImageObjectKey,
                 role,
-                true,
-                joinedAt
+                LocalDateTime.now()
         );
     }
 }

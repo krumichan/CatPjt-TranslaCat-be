@@ -10,7 +10,11 @@ import jp.co.translacat.domain.chat.message.dto.response.ChatMessageResponseDto;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageTranslationResponseDto;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
+import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatMessageSenderResponseDto;
+import jp.co.translacat.domain.chat.openchat.profile.service.OpenChatMessageProfileService;
+import jp.co.translacat.domain.chat.openchat.service.OpenChatAccessService;
 import jp.co.translacat.domain.chat.read.repository.ChatMessageUnreadMemberCountRepository;
+import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
 import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationRequestedEvent;
 import jp.co.translacat.domain.chat.translation.repository.ChatMessageTranslationRepository;
@@ -43,6 +47,8 @@ public class ChatMessageCommandService {
     private final ChatMessageSenderProfileService chatMessageSenderProfileService;
     private final ChatMessageUnreadMemberCountRepository
             chatMessageUnreadMemberCountRepository;
+    private final OpenChatAccessService openChatAccessService;
+    private final OpenChatMessageProfileService openChatMessageProfileService;
 
     @Autowired
     public ChatMessageCommandService(
@@ -55,7 +61,9 @@ public class ChatMessageCommandService {
             ChatWebSocketEventPublisher chatWebSocketEventPublisher,
             ChatMessageSenderProfileService chatMessageSenderProfileService,
             ChatMessageUnreadMemberCountRepository
-                    chatMessageUnreadMemberCountRepository
+                    chatMessageUnreadMemberCountRepository,
+            OpenChatAccessService openChatAccessService,
+            OpenChatMessageProfileService openChatMessageProfileService
     ) {
         this.chatMessageRepository = chatMessageRepository;
         this.chatMessageTranslationRepository =
@@ -69,6 +77,39 @@ public class ChatMessageCommandService {
                 chatMessageSenderProfileService;
         this.chatMessageUnreadMemberCountRepository =
                 chatMessageUnreadMemberCountRepository;
+        this.openChatAccessService = openChatAccessService;
+        this.openChatMessageProfileService =
+                openChatMessageProfileService;
+    }
+
+    /**
+     * 기존 단위 테스트 및 직접 생성 호출부 호환용 생성자.
+     */
+    public ChatMessageCommandService(
+            ChatMessageRepository chatMessageRepository,
+            ChatMessageTranslationRepository chatMessageTranslationRepository,
+            ChatRoomMemberRepository chatRoomMemberRepository,
+            ChatRoomMemberQueryService chatRoomMemberQueryService,
+            ChatLanguageSettingResolver chatLanguageSettingResolver,
+            ApplicationEventPublisher applicationEventPublisher,
+            ChatWebSocketEventPublisher chatWebSocketEventPublisher,
+            ChatMessageSenderProfileService chatMessageSenderProfileService,
+            ChatMessageUnreadMemberCountRepository
+                    chatMessageUnreadMemberCountRepository
+    ) {
+        this(
+                chatMessageRepository,
+                chatMessageTranslationRepository,
+                chatRoomMemberRepository,
+                chatRoomMemberQueryService,
+                chatLanguageSettingResolver,
+                applicationEventPublisher,
+                chatWebSocketEventPublisher,
+                chatMessageSenderProfileService,
+                chatMessageUnreadMemberCountRepository,
+                null,
+                null
+        );
     }
 
     /**
@@ -93,6 +134,8 @@ public class ChatMessageCommandService {
                 applicationEventPublisher,
                 chatWebSocketEventPublisher,
                 chatMessageSenderProfileService,
+                null,
+                null,
                 null
         );
     }
@@ -109,6 +152,7 @@ public class ChatMessageCommandService {
                         loginUserId,
                         chatRoomId
                 );
+        validateOpenChatMessageSendAllowed(senderMember);
 
         ChatMessage message = ChatMessage.createUserTextMessage(
                 senderMember.getChatRoom(),
@@ -116,8 +160,7 @@ public class ChatMessageCommandService {
                 ValueUtil.normalizeContent(request.content())
         );
 
-        ChatMessage savedMessage =
-                chatMessageRepository.save(message);
+        ChatMessage savedMessage = chatMessageRepository.save(message);
 
         List<ChatMessageTranslation> translations =
                 createPendingTranslations(
@@ -130,21 +173,15 @@ public class ChatMessageCommandService {
                         .map(ChatMessageTranslationResponseDto::from)
                         .toList();
 
-        String senderProfileImageUrl =
-                resolveSenderProfileImageUrl(
-                        senderMember.getUser().getId()
-                );
-
         Long unreadMemberCount =
                 resolveInitialUnreadMemberCount(savedMessage);
 
-        ChatMessageResponseDto response =
-                ChatMessageResponseDto.from(
-                        savedMessage,
-                        senderProfileImageUrl,
-                        translationResponses,
-                        unreadMemberCount
-                );
+        ChatMessageResponseDto response = createResponse(
+                savedMessage,
+                senderMember,
+                translationResponses,
+                unreadMemberCount
+        );
 
         /*
          * REST 생성과 WebSocket SEND 생성 모두 이 Service를 통과한다.
@@ -164,6 +201,37 @@ public class ChatMessageCommandService {
         return response;
     }
 
+    private ChatMessageResponseDto createResponse(
+            ChatMessage message,
+            ChatRoomMember senderMember,
+            List<ChatMessageTranslationResponseDto> translations,
+            Long unreadMemberCount
+    ) {
+        if (senderMember.getChatRoom().getRoomType()
+                == ChatRoomType.OPEN) {
+            OpenChatMessageSenderResponseDto sender =
+                    resolveOpenChatSender(
+                            senderMember.getChatRoom().getId(),
+                            senderMember.getUser().getId()
+                    );
+            return ChatMessageResponseDto.fromOpenChat(
+                    message,
+                    sender,
+                    translations,
+                    unreadMemberCount
+            );
+        }
+
+        return ChatMessageResponseDto.from(
+                message,
+                resolveSenderProfileImageUrl(
+                        senderMember.getUser().getId()
+                ),
+                translations,
+                unreadMemberCount
+        );
+    }
+
     private List<ChatMessageTranslation> createPendingTranslations(
             ChatMessage message,
             ChatRoomMember senderMember
@@ -179,8 +247,7 @@ public class ChatMessageCommandService {
                         .resolve(senderMember)
                         .originalLanguageCode();
 
-        Set<String> targetLanguageCodes =
-                new LinkedHashSet<>();
+        Set<String> targetLanguageCodes = new LinkedHashSet<>();
 
         for (ChatRoomMember member : activeMembers) {
             ChatLanguageSettingResult languageSetting =
@@ -214,16 +281,32 @@ public class ChatMessageCommandService {
                         )
                         .toList();
 
-        return chatMessageTranslationRepository.saveAll(
-                translations
+        return chatMessageTranslationRepository.saveAll(translations);
+    }
+
+    private void validateOpenChatMessageSendAllowed(
+            ChatRoomMember senderMember
+    ) {
+        if (openChatAccessService == null) {
+            return;
+        }
+        openChatAccessService.validateMessageSendAllowed(senderMember);
+    }
+
+    private OpenChatMessageSenderResponseDto resolveOpenChatSender(
+            Long roomId,
+            Long senderUserId
+    ) {
+        if (openChatMessageProfileService == null) {
+            return null;
+        }
+        return openChatMessageProfileService.resolve(
+                roomId,
+                senderUserId
         );
     }
 
     private String resolveSenderProfileImageUrl(Long senderUserId) {
-        /*
-         * 기존 Mockito 테스트에서 신규 의존성을 아직 mock하지 않아도
-         * NPE가 발생하지 않도록 null fallback을 둔다.
-         */
         if (chatMessageSenderProfileService == null
                 || senderUserId == null) {
             return null;
@@ -236,12 +319,6 @@ public class ChatMessageCommandService {
     private Long resolveInitialUnreadMemberCount(
             ChatMessage message
     ) {
-        /*
-         * 기존 단위 테스트가 호환 생성자를 사용하는 경우에는
-         * 신규 Repository가 null일 수 있다. 실제 Spring Context에서는
-         * 반드시 주입되며, 생성 시점의 서버 기준 미확인 인원 수를
-         * message.created Payload에 포함한다.
-         */
         if (chatMessageUnreadMemberCountRepository == null
                 || message == null
                 || message.isSystemMessage()) {

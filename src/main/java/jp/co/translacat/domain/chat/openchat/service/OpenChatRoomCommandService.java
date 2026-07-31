@@ -79,7 +79,10 @@ public class OpenChatRoomCommandService {
                         savedOwnerMember,
                         memberCodeGenerator.generate(),
                         validated.nickname(),
-                        validated.profileImageObjectKey()
+                        normalizeObjectKeyForMember(
+                                validated.profileImageObjectKey(),
+                                savedOwnerMember.getId()
+                        )
                 );
         profileRepository.save(ownerProfile);
 
@@ -209,6 +212,25 @@ public class OpenChatRoomCommandService {
             );
         }
         return normalized;
+    }
+
+    private String normalizeObjectKeyForMember(
+            String objectKey,
+            Long openChatMemberId
+    ) {
+        if (objectKey == null) {
+            return null;
+        }
+        String expectedPrefix = OpenChatPolicy
+                .profileImageObjectKeyPrefix(openChatMemberId);
+        if (!objectKey.startsWith(expectedPrefix)) {
+            throw new BusinessException(
+                    "OPEN 채팅 프로필 이미지 Object Key가 해당 멤버 경로와 일치하지 않습니다.",
+                    OpenChatErrorCode
+                            .PROFILE_IMAGE_OBJECT_KEY_INVALID
+            );
+        }
+        return objectKey;
     }
 
     private ChatLanguageSettingResult resolveLanguageSetting(

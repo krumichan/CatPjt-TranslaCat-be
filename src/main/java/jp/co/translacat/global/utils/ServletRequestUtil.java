@@ -23,7 +23,9 @@ public class ServletRequestUtil {
      * @return HttpServletRequest 객체, 요청이 없으면 null
      */
     public HttpServletRequest getServletRequest() {
-        return Optional.of(RequestContextHolder.getRequestAttributes())
+        return Optional.ofNullable(
+                        RequestContextHolder.getRequestAttributes()
+                )
                 .map(ra -> ((ServletRequestAttributes) ra).getRequest())
                 .orElse(null);
     }

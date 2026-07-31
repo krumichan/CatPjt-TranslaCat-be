@@ -38,6 +38,13 @@ public interface ChatRoomMemberRepository
     );
 
     @EntityGraph(attributePaths = {"chatRoom", "user"})
+    Optional<ChatRoomMember>
+    findByIdAndChatRoomIdAndActiveTrueAndDeletedAtIsNull(
+            Long id,
+            Long chatRoomId
+    );
+
+    @EntityGraph(attributePaths = {"chatRoom", "user"})
     List<ChatRoomMember>
     findByChatRoomIdInAndActiveTrueAndDeletedAtIsNull(
             Collection<Long> chatRoomIds

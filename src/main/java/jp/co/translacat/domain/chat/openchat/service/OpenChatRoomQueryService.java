@@ -127,12 +127,11 @@ public class OpenChatRoomQueryService {
         OpenChatMemberProfileQueryRow ownerProfile =
                 openChatRoomRepository.findOwnerProfiles(roomIds)
                         .get(chatRoomId);
-        Optional<OpenChatMemberProfileQueryRow> myProfile = joined
-                ? openChatRoomRepository.findMyProfile(
+        Optional<OpenChatMemberProfileQueryRow> myProfile =
+                openChatRoomRepository.findMyProfile(
                         chatRoomId,
                         loginUserId
-                )
-                : Optional.empty();
+                );
         LocalDateTime lastActivityAt = openChatRoomRepository
                 .findLastActivityAt(roomIds)
                 .get(chatRoomId);
@@ -157,9 +156,10 @@ public class OpenChatRoomQueryService {
                 joined,
                 blockedReason == OpenChatJoinBlockedReason.NONE,
                 blockedReason,
-                myProfile.map(
-                                OpenChatMemberProfileQueryRow::role
+                myProfile.filter(
+                                OpenChatMemberProfileQueryRow::active
                         )
+                        .map(OpenChatMemberProfileQueryRow::role)
                         .orElse(null),
                 toProfileResponse(ownerProfile),
                 myProfile.map(this::toProfileResponse)
@@ -220,6 +220,7 @@ public class OpenChatRoomQueryService {
                         row.profileImageObjectKey()
                 ),
                 row.role(),
+                row.active(),
                 row.joinedAt()
         );
     }

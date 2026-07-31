@@ -9,6 +9,8 @@ import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatRoomListRespon
 import jp.co.translacat.domain.chat.openchat.enums.OpenChatJoinBlockedReason;
 import jp.co.translacat.domain.chat.openchat.enums.OpenChatRoomStatus;
 import jp.co.translacat.domain.chat.openchat.enums.OpenChatVisibility;
+import jp.co.translacat.domain.chat.openchat.profile.service.OpenChatProfileService;
+import jp.co.translacat.domain.chat.openchat.service.OpenChatMembershipService;
 import jp.co.translacat.domain.chat.openchat.service.OpenChatRoomCommandService;
 import jp.co.translacat.domain.chat.openchat.service.OpenChatRoomQueryService;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomSourceType;
@@ -41,17 +43,23 @@ class OpenChatRoomControllerTest {
 
     private OpenChatRoomCommandService commandService;
     private OpenChatRoomQueryService queryService;
+    private OpenChatMembershipService membershipService;
+    private OpenChatProfileService profileService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         commandService = mock(OpenChatRoomCommandService.class);
         queryService = mock(OpenChatRoomQueryService.class);
+        membershipService = mock(OpenChatMembershipService.class);
+        profileService = mock(OpenChatProfileService.class);
 
         OpenChatRoomController controller =
                 new OpenChatRoomController(
                         commandService,
-                        queryService
+                        queryService,
+                        membershipService,
+                        profileService
                 );
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)

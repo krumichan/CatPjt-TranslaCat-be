@@ -1,7 +1,10 @@
 package jp.co.translacat.domain.chat.websocket.service;
 
+import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageResponseDto;
 import jp.co.translacat.domain.chat.message.dto.websocket.event.ChatMessageCreatedEventDto;
+import jp.co.translacat.domain.chat.openchat.dto.websocket.event.OpenChatProfileUpdatedEventDto;
+import jp.co.translacat.domain.chat.openchat.dto.websocket.event.OpenChatRoomClosedEventDto;
 import jp.co.translacat.domain.chat.translation.dto.websocket.event.ChatTranslationCompletedEventDto;
 import jp.co.translacat.domain.chat.translation.dto.websocket.event.ChatTranslationFailedEventDto;
 import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationCompletedEvent;
@@ -9,6 +12,8 @@ import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationFail
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -28,10 +33,7 @@ public class ChatWebSocketEventPublisher {
                         message
                 );
 
-        messagingTemplate.convertAndSend(
-                CHAT_ROOM_TOPIC_PREFIX + chatRoomId,
-                event
-        );
+        publishToRoom(chatRoomId, event);
     }
 
     public void publishTranslationCompleted(
@@ -40,10 +42,7 @@ public class ChatWebSocketEventPublisher {
         ChatTranslationCompletedEventDto eventDto =
                 ChatTranslationCompletedEventDto.from(event);
 
-        messagingTemplate.convertAndSend(
-                CHAT_ROOM_TOPIC_PREFIX + event.chatRoomId(),
-                eventDto
-        );
+        publishToRoom(event.chatRoomId(), eventDto);
     }
 
     public void publishTranslationFailed(
@@ -52,9 +51,51 @@ public class ChatWebSocketEventPublisher {
         ChatTranslationFailedEventDto eventDto =
                 ChatTranslationFailedEventDto.from(event);
 
+        publishToRoom(event.chatRoomId(), eventDto);
+    }
+
+    public void publishOpenChatProfileUpdated(
+            Long roomId,
+            Long openChatMemberId,
+            String memberCode,
+            String nickname,
+            String profileImageUrl,
+            ChatRoomMemberRole role,
+            LocalDateTime occurredAt
+    ) {
+        publishToRoom(
+                roomId,
+                OpenChatProfileUpdatedEventDto.of(
+                        roomId,
+                        openChatMemberId,
+                        memberCode,
+                        nickname,
+                        profileImageUrl,
+                        role,
+                        occurredAt
+                )
+        );
+    }
+
+    public void publishOpenChatRoomClosed(
+            Long roomId,
+            LocalDateTime closedAt,
+            LocalDateTime occurredAt
+    ) {
+        publishToRoom(
+                roomId,
+                OpenChatRoomClosedEventDto.of(
+                        roomId,
+                        closedAt,
+                        occurredAt
+                )
+        );
+    }
+
+    private void publishToRoom(Long chatRoomId, Object event) {
         messagingTemplate.convertAndSend(
-                CHAT_ROOM_TOPIC_PREFIX + event.chatRoomId(),
-                eventDto
+                CHAT_ROOM_TOPIC_PREFIX + chatRoomId,
+                event
         );
     }
 }

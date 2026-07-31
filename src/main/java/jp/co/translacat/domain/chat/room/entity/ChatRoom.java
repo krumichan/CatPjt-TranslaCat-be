@@ -133,6 +133,13 @@ public class ChatRoom extends BaseAuditable {
         this.description = description;
     }
 
+    public void transferOwnership(User newOwner) {
+        if (newOwner == null) {
+            throw new IllegalArgumentException("새 OWNER는 필수입니다.");
+        }
+        this.owner = newOwner;
+    }
+
     public void softDelete() {
         this.active = false;
         this.deletedAt = LocalDateTime.now();

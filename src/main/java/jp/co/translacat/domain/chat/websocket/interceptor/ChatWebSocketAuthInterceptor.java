@@ -1,6 +1,8 @@
 package jp.co.translacat.domain.chat.websocket.interceptor;
 
+import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.service.ChatRoomMemberQueryService;
+import jp.co.translacat.domain.chat.openchat.service.OpenChatAccessService;
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.global.security.JWTService;
 import jp.co.translacat.global.security.MyUserDetailsService;
@@ -38,6 +40,7 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
     private final JWTService jwtService;
     private final MyUserDetailsService myUserDetailsService;
     private final ChatRoomMemberQueryService chatRoomMemberQueryService;
+    private final OpenChatAccessService openChatAccessService;
 
     @NotNull
     @Override
@@ -174,10 +177,11 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
 
         Long loginUserId = resolveLoginUserId(accessor);
 
-        chatRoomMemberQueryService.getActiveMember(
+        ChatRoomMember member = chatRoomMemberQueryService.getActiveMember(
                 loginUserId,
                 chatRoomId
         );
+        openChatAccessService.validateMessageSendAllowed(member);
     }
 
     private Long extractChatRoomId(

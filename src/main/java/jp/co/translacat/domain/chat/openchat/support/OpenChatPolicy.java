@@ -18,4 +18,15 @@ public class OpenChatPolicy {
 
     public static final String PROFILE_IMAGE_OBJECT_KEY_PREFIX =
             "open-chat-profiles/";
+
+    public static String profileImageObjectKeyPrefix(
+            Long openChatMemberId
+    ) {
+        if (openChatMemberId == null || openChatMemberId <= 0) {
+            return PROFILE_IMAGE_OBJECT_KEY_PREFIX;
+        }
+        return PROFILE_IMAGE_OBJECT_KEY_PREFIX
+                + openChatMemberId
+                + "/";
+    }
 }

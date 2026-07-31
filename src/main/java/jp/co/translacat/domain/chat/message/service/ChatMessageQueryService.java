@@ -8,7 +8,10 @@ import jp.co.translacat.domain.chat.message.dto.response.ChatMessageTranslationR
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
+import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatMessageSenderResponseDto;
+import jp.co.translacat.domain.chat.openchat.profile.service.OpenChatMessageProfileService;
 import jp.co.translacat.domain.chat.read.repository.ChatMessageUnreadMemberCountRepository;
+import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
 import jp.co.translacat.domain.chat.translation.repository.ChatMessageTranslationRepository;
 import jp.co.translacat.global.exception.BusinessException;
@@ -37,6 +40,7 @@ public class ChatMessageQueryService {
     private final ChatMessageSenderProfileService chatMessageSenderProfileService;
     private final ChatMessageUnreadMemberCountRepository
             chatMessageUnreadMemberCountRepository;
+    private final OpenChatMessageProfileService openChatMessageProfileService;
 
     @Autowired
     public ChatMessageQueryService(
@@ -45,7 +49,8 @@ public class ChatMessageQueryService {
             ChatRoomMemberQueryService chatRoomMemberQueryService,
             ChatMessageSenderProfileService chatMessageSenderProfileService,
             ChatMessageUnreadMemberCountRepository
-                    chatMessageUnreadMemberCountRepository
+                    chatMessageUnreadMemberCountRepository,
+            OpenChatMessageProfileService openChatMessageProfileService
     ) {
         this.chatMessageRepository = chatMessageRepository;
         this.chatMessageTranslationRepository =
@@ -55,6 +60,29 @@ public class ChatMessageQueryService {
                 chatMessageSenderProfileService;
         this.chatMessageUnreadMemberCountRepository =
                 chatMessageUnreadMemberCountRepository;
+        this.openChatMessageProfileService =
+                openChatMessageProfileService;
+    }
+
+    /**
+     * 기존 단위 테스트 및 직접 생성 호출부 호환용 생성자.
+     */
+    public ChatMessageQueryService(
+            ChatMessageRepository chatMessageRepository,
+            ChatMessageTranslationRepository chatMessageTranslationRepository,
+            ChatRoomMemberQueryService chatRoomMemberQueryService,
+            ChatMessageSenderProfileService chatMessageSenderProfileService,
+            ChatMessageUnreadMemberCountRepository
+                    chatMessageUnreadMemberCountRepository
+    ) {
+        this(
+                chatMessageRepository,
+                chatMessageTranslationRepository,
+                chatRoomMemberQueryService,
+                chatMessageSenderProfileService,
+                chatMessageUnreadMemberCountRepository,
+                null
+        );
     }
 
     /**
@@ -71,6 +99,7 @@ public class ChatMessageQueryService {
                 chatMessageTranslationRepository,
                 chatRoomMemberQueryService,
                 chatMessageSenderProfileService,
+                null,
                 null
         );
     }
@@ -94,11 +123,8 @@ public class ChatMessageQueryService {
                 currentMember.getJoinedAt()
         );
 
-        boolean hasNext =
-                fetchedMessages.size() > MESSAGE_PAGE_SIZE;
-
-        List<ChatMessage> pageMessages =
-                trimToPageSize(fetchedMessages);
+        boolean hasNext = fetchedMessages.size() > MESSAGE_PAGE_SIZE;
+        List<ChatMessage> pageMessages = trimToPageSize(fetchedMessages);
 
         /*
          * Repository에서는 최신순 DESC로 가져오고,
@@ -106,36 +132,41 @@ public class ChatMessageQueryService {
          */
         Collections.reverse(pageMessages);
 
-        Map<Long, List<ChatMessageTranslationResponseDto>>
-                translationMap =
+        Map<Long, List<ChatMessageTranslationResponseDto>> translationMap =
                 getTranslationMap(pageMessages);
-
-        Map<Long, String> senderProfileImageUrlMap =
-                getSenderProfileImageUrlMap(pageMessages);
-
         Map<Long, Long> unreadMemberCountMap =
                 getUnreadMemberCountMap(pageMessages);
 
-        List<ChatMessageResponseDto> messages =
-                pageMessages.stream()
-                        .map(message ->
-                                ChatMessageResponseDto.from(
-                                        message,
-                                        resolveSenderProfileImageUrl(
-                                                message,
-                                                senderProfileImageUrlMap
-                                        ),
-                                        translationMap.getOrDefault(
-                                                message.getId(),
-                                                List.of()
-                                        ),
-                                        resolveUnreadMemberCount(
-                                                message,
-                                                unreadMemberCountMap
-                                        )
-                                )
+        boolean openRoom = currentMember.getChatRoom().getRoomType()
+                == ChatRoomType.OPEN;
+
+        Map<Long, String> senderProfileImageUrlMap = openRoom
+                ? Map.of()
+                : getSenderProfileImageUrlMap(pageMessages);
+        Map<Long, OpenChatMessageSenderResponseDto> openChatSenderMap =
+                openRoom
+                        ? getOpenChatSenderMap(
+                                chatRoomId,
+                                pageMessages
                         )
-                        .toList();
+                        : Map.of();
+
+        List<ChatMessageResponseDto> messages = pageMessages.stream()
+                .map(message -> toResponse(
+                        message,
+                        openRoom,
+                        senderProfileImageUrlMap,
+                        openChatSenderMap,
+                        translationMap.getOrDefault(
+                                message.getId(),
+                                List.of()
+                        ),
+                        resolveUnreadMemberCount(
+                                message,
+                                unreadMemberCountMap
+                        )
+                ))
+                .toList();
 
         Long nextCursorId = resolveNextCursorId(
                 pageMessages,
@@ -146,6 +177,40 @@ public class ChatMessageQueryService {
                 messages,
                 nextCursorId,
                 hasNext
+        );
+    }
+
+    private ChatMessageResponseDto toResponse(
+            ChatMessage message,
+            boolean openRoom,
+            Map<Long, String> senderProfileImageUrlMap,
+            Map<Long, OpenChatMessageSenderResponseDto> openChatSenderMap,
+            List<ChatMessageTranslationResponseDto> translations,
+            Long unreadMemberCount
+    ) {
+        if (openRoom) {
+            OpenChatMessageSenderResponseDto sender =
+                    message.getSenderUser() == null
+                            ? null
+                            : openChatSenderMap.get(
+                                    message.getSenderUser().getId()
+                            );
+            return ChatMessageResponseDto.fromOpenChat(
+                    message,
+                    sender,
+                    translations,
+                    unreadMemberCount
+            );
+        }
+
+        return ChatMessageResponseDto.from(
+                message,
+                resolveSenderProfileImageUrl(
+                        message,
+                        senderProfileImageUrlMap
+                ),
+                translations,
+                unreadMemberCount
         );
     }
 
@@ -188,10 +253,7 @@ public class ChatMessageQueryService {
         }
 
         return new ArrayList<>(
-                fetchedMessages.subList(
-                        0,
-                        MESSAGE_PAGE_SIZE
-                )
+                fetchedMessages.subList(0, MESSAGE_PAGE_SIZE)
         );
     }
 
@@ -237,9 +299,29 @@ public class ChatMessageQueryService {
                 .collect(Collectors.toSet());
 
         return chatMessageSenderProfileService
-                .resolveLatestProfileImageUrlMap(
-                        senderUserIds
-                );
+                .resolveLatestProfileImageUrlMap(senderUserIds);
+    }
+
+    private Map<Long, OpenChatMessageSenderResponseDto>
+    getOpenChatSenderMap(
+            Long roomId,
+            List<ChatMessage> messages
+    ) {
+        if (messages.isEmpty()
+                || openChatMessageProfileService == null) {
+            return Map.of();
+        }
+
+        Set<Long> senderUserIds = messages.stream()
+                .map(ChatMessage::getSenderUser)
+                .filter(Objects::nonNull)
+                .map(user -> user.getId())
+                .collect(Collectors.toSet());
+
+        return openChatMessageProfileService.resolveMap(
+                roomId,
+                senderUserIds
+        );
     }
 
     private Map<Long, Long> getUnreadMemberCountMap(
@@ -266,7 +348,6 @@ public class ChatMessageQueryService {
         if (message.getSenderUser() == null) {
             return null;
         }
-
         return senderProfileImageUrlMap.get(
                 message.getSenderUser().getId()
         );
@@ -295,7 +376,6 @@ public class ChatMessageQueryService {
         if (!hasNext || pageMessages.isEmpty()) {
             return null;
         }
-
         return pageMessages.getFirst().getId();
     }
 }

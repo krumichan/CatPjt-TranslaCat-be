@@ -105,6 +105,22 @@ public class OpenChatMemberProfile extends BaseAuditable {
         );
     }
 
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public String replaceProfileImageObjectKey(String objectKey) {
+        String oldObjectKey = this.profileImageObjectKey;
+        this.profileImageObjectKey = normalizeObjectKey(objectKey);
+        return oldObjectKey;
+    }
+
+    public String clearProfileImage() {
+        String oldObjectKey = this.profileImageObjectKey;
+        this.profileImageObjectKey = null;
+        return oldObjectKey;
+    }
+
     private static String normalizeObjectKey(String objectKey) {
         if (objectKey == null || objectKey.isBlank()) {
             return null;

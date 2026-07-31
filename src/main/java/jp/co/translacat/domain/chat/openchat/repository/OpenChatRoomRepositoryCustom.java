@@ -18,6 +18,8 @@ public interface OpenChatRoomRepositoryCustom {
 
     Optional<OpenChatRoom> findByChatRoomId(Long chatRoomId);
 
+    Optional<OpenChatRoom> findByChatRoomIdForUpdate(Long chatRoomId);
+
     Map<Long, Long> countActiveMembers(List<Long> chatRoomIds);
 
     Set<Long> findJoinedRoomIds(

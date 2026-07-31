@@ -6,6 +6,7 @@ import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.DateTimeExpression;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import jakarta.persistence.LockModeType;
 import jp.co.translacat.domain.chat.member.entity.QChatRoomMember;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.message.entity.QChatMessage;
@@ -81,6 +82,27 @@ public class OpenChatRoomRepositoryImpl
                         room.active.isTrue(),
                         room.deletedAt.isNull()
                 )
+                .fetchOne();
+
+        return Optional.ofNullable(result);
+    }
+
+    @Override
+    public Optional<OpenChatRoom> findByChatRoomIdForUpdate(
+            Long chatRoomId
+    ) {
+        QChatRoom room = new QChatRoom("openChatLockedRoom");
+
+        OpenChatRoom result = queryFactory
+                .selectFrom(openChatRoom)
+                .join(openChatRoom.chatRoom, room)
+                .fetchJoin()
+                .where(
+                        room.id.eq(chatRoomId),
+                        room.active.isTrue(),
+                        room.deletedAt.isNull()
+                )
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .fetchOne();
 
         return Optional.ofNullable(result);
@@ -167,6 +189,7 @@ public class OpenChatRoomRepositoryImpl
                         profile.nickname,
                         profile.profileImageObjectKey,
                         member.role,
+                        member.active,
                         member.joinedAt
                 ))
                 .from(profile)
@@ -211,6 +234,7 @@ public class OpenChatRoomRepositoryImpl
                         profile.nickname,
                         profile.profileImageObjectKey,
                         member.role,
+                        member.active,
                         member.joinedAt
                 ))
                 .from(profile)
@@ -218,7 +242,6 @@ public class OpenChatRoomRepositoryImpl
                 .where(
                         member.chatRoom.id.eq(chatRoomId),
                         member.user.id.eq(userId),
-                        member.active.isTrue(),
                         member.deletedAt.isNull()
                 )
                 .fetchOne();

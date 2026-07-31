@@ -169,6 +169,75 @@ class OpenChatRoomRepositoryTest {
         )).isEmpty();
     }
 
+    @Test
+    @DisplayName("OPEN 방을 비관적 쓰기 잠금 대상으로 조회한다")
+    void findByChatRoomIdForUpdate() {
+        User owner = persistUser(
+                "lock-owner@example.com",
+                "LOCKOWNER01"
+        );
+        OpenChatRoom room = persistOpenRoom(
+                owner,
+                "정원 잠금 테스트방",
+                "설명",
+                OpenChatVisibility.PUBLIC,
+                "OC-LOCK1"
+        );
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(openChatRoomRepository.findByChatRoomIdForUpdate(
+                room.getChatRoom().getId()
+        )).isPresent();
+    }
+
+    @Test
+    @DisplayName("일반 퇴실 후에도 방별 프로필과 memberCode를 재참여용으로 조회한다")
+    void findMyProfileIncludesInactiveMembership() {
+        User owner = persistUser(
+                "rejoin-owner@example.com",
+                "REJOINOWN01"
+        );
+        User memberUser = persistUser(
+                "rejoin-member@example.com",
+                "REJOINMEM01"
+        );
+        OpenChatRoom room = persistOpenRoom(
+                owner,
+                "재참여 테스트방",
+                "설명",
+                OpenChatVisibility.PUBLIC,
+                "OC-OWNER"
+        );
+        ChatRoomMember member = entityManager.persist(
+                ChatRoomMember.createMember(
+                        room.getChatRoom(),
+                        memberUser,
+                        "ko",
+                        "ja"
+                )
+        );
+        entityManager.persist(OpenChatMemberProfile.create(
+                member,
+                "OC-KEEP1",
+                "재참여고양이",
+                null
+        ));
+        member.leaveOpenChat();
+        entityManager.flush();
+        entityManager.clear();
+
+        OpenChatMemberProfileQueryRow profile =
+                openChatRoomRepository.findMyProfile(
+                        room.getChatRoom().getId(),
+                        memberUser.getId()
+                ).orElseThrow();
+
+        assertThat(profile.active()).isFalse();
+        assertThat(profile.memberCode()).isEqualTo("OC-KEEP1");
+        assertThat(profile.nickname()).isEqualTo("재참여고양이");
+    }
+
     private User persistUser(
             String email,
             String publicId

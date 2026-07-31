@@ -143,9 +143,7 @@ public record ChatRoomResponseDto(
                 chatRoom.getSourceType(),
                 chatRoom.getName(),
                 chatRoom.getDescription(),
-                chatRoom.getOwner() != null
-                        ? chatRoom.getOwner().getId()
-                        : null,
+                resolveOwnerId(chatRoom),
                 memberCount,
                 chatRoom.isActive(),
                 languageSetting.originalLanguageCode(),
@@ -157,4 +155,13 @@ public record ChatRoomResponseDto(
                 directPartner
         );
     }
+    private static Long resolveOwnerId(ChatRoom chatRoom) {
+        if (chatRoom.getRoomType() == ChatRoomType.OPEN) {
+            return null;
+        }
+        return chatRoom.getOwner() != null
+                ? chatRoom.getOwner().getId()
+                : null;
+    }
+
 }

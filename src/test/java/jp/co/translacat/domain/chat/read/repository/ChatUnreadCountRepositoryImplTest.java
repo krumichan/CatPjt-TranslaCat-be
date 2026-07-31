@@ -14,7 +14,9 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -109,25 +111,90 @@ class ChatUnreadCountRepositoryImplTest {
         );
         ChatRoom chatRoom = persistRoom(reader);
 
-        entityManager.persist(
+        ChatMessage beforeMessage = entityManager.persist(
                 ChatMessage.createUserTextMessage(
                         chatRoom,
                         sender,
                         "before join"
                 )
         );
-        entityManager.flush();
 
-        persistMember(chatRoom, reader);
+        ChatRoomMember member = persistMember(
+                chatRoom,
+                reader
+        );
 
-        entityManager.persist(
+        ChatMessage afterMessage = entityManager.persist(
                 ChatMessage.createUserTextMessage(
                         chatRoom,
                         sender,
                         "after join"
                 )
         );
+
         entityManager.flush();
+
+        /*
+         * Hibernate/H2가 자동 생성하는 현재 시각에 의존하지 않고,
+         * 테스트에서 사용할 시간 순서를 명시적으로 고정한다.
+         *
+         * beforeMessage.createdAt
+         * <
+         * member.joinedAt
+         * <
+         * afterMessage.createdAt
+         */
+        LocalDateTime beforeCreatedAt =
+                LocalDateTime.of(2026, 1, 1, 10, 0, 0);
+
+        LocalDateTime joinedAt =
+                LocalDateTime.of(2026, 1, 1, 10, 1, 0);
+
+        LocalDateTime afterCreatedAt =
+                LocalDateTime.of(2026, 1, 1, 10, 2, 0);
+
+        updateMessageCreatedAt(
+                beforeMessage.getId(),
+                beforeCreatedAt
+        );
+        updateMemberJoinedAt(
+                member.getId(),
+                joinedAt
+        );
+        updateMessageCreatedAt(
+                afterMessage.getId(),
+                afterCreatedAt
+        );
+
+        /*
+         * Native Update는 현재 영속성 Context에 반영되지 않으므로
+         * 기존 Entity Cache를 비우고 DB에서 다시 조회해야 한다.
+         */
+        entityManager.clear();
+
+        ChatMessage savedBeforeMessage =
+                entityManager.find(
+                        ChatMessage.class,
+                        beforeMessage.getId()
+                );
+
+        ChatRoomMember savedMember =
+                entityManager.find(
+                        ChatRoomMember.class,
+                        member.getId()
+                );
+
+        ChatMessage savedAfterMessage =
+                entityManager.find(
+                        ChatMessage.class,
+                        afterMessage.getId()
+                );
+
+        assertThat(savedBeforeMessage.getCreatedAt())
+                .isBefore(savedMember.getJoinedAt());
+
+        assertThat(savedAfterMessage.getCreatedAt())
+                .isAfter(savedMember.getJoinedAt());
 
         Map<Long, Long> unread =
                 chatUnreadCountRepository.countUnreadByRoomIds(
@@ -135,7 +202,12 @@ class ChatUnreadCountRepositoryImplTest {
                         List.of(chatRoom.getId())
                 );
 
-        assertThat(unread.get(chatRoom.getId())).isEqualTo(1L);
+        /*
+         * beforeMessage는 joinedAt 이전이므로 제외되고,
+         * afterMessage만 미읽음으로 집계되어야 한다.
+         */
+        assertThat(unread.get(chatRoom.getId()))
+                .isEqualTo(1L);
     }
 
     private User persistUser(
@@ -171,6 +243,47 @@ class ChatUnreadCountRepositoryImplTest {
                 "ko",
                 "ja"
         );
+        ReflectionTestUtils.setField(
+                member,
+                "joinedAt",
+                LocalDateTime.now().minusSeconds(1)
+        );
         return entityManager.persist(member);
+    }
+
+    private void updateMessageCreatedAt(
+            Long messageId,
+            LocalDateTime createdAt
+    ) {
+        int updatedCount = entityManager
+                .getEntityManager()
+                .createNativeQuery("""
+                    UPDATE chat_message
+                       SET created_at = :createdAt
+                     WHERE id = :messageId
+                    """)
+                .setParameter("createdAt", createdAt)
+                .setParameter("messageId", messageId)
+                .executeUpdate();
+
+        assertThat(updatedCount).isEqualTo(1);
+    }
+
+    private void updateMemberJoinedAt(
+            Long memberId,
+            LocalDateTime joinedAt
+    ) {
+        int updatedCount = entityManager
+                .getEntityManager()
+                .createNativeQuery("""
+                    UPDATE chat_room_member
+                       SET joined_at = :joinedAt
+                     WHERE id = :memberId
+                    """)
+                .setParameter("joinedAt", joinedAt)
+                .setParameter("memberId", memberId)
+                .executeUpdate();
+
+        assertThat(updatedCount).isEqualTo(1);
     }
 }

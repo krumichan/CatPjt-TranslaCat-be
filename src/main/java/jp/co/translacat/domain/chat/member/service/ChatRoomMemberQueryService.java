@@ -8,6 +8,7 @@ import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberProfileRes
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberResponseDto;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
+import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.user.block.service.UserBlockService;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.friend.request.repository.FriendRequestRepository;
@@ -42,7 +43,9 @@ public class ChatRoomMemberQueryService {
             Long loginUserId,
             Long chatRoomId
     ) {
-        getActiveMember(loginUserId, chatRoomId);
+        ChatRoomMember currentMember =
+                getActiveMember(loginUserId, chatRoomId);
+        validateGeneralProfileApiAllowed(currentMember);
 
         List<ChatRoomMemberResponseDto> members =
                 chatRoomMemberRepository
@@ -72,7 +75,9 @@ public class ChatRoomMemberQueryService {
             Long chatRoomId,
             Long targetUserId
     ) {
-        getActiveMember(loginUserId, chatRoomId);
+        ChatRoomMember currentMember =
+                getActiveMember(loginUserId, chatRoomId);
+        validateGeneralProfileApiAllowed(currentMember);
 
         ChatRoomMember targetMember =
                 getActiveMember(targetUserId, chatRoomId);
@@ -115,6 +120,18 @@ public class ChatRoomMemberQueryService {
                 chatRoomMember,
                 languageSetting
         );
+    }
+
+    private void validateGeneralProfileApiAllowed(
+            ChatRoomMember currentMember
+    ) {
+        if (currentMember.getChatRoom().getRoomType()
+                == ChatRoomType.OPEN) {
+            throw new BusinessException(
+                    "OPEN 채팅방에서는 OPEN 전용 멤버 프로필 API를 사용해야 합니다.",
+                    "OPEN_CHAT_MEMBER_PROFILE_API_REQUIRED"
+            );
+        }
     }
 
     public ChatRoomMember getActiveMember(

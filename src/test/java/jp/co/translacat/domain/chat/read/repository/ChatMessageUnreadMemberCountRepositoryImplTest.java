@@ -256,11 +256,17 @@ class ChatMessageUnreadMemberCountRepositoryImplTest {
             ChatRoom chatRoom,
             User user
     ) {
-        return entityManager.persist(ChatRoomMember.createMember(
+        ChatRoomMember member = ChatRoomMember.createMember(
                 chatRoom,
                 user,
                 "ko",
                 "ja"
-        ));
+        );
+        ReflectionTestUtils.setField(
+                member,
+                "joinedAt",
+                LocalDateTime.now().minusSeconds(1)
+        );
+        return entityManager.persist(member);
     }
 }

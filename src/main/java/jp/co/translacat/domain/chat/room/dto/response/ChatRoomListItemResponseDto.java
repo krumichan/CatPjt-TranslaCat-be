@@ -112,9 +112,7 @@ public record ChatRoomListItemResponseDto(
                 chatRoom.getSourceType(),
                 chatRoom.getName(),
                 chatRoom.getDescription(),
-                chatRoom.getOwner() != null
-                        ? chatRoom.getOwner().getId()
-                        : null,
+                resolveOwnerId(chatRoom),
                 memberCount,
                 unreadCount,
                 chatRoom.getCreatedAt(),
@@ -122,4 +120,13 @@ public record ChatRoomListItemResponseDto(
                 directPartner
         );
     }
+    private static Long resolveOwnerId(ChatRoom chatRoom) {
+        if (chatRoom.getRoomType() == ChatRoomType.OPEN) {
+            return null;
+        }
+        return chatRoom.getOwner() != null
+                ? chatRoom.getOwner().getId()
+                : null;
+    }
+
 }

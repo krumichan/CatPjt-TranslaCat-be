@@ -52,7 +52,7 @@ public class ChatRoomCommandService {
             return createGroupRoom(owner, request);
         }
 
-        throw new BusinessException("오픈 채팅방은 1차 MVP 생성 대상이 아닙니다.");
+        throw new BusinessException("OPEN 채팅방은 전용 API를 사용해야 합니다.");
     }
 
     public ChatRoom createOrGetFriendDirectRoom(
@@ -230,7 +230,7 @@ public class ChatRoomCommandService {
         }
 
         if (request.roomType() == ChatRoomType.OPEN) {
-            throw new BusinessException("오픈 채팅방은 1차 MVP 생성 대상이 아닙니다.");
+            throw new BusinessException("OPEN 채팅방은 전용 API를 사용해야 합니다.");
         }
 
         List<Long> memberUserIds = request.memberUserIds();

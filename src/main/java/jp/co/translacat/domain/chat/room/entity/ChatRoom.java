@@ -83,6 +83,20 @@ public class ChatRoom extends BaseAuditable {
         );
     }
 
+    public static ChatRoom createOpenRoom(
+            String name,
+            String description,
+            User owner
+    ) {
+        return new ChatRoom(
+                ChatRoomType.OPEN,
+                ChatRoomSourceType.OPEN,
+                name,
+                description,
+                owner
+        );
+    }
+
     public static ChatRoom createGroupRoom(
             String name,
             String description,

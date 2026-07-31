@@ -4,6 +4,7 @@ import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageSenderType;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageType;
+import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -97,16 +98,13 @@ public record ChatMessageResponseDto(
         return new ChatMessageResponseDto(
                 message.getId(),
                 message.getChatRoom().getId(),
-                message.getSenderUser() != null
-                        ? message.getSenderUser().getId()
-                        : null,
-                message.getSenderUser() != null
-                        ? message.getSenderUser().getUsername()
-                        : null,
-                message.getSenderUser() != null
-                        ? message.getSenderUser().getEmail()
-                        : null,
-                senderProfileImageUrl,
+                resolveSenderUserId(message),
+                resolveSenderName(message),
+                resolveSenderEmail(message),
+                resolveSenderProfileImageUrl(
+                        message,
+                        senderProfileImageUrl
+                ),
                 message.getSenderType(),
                 message.getMessageType(),
                 message.getContent(),
@@ -119,4 +117,40 @@ public record ChatMessageResponseDto(
                 message.getUpdatedAt()
         );
     }
+    private static Long resolveSenderUserId(ChatMessage message) {
+        if (isOpenRoom(message) || message.getSenderUser() == null) {
+            return null;
+        }
+        return message.getSenderUser().getId();
+    }
+
+    private static String resolveSenderName(ChatMessage message) {
+        if (isOpenRoom(message) || message.getSenderUser() == null) {
+            return null;
+        }
+        return message.getSenderUser().getUsername();
+    }
+
+    private static String resolveSenderEmail(ChatMessage message) {
+        if (isOpenRoom(message) || message.getSenderUser() == null) {
+            return null;
+        }
+        return message.getSenderUser().getEmail();
+    }
+
+    private static String resolveSenderProfileImageUrl(
+            ChatMessage message,
+            String senderProfileImageUrl
+    ) {
+        return isOpenRoom(message)
+                ? null
+                : senderProfileImageUrl;
+    }
+
+    private static boolean isOpenRoom(ChatMessage message) {
+        return message.getChatRoom() != null
+                && message.getChatRoom().getRoomType()
+                == ChatRoomType.OPEN;
+    }
+
 }

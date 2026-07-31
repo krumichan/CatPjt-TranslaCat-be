@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:chat-read-test;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=USER"
+        "spring.datasource.url=jdbc:h2:mem:translacat-test;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=USER"
 })
 @AutoConfigureTestDatabase(
         replace = AutoConfigureTestDatabase.Replace.NONE

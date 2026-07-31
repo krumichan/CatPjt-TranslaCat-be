@@ -6,6 +6,7 @@ import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
 import jp.co.translacat.domain.chat.read.dto.request.ChatRoomReadRequestDto;
 import jp.co.translacat.domain.chat.read.dto.response.ChatRoomReadResponseDto;
+import jp.co.translacat.domain.chat.read.event.ChatMemberReadUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.read.event.ChatReadUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.read.repository.ChatUnreadCountRepository;
 import jp.co.translacat.global.exception.BusinessException;
@@ -64,6 +65,8 @@ public class ChatRoomReadService {
 
         validateReadableMessage(member, message);
 
+        Long previousLastReadMessageId =
+                member.getLastReadMessageId();
         boolean advanced = member.advanceReadCursor(message.getId());
         if (advanced) {
             chatRoomMemberRepository.saveAndFlush(member);
@@ -76,6 +79,29 @@ public class ChatRoomReadService {
         ChatRoomReadResponseDto response =
                 ChatRoomReadResponseDto.from(member, unreadCount);
 
+        publishUserReadUpdatedEvent(
+                loginUserId,
+                member,
+                response
+        );
+
+        if (advanced) {
+            publishMemberReadUpdatedEvent(
+                    loginUserId,
+                    chatRoomId,
+                    previousLastReadMessageId,
+                    response
+            );
+        }
+
+        return response;
+    }
+
+    private void publishUserReadUpdatedEvent(
+            Long loginUserId,
+            ChatRoomMember member,
+            ChatRoomReadResponseDto response
+    ) {
         applicationEventPublisher.publishEvent(
                 ChatReadUpdatedApplicationEvent.of(
                         member.getUser().getEmail(),
@@ -83,8 +109,23 @@ public class ChatRoomReadService {
                         response
                 )
         );
+    }
 
-        return response;
+    private void publishMemberReadUpdatedEvent(
+            Long loginUserId,
+            Long chatRoomId,
+            Long previousLastReadMessageId,
+            ChatRoomReadResponseDto response
+    ) {
+        applicationEventPublisher.publishEvent(
+                ChatMemberReadUpdatedApplicationEvent.of(
+                        chatRoomId,
+                        loginUserId,
+                        previousLastReadMessageId,
+                        response.lastReadMessageId(),
+                        response.lastReadAt()
+                )
+        );
     }
 
     private void validateReadableMessage(

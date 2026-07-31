@@ -6,6 +6,7 @@ import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
 import jp.co.translacat.domain.chat.read.dto.request.ChatRoomReadRequestDto;
 import jp.co.translacat.domain.chat.read.dto.response.ChatRoomReadResponseDto;
+import jp.co.translacat.domain.chat.read.event.ChatMemberReadUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.read.event.ChatReadUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.read.repository.ChatUnreadCountRepository;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
@@ -23,12 +24,15 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -95,7 +99,7 @@ class ChatRoomReadServiceTest {
     }
 
     @Test
-    void advancesReadCursorAndPublishesUserSyncEvent() {
+    void advancesReadCursorAndPublishesUserAndRoomEvents() {
         ChatMessage message = createMessage(
                 100L,
                 joinedAt.plusMinutes(1)
@@ -121,20 +125,74 @@ class ChatRoomReadServiceTest {
         assertThat(response.unreadCount()).isZero();
         verify(chatRoomMemberRepository).saveAndFlush(member);
 
-        ArgumentCaptor<ChatReadUpdatedApplicationEvent> eventCaptor =
-                ArgumentCaptor.forClass(
-                        ChatReadUpdatedApplicationEvent.class
-                );
-        verify(applicationEventPublisher).publishEvent(
-                eventCaptor.capture()
-        );
-        assertThat(eventCaptor.getValue().destinationUsername())
+        ArgumentCaptor<Object> eventCaptor =
+                ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher, times(2))
+                .publishEvent(eventCaptor.capture());
+
+        List<Object> events = eventCaptor.getAllValues();
+        ChatReadUpdatedApplicationEvent userEvent = events.stream()
+                .filter(ChatReadUpdatedApplicationEvent.class::isInstance)
+                .map(ChatReadUpdatedApplicationEvent.class::cast)
+                .findFirst()
+                .orElseThrow();
+        ChatMemberReadUpdatedApplicationEvent roomEvent = events.stream()
+                .filter(ChatMemberReadUpdatedApplicationEvent.class::isInstance)
+                .map(ChatMemberReadUpdatedApplicationEvent.class::cast)
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(userEvent.destinationUsername())
                 .isEqualTo("reader@translacat.test");
-        assertThat(eventCaptor.getValue().userId()).isEqualTo(1L);
+        assertThat(userEvent.userId()).isEqualTo(1L);
+
+        assertThat(roomEvent.chatRoomId()).isEqualTo(10L);
+        assertThat(roomEvent.readerUserId()).isEqualTo(1L);
+        assertThat(roomEvent.previousLastReadMessageId()).isNull();
+        assertThat(roomEvent.lastReadMessageId()).isEqualTo(100L);
+        assertThat(roomEvent.readAt()).isNotNull();
     }
 
     @Test
-    void doesNotMoveReadCursorBackward() {
+    void publishesRoomEventWithPreviousAndNewCursor() {
+        member.initializeReadCursor(90L);
+        ChatMessage message = createMessage(
+                100L,
+                joinedAt.plusMinutes(1)
+        );
+        when(chatRoomMemberRepository
+                .findActiveByRoomIdAndUserIdForUpdate(10L, 1L))
+                .thenReturn(Optional.of(member));
+        when(chatMessageRepository
+                .findByIdAndChatRoomIdAndDeletedAtIsNull(100L, 10L))
+                .thenReturn(Optional.of(message));
+        when(chatUnreadCountRepository.countUnread(1L, 10L))
+                .thenReturn(0L);
+
+        chatRoomReadService.markAsRead(
+                1L,
+                10L,
+                new ChatRoomReadRequestDto(100L)
+        );
+
+        ArgumentCaptor<Object> eventCaptor =
+                ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher, times(2))
+                .publishEvent(eventCaptor.capture());
+
+        ChatMemberReadUpdatedApplicationEvent roomEvent =
+                eventCaptor.getAllValues().stream()
+                        .filter(ChatMemberReadUpdatedApplicationEvent.class::isInstance)
+                        .map(ChatMemberReadUpdatedApplicationEvent.class::cast)
+                        .findFirst()
+                        .orElseThrow();
+
+        assertThat(roomEvent.previousLastReadMessageId()).isEqualTo(90L);
+        assertThat(roomEvent.lastReadMessageId()).isEqualTo(100L);
+    }
+
+    @Test
+    void doesNotMoveReadCursorBackwardOrPublishRoomEvent() {
         member.initializeReadCursor(200L);
         ChatMessage olderMessage = createMessage(
                 150L,
@@ -159,6 +217,12 @@ class ChatRoomReadServiceTest {
         assertThat(response.unreadCount()).isEqualTo(2L);
         verify(chatRoomMemberRepository, never())
                 .saveAndFlush(any(ChatRoomMember.class));
+        verify(applicationEventPublisher)
+                .publishEvent(isA(ChatReadUpdatedApplicationEvent.class));
+        verify(applicationEventPublisher, never())
+                .publishEvent(isA(
+                        ChatMemberReadUpdatedApplicationEvent.class
+                ));
     }
 
     @Test

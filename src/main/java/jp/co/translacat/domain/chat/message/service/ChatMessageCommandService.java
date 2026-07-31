@@ -10,6 +10,7 @@ import jp.co.translacat.domain.chat.message.dto.response.ChatMessageResponseDto;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageTranslationResponseDto;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
+import jp.co.translacat.domain.chat.read.repository.ChatMessageUnreadMemberCountRepository;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
 import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationRequestedEvent;
 import jp.co.translacat.domain.chat.translation.repository.ChatMessageTranslationRepository;
@@ -17,7 +18,7 @@ import jp.co.translacat.domain.chat.websocket.service.ChatWebSocketEventPublishe
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.global.utils.ValidationUtil;
 import jp.co.translacat.global.utils.ValueUtil;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +28,6 @@ import java.util.List;
 import java.util.Set;
 
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class ChatMessageCommandService {
 
@@ -41,6 +41,61 @@ public class ChatMessageCommandService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final ChatWebSocketEventPublisher chatWebSocketEventPublisher;
     private final ChatMessageSenderProfileService chatMessageSenderProfileService;
+    private final ChatMessageUnreadMemberCountRepository
+            chatMessageUnreadMemberCountRepository;
+
+    @Autowired
+    public ChatMessageCommandService(
+            ChatMessageRepository chatMessageRepository,
+            ChatMessageTranslationRepository chatMessageTranslationRepository,
+            ChatRoomMemberRepository chatRoomMemberRepository,
+            ChatRoomMemberQueryService chatRoomMemberQueryService,
+            ChatLanguageSettingResolver chatLanguageSettingResolver,
+            ApplicationEventPublisher applicationEventPublisher,
+            ChatWebSocketEventPublisher chatWebSocketEventPublisher,
+            ChatMessageSenderProfileService chatMessageSenderProfileService,
+            ChatMessageUnreadMemberCountRepository
+                    chatMessageUnreadMemberCountRepository
+    ) {
+        this.chatMessageRepository = chatMessageRepository;
+        this.chatMessageTranslationRepository =
+                chatMessageTranslationRepository;
+        this.chatRoomMemberRepository = chatRoomMemberRepository;
+        this.chatRoomMemberQueryService = chatRoomMemberQueryService;
+        this.chatLanguageSettingResolver = chatLanguageSettingResolver;
+        this.applicationEventPublisher = applicationEventPublisher;
+        this.chatWebSocketEventPublisher = chatWebSocketEventPublisher;
+        this.chatMessageSenderProfileService =
+                chatMessageSenderProfileService;
+        this.chatMessageUnreadMemberCountRepository =
+                chatMessageUnreadMemberCountRepository;
+    }
+
+    /**
+     * 기존 단위 테스트 및 직접 생성 호출부 호환용 생성자.
+     */
+    public ChatMessageCommandService(
+            ChatMessageRepository chatMessageRepository,
+            ChatMessageTranslationRepository chatMessageTranslationRepository,
+            ChatRoomMemberRepository chatRoomMemberRepository,
+            ChatRoomMemberQueryService chatRoomMemberQueryService,
+            ChatLanguageSettingResolver chatLanguageSettingResolver,
+            ApplicationEventPublisher applicationEventPublisher,
+            ChatWebSocketEventPublisher chatWebSocketEventPublisher,
+            ChatMessageSenderProfileService chatMessageSenderProfileService
+    ) {
+        this(
+                chatMessageRepository,
+                chatMessageTranslationRepository,
+                chatRoomMemberRepository,
+                chatRoomMemberQueryService,
+                chatLanguageSettingResolver,
+                applicationEventPublisher,
+                chatWebSocketEventPublisher,
+                chatMessageSenderProfileService,
+                null
+        );
+    }
 
     public ChatMessageResponseDto createTextMessage(
             Long loginUserId,
@@ -80,11 +135,15 @@ public class ChatMessageCommandService {
                         senderMember.getUser().getId()
                 );
 
+        Long unreadMemberCount =
+                resolveInitialUnreadMemberCount(savedMessage);
+
         ChatMessageResponseDto response =
                 ChatMessageResponseDto.from(
                         savedMessage,
                         senderProfileImageUrl,
-                        translationResponses
+                        translationResponses,
+                        unreadMemberCount
                 );
 
         /*
@@ -172,6 +231,24 @@ public class ChatMessageCommandService {
 
         return chatMessageSenderProfileService
                 .resolveLatestProfileImageUrl(senderUserId);
+    }
+
+    private Long resolveInitialUnreadMemberCount(
+            ChatMessage message
+    ) {
+        /*
+         * 기존 단위 테스트가 호환 생성자를 사용하는 경우에는
+         * 신규 Repository가 null일 수 있다. 실제 Spring Context에서는
+         * 반드시 주입되며, 생성 시점의 서버 기준 미확인 인원 수를
+         * message.created Payload에 포함한다.
+         */
+        if (chatMessageUnreadMemberCountRepository == null
+                || message == null
+                || message.isSystemMessage()) {
+            return null;
+        }
+        return chatMessageUnreadMemberCountRepository
+                .countUnreadMembers(message.getId());
     }
 
     private void validateCreateRequest(

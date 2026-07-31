@@ -11,6 +11,7 @@ public enum ChatWebSocketEventType {
     TRANSLATION_COMPLETED("chat.translation.completed"),
     TRANSLATION_FAILED("chat.translation.failed"),
     READ_UPDATED("chat.read.updated"),
+    MEMBER_READ_UPDATED("chat.member.read.updated"),
     ERROR("chat.error");
 
     private final String eventName;

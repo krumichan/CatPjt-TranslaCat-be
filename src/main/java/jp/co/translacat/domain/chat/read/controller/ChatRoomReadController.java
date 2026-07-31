@@ -7,6 +7,7 @@ import jp.co.translacat.domain.chat.read.service.ChatRoomReadService;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
+import jp.co.translacat.global.utils.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -32,9 +33,11 @@ public class ChatRoomReadController {
             @PathVariable Long chatRoomId,
             @Valid @RequestBody ChatRoomReadRequestDto request
     ) {
+        Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
+
         return ResponseUtil.ok(
                 chatRoomReadService.markAsRead(
-                        userPrincipal.getId(),
+                        loginUserId,
                         chatRoomId,
                         request
                 )

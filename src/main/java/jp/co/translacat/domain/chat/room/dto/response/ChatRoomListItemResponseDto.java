@@ -14,14 +14,15 @@ public record ChatRoomListItemResponseDto(
         String description,
         Long ownerId,
         long memberCount,
+        long unreadCount,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         DirectPartnerProfileResponseDto directPartner
 ) {
-
     /**
      * 기존 테스트/호출부 호환용 생성자.
-     * FRIEND DIRECT partner 정보가 필요 없는 기존 호출은 null로 응답한다.
+     * FRIEND DIRECT partner 정보와 unreadCount가 필요 없는
+     * 기존 호출은 각각 null, 0으로 응답한다.
      */
     public ChatRoomListItemResponseDto(
             Long id,
@@ -42,9 +43,40 @@ public record ChatRoomListItemResponseDto(
                 description,
                 ownerId,
                 memberCount,
+                0L,
                 createdAt,
                 updatedAt,
                 null
+        );
+    }
+
+    /**
+     * 기존 directPartner 포함 호출부 호환용 생성자.
+     */
+    public ChatRoomListItemResponseDto(
+            Long id,
+            ChatRoomType roomType,
+            ChatRoomSourceType sourceType,
+            String name,
+            String description,
+            Long ownerId,
+            long memberCount,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            DirectPartnerProfileResponseDto directPartner
+    ) {
+        this(
+                id,
+                roomType,
+                sourceType,
+                name,
+                description,
+                ownerId,
+                memberCount,
+                0L,
+                createdAt,
+                updatedAt,
+                directPartner
         );
     }
 
@@ -52,12 +84,26 @@ public record ChatRoomListItemResponseDto(
             ChatRoom chatRoom,
             long memberCount
     ) {
-        return from(chatRoom, memberCount, null);
+        return from(chatRoom, memberCount, 0L, null);
     }
 
     public static ChatRoomListItemResponseDto from(
             ChatRoom chatRoom,
             long memberCount,
+            DirectPartnerProfileResponseDto directPartner
+    ) {
+        return from(
+                chatRoom,
+                memberCount,
+                0L,
+                directPartner
+        );
+    }
+
+    public static ChatRoomListItemResponseDto from(
+            ChatRoom chatRoom,
+            long memberCount,
+            long unreadCount,
             DirectPartnerProfileResponseDto directPartner
     ) {
         return new ChatRoomListItemResponseDto(
@@ -70,6 +116,7 @@ public record ChatRoomListItemResponseDto(
                         ? chatRoom.getOwner().getId()
                         : null,
                 memberCount,
+                unreadCount,
                 chatRoom.getCreatedAt(),
                 chatRoom.getUpdatedAt(),
                 directPartner

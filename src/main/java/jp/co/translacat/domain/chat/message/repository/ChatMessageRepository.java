@@ -3,7 +3,6 @@ package jp.co.translacat.domain.chat.message.repository;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
@@ -13,14 +12,17 @@ import java.util.Optional;
 public interface ChatMessageRepository
         extends JpaRepository<ChatMessage, Long> {
 
-    Optional<ChatMessage> findByIdAndDeletedAtIsNull(
-            Long id
+    Optional<ChatMessage> findByIdAndDeletedAtIsNull(Long id);
+
+    Optional<ChatMessage> findByIdAndChatRoomIdAndDeletedAtIsNull(
+            Long id,
+            Long chatRoomId
     );
 
     Optional<ChatMessage>
-    findByIdAndChatRoomIdAndDeletedAtIsNull(
-            Long id,
-            Long chatRoomId
+    findTopByChatRoomIdAndStatusAndDeletedAtIsNullOrderByIdDesc(
+            Long chatRoomId,
+            ChatMessageStatus status
     );
 
     List<ChatMessage>

@@ -11,7 +11,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ChatRoomMemberRepository
-        extends JpaRepository<ChatRoomMember, Long> {
+        extends JpaRepository<ChatRoomMember, Long>,
+        ChatRoomMemberRepositoryCustom {
 
     Optional<ChatRoomMember> findByChatRoomAndUser(
             ChatRoom chatRoom,
@@ -31,17 +32,20 @@ public interface ChatRoomMemberRepository
     );
 
     @EntityGraph(attributePaths = {"chatRoom", "user"})
-    List<ChatRoomMember> findByChatRoomIdAndActiveTrueAndDeletedAtIsNull(
+    List<ChatRoomMember>
+    findByChatRoomIdAndActiveTrueAndDeletedAtIsNull(
             Long chatRoomId
     );
 
     @EntityGraph(attributePaths = {"chatRoom", "user"})
-    List<ChatRoomMember> findByChatRoomIdInAndActiveTrueAndDeletedAtIsNull(
+    List<ChatRoomMember>
+    findByChatRoomIdInAndActiveTrueAndDeletedAtIsNull(
             Collection<Long> chatRoomIds
     );
 
     @EntityGraph(attributePaths = {"chatRoom", "user"})
-    List<ChatRoomMember> findByUserIdAndActiveTrueAndDeletedAtIsNull(
+    List<ChatRoomMember>
+    findByUserIdAndActiveTrueAndDeletedAtIsNull(
             Long userId
     );
 

@@ -10,6 +10,7 @@ public enum ChatWebSocketEventType {
     MESSAGE_CREATED("chat.message.created"),
     TRANSLATION_COMPLETED("chat.translation.completed"),
     TRANSLATION_FAILED("chat.translation.failed"),
+    READ_UPDATED("chat.read.updated"),
     ERROR("chat.error");
 
     private final String eventName;

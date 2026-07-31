@@ -81,6 +81,12 @@ public class ChatRoomMember extends BaseAuditable {
     @Column(nullable = false)
     private LocalDateTime joinedAt;
 
+    @Column(name = "last_read_message_id")
+    private Long lastReadMessageId;
+
+    @Column(name = "last_read_at")
+    private LocalDateTime lastReadAt;
+
     @Column
     private LocalDateTime leftAt;
 
@@ -227,6 +233,7 @@ public class ChatRoomMember extends BaseAuditable {
         this.joinedAt = LocalDateTime.now();
         this.leftAt = null;
         this.deletedAt = null;
+        resetReadCursor();
     }
 
     public void restore(
@@ -245,6 +252,30 @@ public class ChatRoomMember extends BaseAuditable {
         this.joinedAt = LocalDateTime.now();
         this.leftAt = null;
         this.deletedAt = null;
+        resetReadCursor();
+    }
+
+    public void initializeReadCursor(Long messageId) {
+        this.lastReadMessageId = messageId;
+        this.lastReadAt = messageId != null ? LocalDateTime.now() : null;
+    }
+
+    public boolean advanceReadCursor(Long messageId) {
+        if (messageId == null) {
+            return false;
+        }
+        if (this.lastReadMessageId != null
+                && messageId.compareTo(this.lastReadMessageId) <= 0) {
+            return false;
+        }
+        this.lastReadMessageId = messageId;
+        this.lastReadAt = LocalDateTime.now();
+        return true;
+    }
+
+    public void resetReadCursor() {
+        this.lastReadMessageId = null;
+        this.lastReadAt = null;
     }
 
     public void resetLanguageSetting() {
@@ -255,7 +286,8 @@ public class ChatRoomMember extends BaseAuditable {
     }
 
     public boolean hasRoomLanguageSetting() {
-        return this.originalLanguageCode != null || this.translationLanguageCode != null;
+        return this.originalLanguageCode != null
+                || this.translationLanguageCode != null;
     }
 
     public void softDelete() {

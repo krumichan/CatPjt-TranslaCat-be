@@ -2,6 +2,7 @@ package jp.co.translacat.domain.chat.language.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import jp.co.translacat.domain.chat.language.dto.ChatLanguageSettingUpdateRequestDto;
+import jp.co.translacat.domain.chat.language.dto.ChatRoomLanguageSettingResponseDto;
 import jp.co.translacat.domain.chat.language.service.ChatRoomLanguageSettingService;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
@@ -28,7 +29,7 @@ public class ChatRoomLanguageSettingController {
             summary = "채팅방 내 언어 설정 조회",
             description = "로그인 사용자의 해당 채팅방 전용 언어 설정을 조회한다. 방별 설정이 없으면 개인 기본값 또는 시스템 기본값을 반환한다."
     )
-    public ResponseDto getMyRoomSetting(
+    public ResponseDto<ChatRoomLanguageSettingResponseDto> getMyRoomSetting(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long chatRoomId
     ) {
@@ -45,7 +46,7 @@ public class ChatRoomLanguageSettingController {
             summary = "채팅방 내 언어 설정 수정",
             description = "로그인 사용자의 해당 채팅방 전용 언어 설정만 수정한다."
     )
-    public ResponseDto updateMyRoomSetting(
+    public ResponseDto<ChatRoomLanguageSettingResponseDto> updateMyRoomSetting(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long chatRoomId,
             @RequestBody ChatLanguageSettingUpdateRequestDto request
@@ -64,7 +65,7 @@ public class ChatRoomLanguageSettingController {
             summary = "채팅방 내 언어 설정 초기화",
             description = "로그인 사용자의 해당 채팅방 전용 언어 설정을 제거하고 개인 기본값 또는 시스템 기본값을 다시 적용한다."
     )
-    public ResponseDto resetMyRoomSetting(
+    public ResponseDto<ChatRoomLanguageSettingResponseDto> resetMyRoomSetting(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long chatRoomId
     ) {

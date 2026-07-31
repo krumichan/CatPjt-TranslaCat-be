@@ -11,6 +11,7 @@ import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageResponseDto;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
+import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
 import jp.co.translacat.domain.chat.room.dto.request.ChatRoomGroupConversionRequestDto;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
@@ -26,9 +27,7 @@ import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.global.utils.ValidationUtil;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,9 +66,10 @@ public class ChatRoomInvitationService {
         ChatRoom chatRoom = getLockedActiveRoom(chatRoomId);
         validateExistingGroupRoom(chatRoom);
 
-        ChatRoomMember requesterMember =
-                getActiveMember(loginUserId, chatRoomId);
-
+        ChatRoomMember requesterMember = getActiveMember(
+                loginUserId,
+                chatRoomId
+        );
         validateGroupInvitePermission(requesterMember);
 
         List<User> targetUsers = resolveTargetUsers(
@@ -78,11 +78,15 @@ public class ChatRoomInvitationService {
                 request != null ? request.targetPublicIds() : null,
                 "CHAT_ROOM_INVITE_TARGET_REQUIRED"
         );
-
         validateGroupInviteTargets(chatRoomId, targetUsers);
 
+        Long initialReadMessageId = findLatestSentMessageId(chatRoomId);
         List<ChatRoomMember> invitedMembers = targetUsers.stream()
-                .map(user -> addOrRestoreMember(chatRoom, user))
+                .map(user -> addOrRestoreMember(
+                        chatRoom,
+                        user,
+                        initialReadMessageId
+                ))
                 .toList();
 
         ChatMessageResponseDto systemMessage =
@@ -117,19 +121,15 @@ public class ChatRoomInvitationService {
         validateFriendDirectRoom(directRoom);
         validateGroupConversionRequest(request);
 
-        ChatRoomMember requesterMember =
-                getActiveMember(loginUserId, chatRoomId);
-
-        List<ChatRoomMember> directMembers =
-                chatRoomMemberRepository
-                        .findByChatRoomIdAndActiveTrueAndDeletedAtIsNull(
-                                chatRoomId
-                        );
-
-        validateDirectRoomMembers(
+        ChatRoomMember requesterMember = getActiveMember(
                 loginUserId,
-                directMembers
+                chatRoomId
         );
+        List<ChatRoomMember> directMembers = chatRoomMemberRepository
+                .findByChatRoomIdAndActiveTrueAndDeletedAtIsNull(
+                        chatRoomId
+                );
+        validateDirectRoomMembers(loginUserId, directMembers);
 
         List<User> requestedTargets = resolveTargetUsers(
                 loginUserId,
@@ -144,9 +144,7 @@ public class ChatRoomInvitationService {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
         List<User> newTargetUsers = requestedTargets.stream()
-                .filter(user ->
-                        !directMemberUserIds.contains(user.getId())
-                )
+                .filter(user -> !directMemberUserIds.contains(user.getId()))
                 .toList();
 
         if (newTargetUsers.isEmpty()) {
@@ -168,43 +166,37 @@ public class ChatRoomInvitationService {
                 requesterMember.getUser(),
                 groupSourceType
         );
+        ChatRoom savedGroupRoom = chatRoomRepository.save(groupRoom);
 
-        ChatRoom savedGroupRoom =
-                chatRoomRepository.save(groupRoom);
-
-        ChatRoomMember ownerMember =
-                createMember(
-                        savedGroupRoom,
-                        requesterMember.getUser(),
-                        ChatRoomMemberRole.OWNER
-                );
-
+        ChatRoomMember ownerMember = createMember(
+                savedGroupRoom,
+                requesterMember.getUser(),
+                ChatRoomMemberRole.OWNER
+        );
         chatRoomMemberRepository.save(ownerMember);
 
         LinkedHashMap<Long, User> groupMemberUsers =
                 new LinkedHashMap<>();
-
         for (ChatRoomMember directMember : directMembers) {
             User user = directMember.getUser();
-
             if (!user.getId().equals(loginUserId)) {
                 groupMemberUsers.put(user.getId(), user);
             }
         }
-
         for (User targetUser : newTargetUsers) {
             groupMemberUsers.put(targetUser.getId(), targetUser);
         }
 
-        List<ChatRoomMember> invitedMembers = groupMemberUsers.values()
-                .stream()
-                .map(user -> createMember(
-                        savedGroupRoom,
-                        user,
-                        ChatRoomMemberRole.MEMBER
-                ))
-                .map(chatRoomMemberRepository::save)
-                .toList();
+        List<ChatRoomMember> invitedMembers =
+                groupMemberUsers.values()
+                        .stream()
+                        .map(user -> createMember(
+                                savedGroupRoom,
+                                user,
+                                ChatRoomMemberRole.MEMBER
+                        ))
+                        .map(chatRoomMemberRepository::save)
+                        .toList();
 
         return ChatRoomInvitationResponseDto.forNewGroup(
                 savedGroupRoom.getId(),
@@ -219,7 +211,6 @@ public class ChatRoomInvitationService {
                     "CHAT_ROOM_ID_REQUIRED"
             );
         }
-
         return chatRoomRepository
                 .findActiveByIdForUpdate(chatRoomId)
                 .orElseThrow(() -> new BusinessException(
@@ -250,7 +241,6 @@ public class ChatRoomInvitationService {
                     "CHAT_ROOM_INVITE_UNSUPPORTED_ROOM_TYPE"
             );
         }
-
         if (chatRoom.getSourceType() == ChatRoomSourceType.OPEN
                 || chatRoom.getSourceType() == ChatRoomSourceType.AI) {
             throw new BusinessException(
@@ -265,7 +255,6 @@ public class ChatRoomInvitationService {
                 chatRoom.getRoomType() == ChatRoomType.DIRECT
                         && chatRoom.getSourceType()
                         == ChatRoomSourceType.FRIEND;
-
         if (!supported) {
             throw new BusinessException(
                     "FRIEND DIRECT 채팅방에서만 새 그룹으로 전환할 수 있습니다.",
@@ -277,8 +266,7 @@ public class ChatRoomInvitationService {
     private void validateGroupInvitePermission(
             ChatRoomMember requesterMember
     ) {
-        if (!requesterMember.isOwner()
-                && !requesterMember.isAdmin()) {
+        if (!requesterMember.isOwner() && !requesterMember.isAdmin()) {
             throw new BusinessException(
                     "OWNER 또는 ADMIN만 멤버를 초대할 수 있습니다.",
                     "CHAT_ROOM_INVITE_NOT_ALLOWED"
@@ -295,7 +283,6 @@ public class ChatRoomInvitationService {
                     "CHAT_ROOM_DIRECT_CONVERSION_TARGET_REQUIRED"
             );
         }
-
         if (ValidationUtil.isBlank(request.name())) {
             throw new BusinessException(
                     "그룹 이름은 필수입니다.",
@@ -304,7 +291,6 @@ public class ChatRoomInvitationService {
         }
 
         String normalizedName = request.name().trim();
-
         if (normalizedName.length() > MAX_GROUP_NAME_LENGTH) {
             throw new BusinessException(
                     "그룹 이름은 100자 이하로 입력해주세요.",
@@ -312,9 +298,9 @@ public class ChatRoomInvitationService {
             );
         }
 
-        String normalizedDescription =
-                normalizeNullableText(request.description());
-
+        String normalizedDescription = normalizeNullableText(
+                request.description()
+        );
         if (normalizedDescription != null
                 && normalizedDescription.length()
                 > MAX_GROUP_DESCRIPTION_LENGTH) {
@@ -348,8 +334,7 @@ public class ChatRoomInvitationService {
             Collection<String> targetPublicIds,
             String emptyTargetErrorCode
     ) {
-        LinkedHashMap<Long, User> resolvedUsers =
-                new LinkedHashMap<>();
+        LinkedHashMap<Long, User> resolvedUsers = new LinkedHashMap<>();
 
         if (targetUserIds != null) {
             for (Long targetUserId : targetUserIds) {
@@ -357,7 +342,6 @@ public class ChatRoomInvitationService {
                 resolvedUsers.put(user.getId(), user);
             }
         }
-
         if (targetPublicIds != null) {
             for (String targetPublicId : targetPublicIds) {
                 User user = getTargetByPublicId(targetPublicId);
@@ -373,10 +357,7 @@ public class ChatRoomInvitationService {
         }
 
         for (User targetUser : resolvedUsers.values()) {
-            validateTargetUser(
-                    loginUserId,
-                    targetUser
-            );
+            validateTargetUser(loginUserId, targetUser);
         }
 
         return new ArrayList<>(resolvedUsers.values());
@@ -389,7 +370,6 @@ public class ChatRoomInvitationService {
                     "CHAT_ROOM_INVITE_TARGET_NOT_FOUND"
             );
         }
-
         return userRepository.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException(
                         "초대 대상 사용자를 찾을 수 없습니다.",
@@ -404,7 +384,6 @@ public class ChatRoomInvitationService {
                     "CHAT_ROOM_INVITE_TARGET_NOT_FOUND"
             );
         }
-
         return userRepository
                 .findByPublicId(targetPublicId.trim())
                 .orElseThrow(() -> new BusinessException(
@@ -423,7 +402,6 @@ public class ChatRoomInvitationService {
                     "CHAT_ROOM_INVITE_SELF_NOT_ALLOWED"
             );
         }
-
         if (userBlockService.isBlockedBetween(
                 loginUserId,
                 targetUser.getId()
@@ -440,13 +418,11 @@ public class ChatRoomInvitationService {
             List<User> targetUsers
     ) {
         for (User targetUser : targetUsers) {
-            boolean alreadyActive =
-                    chatRoomMemberRepository
-                            .existsByChatRoomIdAndUserIdAndActiveTrueAndDeletedAtIsNull(
-                                    chatRoomId,
-                                    targetUser.getId()
-                            );
-
+            boolean alreadyActive = chatRoomMemberRepository
+                    .existsByChatRoomIdAndUserIdAndActiveTrueAndDeletedAtIsNull(
+                            chatRoomId,
+                            targetUser.getId()
+                    );
             if (alreadyActive) {
                 throw new BusinessException(
                         "이미 채팅방에 참여 중인 사용자입니다.",
@@ -458,7 +434,8 @@ public class ChatRoomInvitationService {
 
     private ChatRoomMember addOrRestoreMember(
             ChatRoom chatRoom,
-            User targetUser
+            User targetUser,
+            Long initialReadMessageId
     ) {
         ChatLanguageSettingResult languageSetting =
                 resolveMemberLanguageSetting(targetUser.getId());
@@ -476,20 +453,21 @@ public class ChatRoomInvitationService {
                             languageSetting.showOriginal(),
                             languageSetting.showTranslation()
                     );
+                    member.initializeReadCursor(initialReadMessageId);
                     return member;
                 })
-                .orElseGet(() ->
-                        chatRoomMemberRepository.save(
-                                ChatRoomMember.createMember(
-                                        chatRoom,
-                                        targetUser,
-                                        languageSetting.originalLanguageCode(),
-                                        languageSetting.translationLanguageCode(),
-                                        languageSetting.showOriginal(),
-                                        languageSetting.showTranslation()
-                                )
-                        )
-                );
+                .orElseGet(() -> {
+                    ChatRoomMember member = ChatRoomMember.createMember(
+                            chatRoom,
+                            targetUser,
+                            languageSetting.originalLanguageCode(),
+                            languageSetting.translationLanguageCode(),
+                            languageSetting.showOriginal(),
+                            languageSetting.showTranslation()
+                    );
+                    member.initializeReadCursor(initialReadMessageId);
+                    return chatRoomMemberRepository.save(member);
+                });
     }
 
     private ChatRoomMember createMember(
@@ -510,7 +488,6 @@ public class ChatRoomInvitationService {
                     languageSetting.showTranslation()
             );
         }
-
         return ChatRoomMember.createMember(
                 chatRoom,
                 user,
@@ -521,19 +498,26 @@ public class ChatRoomInvitationService {
         );
     }
 
+    private Long findLatestSentMessageId(Long chatRoomId) {
+        return chatMessageRepository
+                .findTopByChatRoomIdAndStatusAndDeletedAtIsNullOrderByIdDesc(
+                        chatRoomId,
+                        ChatMessageStatus.SENT
+                )
+                .map(ChatMessage::getId)
+                .orElse(null);
+    }
+
     private ChatLanguageSettingResult resolveMemberLanguageSetting(
             Long userId
     ) {
         if (userChatLanguageSettingService != null) {
             ChatLanguageSettingResult resolved =
-                    userChatLanguageSettingService
-                            .resolveDefault(userId);
-
+                    userChatLanguageSettingService.resolveDefault(userId);
             if (resolved != null) {
                 return resolved;
             }
         }
-
         return new ChatLanguageSettingResult(
                 "ko",
                 "ja",
@@ -549,20 +533,17 @@ public class ChatRoomInvitationService {
             List<User> targetUsers
     ) {
         boolean allTargetsAreFriends = targetUsers.stream()
-                .allMatch(targetUser ->
-                        friendService.areFriends(
-                                loginUserId,
-                                targetUser.getId()
-                        )
-                );
+                .allMatch(targetUser -> friendService.areFriends(
+                        loginUserId,
+                        targetUser.getId()
+                ));
 
         return allTargetsAreFriends
                 ? ChatRoomSourceType.FRIEND
                 : ChatRoomSourceType.MANUAL;
     }
 
-    private ChatMessageResponseDto
-    createAndPublishInvitationSystemMessage(
+    private ChatMessageResponseDto createAndPublishInvitationSystemMessage(
             ChatRoom chatRoom,
             User requester,
             List<ChatRoomMember> invitedMembers
@@ -577,26 +558,20 @@ public class ChatRoomInvitationService {
                 + invitedNames
                 + "님을 초대했습니다.";
 
-        ChatMessage systemMessage =
-                ChatMessage.createSystemMessage(
-                        chatRoom,
-                        content
-                );
-
-        ChatMessage savedMessage =
-                chatMessageRepository.save(systemMessage);
-
-        ChatMessageResponseDto response =
-                ChatMessageResponseDto.from(
-                        savedMessage,
-                        List.of()
-                );
+        ChatMessage systemMessage = ChatMessage.createSystemMessage(
+                chatRoom,
+                content
+        );
+        ChatMessage savedMessage = chatMessageRepository.save(systemMessage);
+        ChatMessageResponseDto response = ChatMessageResponseDto.from(
+                savedMessage,
+                List.of()
+        );
 
         chatWebSocketEventPublisher.publishMessageCreated(
                 chatRoom.getId(),
                 response
         );
-
         return response;
     }
 
@@ -607,28 +582,21 @@ public class ChatRoomInvitationService {
         if (!ValidationUtil.isBlank(profile.nickname())) {
             return profile.nickname();
         }
-
         if (!ValidationUtil.isBlank(user.getUsername())) {
             return user.getUsername();
         }
-
         return profile.publicId();
     }
 
     private List<ChatRoomInvitedMemberResponseDto>
-    toInvitedMemberResponses(
-            List<ChatRoomMember> invitedMembers
-    ) {
+    toInvitedMemberResponses(List<ChatRoomMember> invitedMembers) {
         return invitedMembers.stream()
-                .map(member ->
-                        ChatRoomInvitedMemberResponseDto.of(
-                                member,
-                                userProfileQueryService
-                                        .getSummaryByUser(
-                                                member.getUser()
-                                        )
+                .map(member -> ChatRoomInvitedMemberResponseDto.of(
+                        member,
+                        userProfileQueryService.getSummaryByUser(
+                                member.getUser()
                         )
-                )
+                ))
                 .toList();
     }
 
@@ -636,7 +604,6 @@ public class ChatRoomInvitationService {
         if (ValidationUtil.isBlank(value)) {
             return null;
         }
-
         return value.trim();
     }
 }

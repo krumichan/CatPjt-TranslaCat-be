@@ -225,6 +225,13 @@ public class ChatRoomMember extends BaseAuditable {
         this.leftAt = LocalDateTime.now();
     }
 
+    public void banFromOpenChat() {
+        this.role = ChatRoomMemberRole.MEMBER;
+        this.active = false;
+        this.leftAt = LocalDateTime.now();
+        resetReadCursor();
+    }
+
     public void restore(
             ChatRoomMemberRole role,
             String originalLanguageCode,

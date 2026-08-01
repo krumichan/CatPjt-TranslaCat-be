@@ -3,6 +3,8 @@ package jp.co.translacat.domain.chat.websocket.service;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageResponseDto;
 import jp.co.translacat.domain.chat.message.dto.websocket.event.ChatMessageCreatedEventDto;
+import jp.co.translacat.domain.chat.openchat.dto.websocket.event.OpenChatMemberBannedEventDto;
+import jp.co.translacat.domain.chat.openchat.dto.websocket.event.OpenChatMemberRoleUpdatedEventDto;
 import jp.co.translacat.domain.chat.openchat.dto.websocket.event.OpenChatProfileUpdatedEventDto;
 import jp.co.translacat.domain.chat.openchat.dto.websocket.event.OpenChatRoomClosedEventDto;
 import jp.co.translacat.domain.chat.translation.dto.websocket.event.ChatTranslationCompletedEventDto;
@@ -74,6 +76,48 @@ public class ChatWebSocketEventPublisher {
                         role,
                         occurredAt
                 )
+        );
+    }
+
+    public void publishOpenChatMemberRoleUpdated(
+            Long roomId,
+            Long targetOpenChatMemberId,
+            ChatRoomMemberRole role,
+            LocalDateTime occurredAt
+    ) {
+        publishToRoom(
+                roomId,
+                OpenChatMemberRoleUpdatedEventDto.of(
+                        roomId,
+                        targetOpenChatMemberId,
+                        role,
+                        occurredAt
+                )
+        );
+    }
+
+    public void publishOpenChatMemberBanned(
+            Long roomId,
+            Long targetOpenChatMemberId,
+            String targetUsername,
+            String reason,
+            LocalDateTime bannedAt,
+            LocalDateTime occurredAt
+    ) {
+        OpenChatMemberBannedEventDto event =
+                OpenChatMemberBannedEventDto.of(
+                        roomId,
+                        targetOpenChatMemberId,
+                        reason,
+                        bannedAt,
+                        occurredAt
+                );
+
+        publishToRoom(roomId, event);
+        messagingTemplate.convertAndSendToUser(
+                targetUsername,
+                "/queue/chat/open-rooms/" + roomId,
+                event
         );
     }
 

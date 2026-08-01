@@ -12,6 +12,7 @@ public class OpenChatPolicy {
     public static final int DEFAULT_PAGE_SIZE = 20;
     public static final int MAX_PAGE_SIZE = 50;
     public static final int MAX_KEYWORD_LENGTH = 100;
+    public static final int MAX_BAN_REASON_LENGTH = 500;
 
     public static final int MEMBER_CODE_RANDOM_LENGTH = 5;
     public static final int MEMBER_CODE_MAX_ATTEMPTS = 20;

@@ -146,6 +146,7 @@ public class ChatMessageCommandService {
             ChatMessageCreateRequestDto request
     ) {
         validateCreateRequest(request);
+        validateOpenChatMemberAccess(loginUserId, chatRoomId);
 
         ChatRoomMember senderMember =
                 chatRoomMemberQueryService.getActiveMember(
@@ -282,6 +283,19 @@ public class ChatMessageCommandService {
                         .toList();
 
         return chatMessageTranslationRepository.saveAll(translations);
+    }
+
+    private void validateOpenChatMemberAccess(
+            Long loginUserId,
+            Long chatRoomId
+    ) {
+        if (openChatAccessService == null) {
+            return;
+        }
+        openChatAccessService.validateOpenRoomMemberAccess(
+                loginUserId,
+                chatRoomId
+        );
     }
 
     private void validateOpenChatMessageSendAllowed(

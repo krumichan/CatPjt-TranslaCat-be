@@ -4,6 +4,7 @@ import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
+import jp.co.translacat.domain.chat.openchat.service.OpenChatAccessService;
 import jp.co.translacat.domain.chat.read.dto.request.ChatRoomReadRequestDto;
 import jp.co.translacat.domain.chat.read.dto.response.ChatRoomReadResponseDto;
 import jp.co.translacat.domain.chat.read.event.ChatMemberReadUpdatedApplicationEvent;
@@ -24,6 +25,7 @@ public class ChatRoomReadService {
     private final ChatMessageRepository chatMessageRepository;
     private final ChatUnreadCountRepository chatUnreadCountRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final OpenChatAccessService openChatAccessService;
 
     public ChatRoomReadResponseDto markAsRead(
             Long loginUserId,
@@ -42,6 +44,11 @@ public class ChatRoomReadService {
                     "CHAT_ROOM_LAST_READ_MESSAGE_ID_REQUIRED"
             );
         }
+
+        openChatAccessService.validateOpenRoomMemberAccess(
+                loginUserId,
+                chatRoomId
+        );
 
         ChatRoomMember member = chatRoomMemberRepository
                 .findActiveByRoomIdAndUserIdForUpdate(

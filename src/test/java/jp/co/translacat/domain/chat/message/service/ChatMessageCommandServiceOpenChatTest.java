@@ -14,6 +14,7 @@ import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatMessageSenderResponseDto;
 import jp.co.translacat.domain.chat.openchat.profile.service.OpenChatMessageProfileService;
 import jp.co.translacat.domain.chat.openchat.service.OpenChatAccessService;
+import jp.co.translacat.domain.chat.openchat.support.OpenChatErrorCode;
 import jp.co.translacat.domain.chat.read.repository.ChatMessageUnreadMemberCountRepository;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.chat.translation.repository.ChatMessageTranslationRepository;
@@ -32,8 +33,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -88,6 +91,29 @@ class ChatMessageCommandServiceOpenChatTest {
                 "ko",
                 "ja"
         );
+    }
+
+    @Test
+    void bannedOpenChatUserCannotSendMessage() {
+        doThrow(new jp.co.translacat.global.exception.BusinessException(
+                "banned",
+                OpenChatErrorCode.BANNED
+        )).when(openChatAccessService)
+                .validateOpenRoomMemberAccess(2L, 100L);
+
+        assertThatExceptionOfType(
+                jp.co.translacat.global.exception.BusinessException.class
+        ).isThrownBy(() -> service.createTextMessage(
+                2L,
+                100L,
+                new ChatMessageCreateRequestDto("hello")
+        )).satisfies(exception -> assertThat(
+                exception.getErrorCode()
+        ).isEqualTo(OpenChatErrorCode.BANNED));
+
+        verify(memberQueryService, never())
+                .getActiveMember(2L, 100L);
+        verify(messageRepository, never()).save(any());
     }
 
     @Test

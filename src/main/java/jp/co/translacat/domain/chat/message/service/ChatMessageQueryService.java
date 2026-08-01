@@ -10,6 +10,7 @@ import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatMessageSenderResponseDto;
 import jp.co.translacat.domain.chat.openchat.profile.service.OpenChatMessageProfileService;
+import jp.co.translacat.domain.chat.openchat.service.OpenChatAccessService;
 import jp.co.translacat.domain.chat.read.repository.ChatMessageUnreadMemberCountRepository;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
@@ -41,6 +42,7 @@ public class ChatMessageQueryService {
     private final ChatMessageUnreadMemberCountRepository
             chatMessageUnreadMemberCountRepository;
     private final OpenChatMessageProfileService openChatMessageProfileService;
+    private final OpenChatAccessService openChatAccessService;
 
     @Autowired
     public ChatMessageQueryService(
@@ -50,7 +52,8 @@ public class ChatMessageQueryService {
             ChatMessageSenderProfileService chatMessageSenderProfileService,
             ChatMessageUnreadMemberCountRepository
                     chatMessageUnreadMemberCountRepository,
-            OpenChatMessageProfileService openChatMessageProfileService
+            OpenChatMessageProfileService openChatMessageProfileService,
+            OpenChatAccessService openChatAccessService
     ) {
         this.chatMessageRepository = chatMessageRepository;
         this.chatMessageTranslationRepository =
@@ -62,6 +65,30 @@ public class ChatMessageQueryService {
                 chatMessageUnreadMemberCountRepository;
         this.openChatMessageProfileService =
                 openChatMessageProfileService;
+        this.openChatAccessService = openChatAccessService;
+    }
+
+    /**
+     * 기존 단위 테스트 및 직접 생성 호출부 호환용 생성자.
+     */
+    public ChatMessageQueryService(
+            ChatMessageRepository chatMessageRepository,
+            ChatMessageTranslationRepository chatMessageTranslationRepository,
+            ChatRoomMemberQueryService chatRoomMemberQueryService,
+            ChatMessageSenderProfileService chatMessageSenderProfileService,
+            ChatMessageUnreadMemberCountRepository
+                    chatMessageUnreadMemberCountRepository,
+            OpenChatMessageProfileService openChatMessageProfileService
+    ) {
+        this(
+                chatMessageRepository,
+                chatMessageTranslationRepository,
+                chatRoomMemberQueryService,
+                chatMessageSenderProfileService,
+                chatMessageUnreadMemberCountRepository,
+                openChatMessageProfileService,
+                null
+        );
     }
 
     /**
@@ -81,6 +108,7 @@ public class ChatMessageQueryService {
                 chatRoomMemberQueryService,
                 chatMessageSenderProfileService,
                 chatMessageUnreadMemberCountRepository,
+                null,
                 null
         );
     }
@@ -100,6 +128,7 @@ public class ChatMessageQueryService {
                 chatRoomMemberQueryService,
                 chatMessageSenderProfileService,
                 null,
+                null,
                 null
         );
     }
@@ -110,6 +139,7 @@ public class ChatMessageQueryService {
             Long cursorId
     ) {
         validateCursorId(cursorId);
+        validateOpenChatAccess(loginUserId, chatRoomId);
 
         ChatRoomMember currentMember =
                 chatRoomMemberQueryService.getActiveMember(
@@ -212,6 +242,18 @@ public class ChatMessageQueryService {
                 translations,
                 unreadMemberCount
         );
+    }
+
+    private void validateOpenChatAccess(
+            Long loginUserId,
+            Long chatRoomId
+    ) {
+        if (openChatAccessService != null) {
+            openChatAccessService.validateOpenRoomMemberAccess(
+                    loginUserId,
+                    chatRoomId
+            );
+        }
     }
 
     private void validateCursorId(Long cursorId) {

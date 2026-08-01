@@ -59,4 +59,30 @@ public class OpenChatErrorCode {
             "OPEN_CHAT_PAGE_SIZE_INVALID";
     public static final String KEYWORD_TOO_LONG =
             "OPEN_CHAT_KEYWORD_TOO_LONG";
+    public static final String BANNED =
+            "OPEN_CHAT_BANNED";
+    public static final String MODERATION_ACCESS_DENIED =
+            "OPEN_CHAT_MODERATION_ACCESS_DENIED";
+    public static final String ADMIN_TARGET_INVALID =
+            "OPEN_CHAT_ADMIN_TARGET_INVALID";
+    public static final String BAN_REQUEST_REQUIRED =
+            "OPEN_CHAT_BAN_REQUEST_REQUIRED";
+    public static final String BAN_TARGET_REQUIRED =
+            "OPEN_CHAT_BAN_TARGET_REQUIRED";
+    public static final String BAN_REASON_REQUIRED =
+            "OPEN_CHAT_BAN_REASON_REQUIRED";
+    public static final String BAN_REASON_TOO_LONG =
+            "OPEN_CHAT_BAN_REASON_TOO_LONG";
+    public static final String BAN_TARGET_INVALID =
+            "OPEN_CHAT_BAN_TARGET_INVALID";
+    public static final String BAN_SELF_NOT_ALLOWED =
+            "OPEN_CHAT_BAN_SELF_NOT_ALLOWED";
+    public static final String BAN_ROLE_FORBIDDEN =
+            "OPEN_CHAT_BAN_ROLE_FORBIDDEN";
+    public static final String BAN_ALREADY_ACTIVE =
+            "OPEN_CHAT_BAN_ALREADY_ACTIVE";
+    public static final String BAN_NOT_FOUND =
+            "OPEN_CHAT_BAN_NOT_FOUND";
+    public static final String BAN_RELEASE_FORBIDDEN =
+            "OPEN_CHAT_BAN_RELEASE_FORBIDDEN";
 }

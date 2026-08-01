@@ -8,6 +8,7 @@ import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
+import jp.co.translacat.domain.chat.openchat.ban.repository.OpenChatBanRepository;
 import jp.co.translacat.domain.chat.openchat.dto.request.OpenChatJoinRequestDto;
 import jp.co.translacat.domain.chat.openchat.dto.request.OpenChatOwnerTransferRequestDto;
 import jp.co.translacat.domain.chat.openchat.dto.request.OpenChatProfileRequestDto;
@@ -42,6 +43,7 @@ import java.util.Optional;
 public class OpenChatMembershipService {
 
     private final OpenChatRoomRepository openChatRoomRepository;
+    private final OpenChatBanRepository banRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomMemberRepository memberRepository;
     private final OpenChatMemberProfileRepository profileRepository;
@@ -63,6 +65,7 @@ public class OpenChatMembershipService {
         ChatRoom chatRoom = openChatRoom.getChatRoom();
 
         validateJoinable(openChatRoom);
+        validateNotBanned(loginUserId, roomId);
 
         Optional<ChatRoomMember> existingMember = memberRepository
                 .findByChatRoomIdAndUserId(roomId, loginUserId);
@@ -353,6 +356,21 @@ public class OpenChatMembershipService {
                         "OPEN 채팅 프로필을 찾을 수 없습니다.",
                         OpenChatErrorCode.PROFILE_NOT_FOUND
                 ));
+    }
+
+    private void validateNotBanned(
+            Long userId,
+            Long roomId
+    ) {
+        if (banRepository.existsActiveByRoomIdAndTargetUserId(
+                roomId,
+                userId
+        )) {
+            throw new BusinessException(
+                    "해당 OPEN 채팅방에서 차단되어 참여할 수 없습니다.",
+                    OpenChatErrorCode.BANNED
+            );
+        }
     }
 
     private void validateJoinable(OpenChatRoom openChatRoom) {

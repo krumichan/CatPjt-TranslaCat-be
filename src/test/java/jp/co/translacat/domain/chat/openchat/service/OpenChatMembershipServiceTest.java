@@ -8,6 +8,7 @@ import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
+import jp.co.translacat.domain.chat.openchat.ban.repository.OpenChatBanRepository;
 import jp.co.translacat.domain.chat.openchat.dto.request.OpenChatJoinRequestDto;
 import jp.co.translacat.domain.chat.openchat.dto.request.OpenChatOwnerTransferRequestDto;
 import jp.co.translacat.domain.chat.openchat.dto.request.OpenChatProfileRequestDto;
@@ -51,6 +52,7 @@ import static org.mockito.Mockito.*;
 class OpenChatMembershipServiceTest {
 
     @Mock private OpenChatRoomRepository openChatRoomRepository;
+    @Mock private OpenChatBanRepository banRepository;
     @Mock private ChatRoomRepository chatRoomRepository;
     @Mock private ChatRoomMemberRepository memberRepository;
     @Mock private OpenChatMemberProfileRepository profileRepository;
@@ -73,6 +75,7 @@ class OpenChatMembershipServiceTest {
     void setUp() {
         service = new OpenChatMembershipService(
                 openChatRoomRepository,
+                banRepository,
                 chatRoomRepository,
                 memberRepository,
                 profileRepository,
@@ -208,6 +211,32 @@ class OpenChatMembershipServiceTest {
                 .satisfies(exception -> assertThat(
                         exception.getErrorCode()
                 ).isEqualTo(OpenChatErrorCode.ROOM_CLOSED));
+
+        verify(memberRepository, never())
+                .findByChatRoomIdAndUserId(100L, 2L);
+    }
+
+    @Test
+    void bannedUserCannotJoinOrRejoin() {
+        when(banRepository.existsActiveByRoomIdAndTargetUserId(
+                100L,
+                2L
+        )).thenReturn(true);
+
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> service.join(
+                        2L,
+                        100L,
+                        new OpenChatJoinRequestDto(
+                                new OpenChatProfileRequestDto(
+                                        "cat",
+                                        null
+                                )
+                        )
+                ))
+                .satisfies(exception -> assertThat(
+                        exception.getErrorCode()
+                ).isEqualTo(OpenChatErrorCode.BANNED));
 
         verify(memberRepository, never())
                 .findByChatRoomIdAndUserId(100L, 2L);

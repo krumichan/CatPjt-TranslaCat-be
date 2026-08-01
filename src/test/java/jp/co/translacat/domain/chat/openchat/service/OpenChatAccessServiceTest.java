@@ -2,6 +2,7 @@ package jp.co.translacat.domain.chat.openchat.service;
 
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
+import jp.co.translacat.domain.chat.openchat.ban.repository.OpenChatBanRepository;
 import jp.co.translacat.domain.chat.openchat.entity.OpenChatRoom;
 import jp.co.translacat.domain.chat.openchat.enums.OpenChatVisibility;
 import jp.co.translacat.domain.chat.openchat.repository.OpenChatRoomRepository;
@@ -22,6 +23,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -29,6 +32,7 @@ class OpenChatAccessServiceTest {
 
     @Mock private ChatRoomMemberRepository memberRepository;
     @Mock private OpenChatRoomRepository openChatRoomRepository;
+    @Mock private OpenChatBanRepository banRepository;
 
     private OpenChatAccessService service;
     private ChatRoom openRoomEntity;
@@ -39,7 +43,8 @@ class OpenChatAccessServiceTest {
     void setUp() {
         service = new OpenChatAccessService(
                 memberRepository,
-                openChatRoomRepository
+                openChatRoomRepository,
+                banRepository
         );
 
         User user = User.createLocalUser(
@@ -110,5 +115,29 @@ class OpenChatAccessServiceTest {
 
         assertThat(service.getActiveOpenMember(10L, 100L))
                 .isSameAs(openMember);
+    }
+
+
+    @Test
+    void rejectsBannedUserBeforeMemberLookup() {
+        when(banRepository.existsActiveByRoomIdAndTargetUserId(
+                100L,
+                10L
+        )).thenReturn(true);
+
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> service.getActiveOpenMember(
+                        10L,
+                        100L
+                ))
+                .satisfies(exception -> assertThat(
+                        exception.getErrorCode()
+                ).isEqualTo(OpenChatErrorCode.BANNED));
+
+        verify(memberRepository, never())
+                .findByChatRoomIdAndUserIdAndActiveTrueAndDeletedAtIsNull(
+                        100L,
+                        10L
+                );
     }
 }

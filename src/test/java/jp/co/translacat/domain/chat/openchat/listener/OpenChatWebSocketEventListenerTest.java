@@ -1,6 +1,8 @@
 package jp.co.translacat.domain.chat.openchat.listener;
 
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
+import jp.co.translacat.domain.chat.openchat.event.OpenChatMemberBannedApplicationEvent;
+import jp.co.translacat.domain.chat.openchat.event.OpenChatMemberRoleUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.event.OpenChatProfileUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.event.OpenChatRoomClosedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.profile.service.OpenChatProfileImageUrlResolver;
@@ -96,6 +98,60 @@ class OpenChatWebSocketEventListenerTest {
         verify(publisher).publishOpenChatRoomClosed(
                 100L,
                 closedAt,
+                occurredAt
+        );
+    }
+
+
+    @Test
+    void publishesRoleUpdatedPayload() {
+        LocalDateTime occurredAt = LocalDateTime.of(
+                2026, 8, 1, 14, 0
+        );
+        OpenChatMemberRoleUpdatedApplicationEvent event =
+                new OpenChatMemberRoleUpdatedApplicationEvent(
+                        100L,
+                        20L,
+                        ChatRoomMemberRole.ADMIN,
+                        occurredAt
+                );
+
+        listener.handle(event);
+
+        verify(publisher).publishOpenChatMemberRoleUpdated(
+                100L,
+                20L,
+                ChatRoomMemberRole.ADMIN,
+                occurredAt
+        );
+    }
+
+    @Test
+    void publishesBannedPayloadToRoomAndTargetUser() {
+        LocalDateTime bannedAt = LocalDateTime.of(
+                2026, 8, 1, 15, 0
+        );
+        LocalDateTime occurredAt = LocalDateTime.of(
+                2026, 8, 1, 15, 1
+        );
+        OpenChatMemberBannedApplicationEvent event =
+                new OpenChatMemberBannedApplicationEvent(
+                        100L,
+                        20L,
+                        "target@open.test",
+                        "reason",
+                        bannedAt,
+                        occurredAt
+                );
+
+        listener.handle(event);
+
+        verify(publisher).publishOpenChatMemberBanned(
+                100L,
+                20L,
+                "target@open.test",
+                "reason",
+                bannedAt,
                 occurredAt
         );
     }

@@ -4,6 +4,7 @@ import jp.co.translacat.domain.chat.member.service.ChatRoomMemberQueryService;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageTranslationResponseDto;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
+import jp.co.translacat.domain.chat.openchat.service.OpenChatAccessService;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
 import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationRequestedEvent;
 import jp.co.translacat.domain.chat.translation.repository.ChatMessageTranslationRepository;
@@ -24,6 +25,7 @@ public class ChatMessageTranslationRetryService {
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMessageTranslationRepository chatMessageTranslationRepository;
     private final ChatRoomMemberQueryService chatRoomMemberQueryService;
+    private final OpenChatAccessService openChatAccessService;
     private final ApplicationEventPublisher applicationEventPublisher;
 
     public ChatMessageTranslationResponseDto retry(
@@ -34,6 +36,10 @@ public class ChatMessageTranslationRetryService {
     ) {
         validateRequest(chatRoomId, messageId, languageCode);
 
+        openChatAccessService.validateOpenRoomMemberAccess(
+                loginUserId,
+                chatRoomId
+        );
         chatRoomMemberQueryService.getActiveMember(loginUserId, chatRoomId);
 
         ChatMessage message = chatMessageRepository

@@ -10,4 +10,9 @@ public interface ChatRoomMemberRepositoryCustom {
             Long chatRoomId,
             Long userId
     );
+
+    Optional<ChatRoomMember> findActiveByIdAndRoomIdForUpdate(
+            Long memberId,
+            Long chatRoomId
+    );
 }

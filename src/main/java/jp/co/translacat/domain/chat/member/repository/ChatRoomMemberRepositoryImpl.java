@@ -35,4 +35,24 @@ public class ChatRoomMemberRepositoryImpl
 
         return Optional.ofNullable(result);
     }
+
+
+    @Override
+    public Optional<ChatRoomMember> findActiveByIdAndRoomIdForUpdate(
+            Long memberId,
+            Long chatRoomId
+    ) {
+        ChatRoomMember result = queryFactory
+                .selectFrom(chatRoomMember)
+                .where(
+                        chatRoomMember.id.eq(memberId),
+                        chatRoomMember.chatRoom.id.eq(chatRoomId),
+                        chatRoomMember.active.isTrue(),
+                        chatRoomMember.deletedAt.isNull()
+                )
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .fetchOne();
+
+        return Optional.ofNullable(result);
+    }
 }

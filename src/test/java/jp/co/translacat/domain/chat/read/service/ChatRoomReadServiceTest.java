@@ -4,6 +4,8 @@ import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
+import jp.co.translacat.domain.chat.openchat.service.OpenChatAccessService;
+import jp.co.translacat.domain.chat.openchat.support.OpenChatErrorCode;
 import jp.co.translacat.domain.chat.read.dto.request.ChatRoomReadRequestDto;
 import jp.co.translacat.domain.chat.read.dto.response.ChatRoomReadResponseDto;
 import jp.co.translacat.domain.chat.read.event.ChatMemberReadUpdatedApplicationEvent;
@@ -31,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -51,6 +54,9 @@ class ChatRoomReadServiceTest {
     @Mock
     private ApplicationEventPublisher applicationEventPublisher;
 
+    @Mock
+    private OpenChatAccessService openChatAccessService;
+
     private ChatRoomReadService chatRoomReadService;
 
     private User loginUser;
@@ -65,7 +71,8 @@ class ChatRoomReadServiceTest {
                 chatRoomMemberRepository,
                 chatMessageRepository,
                 chatUnreadCountRepository,
-                applicationEventPublisher
+                applicationEventPublisher,
+                openChatAccessService
         );
 
         loginUser = createUser(
@@ -223,6 +230,28 @@ class ChatRoomReadServiceTest {
                 .publishEvent(isA(
                         ChatMemberReadUpdatedApplicationEvent.class
                 ));
+    }
+
+    @Test
+    void bannedOpenChatUserCannotMarkAsRead() {
+        doThrow(new BusinessException(
+                "banned",
+                OpenChatErrorCode.BANNED
+        )).when(openChatAccessService)
+                .validateOpenRoomMemberAccess(1L, 10L);
+
+        assertThatThrownBy(() -> chatRoomReadService.markAsRead(
+                1L,
+                10L,
+                new ChatRoomReadRequestDto(100L)
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(
+                        ((BusinessException) error).getErrorCode()
+                ).isEqualTo(OpenChatErrorCode.BANNED));
+
+        verify(chatRoomMemberRepository, never())
+                .findActiveByRoomIdAndUserIdForUpdate(10L, 1L);
     }
 
     @Test

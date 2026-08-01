@@ -8,6 +8,8 @@ import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatMessageSenderResponseDto;
 import jp.co.translacat.domain.chat.openchat.profile.service.OpenChatMessageProfileService;
+import jp.co.translacat.domain.chat.openchat.service.OpenChatAccessService;
+import jp.co.translacat.domain.chat.openchat.support.OpenChatErrorCode;
 import jp.co.translacat.domain.chat.read.repository.ChatMessageUnreadMemberCountRepository;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.chat.translation.repository.ChatMessageTranslationRepository;
@@ -26,6 +28,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,6 +43,7 @@ class ChatMessageQueryServiceOpenChatTest {
     @Mock private ChatMessageSenderProfileService ordinaryProfileService;
     @Mock private ChatMessageUnreadMemberCountRepository unreadRepository;
     @Mock private OpenChatMessageProfileService openProfileService;
+    @Mock private OpenChatAccessService openChatAccessService;
 
     private ChatMessageQueryService service;
     private ChatRoom room;
@@ -53,7 +58,8 @@ class ChatMessageQueryServiceOpenChatTest {
                 memberQueryService,
                 ordinaryProfileService,
                 unreadRepository,
-                openProfileService
+                openProfileService,
+                openChatAccessService
         );
 
         User reader = user(1L, "reader@open.test", "OPENREAD01");
@@ -71,6 +77,25 @@ class ChatMessageQueryServiceOpenChatTest {
                 "joinedAt",
                 LocalDateTime.of(2026, 8, 1, 10, 0)
         );
+    }
+
+    @Test
+    void bannedOpenChatUserCannotReadMessages() {
+        doThrow(new jp.co.translacat.global.exception.BusinessException(
+                "banned",
+                OpenChatErrorCode.BANNED
+        )).when(openChatAccessService)
+                .validateOpenRoomMemberAccess(1L, 100L);
+
+        assertThatExceptionOfType(
+                jp.co.translacat.global.exception.BusinessException.class
+        ).isThrownBy(() -> service.getMessages(1L, 100L, null))
+                .satisfies(exception -> assertThat(
+                        exception.getErrorCode()
+                ).isEqualTo(OpenChatErrorCode.BANNED));
+
+        verify(memberQueryService, never())
+                .getActiveMember(1L, 100L);
     }
 
     @Test

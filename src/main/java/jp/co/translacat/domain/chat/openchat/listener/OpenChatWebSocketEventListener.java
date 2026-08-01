@@ -1,5 +1,7 @@
 package jp.co.translacat.domain.chat.openchat.listener;
 
+import jp.co.translacat.domain.chat.openchat.event.OpenChatMemberBannedApplicationEvent;
+import jp.co.translacat.domain.chat.openchat.event.OpenChatMemberRoleUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.event.OpenChatProfileUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.event.OpenChatRoomClosedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.profile.service.OpenChatProfileImageUrlResolver;
@@ -25,6 +27,28 @@ public class OpenChatWebSocketEventListener {
                 event.nickname(),
                 imageUrlResolver.resolve(event.profileImageObjectKey()),
                 event.role(),
+                event.occurredAt()
+        );
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handle(OpenChatMemberRoleUpdatedApplicationEvent event) {
+        eventPublisher.publishOpenChatMemberRoleUpdated(
+                event.roomId(),
+                event.targetOpenChatMemberId(),
+                event.role(),
+                event.occurredAt()
+        );
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handle(OpenChatMemberBannedApplicationEvent event) {
+        eventPublisher.publishOpenChatMemberBanned(
+                event.roomId(),
+                event.targetOpenChatMemberId(),
+                event.targetUsername(),
+                event.reason(),
+                event.bannedAt(),
                 event.occurredAt()
         );
     }

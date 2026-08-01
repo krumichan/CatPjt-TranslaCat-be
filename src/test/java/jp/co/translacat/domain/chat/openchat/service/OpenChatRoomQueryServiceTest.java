@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.chat.openchat.service;
 
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
+import jp.co.translacat.domain.chat.openchat.ban.repository.OpenChatBanRepository;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatRoomDetailResponseDto;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatRoomListResponseDto;
 import jp.co.translacat.domain.chat.openchat.entity.OpenChatRoom;
@@ -35,6 +36,9 @@ class OpenChatRoomQueryServiceTest {
 
     @Mock
     private OpenChatRoomRepository openChatRoomRepository;
+
+    @Mock
+    private OpenChatBanRepository banRepository;
 
     @Mock
     private OpenChatProfileImageUrlResolver imageUrlResolver;
@@ -252,5 +256,50 @@ class OpenChatRoomQueryServiceTest {
                 ChatRoomMemberRole.OWNER,
                 LocalDateTime.of(2026, 7, 31, 10, 0)
         );
+    }
+
+
+    @Test
+    @DisplayName("BANNED 상세는 방 정보만 제공하고 멤버 프로필을 숨긴다")
+    void bannedDetailHidesMemberData() {
+        OpenChatRoom room = createRoom(
+                500L,
+                OpenChatVisibility.PUBLIC,
+                50
+        );
+        List<Long> roomIds = List.of(500L);
+
+        when(openChatRoomRepository.findByChatRoomId(500L))
+                .thenReturn(Optional.of(room));
+        when(openChatRoomRepository.countActiveMembers(roomIds))
+                .thenReturn(Map.of(500L, 10L));
+        when(openChatRoomRepository.findJoinedRoomIds(1L, roomIds))
+                .thenReturn(Set.of());
+        when(banRepository.existsActiveByRoomIdAndTargetUserId(
+                500L,
+                1L
+        )).thenReturn(true);
+        when(openChatRoomRepository.findOwnerProfiles(roomIds))
+                .thenReturn(Map.of(
+                        500L,
+                        ownerRow(500L, 501L, "OC-OWNER")
+                ));
+        when(openChatRoomRepository.findMyProfile(500L, 1L))
+                .thenReturn(Optional.of(
+                        ownerRow(500L, 599L, "OC-BANNED")
+                ));
+        when(openChatRoomRepository.findLastActivityAt(roomIds))
+                .thenReturn(Map.of());
+
+        OpenChatRoomDetailResponseDto response =
+                queryService.getDetail(1L, 500L);
+
+        assertThat(response.joined()).isFalse();
+        assertThat(response.joinable()).isFalse();
+        assertThat(response.joinBlockedReason())
+                .isEqualTo(OpenChatJoinBlockedReason.BANNED);
+        assertThat(response.myRole()).isNull();
+        assertThat(response.ownerProfile()).isNull();
+        assertThat(response.myOpenProfile()).isNull();
     }
 }

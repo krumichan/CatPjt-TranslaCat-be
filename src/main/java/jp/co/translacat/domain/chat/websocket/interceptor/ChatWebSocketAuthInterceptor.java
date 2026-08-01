@@ -159,6 +159,10 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
 
         Long loginUserId = resolveLoginUserId(accessor);
 
+        openChatAccessService.validateWebSocketAccess(
+                loginUserId,
+                chatRoomId
+        );
         chatRoomMemberQueryService.getActiveMember(
                 loginUserId,
                 chatRoomId
@@ -177,6 +181,10 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
 
         Long loginUserId = resolveLoginUserId(accessor);
 
+        openChatAccessService.validateWebSocketAccess(
+                loginUserId,
+                chatRoomId
+        );
         ChatRoomMember member = chatRoomMemberQueryService.getActiveMember(
                 loginUserId,
                 chatRoomId

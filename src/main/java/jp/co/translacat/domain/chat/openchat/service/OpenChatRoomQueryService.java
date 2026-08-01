@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.openchat.service;
 
+import jp.co.translacat.domain.chat.openchat.ban.repository.OpenChatBanRepository;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatMemberProfileResponseDto;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatRoomDetailResponseDto;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatRoomListItemResponseDto;
@@ -30,6 +31,7 @@ import java.util.Set;
 public class OpenChatRoomQueryService {
 
     private final OpenChatRoomRepository openChatRoomRepository;
+    private final OpenChatBanRepository banRepository;
     private final OpenChatProfileImageUrlResolver imageUrlResolver;
 
     public OpenChatRoomListResponseDto getPublicRooms(
@@ -66,6 +68,11 @@ public class OpenChatRoomQueryService {
                         loginUserId,
                         roomIds
                 );
+        Set<Long> bannedRoomIds =
+                banRepository.findActiveBannedRoomIds(
+                        loginUserId,
+                        roomIds
+                );
         Map<Long, OpenChatMemberProfileQueryRow> ownerProfiles =
                 openChatRoomRepository.findOwnerProfiles(roomIds);
         Map<Long, LocalDateTime> lastActivityAtByRoomId =
@@ -80,6 +87,9 @@ public class OpenChatRoomQueryService {
                                 0L
                         ),
                         joinedRoomIds.contains(
+                                openChatRoom.getChatRoom().getId()
+                        ),
+                        bannedRoomIds.contains(
                                 openChatRoom.getChatRoom().getId()
                         ),
                         ownerProfiles.get(
@@ -123,6 +133,11 @@ public class OpenChatRoomQueryService {
         boolean joined = openChatRoomRepository
                 .findJoinedRoomIds(loginUserId, roomIds)
                 .contains(chatRoomId);
+        boolean banned = banRepository
+                .existsActiveByRoomIdAndTargetUserId(
+                        chatRoomId,
+                        loginUserId
+                );
 
         OpenChatMemberProfileQueryRow ownerProfile =
                 openChatRoomRepository.findOwnerProfiles(roomIds)
@@ -132,6 +147,8 @@ public class OpenChatRoomQueryService {
                         chatRoomId,
                         loginUserId
                 );
+        Optional<OpenChatMemberProfileQueryRow> visibleMyProfile =
+                banned ? Optional.empty() : myProfile;
         LocalDateTime lastActivityAt = openChatRoomRepository
                 .findLastActivityAt(roomIds)
                 .get(chatRoomId);
@@ -140,7 +157,8 @@ public class OpenChatRoomQueryService {
                 resolveBlockedReason(
                         openChatRoom,
                         memberCount,
-                        joined
+                        joined,
+                        banned
                 );
 
         return new OpenChatRoomDetailResponseDto(
@@ -156,13 +174,13 @@ public class OpenChatRoomQueryService {
                 joined,
                 blockedReason == OpenChatJoinBlockedReason.NONE,
                 blockedReason,
-                myProfile.filter(
+                visibleMyProfile.filter(
                                 OpenChatMemberProfileQueryRow::active
                         )
                         .map(OpenChatMemberProfileQueryRow::role)
                         .orElse(null),
-                toProfileResponse(ownerProfile),
-                myProfile.map(this::toProfileResponse)
+                banned ? null : toProfileResponse(ownerProfile),
+                visibleMyProfile.map(this::toProfileResponse)
                         .orElse(null),
                 fallbackActivityAt(
                         openChatRoom.getChatRoom(),
@@ -177,6 +195,7 @@ public class OpenChatRoomQueryService {
             OpenChatRoom openChatRoom,
             long memberCount,
             boolean joined,
+            boolean banned,
             OpenChatMemberProfileQueryRow ownerProfile,
             LocalDateTime lastActivityAt
     ) {
@@ -184,7 +203,8 @@ public class OpenChatRoomQueryService {
                 resolveBlockedReason(
                         openChatRoom,
                         memberCount,
-                        joined
+                        joined,
+                        banned
                 );
         ChatRoom room = openChatRoom.getChatRoom();
 
@@ -228,8 +248,12 @@ public class OpenChatRoomQueryService {
     private OpenChatJoinBlockedReason resolveBlockedReason(
             OpenChatRoom openChatRoom,
             long memberCount,
-            boolean joined
+            boolean joined,
+            boolean banned
     ) {
+        if (banned) {
+            return OpenChatJoinBlockedReason.BANNED;
+        }
         if (openChatRoom.isClosed()) {
             return OpenChatJoinBlockedReason.ROOM_CLOSED;
         }

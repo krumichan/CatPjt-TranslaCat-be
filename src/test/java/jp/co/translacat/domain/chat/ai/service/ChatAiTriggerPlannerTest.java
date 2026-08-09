@@ -191,6 +191,39 @@ class ChatAiTriggerPlannerTest {
                 .isEqualTo(ChatAiTriggerType.CONVERSATION);
     }
 
+    @Test
+    void revivalBuildsRequestWithoutTriggerMessageUsingLatestContext() {
+        when(aiMemberRepository
+                .findByIdAndChatRoomIdAndActiveTrueAndDeletedAtIsNull(30L, 100L))
+                .thenReturn(Optional.of(aiMember));
+        when(systemSettingService.getOrCreateEntity())
+                .thenReturn(systemSetting);
+
+        ChatMessage latest = userMessage(250L, "오랜만이네");
+        when(messageRepository
+                .findByChatRoomIdAndStatusAndDeletedAtIsNullOrderByIdDesc(
+                        eq(100L),
+                        eq(ChatMessageStatus.SENT),
+                        any(Pageable.class)
+                )).thenReturn(List.of(latest));
+
+        ChatAiResponsePlan plan = planner.planRevival(
+                100L,
+                30L,
+                "chat-ai:revival:900:1:1"
+        );
+
+        assertThat(plan).isNotNull();
+        assertThat(plan.request().triggerType())
+                .isEqualTo(ChatAiTriggerType.REVIVAL);
+        assertThat(plan.request().triggerMessage()).isNull();
+        assertThat(plan.request().requestId())
+                .isEqualTo("chat-ai:revival:900:1:1");
+        assertThat(plan.request().contextMessages()).hasSize(1);
+        assertThat(plan.request().contextMessages().getFirst().senderId())
+                .isEqualTo("member-1");
+    }
+
     private void stubCommon(
             ChatMessage trigger,
             ChatRoomAiSetting roomSetting

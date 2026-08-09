@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.message.service;
 
+import jp.co.translacat.domain.chat.ai.event.ChatAiHumanMessageRecordedEvent;
 import jp.co.translacat.domain.chat.ai.event.ChatAiTriggerRequestedEvent;
 import jp.co.translacat.domain.chat.language.dto.ChatLanguageSettingResult;
 import jp.co.translacat.domain.chat.language.service.ChatLanguageSettingResolver;
@@ -200,7 +201,7 @@ public class ChatMessageCommandService {
                 translations
         );
 
-        publishAiTriggerRequestedEvent(savedMessage);
+        publishAiEvents(savedMessage);
 
         return response;
     }
@@ -288,7 +289,7 @@ public class ChatMessageCommandService {
         return chatMessageTranslationRepository.saveAll(translations);
     }
 
-    private void publishAiTriggerRequestedEvent(
+    private void publishAiEvents(
             ChatMessage message
     ) {
         ChatRoomType roomType = message.getChatRoom().getRoomType();
@@ -296,6 +297,13 @@ public class ChatMessageCommandService {
                 && roomType != ChatRoomType.OPEN) {
             return;
         }
+        applicationEventPublisher.publishEvent(
+                new ChatAiHumanMessageRecordedEvent(
+                        message.getId(),
+                        message.getChatRoom().getId(),
+                        message.getCreatedAt()
+                )
+        );
         applicationEventPublisher.publishEvent(
                 new ChatAiTriggerRequestedEvent(message.getId())
         );

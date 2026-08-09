@@ -120,6 +120,51 @@ public class ChatAiTriggerPlanner {
         );
     }
 
+    public ChatAiResponsePlan planRevival(
+            Long roomId,
+            Long aiMemberId,
+            String requestId
+    ) {
+        if (roomId == null
+                || aiMemberId == null
+                || requestId == null
+                || requestId.isBlank()) {
+            return null;
+        }
+
+        ChatRoomAiMember aiMember = chatRoomAiMemberRepository
+                .findByIdAndChatRoomIdAndActiveTrueAndDeletedAtIsNull(
+                        aiMemberId,
+                        roomId
+                )
+                .orElse(null);
+        if (aiMember == null
+                || aiMember.getAiAgent() == null
+                || !aiMember.getAiAgent().isActive()
+                || aiMember.getAiAgent().isDeleted()) {
+            return null;
+        }
+
+        ChatRoom room = aiMember.getChatRoom();
+        if (room == null
+                || !room.isActive()
+                || room.isDeleted()
+                || (room.getRoomType() != ChatRoomType.GROUP
+                && room.getRoomType() != ChatRoomType.OPEN)) {
+            return null;
+        }
+
+        ChatAiSystemSetting systemSetting =
+                chatAiSystemSettingService.getOrCreateEntity();
+        ChatAiReplyRequestDto request = buildRevivalRequest(
+                requestId,
+                room,
+                aiMember,
+                systemSetting
+        );
+        return new ChatAiResponsePlan(aiMember.getId(), request);
+    }
+
     private List<ChatAiResponsePlan> planMention(
             ChatMessage triggerMessage,
             ChatRoomMember senderMember,
@@ -388,6 +433,7 @@ public class ChatAiTriggerPlanner {
         );
 
         SenderContext senderContext = createSenderContext(
+                triggerMessage.getChatRoom(),
                 triggerMessage,
                 contextMessages
         );
@@ -435,6 +481,74 @@ public class ChatAiTriggerPlanner {
         );
     }
 
+    private ChatAiReplyRequestDto buildRevivalRequest(
+            String requestId,
+            ChatRoom room,
+            ChatRoomAiMember aiMember,
+            ChatAiSystemSetting systemSetting
+    ) {
+        int contextMaxMessages = Math.min(
+                systemSetting.getContextMaxMessages(),
+                AI_SERVER_HARD_MAX_CONTEXT_MESSAGES
+        );
+        int contextMaxCharacters = Math.min(
+                systemSetting.getContextMaxCharacters(),
+                AI_SERVER_HARD_MAX_CONTEXT_CHARACTERS
+        );
+        int replyMaxCharacters = Math.min(
+                systemSetting.getReplyMaxCharacters(),
+                AI_SERVER_HARD_MAX_REPLY_CHARACTERS
+        );
+
+        List<ChatMessage> contextSource = chatMessageRepository
+                .findByChatRoomIdAndStatusAndDeletedAtIsNullOrderByIdDesc(
+                        room.getId(),
+                        ChatMessageStatus.SENT,
+                        PageRequest.of(0, contextMaxMessages)
+                );
+        List<ChatMessage> contextMessages = new ArrayList<>(contextSource);
+        Collections.reverse(contextMessages);
+        trimOldestMessagesToCharacterLimit(
+                contextMessages,
+                contextMaxCharacters
+        );
+
+        SenderContext senderContext = createSenderContext(
+                room,
+                null,
+                contextMessages
+        );
+        ChatAiAgent agent = aiMember.getAiAgent();
+
+        return new ChatAiReplyRequestDto(
+                requestId,
+                ChatAiTriggerType.REVIVAL,
+                new ChatAiReplyRequestDto.Room(
+                        room.getId(),
+                        room.getRoomType(),
+                        room.getName(),
+                        room.getDescription()
+                ),
+                new ChatAiReplyRequestDto.AiMember(
+                        aiMember.getId(),
+                        agent.getNickname(),
+                        agent.getBio(),
+                        agent.getPersonaPrompt(),
+                        agent.getOriginalLanguageCode()
+                ),
+                null,
+                contextMessages.stream()
+                        .map(message -> toContextMessage(
+                                message,
+                                senderContext
+                        ))
+                        .toList(),
+                contextMaxMessages,
+                contextMaxCharacters,
+                replyMaxCharacters
+        );
+    }
+
     private void trimOldestMessagesToCharacterLimit(
             List<ChatMessage> messages,
             int maxCharacters
@@ -454,6 +568,7 @@ public class ChatAiTriggerPlanner {
     }
 
     private SenderContext createSenderContext(
+            ChatRoom room,
             ChatMessage triggerMessage,
             List<ChatMessage> contextMessages
     ) {
@@ -463,7 +578,8 @@ public class ChatAiTriggerPlanner {
                 userIds.add(message.getSenderUser().getId());
             }
         }
-        if (triggerMessage.getSenderUser() != null) {
+        if (triggerMessage != null
+                && triggerMessage.getSenderUser() != null) {
             userIds.add(triggerMessage.getSenderUser().getId());
         }
 
@@ -474,10 +590,9 @@ public class ChatAiTriggerPlanner {
         }
 
         Map<Long, OpenChatMessageSenderResponseDto> openProfiles =
-                triggerMessage.getChatRoom().getRoomType()
-                        == ChatRoomType.OPEN
+                room.getRoomType() == ChatRoomType.OPEN
                         ? openChatMessageProfileService.resolveMap(
-                        triggerMessage.getChatRoom().getId(),
+                        room.getId(),
                         userIds
                 )
                         : Map.of();

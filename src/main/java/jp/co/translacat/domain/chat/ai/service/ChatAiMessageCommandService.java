@@ -101,6 +101,12 @@ public class ChatAiMessageCommandService {
         return response;
     }
 
+    public boolean existsAiMessageByRequestId(String requestId) {
+        return requestId != null
+                && !requestId.isBlank()
+                && chatMessageRepository.existsByAiRequestId(requestId);
+    }
+
     private List<ChatMessageTranslation> createPendingTranslations(
             ChatMessage message,
             ChatRoomAiMember aiMember

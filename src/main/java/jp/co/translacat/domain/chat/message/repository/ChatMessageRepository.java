@@ -129,5 +129,17 @@ public interface ChatMessageRepository
             Long maxExclusiveMessageId
     );
 
+    @EntityGraph(attributePaths = {
+            "chatRoom",
+            "senderUser",
+            "senderAiMember",
+            "senderAiMember.aiAgent"
+    })
+    List<ChatMessage> findByChatRoomIdAndStatusAndDeletedAtIsNullOrderByIdDesc(
+            Long chatRoomId,
+            ChatMessageStatus status,
+            Pageable pageable
+    );
+
     boolean existsByAiRequestId(String aiRequestId);
 }

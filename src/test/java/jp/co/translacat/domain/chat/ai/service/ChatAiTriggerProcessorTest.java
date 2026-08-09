@@ -9,6 +9,7 @@ import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -25,6 +26,7 @@ class ChatAiTriggerProcessorTest {
     @Mock private ChatAiTriggerPlanner planner;
     @Mock private ChatAiReplyClient replyClient;
     @Mock private ChatAiMessageCommandService messageCommandService;
+    @Mock private ChatAiResponseDelayService responseDelayService;
 
     private ChatAiTriggerProcessor processor;
     private ChatAiResponsePlan plan;
@@ -34,7 +36,8 @@ class ChatAiTriggerProcessorTest {
         processor = new ChatAiTriggerProcessor(
                 planner,
                 replyClient,
-                messageCommandService
+                messageCommandService,
+                responseDelayService
         );
 
         ChatAiReplyRequestDto request = new ChatAiReplyRequestDto(
@@ -90,7 +93,7 @@ class ChatAiTriggerProcessorTest {
     }
 
     @Test
-    void validResponseIsSavedThroughCommonAiMessagePipeline() {
+    void validInteractiveResponseIsDeliveredAfterDelaySchedulerRuns() {
         when(planner.plan(100L)).thenReturn(List.of(plan));
         when(replyClient.generateReply(plan.request()))
                 .thenReturn(new ChatAiReplyResponseDto(
@@ -99,8 +102,24 @@ class ChatAiTriggerProcessorTest {
                         "こんにちは",
                         "ja"
                 ));
+        ArgumentCaptor<Runnable> deliveryCaptor =
+                ArgumentCaptor.forClass(Runnable.class);
 
         processor.process(100L);
+
+        verify(responseDelayService).execute(
+                org.mockito.ArgumentMatchers.eq(ChatAiTriggerType.MENTION),
+                org.mockito.ArgumentMatchers.eq("こんにちは"),
+                deliveryCaptor.capture()
+        );
+        verify(messageCommandService, never()).createAiTextMessage(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString()
+        );
+
+        deliveryCaptor.getValue().run();
 
         verify(messageCommandService).createAiTextMessage(
                 1L,

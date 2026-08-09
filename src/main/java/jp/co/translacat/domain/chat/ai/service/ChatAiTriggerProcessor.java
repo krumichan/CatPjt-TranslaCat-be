@@ -20,6 +20,7 @@ public class ChatAiTriggerProcessor {
     private final ChatAiTriggerPlanner triggerPlanner;
     private final ChatAiReplyClient replyClient;
     private final ChatAiMessageCommandService messageCommandService;
+    private final ChatAiResponseDelayService responseDelayService;
 
     public void process(Long triggerMessageId) {
         List<ChatAiResponsePlan> plans;
@@ -35,15 +36,40 @@ public class ChatAiTriggerProcessor {
         }
 
         for (ChatAiResponsePlan plan : plans) {
-            processPlan(plan);
+            processInteractivePlan(plan);
         }
     }
 
+    /**
+     * REVIVAL처럼 처리 완료 결과가 즉시 필요한 경로에서 사용한다.
+     * 해당 트리거는 Humanized Delay 대상이 아니므로 메시지 저장까지 동기 처리한다.
+     */
     public ChatAiTriggerProcessingResult processPlan(
             ChatAiResponsePlan plan
     ) {
+        PreparedResponse prepared = prepareResponse(plan);
+        if (prepared.result() != null) {
+            return prepared.result();
+        }
+        return persistResponse(prepared);
+    }
+
+    private void processInteractivePlan(ChatAiResponsePlan plan) {
+        PreparedResponse prepared = prepareResponse(plan);
+        if (prepared.result() != null) {
+            return;
+        }
+
+        responseDelayService.execute(
+                prepared.request().triggerType(),
+                prepared.response().reply(),
+                () -> persistResponse(prepared)
+        );
+    }
+
+    private PreparedResponse prepareResponse(ChatAiResponsePlan plan) {
         if (plan == null || plan.request() == null) {
-            return ChatAiTriggerProcessingResult.FAILED;
+            return PreparedResponse.completed(ChatAiTriggerProcessingResult.FAILED);
         }
 
         ChatAiReplyRequestDto request = plan.request();
@@ -51,14 +77,18 @@ public class ChatAiTriggerProcessor {
             if (messageCommandService.existsAiMessageByRequestId(
                     request.requestId()
             )) {
-                return ChatAiTriggerProcessingResult.DUPLICATE;
+                return PreparedResponse.completed(
+                        ChatAiTriggerProcessingResult.DUPLICATE
+                );
             }
 
             ChatAiReplyResponseDto response =
                     replyClient.generateReply(request);
 
             if (!isValidResponse(request, response)) {
-                return ChatAiTriggerProcessingResult.FAILED;
+                return PreparedResponse.completed(
+                        ChatAiTriggerProcessingResult.FAILED
+                );
             }
             if (!response.shouldRespond()) {
                 log.debug(
@@ -66,7 +96,37 @@ public class ChatAiTriggerProcessor {
                         request.requestId(),
                         request.triggerType()
                 );
-                return ChatAiTriggerProcessingResult.SKIPPED;
+                return PreparedResponse.completed(
+                        ChatAiTriggerProcessingResult.SKIPPED
+                );
+            }
+
+            return PreparedResponse.ready(plan, request, response);
+        } catch (Exception exception) {
+            log.warn(
+                    "AI response preparation failed without affecting user message. requestId={}, trigger={}",
+                    request.requestId(),
+                    request.triggerType(),
+                    exception
+            );
+            return PreparedResponse.completed(
+                    ChatAiTriggerProcessingResult.FAILED
+            );
+        }
+    }
+
+    private ChatAiTriggerProcessingResult persistResponse(
+            PreparedResponse prepared
+    ) {
+        ChatAiReplyRequestDto request = prepared.request();
+        ChatAiResponsePlan plan = prepared.plan();
+        ChatAiReplyResponseDto response = prepared.response();
+
+        try {
+            if (messageCommandService.existsAiMessageByRequestId(
+                    request.requestId()
+            )) {
+                return ChatAiTriggerProcessingResult.DUPLICATE;
             }
 
             var createdMessage = messageCommandService.createAiTextMessage(
@@ -92,7 +152,7 @@ public class ChatAiTriggerProcessor {
             return ChatAiTriggerProcessingResult.DUPLICATE;
         } catch (Exception exception) {
             log.warn(
-                    "AI response processing failed without affecting user message. requestId={}, trigger={}",
+                    "AI response persistence failed without affecting user message. requestId={}, trigger={}",
                     request.requestId(),
                     request.triggerType(),
                     exception
@@ -145,5 +205,26 @@ public class ChatAiTriggerProcessor {
             return false;
         }
         return true;
+    }
+
+    private record PreparedResponse(
+            ChatAiResponsePlan plan,
+            ChatAiReplyRequestDto request,
+            ChatAiReplyResponseDto response,
+            ChatAiTriggerProcessingResult result
+    ) {
+        private static PreparedResponse ready(
+                ChatAiResponsePlan plan,
+                ChatAiReplyRequestDto request,
+                ChatAiReplyResponseDto response
+        ) {
+            return new PreparedResponse(plan, request, response, null);
+        }
+
+        private static PreparedResponse completed(
+                ChatAiTriggerProcessingResult result
+        ) {
+            return new PreparedResponse(null, null, null, result);
+        }
     }
 }

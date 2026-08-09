@@ -18,6 +18,8 @@ import java.time.LocalTime;
 public class ChatAiSystemSetting extends BaseAuditable {
 
     public static final String DEFAULT_ID = "DEFAULT";
+    public static final int DEFAULT_RESPONSE_DELAY_MIN_MILLIS = 1_200;
+    public static final int DEFAULT_RESPONSE_DELAY_MAX_MILLIS = 3_500;
 
     @Id
     @Column(length = 30)
@@ -34,6 +36,15 @@ public class ChatAiSystemSetting extends BaseAuditable {
 
     @Column(name = "conversation_min_human_messages_after_ai", nullable = false)
     private int conversationMinHumanMessagesAfterAi;
+
+    @Column(name = "response_delay_enabled", nullable = false)
+    private boolean responseDelayEnabled;
+
+    @Column(name = "response_delay_min_millis", nullable = false)
+    private int responseDelayMinMillis;
+
+    @Column(name = "response_delay_max_millis", nullable = false)
+    private int responseDelayMaxMillis;
 
     @Column(name = "revival_first_delay_hours", nullable = false)
     private int revivalFirstDelayHours;
@@ -71,6 +82,9 @@ public class ChatAiSystemSetting extends BaseAuditable {
         this.conversationResponseRate = 15;
         this.conversationCooldownSeconds = 180;
         this.conversationMinHumanMessagesAfterAi = 2;
+        this.responseDelayEnabled = true;
+        this.responseDelayMinMillis = DEFAULT_RESPONSE_DELAY_MIN_MILLIS;
+        this.responseDelayMaxMillis = DEFAULT_RESPONSE_DELAY_MAX_MILLIS;
         this.revivalFirstDelayHours = 24;
         this.revivalSecondDelayHours = 72;
         this.revivalThirdDelayHours = 168;
@@ -87,11 +101,28 @@ public class ChatAiSystemSetting extends BaseAuditable {
         return new ChatAiSystemSetting(DEFAULT_ID);
     }
 
+    /**
+     * Hibernate ddl-auto=update로 기존 Phase 2 DB에 신규 지연 컬럼이 추가되면
+     * 기존 DEFAULT 행은 false/0/0으로 채워질 수 있다.
+     * 명시적으로 저장된 유효 설정과 충돌하지 않도록 legacy 0/0 조합만
+     * Phase 2 기본값으로 보정한다.
+     */
+    public void ensureResponseDelayDefaults() {
+        if (responseDelayMinMillis == 0 && responseDelayMaxMillis == 0) {
+            this.responseDelayEnabled = true;
+            this.responseDelayMinMillis = DEFAULT_RESPONSE_DELAY_MIN_MILLIS;
+            this.responseDelayMaxMillis = DEFAULT_RESPONSE_DELAY_MAX_MILLIS;
+        }
+    }
+
     public void update(
             Integer maxAiMembersPerRoom,
             Integer conversationResponseRate,
             Integer conversationCooldownSeconds,
             Integer conversationMinHumanMessagesAfterAi,
+            Boolean responseDelayEnabled,
+            Integer responseDelayMinMillis,
+            Integer responseDelayMaxMillis,
             Integer revivalFirstDelayHours,
             Integer revivalSecondDelayHours,
             Integer revivalThirdDelayHours,
@@ -107,6 +138,9 @@ public class ChatAiSystemSetting extends BaseAuditable {
         if (conversationResponseRate != null) this.conversationResponseRate = conversationResponseRate;
         if (conversationCooldownSeconds != null) this.conversationCooldownSeconds = conversationCooldownSeconds;
         if (conversationMinHumanMessagesAfterAi != null) this.conversationMinHumanMessagesAfterAi = conversationMinHumanMessagesAfterAi;
+        if (responseDelayEnabled != null) this.responseDelayEnabled = responseDelayEnabled;
+        if (responseDelayMinMillis != null) this.responseDelayMinMillis = responseDelayMinMillis;
+        if (responseDelayMaxMillis != null) this.responseDelayMaxMillis = responseDelayMaxMillis;
         if (revivalFirstDelayHours != null) this.revivalFirstDelayHours = revivalFirstDelayHours;
         if (revivalSecondDelayHours != null) this.revivalSecondDelayHours = revivalSecondDelayHours;
         if (revivalThirdDelayHours != null) this.revivalThirdDelayHours = revivalThirdDelayHours;

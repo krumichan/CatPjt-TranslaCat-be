@@ -45,6 +45,9 @@ class ChatAiSystemSettingServiceTest {
         assertThat(response.conversationResponseRate()).isEqualTo(15);
         assertThat(response.conversationCooldownSeconds()).isEqualTo(180);
         assertThat(response.conversationMinHumanMessagesAfterAi()).isEqualTo(2);
+        assertThat(response.responseDelayEnabled()).isTrue();
+        assertThat(response.responseDelayMinMillis()).isEqualTo(1_200);
+        assertThat(response.responseDelayMaxMillis()).isEqualTo(3_500);
         assertThat(response.revivalFirstDelayHours()).isEqualTo(24);
         assertThat(response.revivalSecondDelayHours()).isEqualTo(72);
         assertThat(response.revivalThirdDelayHours()).isEqualTo(168);
@@ -78,6 +81,9 @@ class ChatAiSystemSettingServiceTest {
                         null,
                         null,
                         null,
+                        null,
+                        null,
+                        null,
                         null
                 );
 
@@ -86,4 +92,24 @@ class ChatAiSystemSettingServiceTest {
                 .satisfies(exception -> assertThat(exception.getErrorCode())
                         .isEqualTo(ChatAiErrorCode.SETTING_INVALID));
     }
+    @Test
+    void rejectsResponseDelayMinGreaterThanMax() {
+        ChatAiSystemSetting setting = ChatAiSystemSetting.createDefault();
+        when(repository.findById(ChatAiSystemSetting.DEFAULT_ID))
+                .thenReturn(Optional.of(setting));
+
+        ChatAiSystemSettingUpdateRequestDto request =
+                new ChatAiSystemSettingUpdateRequestDto(
+                        null, null, null, null,
+                        true, 4_000, 2_000,
+                        null, null, null, null, null,
+                        null, null, null, null, null
+                );
+
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> service.updateSettings(request))
+                .satisfies(exception -> assertThat(exception.getErrorCode())
+                        .isEqualTo(ChatAiErrorCode.SETTING_INVALID));
+    }
+
 }

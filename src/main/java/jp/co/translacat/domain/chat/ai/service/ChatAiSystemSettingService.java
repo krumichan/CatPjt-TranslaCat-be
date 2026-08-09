@@ -39,6 +39,9 @@ public class ChatAiSystemSettingService {
                 request.conversationResponseRate(),
                 request.conversationCooldownSeconds(),
                 request.conversationMinHumanMessagesAfterAi(),
+                request.responseDelayEnabled(),
+                request.responseDelayMinMillis(),
+                request.responseDelayMaxMillis(),
                 request.revivalFirstDelayHours(),
                 request.revivalSecondDelayHours(),
                 request.revivalThirdDelayHours(),
@@ -55,10 +58,14 @@ public class ChatAiSystemSettingService {
 
     @Transactional
     public ChatAiSystemSetting getOrCreateEntity() {
-        return repository.findById(ChatAiSystemSetting.DEFAULT_ID)
+        ChatAiSystemSetting setting = repository.findById(
+                        ChatAiSystemSetting.DEFAULT_ID
+                )
                 .orElseGet(() -> repository.save(
                         ChatAiSystemSetting.createDefault()
                 ));
+        setting.ensureResponseDelayDefaults();
+        return setting;
     }
 
     private void validateMerged(
@@ -80,6 +87,14 @@ public class ChatAiSystemSettingService {
         int minHumanMessages = value(
                 request.conversationMinHumanMessagesAfterAi(),
                 current.getConversationMinHumanMessagesAfterAi()
+        );
+        int responseDelayMinMillis = value(
+                request.responseDelayMinMillis(),
+                current.getResponseDelayMinMillis()
+        );
+        int responseDelayMaxMillis = value(
+                request.responseDelayMaxMillis(),
+                current.getResponseDelayMaxMillis()
         );
         int firstDelay = value(
                 request.revivalFirstDelayHours(),
@@ -131,6 +146,14 @@ public class ChatAiSystemSettingService {
         }
         if (minHumanMessages < 1) {
             throw invalidSetting("AI 발화 후 최소 사람 메시지 수는 1개 이상이어야 합니다.");
+        }
+        if (responseDelayMinMillis < 100
+                || responseDelayMaxMillis < 100
+                || responseDelayMinMillis > responseDelayMaxMillis
+                || responseDelayMaxMillis > 10_000) {
+            throw invalidSetting(
+                    "AI 응답 지연은 100~10000ms 범위에서 최소값이 최대값 이하여야 합니다."
+            );
         }
         if (firstDelay < 1 || secondDelay < 1 || thirdDelay < 1) {
             throw invalidSetting("REVIVAL 대기 시간은 1시간 이상이어야 합니다.");

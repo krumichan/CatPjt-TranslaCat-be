@@ -2,6 +2,8 @@ package jp.co.translacat.infrastructure.client.ai.server;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jp.co.translacat.domain.chat.ai.dto.server.ChatAiReplyRequestDto;
+import jp.co.translacat.domain.chat.ai.dto.server.ChatAiReplyResponseDto;
 import jp.co.translacat.global.exception.AiServerCommunicationException;
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiChatTranslationRequest;
@@ -145,4 +147,30 @@ public class AiServerClient {
             );
         }
     }
+
+    public ChatAiReplyResponseDto callChatAiReply(
+            ChatAiReplyRequestDto request
+    ) {
+        String url = aiServerUrl + "/api/v1/chat/ai/reply";
+
+        try {
+            return this.apiClient.post(
+                    url,
+                    request,
+                    this.basicHeader(),
+                    ChatAiReplyResponseDto.class
+            );
+        } catch (Exception e) {
+            log.error(
+                    "AI Server chat reply failed. requestId={}, cause={}",
+                    request == null ? null : request.requestId(),
+                    e.getMessage()
+            );
+            throw new AiServerCommunicationException(
+                    "AI Server Chat Reply Error",
+                    e
+            );
+        }
+    }
+
 }

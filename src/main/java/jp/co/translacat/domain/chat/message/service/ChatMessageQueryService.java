@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.message.service;
 
+import jp.co.translacat.domain.chat.ai.service.ChatAiProfileImageUrlResolver;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.service.ChatRoomMemberQueryService;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageListResponseDto;
@@ -43,6 +44,7 @@ public class ChatMessageQueryService {
             chatMessageUnreadMemberCountRepository;
     private final OpenChatMessageProfileService openChatMessageProfileService;
     private final OpenChatAccessService openChatAccessService;
+    private final ChatAiProfileImageUrlResolver chatAiProfileImageUrlResolver;
 
     @Autowired
     public ChatMessageQueryService(
@@ -53,7 +55,8 @@ public class ChatMessageQueryService {
             ChatMessageUnreadMemberCountRepository
                     chatMessageUnreadMemberCountRepository,
             OpenChatMessageProfileService openChatMessageProfileService,
-            OpenChatAccessService openChatAccessService
+            OpenChatAccessService openChatAccessService,
+            ChatAiProfileImageUrlResolver chatAiProfileImageUrlResolver
     ) {
         this.chatMessageRepository = chatMessageRepository;
         this.chatMessageTranslationRepository =
@@ -66,6 +69,32 @@ public class ChatMessageQueryService {
         this.openChatMessageProfileService =
                 openChatMessageProfileService;
         this.openChatAccessService = openChatAccessService;
+        this.chatAiProfileImageUrlResolver = chatAiProfileImageUrlResolver;
+    }
+
+    /**
+     * 기존 단위 테스트 및 직접 생성 호출부 호환용 생성자.
+     */
+    public ChatMessageQueryService(
+            ChatMessageRepository chatMessageRepository,
+            ChatMessageTranslationRepository chatMessageTranslationRepository,
+            ChatRoomMemberQueryService chatRoomMemberQueryService,
+            ChatMessageSenderProfileService chatMessageSenderProfileService,
+            ChatMessageUnreadMemberCountRepository
+                    chatMessageUnreadMemberCountRepository,
+            OpenChatMessageProfileService openChatMessageProfileService,
+            OpenChatAccessService openChatAccessService
+    ) {
+        this(
+                chatMessageRepository,
+                chatMessageTranslationRepository,
+                chatRoomMemberQueryService,
+                chatMessageSenderProfileService,
+                chatMessageUnreadMemberCountRepository,
+                openChatMessageProfileService,
+                openChatAccessService,
+                null
+        );
     }
 
     /**
@@ -87,6 +116,7 @@ public class ChatMessageQueryService {
                 chatMessageSenderProfileService,
                 chatMessageUnreadMemberCountRepository,
                 openChatMessageProfileService,
+                null,
                 null
         );
     }
@@ -109,6 +139,7 @@ public class ChatMessageQueryService {
                 chatMessageSenderProfileService,
                 chatMessageUnreadMemberCountRepository,
                 null,
+                null,
                 null
         );
     }
@@ -127,6 +158,7 @@ public class ChatMessageQueryService {
                 chatMessageTranslationRepository,
                 chatRoomMemberQueryService,
                 chatMessageSenderProfileService,
+                null,
                 null,
                 null,
                 null
@@ -218,6 +250,15 @@ public class ChatMessageQueryService {
             List<ChatMessageTranslationResponseDto> translations,
             Long unreadMemberCount
     ) {
+        if (message.isAiMessage()) {
+            return ChatMessageResponseDto.fromAi(
+                    message,
+                    resolveAiSenderProfileImageUrl(message),
+                    translations,
+                    unreadMemberCount
+            );
+        }
+
         if (openRoom) {
             OpenChatMessageSenderResponseDto sender =
                     message.getSenderUser() == null
@@ -420,4 +461,18 @@ public class ChatMessageQueryService {
         }
         return pageMessages.getFirst().getId();
     }
+
+    private String resolveAiSenderProfileImageUrl(
+            ChatMessage message
+    ) {
+        if (chatAiProfileImageUrlResolver == null
+                || message.getSenderAiMember() == null
+                || message.getSenderAiMember().getAiAgent() == null) {
+            return null;
+        }
+        return chatAiProfileImageUrlResolver.resolveProfileImageUrl(
+                message.getSenderAiMember().getAiAgent()
+        );
+    }
+
 }

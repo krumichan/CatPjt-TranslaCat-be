@@ -18,6 +18,12 @@ import java.time.LocalDateTime;
 @Getter
 @Table(
         name = "chat_message",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_chat_message_ai_request_id",
+                        columnNames = "ai_request_id"
+                )
+        },
         indexes = {
                 @Index(
                         name = "idx_chat_message_room_created_id",
@@ -67,6 +73,9 @@ public class ChatMessage extends BaseAuditable {
     @Column(nullable = false, length = 30)
     private ChatMessageStatus status;
 
+    @Column(name = "ai_request_id", length = 100)
+    private String aiRequestId;
+
     @Column
     private LocalDateTime deletedAt;
 
@@ -76,7 +85,8 @@ public class ChatMessage extends BaseAuditable {
             ChatRoomAiMember senderAiMember,
             ChatMessageSenderType senderType,
             ChatMessageType messageType,
-            String content
+            String content,
+            String aiRequestId
     ) {
         this.chatRoom = chatRoom;
         this.senderUser = senderUser;
@@ -84,6 +94,7 @@ public class ChatMessage extends BaseAuditable {
         this.senderType = senderType;
         this.messageType = messageType;
         this.content = content;
+        this.aiRequestId = aiRequestId;
         this.status = ChatMessageStatus.SENT;
     }
 
@@ -98,7 +109,8 @@ public class ChatMessage extends BaseAuditable {
                 null,
                 ChatMessageSenderType.USER,
                 ChatMessageType.TEXT,
-                content
+                content,
+                null
         );
     }
 
@@ -107,6 +119,20 @@ public class ChatMessage extends BaseAuditable {
             ChatRoom chatRoom,
             ChatRoomAiMember senderAiMember,
             String content
+    ) {
+        return createAiTextMessage(
+                chatRoom,
+                senderAiMember,
+                content,
+                null
+        );
+    }
+
+    public static ChatMessage createAiTextMessage(
+            ChatRoom chatRoom,
+            ChatRoomAiMember senderAiMember,
+            String content,
+            String aiRequestId
     ) {
         if (senderAiMember == null) {
             throw new IllegalArgumentException("AI 발신 멤버는 필수입니다.");
@@ -126,7 +152,8 @@ public class ChatMessage extends BaseAuditable {
                 senderAiMember,
                 ChatMessageSenderType.AI,
                 ChatMessageType.TEXT,
-                content
+                content,
+                aiRequestId
         );
     }
 
@@ -140,7 +167,8 @@ public class ChatMessage extends BaseAuditable {
                 null,
                 ChatMessageSenderType.SYSTEM,
                 ChatMessageType.SYSTEM,
-                content
+                content,
+                null
         );
     }
 

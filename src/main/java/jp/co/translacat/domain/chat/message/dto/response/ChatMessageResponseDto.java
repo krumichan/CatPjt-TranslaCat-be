@@ -14,6 +14,7 @@ public record ChatMessageResponseDto(
         Long id,
         Long chatRoomId,
         Long senderUserId,
+        Long senderAiMemberId,
         String senderName,
         String senderEmail,
         String senderProfileImageUrl,
@@ -51,6 +52,7 @@ public record ChatMessageResponseDto(
                 id,
                 chatRoomId,
                 senderUserId,
+                null,
                 senderName,
                 senderEmail,
                 senderProfileImageUrl,
@@ -88,6 +90,7 @@ public record ChatMessageResponseDto(
                 id,
                 chatRoomId,
                 senderUserId,
+                null,
                 senderName,
                 senderEmail,
                 senderProfileImageUrl,
@@ -133,6 +136,7 @@ public record ChatMessageResponseDto(
                 message.getId(),
                 message.getChatRoom().getId(),
                 resolveSenderUserId(message),
+                resolveSenderAiMemberId(message),
                 resolveSenderName(message),
                 resolveSenderEmail(message),
                 resolveSenderProfileImageUrl(
@@ -161,6 +165,7 @@ public record ChatMessageResponseDto(
                 message.getId(),
                 message.getChatRoom().getId(),
                 null,
+                resolveSenderAiMemberId(message),
                 null,
                 null,
                 null,
@@ -176,6 +181,39 @@ public record ChatMessageResponseDto(
         );
     }
 
+    public static ChatMessageResponseDto fromAi(
+            ChatMessage message,
+            String senderProfileImageUrl,
+            List<ChatMessageTranslationResponseDto> translations,
+            Long unreadMemberCount
+    ) {
+        return new ChatMessageResponseDto(
+                message.getId(),
+                message.getChatRoom().getId(),
+                null,
+                resolveSenderAiMemberId(message),
+                resolveSenderName(message),
+                null,
+                senderProfileImageUrl,
+                message.getSenderType(),
+                message.getMessageType(),
+                message.getContent(),
+                message.getStatus(),
+                message.isSystemMessage() ? null : unreadMemberCount,
+                translations,
+                message.getCreatedAt(),
+                message.getUpdatedAt(),
+                null
+        );
+    }
+
+    private static Long resolveSenderAiMemberId(ChatMessage message) {
+        if (message.getSenderAiMember() == null) {
+            return null;
+        }
+        return message.getSenderAiMember().getId();
+    }
+
     private static Long resolveSenderUserId(ChatMessage message) {
         if (isOpenRoom(message) || message.getSenderUser() == null) {
             return null;
@@ -184,6 +222,10 @@ public record ChatMessageResponseDto(
     }
 
     private static String resolveSenderName(ChatMessage message) {
+        if (message.getSenderAiMember() != null
+                && message.getSenderAiMember().getAiAgent() != null) {
+            return message.getSenderAiMember().getAiAgent().getNickname();
+        }
         if (isOpenRoom(message) || message.getSenderUser() == null) {
             return null;
         }

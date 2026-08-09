@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.member.service;
 
+import jp.co.translacat.domain.chat.ai.service.ChatAiDisplayMemberService;
 import jp.co.translacat.domain.chat.language.service.ChatLanguageSettingResolver;
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberProfileResponseDto;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
@@ -34,6 +35,9 @@ class ChatRoomMemberQueryServiceTest {
     private ChatRoomMemberRepository chatRoomMemberRepository;
 
     @Mock
+    private ChatAiDisplayMemberService chatAiDisplayMemberService;
+
+    @Mock
     private ChatLanguageSettingResolver chatLanguageSettingResolver;
 
     @Mock
@@ -65,6 +69,7 @@ class ChatRoomMemberQueryServiceTest {
     void setUp() {
         service = new ChatRoomMemberQueryService(
                 chatRoomMemberRepository,
+                chatAiDisplayMemberService,
                 chatLanguageSettingResolver,
                 userProfileQueryService,
                 friendService,

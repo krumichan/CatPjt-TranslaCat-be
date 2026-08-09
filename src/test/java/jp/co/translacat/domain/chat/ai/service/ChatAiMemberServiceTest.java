@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
@@ -36,6 +37,7 @@ class ChatAiMemberServiceTest {
     @Mock private ChatRoomAiSettingService roomSettingService;
     @Mock private ChatAiSystemSettingService systemSettingService;
     @Mock private ChatAiProfileImageUrlResolver imageUrlResolver;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private ChatAiMemberService service;
     private ChatRoom room;
@@ -48,7 +50,8 @@ class ChatAiMemberServiceTest {
                 aiMemberRepository,
                 roomSettingService,
                 systemSettingService,
-                imageUrlResolver
+                imageUrlResolver,
+                eventPublisher
         );
         User owner = User.createLocalUser(
                 "owner@ai.test",

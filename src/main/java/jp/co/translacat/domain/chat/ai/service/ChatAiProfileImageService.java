@@ -3,6 +3,7 @@ package jp.co.translacat.domain.chat.ai.service;
 import jp.co.translacat.domain.chat.ai.dto.response.ChatAiMemberResponseDto;
 import jp.co.translacat.domain.chat.ai.entity.ChatAiAgent;
 import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiMember;
+import jp.co.translacat.domain.chat.member.event.ChatRoomMembersChangedApplicationEvent;
 import jp.co.translacat.domain.user.profile.storage.model.ImageStorageUpload;
 import jp.co.translacat.domain.user.profile.storage.model.ProfileImageType;
 import jp.co.translacat.domain.user.profile.storage.model.ProfileImageUploadFile;
@@ -11,6 +12,7 @@ import jp.co.translacat.domain.user.profile.storage.port.ImageStoragePort;
 import jp.co.translacat.domain.user.profile.storage.service.ProfileImageValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -26,6 +28,7 @@ public class ChatAiProfileImageService {
     private final ProfileImageValidator imageValidator;
     private final ChatAiProfileImageKeyFactory imageKeyFactory;
     private final ImageStoragePort imageStoragePort;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public ChatAiMemberResponseDto uploadProfileImage(
@@ -72,6 +75,7 @@ public class ChatAiProfileImageService {
         );
         String oldObjectKey = aiMember.getAiAgent().clearProfileImage();
         deleteOldObjectAfterCommit(oldObjectKey);
+        publishMembersChanged(roomId);
         return aiMemberService.toResponse(aiMember);
     }
 
@@ -89,6 +93,7 @@ public class ChatAiProfileImageService {
         String oldObjectKey = aiMember.getAiAgent()
                 .clearProfileBackgroundImage();
         deleteOldObjectAfterCommit(oldObjectKey);
+        publishMembersChanged(roomId);
         return aiMemberService.toResponse(aiMember);
     }
 
@@ -124,7 +129,14 @@ public class ChatAiProfileImageService {
 
         registerUploadSynchronization(newObjectKey, oldObjectKey);
         replaceObjectKey(agent, imageType, newObjectKey);
+        publishMembersChanged(roomId);
         return aiMemberService.toResponse(aiMember);
+    }
+
+    private void publishMembersChanged(Long roomId) {
+        eventPublisher.publishEvent(
+                ChatRoomMembersChangedApplicationEvent.of(roomId)
+        );
     }
 
     private String currentObjectKey(

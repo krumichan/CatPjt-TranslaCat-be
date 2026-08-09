@@ -1,5 +1,7 @@
 package jp.co.translacat.domain.chat.openchat.profile.service;
 
+import jp.co.translacat.domain.chat.ai.dto.response.ChatAiDisplayMembersResponseDto;
+import jp.co.translacat.domain.chat.ai.service.ChatAiDisplayMemberService;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.openchat.dto.request.OpenChatProfileUpdateRequestDto;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatMemberListResponseDto;
@@ -24,6 +26,7 @@ import java.util.List;
 public class OpenChatProfileService {
 
     private final OpenChatAccessService accessService;
+    private final ChatAiDisplayMemberService chatAiDisplayMemberService;
     private final OpenChatMemberProfileRepository profileRepository;
     private final OpenChatProfileResponseMapper responseMapper;
     private final OpenChatProfileValidator profileValidator;
@@ -54,7 +57,14 @@ public class OpenChatProfileService {
                 .map(responseMapper::toResponse)
                 .toList();
 
-        return OpenChatMemberListResponseDto.of(members);
+        ChatAiDisplayMembersResponseDto aiMembers =
+                chatAiDisplayMemberService.getDisplayMembers(roomId);
+
+        return OpenChatMemberListResponseDto.of(
+                members,
+                aiMembers.members(),
+                aiMembers.disclosureType()
+        );
     }
 
     public OpenChatMemberProfileResponseDto getMemberProfile(

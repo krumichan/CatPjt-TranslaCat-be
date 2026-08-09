@@ -4,12 +4,15 @@ import jp.co.translacat.domain.chat.ai.dto.request.ChatRoomAiSettingUpdateReques
 import jp.co.translacat.domain.chat.ai.dto.response.ChatRoomAiSettingResponseDto;
 import jp.co.translacat.domain.chat.ai.entity.ChatAiSystemSetting;
 import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiSetting;
+import jp.co.translacat.domain.chat.ai.enums.ChatAiDisclosureType;
 import jp.co.translacat.domain.chat.ai.repository.ChatRoomAiMemberRepository;
 import jp.co.translacat.domain.chat.ai.repository.ChatRoomAiSettingRepository;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.chat.ai.support.ChatAiErrorCode;
+import jp.co.translacat.domain.chat.member.event.ChatRoomMembersChangedApplicationEvent;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +25,7 @@ public class ChatRoomAiSettingService {
     private final ChatRoomAiSettingRepository settingRepository;
     private final ChatRoomAiMemberRepository aiMemberRepository;
     private final ChatAiSystemSettingService systemSettingService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public ChatRoomAiSettingResponseDto getSettings(
@@ -53,12 +57,19 @@ public class ChatRoomAiSettingService {
                 roomId
         );
         ChatRoomAiSetting setting = getOrCreate(room);
+        ChatAiDisclosureType previousDisclosureType =
+                setting.getDisclosureType();
         setting.update(
                 request.disclosureType(),
                 request.mentionPermission(),
                 request.conversationEnabled(),
                 request.revivalEnabled()
         );
+        if (previousDisclosureType != setting.getDisclosureType()) {
+            eventPublisher.publishEvent(
+                    ChatRoomMembersChangedApplicationEvent.of(roomId)
+            );
+        }
         return toResponse(setting);
     }
 

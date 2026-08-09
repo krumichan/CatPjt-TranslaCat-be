@@ -4,6 +4,8 @@ import jp.co.translacat.domain.chat.ai.dto.request.ChatAiMemberCreateRequestDto;
 import jp.co.translacat.domain.chat.ai.dto.request.ChatAiMemberUpdateRequestDto;
 import jp.co.translacat.domain.chat.ai.dto.response.ChatAiMemberListResponseDto;
 import jp.co.translacat.domain.chat.ai.dto.response.ChatAiMemberResponseDto;
+import jp.co.translacat.domain.chat.ai.dto.response.ChatAiSafeProfileResponseDto;
+import jp.co.translacat.domain.chat.ai.service.ChatAiDisplayMemberService;
 import jp.co.translacat.domain.chat.ai.service.ChatAiMemberService;
 import jp.co.translacat.global.security.UserPrincipal;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,13 +22,17 @@ import static org.mockito.Mockito.when;
 class ChatAiMemberControllerTest {
 
     @Mock private ChatAiMemberService service;
+    @Mock private ChatAiDisplayMemberService displayMemberService;
     @Mock private UserPrincipal userPrincipal;
 
     private ChatAiMemberController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new ChatAiMemberController(service);
+        controller = new ChatAiMemberController(
+                service,
+                displayMemberService
+        );
         when(userPrincipal.getId()).thenReturn(10L);
     }
 
@@ -53,6 +59,8 @@ class ChatAiMemberControllerTest {
                 .thenReturn(mock(ChatAiMemberResponseDto.class));
         when(service.getMember(10L, 100L, 30L))
                 .thenReturn(mock(ChatAiMemberResponseDto.class));
+        when(displayMemberService.getSafeProfile(10L, 100L, 30L))
+                .thenReturn(mock(ChatAiSafeProfileResponseDto.class));
         when(service.update(10L, 100L, 30L, updateRequest))
                 .thenReturn(mock(ChatAiMemberResponseDto.class));
         when(service.delete(10L, 100L, 30L))
@@ -61,12 +69,14 @@ class ChatAiMemberControllerTest {
         controller.getMembers(userPrincipal, 100L);
         controller.create(userPrincipal, 100L, createRequest);
         controller.getMember(userPrincipal, 100L, 30L);
+        controller.getMemberProfile(userPrincipal, 100L, 30L);
         controller.update(userPrincipal, 100L, 30L, updateRequest);
         controller.delete(userPrincipal, 100L, 30L);
 
         verify(service).getMembers(10L, 100L);
         verify(service).create(10L, 100L, createRequest);
         verify(service).getMember(10L, 100L, 30L);
+        verify(displayMemberService).getSafeProfile(10L, 100L, 30L);
         verify(service).update(10L, 100L, 30L, updateRequest);
         verify(service).delete(10L, 100L, 30L);
     }

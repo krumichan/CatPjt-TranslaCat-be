@@ -1,5 +1,7 @@
 package jp.co.translacat.domain.chat.member.service;
 
+import jp.co.translacat.domain.chat.ai.dto.response.ChatAiDisplayMembersResponseDto;
+import jp.co.translacat.domain.chat.ai.service.ChatAiDisplayMemberService;
 import jp.co.translacat.domain.chat.language.dto.ChatLanguageSettingResult;
 import jp.co.translacat.domain.chat.language.service.ChatLanguageSettingResolver;
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomLanguageSettingResponseDto;
@@ -33,6 +35,7 @@ import java.util.List;
 public class ChatRoomMemberQueryService {
 
     private final ChatRoomMemberRepository chatRoomMemberRepository;
+    private final ChatAiDisplayMemberService chatAiDisplayMemberService;
     private final ChatLanguageSettingResolver chatLanguageSettingResolver;
     private final UserProfileQueryService userProfileQueryService;
     private final FriendService friendService;
@@ -67,7 +70,14 @@ public class ChatRoomMemberQueryService {
                         )
                         .toList();
 
-        return ChatRoomMemberListResponseDto.from(members);
+        ChatAiDisplayMembersResponseDto aiMembers =
+                chatAiDisplayMemberService.getDisplayMembers(chatRoomId);
+
+        return ChatRoomMemberListResponseDto.of(
+                members,
+                aiMembers.members(),
+                aiMembers.disclosureType()
+        );
     }
 
     public ChatRoomMemberProfileResponseDto getMemberProfile(

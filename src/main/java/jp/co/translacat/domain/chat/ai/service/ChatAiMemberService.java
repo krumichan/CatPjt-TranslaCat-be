@@ -10,9 +10,11 @@ import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiMember;
 import jp.co.translacat.domain.chat.ai.repository.ChatAiAgentRepository;
 import jp.co.translacat.domain.chat.ai.repository.ChatRoomAiMemberRepository;
 import jp.co.translacat.domain.chat.ai.support.ChatAiErrorCode;
+import jp.co.translacat.domain.chat.member.event.ChatRoomMembersChangedApplicationEvent;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,7 @@ public class ChatAiMemberService {
     private final ChatRoomAiSettingService roomSettingService;
     private final ChatAiSystemSettingService systemSettingService;
     private final ChatAiProfileImageUrlResolver imageUrlResolver;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public ChatAiMemberListResponseDto getMembers(
@@ -101,6 +104,9 @@ public class ChatAiMemberService {
                 ChatRoomAiMember.create(room, agent)
         );
         roomSettingService.getOrCreate(room);
+        eventPublisher.publishEvent(
+                ChatRoomMembersChangedApplicationEvent.of(roomId)
+        );
         return toResponse(aiMember);
     }
 
@@ -125,6 +131,9 @@ public class ChatAiMemberService {
                 request.originalLanguageCode(),
                 request.personaPrompt()
         );
+        eventPublisher.publishEvent(
+                ChatRoomMembersChangedApplicationEvent.of(roomId)
+        );
         return toResponse(aiMember);
     }
 
@@ -138,6 +147,9 @@ public class ChatAiMemberService {
         ChatRoomAiMember aiMember = getActiveMember(roomId, aiMemberId);
         aiMember.softDelete();
         aiMember.getAiAgent().softDelete();
+        eventPublisher.publishEvent(
+                ChatRoomMembersChangedApplicationEvent.of(roomId)
+        );
         return toResponse(aiMember);
     }
 

@@ -6,6 +6,8 @@ import jp.co.translacat.domain.chat.ai.dto.request.ChatAiMemberCreateRequestDto;
 import jp.co.translacat.domain.chat.ai.dto.request.ChatAiMemberUpdateRequestDto;
 import jp.co.translacat.domain.chat.ai.dto.response.ChatAiMemberListResponseDto;
 import jp.co.translacat.domain.chat.ai.dto.response.ChatAiMemberResponseDto;
+import jp.co.translacat.domain.chat.ai.dto.response.ChatAiSafeProfileResponseDto;
+import jp.co.translacat.domain.chat.ai.service.ChatAiDisplayMemberService;
 import jp.co.translacat.domain.chat.ai.service.ChatAiMemberService;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ChatAiMemberController {
 
     private final ChatAiMemberService aiMemberService;
+    private final ChatAiDisplayMemberService aiDisplayMemberService;
 
     @GetMapping
     @Operation(summary = "채팅방 AI 멤버 목록 조회")
@@ -67,6 +70,22 @@ public class ChatAiMemberController {
     ) {
         return ResponseUtil.ok(
                 aiMemberService.getMember(
+                        userPrincipal.getId(),
+                        roomId,
+                        aiMemberId
+                )
+        );
+    }
+
+    @GetMapping("/{aiMemberId}/profile")
+    @Operation(summary = "채팅방 AI 멤버 공개 프로필 조회")
+    public ResponseDto<ChatAiSafeProfileResponseDto> getMemberProfile(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long roomId,
+            @PathVariable Long aiMemberId
+    ) {
+        return ResponseUtil.ok(
+                aiDisplayMemberService.getSafeProfile(
                         userPrincipal.getId(),
                         roomId,
                         aiMemberId

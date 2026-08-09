@@ -3,6 +3,7 @@ package jp.co.translacat.domain.chat.openchat.service;
 import jp.co.translacat.domain.chat.language.dto.ChatLanguageSettingResult;
 import jp.co.translacat.domain.chat.language.service.UserChatLanguageSettingService;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
+import jp.co.translacat.domain.chat.member.event.ChatRoomMembersChangedApplicationEvent;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
@@ -113,6 +114,9 @@ public class OpenChatMembershipService {
 
         memberRepository.flush();
         profileRepository.flush();
+        eventPublisher.publishEvent(
+                ChatRoomMembersChangedApplicationEvent.of(roomId)
+        );
 
         return roomQueryService.getDetail(loginUserId, roomId);
     }
@@ -148,6 +152,9 @@ public class OpenChatMembershipService {
         member.leaveOpenChat();
 
         memberRepository.flush();
+        eventPublisher.publishEvent(
+                ChatRoomMembersChangedApplicationEvent.of(roomId)
+        );
 
         return new OpenChatMembershipResponseDto(
                 openChatRoom.getChatRoom().getId(),

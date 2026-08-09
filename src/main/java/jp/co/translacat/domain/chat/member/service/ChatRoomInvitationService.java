@@ -7,6 +7,7 @@ import jp.co.translacat.domain.chat.member.dto.request.ChatRoomMemberInvitationR
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomInvitationResponseDto;
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomInvitedMemberResponseDto;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
+import jp.co.translacat.domain.chat.member.event.ChatRoomMembersChangedApplicationEvent;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageResponseDto;
@@ -28,6 +29,7 @@ import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.global.utils.ValidationUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,6 +59,7 @@ public class ChatRoomInvitationService {
     private final UserProfileQueryService userProfileQueryService;
     private final UserChatLanguageSettingService userChatLanguageSettingService;
     private final ChatWebSocketEventPublisher chatWebSocketEventPublisher;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public ChatRoomInvitationResponseDto inviteMembers(
             Long loginUserId,
@@ -105,6 +108,10 @@ public class ChatRoomInvitationService {
                     "초대 SYSTEM 메시지를 생성하지 못했습니다."
             );
         }
+
+        applicationEventPublisher.publishEvent(
+                ChatRoomMembersChangedApplicationEvent.of(chatRoomId)
+        );
 
         return ChatRoomInvitationResponseDto.forExistingGroup(
                 chatRoom.getId(),

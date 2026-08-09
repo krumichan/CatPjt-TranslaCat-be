@@ -6,6 +6,7 @@ import jp.co.translacat.domain.chat.ai.entity.ChatAiSystemSetting;
 import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiSetting;
 import jp.co.translacat.domain.chat.ai.enums.ChatAiDisclosureType;
 import jp.co.translacat.domain.chat.ai.enums.ChatAiMentionPermission;
+import jp.co.translacat.domain.chat.member.event.ChatRoomMembersChangedApplicationEvent;
 import jp.co.translacat.domain.chat.ai.repository.ChatRoomAiMemberRepository;
 import jp.co.translacat.domain.chat.ai.repository.ChatRoomAiSettingRepository;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
@@ -16,12 +17,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,6 +34,7 @@ class ChatRoomAiSettingServiceTest {
     @Mock private ChatRoomAiSettingRepository settingRepository;
     @Mock private ChatRoomAiMemberRepository aiMemberRepository;
     @Mock private ChatAiSystemSettingService systemSettingService;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private ChatRoomAiSettingService service;
     private ChatRoom room;
@@ -41,7 +45,8 @@ class ChatRoomAiSettingServiceTest {
                 accessService,
                 settingRepository,
                 aiMemberRepository,
-                systemSettingService
+                systemSettingService,
+                eventPublisher
         );
         User owner = User.createLocalUser(
                 "owner@ai-setting.test",
@@ -108,5 +113,8 @@ class ChatRoomAiSettingServiceTest {
                 .isEqualTo(ChatAiMentionPermission.OWNER_ADMIN_ONLY);
         assertThat(response.conversationEnabled()).isFalse();
         assertThat(response.revivalEnabled()).isFalse();
+        verify(eventPublisher).publishEvent(
+                any(ChatRoomMembersChangedApplicationEvent.class)
+        );
     }
 }

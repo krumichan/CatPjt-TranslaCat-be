@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.chat.websocket.service;
 
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
+import jp.co.translacat.domain.chat.member.dto.websocket.event.ChatRoomMembersChangedEventDto;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageResponseDto;
 import jp.co.translacat.domain.chat.message.dto.websocket.event.ChatMessageCreatedEventDto;
 import jp.co.translacat.domain.chat.openchat.dto.websocket.event.OpenChatMemberBannedEventDto;
@@ -54,6 +55,16 @@ public class ChatWebSocketEventPublisher {
                 ChatTranslationFailedEventDto.from(event);
 
         publishToRoom(event.chatRoomId(), eventDto);
+    }
+
+    public void publishRoomMembersChanged(
+            Long roomId,
+            LocalDateTime occurredAt
+    ) {
+        publishToRoom(
+                roomId,
+                ChatRoomMembersChangedEventDto.of(roomId, occurredAt)
+        );
     }
 
     public void publishOpenChatProfileUpdated(

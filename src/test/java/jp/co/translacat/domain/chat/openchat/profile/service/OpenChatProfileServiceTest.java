@@ -1,5 +1,7 @@
 package jp.co.translacat.domain.chat.openchat.profile.service;
 
+import jp.co.translacat.domain.chat.ai.dto.response.ChatAiDisplayMembersResponseDto;
+import jp.co.translacat.domain.chat.ai.service.ChatAiDisplayMemberService;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.openchat.dto.request.OpenChatProfileUpdateRequestDto;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatMemberListResponseDto;
@@ -33,6 +35,7 @@ import static org.mockito.Mockito.when;
 class OpenChatProfileServiceTest {
 
     @Mock private OpenChatAccessService accessService;
+    @Mock private ChatAiDisplayMemberService chatAiDisplayMemberService;
     @Mock private OpenChatMemberProfileRepository profileRepository;
     @Mock private OpenChatProfileResponseMapper responseMapper;
     @Mock private OpenChatProfileValidator profileValidator;
@@ -47,6 +50,7 @@ class OpenChatProfileServiceTest {
     void setUp() {
         service = new OpenChatProfileService(
                 accessService,
+                chatAiDisplayMemberService,
                 profileRepository,
                 responseMapper,
                 profileValidator,
@@ -95,6 +99,8 @@ class OpenChatProfileServiceTest {
                 ))
                 .thenReturn(List.of(profile));
         when(responseMapper.toResponse(profile)).thenReturn(mapped);
+        when(chatAiDisplayMemberService.getDisplayMembers(100L))
+                .thenReturn(ChatAiDisplayMembersResponseDto.empty());
 
         OpenChatMemberListResponseDto result = service.getMembers(
                 10L,

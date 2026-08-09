@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.openchat.dto.response;
 
+import jp.co.translacat.domain.chat.ai.dto.response.ChatAiRoomSummaryResponseDto;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.openchat.enums.OpenChatJoinBlockedReason;
 import jp.co.translacat.domain.chat.openchat.enums.OpenChatRoomStatus;
@@ -27,6 +28,34 @@ public record OpenChatRoomDetailResponseDto(
         OpenChatMemberProfileResponseDto myOpenProfile,
         LocalDateTime lastActivityAt,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        ChatAiRoomSummaryResponseDto ai
 ) {
+    public OpenChatRoomDetailResponseDto(
+            Long id,
+            ChatRoomType roomType,
+            ChatRoomSourceType sourceType,
+            String name,
+            String description,
+            OpenChatVisibility visibility,
+            OpenChatRoomStatus status,
+            long memberCount,
+            int maxMemberCount,
+            boolean joined,
+            boolean joinable,
+            OpenChatJoinBlockedReason joinBlockedReason,
+            ChatRoomMemberRole myRole,
+            OpenChatMemberProfileResponseDto ownerProfile,
+            OpenChatMemberProfileResponseDto myOpenProfile,
+            LocalDateTime lastActivityAt,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
+    ) {
+        this(
+                id, roomType, sourceType, name, description, visibility, status,
+                memberCount, maxMemberCount, joined, joinable, joinBlockedReason,
+                myRole, ownerProfile, myOpenProfile, lastActivityAt, createdAt,
+                updatedAt, null
+        );
+    }
 }

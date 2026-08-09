@@ -1,5 +1,8 @@
 package jp.co.translacat.domain.chat.openchat.service;
 
+import jp.co.translacat.domain.chat.ai.dto.response.ChatAiRoomSummaryResponseDto;
+import jp.co.translacat.domain.chat.ai.enums.ChatAiDisclosureType;
+import jp.co.translacat.domain.chat.ai.service.ChatAiRoomSummaryService;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.openchat.ban.repository.OpenChatBanRepository;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatRoomDetailResponseDto;
@@ -42,6 +45,9 @@ class OpenChatRoomQueryServiceTest {
 
     @Mock
     private OpenChatProfileImageUrlResolver imageUrlResolver;
+
+    @Mock
+    private ChatAiRoomSummaryService aiRoomSummaryService;
 
     @InjectMocks
     private OpenChatRoomQueryService queryService;
@@ -98,6 +104,15 @@ class OpenChatRoomQueryServiceTest {
                         300L, joinedActivity,
                         200L, fullActivity
                 ));
+        when(aiRoomSummaryService.getSummaries(pageRoomIds))
+                .thenReturn(Map.of(
+                        300L, new ChatAiRoomSummaryResponseDto(
+                                true,
+                                1,
+                                ChatAiDisclosureType.PUBLIC
+                        ),
+                        200L, ChatAiRoomSummaryResponseDto.disabled()
+                ));
         when(imageUrlResolver.resolve(
                 "open-chat-profiles/owner/avatar.png"
         )).thenReturn("https://cdn.example/avatar.png");
@@ -124,6 +139,10 @@ class OpenChatRoomQueryServiceTest {
         assertThat(response.openChatRooms().get(0)
                 .lastActivityAt())
                 .isEqualTo(joinedActivity);
+        assertThat(response.openChatRooms().get(0).ai().aiEnabled())
+                .isTrue();
+        assertThat(response.openChatRooms().get(0).ai().disclosureType())
+                .isEqualTo(ChatAiDisclosureType.PUBLIC);
 
         assertThat(response.openChatRooms().get(1).joinable())
                 .isFalse();

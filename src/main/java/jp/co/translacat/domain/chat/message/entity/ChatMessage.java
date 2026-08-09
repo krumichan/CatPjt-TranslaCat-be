@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.chat.message.entity;
 
 import jakarta.persistence.*;
+import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiMember;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageSenderType;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageType;
@@ -25,6 +26,10 @@ import java.time.LocalDateTime;
                 @Index(
                         name = "idx_chat_message_room_id_id",
                         columnList = "chat_room_id, id"
+                ),
+                @Index(
+                        name = "idx_chat_message_sender_ai_member_id",
+                        columnList = "sender_ai_member_id"
                 )
         }
 )
@@ -42,6 +47,10 @@ public class ChatMessage extends BaseAuditable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sender_user_id")
     private User senderUser;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sender_ai_member_id")
+    private ChatRoomAiMember senderAiMember;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -64,12 +73,14 @@ public class ChatMessage extends BaseAuditable {
     private ChatMessage(
             ChatRoom chatRoom,
             User senderUser,
+            ChatRoomAiMember senderAiMember,
             ChatMessageSenderType senderType,
             ChatMessageType messageType,
             String content
     ) {
         this.chatRoom = chatRoom;
         this.senderUser = senderUser;
+        this.senderAiMember = senderAiMember;
         this.senderType = senderType;
         this.messageType = messageType;
         this.content = content;
@@ -84,7 +95,36 @@ public class ChatMessage extends BaseAuditable {
         return new ChatMessage(
                 chatRoom,
                 senderUser,
+                null,
                 ChatMessageSenderType.USER,
+                ChatMessageType.TEXT,
+                content
+        );
+    }
+
+
+    public static ChatMessage createAiTextMessage(
+            ChatRoom chatRoom,
+            ChatRoomAiMember senderAiMember,
+            String content
+    ) {
+        if (senderAiMember == null) {
+            throw new IllegalArgumentException("AI 발신 멤버는 필수입니다.");
+        }
+        ChatRoom senderRoom = senderAiMember.getChatRoom();
+        boolean sameRoom = senderRoom != null
+                && chatRoom != null
+                && (senderRoom == chatRoom
+                || (senderRoom.getId() != null
+                && senderRoom.getId().equals(chatRoom.getId())));
+        if (!sameRoom) {
+            throw new IllegalArgumentException("AI 발신 멤버가 메시지 채팅방에 속하지 않습니다.");
+        }
+        return new ChatMessage(
+                chatRoom,
+                null,
+                senderAiMember,
+                ChatMessageSenderType.AI,
                 ChatMessageType.TEXT,
                 content
         );
@@ -96,6 +136,7 @@ public class ChatMessage extends BaseAuditable {
     ) {
         return new ChatMessage(
                 chatRoom,
+                null,
                 null,
                 ChatMessageSenderType.SYSTEM,
                 ChatMessageType.SYSTEM,
@@ -122,6 +163,10 @@ public class ChatMessage extends BaseAuditable {
 
     public boolean isUserMessage() {
         return this.senderType == ChatMessageSenderType.USER;
+    }
+
+    public boolean isAiMessage() {
+        return this.senderType == ChatMessageSenderType.AI;
     }
 
     public boolean isSystemMessage() {

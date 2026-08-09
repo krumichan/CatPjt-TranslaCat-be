@@ -1,5 +1,7 @@
 package jp.co.translacat.domain.chat.openchat.service;
 
+import jp.co.translacat.domain.chat.ai.dto.response.ChatAiRoomSummaryResponseDto;
+import jp.co.translacat.domain.chat.ai.service.ChatAiRoomSummaryService;
 import jp.co.translacat.domain.chat.openchat.ban.repository.OpenChatBanRepository;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatMemberProfileResponseDto;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatRoomDetailResponseDto;
@@ -33,6 +35,7 @@ public class OpenChatRoomQueryService {
     private final OpenChatRoomRepository openChatRoomRepository;
     private final OpenChatBanRepository banRepository;
     private final OpenChatProfileImageUrlResolver imageUrlResolver;
+    private final ChatAiRoomSummaryService aiRoomSummaryService;
 
     public OpenChatRoomListResponseDto getPublicRooms(
             Long loginUserId,
@@ -77,6 +80,8 @@ public class OpenChatRoomQueryService {
                 openChatRoomRepository.findOwnerProfiles(roomIds);
         Map<Long, LocalDateTime> lastActivityAtByRoomId =
                 openChatRoomRepository.findLastActivityAt(roomIds);
+        Map<Long, ChatAiRoomSummaryResponseDto> aiSummaries =
+                resolveAiSummaries(roomIds);
 
         List<OpenChatRoomListItemResponseDto> items = pageRooms
                 .stream()
@@ -97,6 +102,10 @@ public class OpenChatRoomQueryService {
                         ),
                         lastActivityAtByRoomId.get(
                                 openChatRoom.getChatRoom().getId()
+                        ),
+                        aiSummaries.getOrDefault(
+                                openChatRoom.getChatRoom().getId(),
+                                ChatAiRoomSummaryResponseDto.disabled()
                         )
                 ))
                 .toList();
@@ -152,6 +161,12 @@ public class OpenChatRoomQueryService {
         LocalDateTime lastActivityAt = openChatRoomRepository
                 .findLastActivityAt(roomIds)
                 .get(chatRoomId);
+        ChatAiRoomSummaryResponseDto aiSummary =
+                resolveAiSummaries(roomIds)
+                        .getOrDefault(
+                                chatRoomId,
+                                ChatAiRoomSummaryResponseDto.disabled()
+                        );
 
         OpenChatJoinBlockedReason blockedReason =
                 resolveBlockedReason(
@@ -187,7 +202,8 @@ public class OpenChatRoomQueryService {
                         lastActivityAt
                 ),
                 openChatRoom.getChatRoom().getCreatedAt(),
-                openChatRoom.getChatRoom().getUpdatedAt()
+                openChatRoom.getChatRoom().getUpdatedAt(),
+                aiSummary
         );
     }
 
@@ -197,7 +213,8 @@ public class OpenChatRoomQueryService {
             boolean joined,
             boolean banned,
             OpenChatMemberProfileQueryRow ownerProfile,
-            LocalDateTime lastActivityAt
+            LocalDateTime lastActivityAt,
+            ChatAiRoomSummaryResponseDto aiSummary
     ) {
         OpenChatJoinBlockedReason blockedReason =
                 resolveBlockedReason(
@@ -222,8 +239,21 @@ public class OpenChatRoomQueryService {
                 blockedReason == OpenChatJoinBlockedReason.NONE,
                 blockedReason,
                 fallbackActivityAt(room, lastActivityAt),
-                toProfileResponse(ownerProfile)
+                toProfileResponse(ownerProfile),
+                aiSummary
         );
+    }
+
+
+    private Map<Long, ChatAiRoomSummaryResponseDto> resolveAiSummaries(
+            List<Long> roomIds
+    ) {
+        if (aiRoomSummaryService == null || roomIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, ChatAiRoomSummaryResponseDto> summaries =
+                aiRoomSummaryService.getSummaries(roomIds);
+        return summaries == null ? Map.of() : summaries;
     }
 
     private OpenChatMemberProfileResponseDto toProfileResponse(

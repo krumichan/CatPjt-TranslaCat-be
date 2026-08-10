@@ -7,6 +7,7 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -23,19 +24,28 @@ jobs:
 
             echo "${{ secrets.ENV_FILE_CONTENT }}" > .env
 
+            # TranslaCat 내부 Docker Network 보장
+            docker network inspect translacat-network >/dev/null 2>&1 \
+              || docker network create translacat-network
+
             docker build -t translacat-api .
+
             docker stop translacat-api-container || true
             docker rm translacat-api-container || true
 
-            docker run -d -p 8080:8080 \
+            docker run -d \
+              -p 8080:8080 \
               --env-file .env \
               -e "SPRING_PROFILES_ACTIVE=prod" \
               --memory="1.5g" \
+              --restart unless-stopped \
+              --network translacat-network \
               --name translacat-api-container \
               translacat-api
-            
+
             echo "Waiting for server to start (Max 5 minutes)..."
             SUCCESS=false
+
             for i in {1..60}; do
               if curl -s --head http://localhost:8080 | grep -E "200|401" > /dev/null; then
                 echo "Success!"

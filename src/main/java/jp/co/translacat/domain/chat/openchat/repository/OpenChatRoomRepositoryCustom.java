@@ -27,6 +27,8 @@ public interface OpenChatRoomRepositoryCustom {
             List<Long> chatRoomIds
     );
 
+    Set<Long> findActiveRoomIds(List<Long> chatRoomIds);
+
     Map<Long, OpenChatMemberProfileQueryRow> findOwnerProfiles(
             List<Long> chatRoomIds
     );

@@ -106,6 +106,15 @@ class OpenChatRoomRepositoryTest {
         assertThat(openChatRoomRepository.findByChatRoomId(
                 closedRoom.getChatRoom().getId()
         )).isPresent();
+
+        assertThat(openChatRoomRepository.findActiveRoomIds(List.of(
+                publicRoom.getChatRoom().getId(),
+                unlistedRoom.getChatRoom().getId(),
+                closedRoom.getChatRoom().getId()
+        ))).containsExactlyInAnyOrder(
+                publicRoom.getChatRoom().getId(),
+                unlistedRoom.getChatRoom().getId()
+        );
     }
 
     @Test

@@ -5,6 +5,7 @@ import jp.co.translacat.domain.chat.language.service.ChatLanguageSettingResolver
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.presence.service.ChatPresenceQueryService;
+import jp.co.translacat.domain.chat.openchat.repository.OpenChatRoomRepository;
 import jp.co.translacat.domain.chat.read.repository.ChatUnreadCountRepository;
 import jp.co.translacat.domain.chat.room.dto.response.ChatRoomResponseDto;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
@@ -32,6 +33,7 @@ class ChatRoomQueryServicePresenceTest {
 
     @Mock private ChatRoomRepository chatRoomRepository;
     @Mock private ChatRoomMemberRepository chatRoomMemberRepository;
+    @Mock private OpenChatRoomRepository openChatRoomRepository;
     @Mock private ChatLanguageSettingResolver chatLanguageSettingResolver;
     @Mock private UserProfileRepository userProfileRepository;
     @Mock private UserProfileImageUrlResolver imageUrlResolver;
@@ -51,6 +53,7 @@ class ChatRoomQueryServicePresenceTest {
         service = new ChatRoomQueryService(
                 chatRoomRepository,
                 chatRoomMemberRepository,
+                openChatRoomRepository,
                 chatLanguageSettingResolver,
                 userProfileRepository,
                 imageUrlResolver,

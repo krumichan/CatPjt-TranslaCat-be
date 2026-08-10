@@ -169,6 +169,22 @@ public class OpenChatRoomRepositoryImpl
     }
 
     @Override
+    public Set<Long> findActiveRoomIds(List<Long> chatRoomIds) {
+        if (chatRoomIds == null || chatRoomIds.isEmpty()) {
+            return Set.of();
+        }
+
+        return new LinkedHashSet<>(queryFactory
+                .select(openChatRoom.chatRoom.id)
+                .from(openChatRoom)
+                .where(
+                        openChatRoom.chatRoom.id.in(chatRoomIds),
+                        openChatRoom.status.eq(OpenChatRoomStatus.ACTIVE)
+                )
+                .fetch());
+    }
+
+    @Override
     public Map<Long, OpenChatMemberProfileQueryRow>
     findOwnerProfiles(List<Long> chatRoomIds) {
         if (chatRoomIds == null || chatRoomIds.isEmpty()) {

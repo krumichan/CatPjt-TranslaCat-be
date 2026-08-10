@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.chat.websocket.service;
 
 import jp.co.translacat.domain.chat.presence.dto.websocket.event.ChatPresenceChangedEventDto;
+import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -21,14 +22,15 @@ class ChatWebSocketEventPublisherPresenceTest {
     @Mock private SimpMessagingTemplate messagingTemplate;
 
     @Test
-    void publishPresenceChanged_UsesExistingRoomTopicContract() {
+    void publishPresenceChanged_UsesRoomScopedSafeMemberContract() {
         ChatWebSocketEventPublisher publisher =
                 new ChatWebSocketEventPublisher(messagingTemplate);
-        LocalDateTime occurredAt = LocalDateTime.of(2026, 8, 10, 19, 40);
+        LocalDateTime occurredAt = LocalDateTime.of(2026, 8, 10, 22, 35);
 
         publisher.publishPresenceChanged(
                 10L,
-                100L,
+                ChatRoomType.OPEN,
+                "3001",
                 true,
                 occurredAt
         );
@@ -43,7 +45,8 @@ class ChatWebSocketEventPublisherPresenceTest {
         ChatPresenceChangedEventDto event = eventCaptor.getValue();
         assertEquals("chat.presence.changed", event.eventType());
         assertEquals(10L, event.roomId());
-        assertEquals(100L, event.userId());
+        assertEquals(ChatRoomType.OPEN, event.roomType());
+        assertEquals("3001", event.memberRef());
         assertTrue(event.online());
         assertEquals(occurredAt, event.occurredAt());
     }

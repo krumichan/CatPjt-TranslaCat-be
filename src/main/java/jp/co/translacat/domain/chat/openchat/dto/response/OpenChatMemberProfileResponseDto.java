@@ -11,8 +11,30 @@ public record OpenChatMemberProfileResponseDto(
         String profileImageUrl,
         ChatRoomMemberRole role,
         boolean active,
+        Boolean online,
         LocalDateTime joinedAt
 ) {
+
+    public OpenChatMemberProfileResponseDto(
+            Long openChatMemberId,
+            String memberCode,
+            String nickname,
+            String profileImageUrl,
+            ChatRoomMemberRole role,
+            boolean active,
+            LocalDateTime joinedAt
+    ) {
+        this(
+                openChatMemberId,
+                memberCode,
+                nickname,
+                profileImageUrl,
+                role,
+                active,
+                null,
+                joinedAt
+        );
+    }
 
     public OpenChatMemberProfileResponseDto(
             Long openChatMemberId,
@@ -29,6 +51,7 @@ public record OpenChatMemberProfileResponseDto(
                 profileImageUrl,
                 role,
                 true,
+                null,
                 joinedAt
         );
     }

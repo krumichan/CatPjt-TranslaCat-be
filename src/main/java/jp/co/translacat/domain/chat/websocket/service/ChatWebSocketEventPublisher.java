@@ -9,6 +9,7 @@ import jp.co.translacat.domain.chat.openchat.dto.websocket.event.OpenChatMemberR
 import jp.co.translacat.domain.chat.openchat.dto.websocket.event.OpenChatProfileUpdatedEventDto;
 import jp.co.translacat.domain.chat.openchat.dto.websocket.event.OpenChatRoomClosedEventDto;
 import jp.co.translacat.domain.chat.presence.dto.websocket.event.ChatPresenceChangedEventDto;
+import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.chat.translation.dto.websocket.event.ChatTranslationCompletedEventDto;
 import jp.co.translacat.domain.chat.translation.dto.websocket.event.ChatTranslationFailedEventDto;
 import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationCompletedEvent;
@@ -150,7 +151,8 @@ public class ChatWebSocketEventPublisher {
 
     public void publishPresenceChanged(
             Long roomId,
-            Long userId,
+            ChatRoomType roomType,
+            String memberRef,
             boolean online,
             LocalDateTime occurredAt
     ) {
@@ -158,7 +160,8 @@ public class ChatWebSocketEventPublisher {
                 roomId,
                 ChatPresenceChangedEventDto.of(
                         roomId,
-                        userId,
+                        roomType,
+                        memberRef,
                         online,
                         occurredAt
                 )

@@ -15,9 +15,40 @@ public record ChatRoomMemberResponseDto(
         String profileImageUrl,
         ChatRoomMemberRole role,
         boolean active,
+        Boolean online,
         LocalDateTime joinedAt,
         LocalDateTime leftAt
 ) {
+
+    /**
+     * Presence 필드 추가 전 canonical 10개 인자 생성자 호환용.
+     */
+    public ChatRoomMemberResponseDto(
+            Long id,
+            Long chatRoomId,
+            Long userId,
+            String publicId,
+            String displayName,
+            String profileImageUrl,
+            ChatRoomMemberRole role,
+            boolean active,
+            LocalDateTime joinedAt,
+            LocalDateTime leftAt
+    ) {
+        this(
+                id,
+                chatRoomId,
+                userId,
+                publicId,
+                displayName,
+                profileImageUrl,
+                role,
+                active,
+                null,
+                joinedAt,
+                leftAt
+        );
+    }
 
     /**
      * 기존 테스트 및 호출부의 9개 인자 생성자 호환용.
@@ -43,6 +74,7 @@ public record ChatRoomMemberResponseDto(
                 null,
                 role,
                 active,
+                null,
                 joinedAt,
                 leftAt
         );
@@ -51,6 +83,14 @@ public record ChatRoomMemberResponseDto(
     public static ChatRoomMemberResponseDto from(
             ChatRoomMember chatRoomMember,
             UserSummaryProfileResponseDto profile
+    ) {
+        return from(chatRoomMember, profile, null);
+    }
+
+    public static ChatRoomMemberResponseDto from(
+            ChatRoomMember chatRoomMember,
+            UserSummaryProfileResponseDto profile,
+            Boolean online
     ) {
         return new ChatRoomMemberResponseDto(
                 chatRoomMember.getId(),
@@ -61,6 +101,7 @@ public record ChatRoomMemberResponseDto(
                 profile.profileImageUrl(),
                 chatRoomMember.getRole(),
                 chatRoomMember.isActive(),
+                online,
                 chatRoomMember.getJoinedAt(),
                 chatRoomMember.getLeftAt()
         );
@@ -81,6 +122,7 @@ public record ChatRoomMemberResponseDto(
                 null,
                 chatRoomMember.getRole(),
                 chatRoomMember.isActive(),
+                null,
                 chatRoomMember.getJoinedAt(),
                 chatRoomMember.getLeftAt()
         );

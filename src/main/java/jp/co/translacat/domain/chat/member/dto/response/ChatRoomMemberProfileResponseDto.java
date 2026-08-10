@@ -10,12 +10,42 @@ public record ChatRoomMemberProfileResponseDto(
         String profileImageUrl,
         String profileBackgroundImageUrl,
         String bio,
-        UserSearchFriendStatus friendStatus
+        UserSearchFriendStatus friendStatus,
+        Boolean online
 ) {
+
+    public ChatRoomMemberProfileResponseDto(
+            Long userId,
+            String publicId,
+            String displayName,
+            String profileImageUrl,
+            String profileBackgroundImageUrl,
+            String bio,
+            UserSearchFriendStatus friendStatus
+    ) {
+        this(
+                userId,
+                publicId,
+                displayName,
+                profileImageUrl,
+                profileBackgroundImageUrl,
+                bio,
+                friendStatus,
+                null
+        );
+    }
 
     public static ChatRoomMemberProfileResponseDto of(
             UserSummaryProfileResponseDto profile,
             UserSearchFriendStatus friendStatus
+    ) {
+        return of(profile, friendStatus, null);
+    }
+
+    public static ChatRoomMemberProfileResponseDto of(
+            UserSummaryProfileResponseDto profile,
+            UserSearchFriendStatus friendStatus,
+            Boolean online
     ) {
         return new ChatRoomMemberProfileResponseDto(
                 profile.userId(),
@@ -24,7 +54,8 @@ public record ChatRoomMemberProfileResponseDto(
                 profile.profileImageUrl(),
                 profile.profileBackgroundImageUrl(),
                 profile.bio(),
-                friendStatus
+                friendStatus,
+                online
         );
     }
 }

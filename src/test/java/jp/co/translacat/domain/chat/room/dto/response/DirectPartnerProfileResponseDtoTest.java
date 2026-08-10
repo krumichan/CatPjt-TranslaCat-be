@@ -56,6 +56,7 @@ class DirectPartnerProfileResponseDtoTest {
                 result.profileBackgroundImageUrl()
         );
         assertEquals("최신 상태 메시지", result.bio());
+        assertNull(result.online());
 
         verify(imageUrlResolver).resolveProfileImageUrl(userProfile);
         verify(imageUrlResolver)
@@ -80,6 +81,24 @@ class DirectPartnerProfileResponseDtoTest {
         assertNull(result.profileBackgroundImageUrl());
         assertNull(result.bio());
         verifyNoInteractions(imageUrlResolver);
+    }
+
+
+    @Test
+    void from_includesPresenceSnapshotWhenProvided() {
+        when(user.getId()).thenReturn(2L);
+        when(user.getPublicId()).thenReturn("TC-PFSN-CLNA");
+        when(user.getUsername()).thenReturn("partner");
+
+        DirectPartnerProfileResponseDto result =
+                DirectPartnerProfileResponseDto.from(
+                        user,
+                        null,
+                        imageUrlResolver,
+                        true
+                );
+
+        assertEquals(Boolean.TRUE, result.online());
     }
 
     @Test

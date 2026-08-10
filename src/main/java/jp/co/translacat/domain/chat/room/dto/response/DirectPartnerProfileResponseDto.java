@@ -10,8 +10,28 @@ public record DirectPartnerProfileResponseDto(
         String displayName,
         String profileImageUrl,
         String profileBackgroundImageUrl,
-        String bio
+        String bio,
+        Boolean online
 ) {
+
+    public DirectPartnerProfileResponseDto(
+            Long userId,
+            String publicId,
+            String displayName,
+            String profileImageUrl,
+            String profileBackgroundImageUrl,
+            String bio
+    ) {
+        this(
+                userId,
+                publicId,
+                displayName,
+                profileImageUrl,
+                profileBackgroundImageUrl,
+                bio,
+                null
+        );
+    }
 
     public static DirectPartnerProfileResponseDto from(
             User user,
@@ -28,7 +48,29 @@ public record DirectPartnerProfileResponseDto(
                 resolveDisplayName(user, userProfile),
                 resolveProfileImageUrl(userProfile, imageUrlResolver),
                 resolveProfileBackgroundImageUrl(userProfile, imageUrlResolver),
-                resolveBio(userProfile)
+                resolveBio(userProfile),
+                null
+        );
+    }
+
+    public static DirectPartnerProfileResponseDto from(
+            User user,
+            UserProfile userProfile,
+            UserProfileImageUrlResolver imageUrlResolver,
+            Boolean online
+    ) {
+        if (user == null) {
+            return null;
+        }
+
+        return new DirectPartnerProfileResponseDto(
+                user.getId(),
+                user.getPublicId(),
+                resolveDisplayName(user, userProfile),
+                resolveProfileImageUrl(userProfile, imageUrlResolver),
+                resolveProfileBackgroundImageUrl(userProfile, imageUrlResolver),
+                resolveBio(userProfile),
+                online
         );
     }
 

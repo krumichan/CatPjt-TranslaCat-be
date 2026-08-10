@@ -5,6 +5,7 @@ import jp.co.translacat.domain.chat.language.service.ChatLanguageSettingResolver
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.read.repository.ChatUnreadCountRepository;
+import jp.co.translacat.domain.chat.presence.service.ChatPresenceQueryService;
 import jp.co.translacat.domain.chat.room.dto.response.ChatRoomListItemResponseDto;
 import jp.co.translacat.domain.chat.room.dto.response.ChatRoomListResponseDto;
 import jp.co.translacat.domain.chat.room.dto.response.ChatRoomResponseDto;
@@ -40,6 +41,7 @@ public class ChatRoomQueryService {
     private final UserProfileRepository userProfileRepository;
     private final UserProfileImageUrlResolver imageUrlResolver;
     private final ChatUnreadCountRepository chatUnreadCountRepository;
+    private final ChatPresenceQueryService chatPresenceQueryService;
 
     public ChatRoomListResponseDto getMyChatRooms(Long loginUserId) {
         List<ChatRoom> chatRooms = chatRoomMemberRepository
@@ -237,7 +239,8 @@ public class ChatRoomQueryService {
                 .map(user -> DirectPartnerProfileResponseDto.from(
                         user,
                         profilesByUserId.get(user.getId()),
-                        imageUrlResolver
+                        imageUrlResolver,
+                        chatPresenceQueryService.resolveOnline(user.getId())
                 ))
                 .orElse(null);
     }

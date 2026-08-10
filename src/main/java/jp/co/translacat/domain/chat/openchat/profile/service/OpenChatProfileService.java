@@ -12,6 +12,8 @@ import jp.co.translacat.domain.chat.openchat.profile.repository.OpenChatMemberPr
 import jp.co.translacat.domain.chat.openchat.service.OpenChatAccessService;
 import jp.co.translacat.domain.chat.openchat.support.OpenChatErrorCode;
 import jp.co.translacat.domain.chat.openchat.support.OpenChatProfileValidator;
+import jp.co.translacat.domain.chat.presence.service.ChatPresenceQueryService;
+import jp.co.translacat.domain.chat.presence.service.ChatPresenceVisibilityPolicy;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +34,8 @@ public class OpenChatProfileService {
     private final OpenChatProfileResponseMapper responseMapper;
     private final OpenChatProfileValidator profileValidator;
     private final ApplicationEventPublisher eventPublisher;
+    private final ChatPresenceQueryService chatPresenceQueryService;
+    private final ChatPresenceVisibilityPolicy chatPresenceVisibilityPolicy;
 
     public OpenChatMemberProfileResponseDto getMyProfile(
             Long loginUserId,
@@ -40,7 +45,11 @@ public class OpenChatProfileService {
                 loginUserId,
                 roomId
         );
-        return responseMapper.toResponse(getProfile(member.getId()));
+        OpenChatMemberProfile profile = getProfile(member.getId());
+        return responseMapper.toResponse(
+                profile,
+                resolveOnline(roomId, member)
+        );
     }
 
     public OpenChatMemberListResponseDto getMembers(
@@ -49,12 +58,29 @@ public class OpenChatProfileService {
     ) {
         accessService.getActiveOpenMember(loginUserId, roomId);
 
-        List<OpenChatMemberProfileResponseDto> members = profileRepository
+        List<OpenChatMemberProfile> profiles = profileRepository
                 .findByChatRoomMemberChatRoomIdAndChatRoomMemberActiveTrueAndChatRoomMemberDeletedAtIsNullOrderByChatRoomMemberJoinedAtAsc(
                         roomId
-                )
-                .stream()
-                .map(responseMapper::toResponse)
+                );
+
+        Map<Long, Boolean> onlineByUserId =
+                chatPresenceVisibilityPolicy.isVisible(roomId)
+                        ? chatPresenceQueryService.resolveOnlineByUserIds(
+                                profiles.stream()
+                                        .map(OpenChatMemberProfile::getChatRoomMember)
+                                        .map(ChatRoomMember::getUser)
+                                        .map(user -> user.getId())
+                                        .toList()
+                        )
+                        : Map.of();
+
+        List<OpenChatMemberProfileResponseDto> members = profiles.stream()
+                .map(profile -> responseMapper.toResponse(
+                        profile,
+                        onlineByUserId.get(
+                                profile.getChatRoomMember().getUser().getId()
+                        )
+                ))
                 .toList();
 
         ChatAiDisplayMembersResponseDto aiMembers =
@@ -86,7 +112,10 @@ public class OpenChatProfileService {
                         OpenChatErrorCode.MEMBER_NOT_FOUND
                 ));
 
-        return responseMapper.toResponse(profile);
+        return responseMapper.toResponse(
+                profile,
+                resolveOnline(roomId, profile.getChatRoomMember())
+        );
     }
 
     @Transactional
@@ -109,6 +138,21 @@ public class OpenChatProfileService {
         publishProfileUpdated(profile);
 
         return responseMapper.toResponse(profile);
+    }
+
+
+    private Boolean resolveOnline(
+            Long roomId,
+            ChatRoomMember member
+    ) {
+        if (member == null
+                || member.getUser() == null
+                || !chatPresenceVisibilityPolicy.isVisible(roomId)) {
+            return null;
+        }
+        return chatPresenceQueryService.resolveOnline(
+                member.getUser().getId()
+        );
     }
 
     private OpenChatMemberProfile getProfile(Long memberId) {

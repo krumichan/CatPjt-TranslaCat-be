@@ -15,6 +15,13 @@ public class OpenChatProfileResponseMapper {
     public OpenChatMemberProfileResponseDto toResponse(
             OpenChatMemberProfile profile
     ) {
+        return toResponse(profile, null);
+    }
+
+    public OpenChatMemberProfileResponseDto toResponse(
+            OpenChatMemberProfile profile,
+            Boolean online
+    ) {
         ChatRoomMember member = profile.getChatRoomMember();
         return new OpenChatMemberProfileResponseDto(
                 member.getId(),
@@ -25,6 +32,7 @@ public class OpenChatProfileResponseMapper {
                 ),
                 member.getRole(),
                 member.isActive(),
+                online,
                 member.getJoinedAt()
         );
     }

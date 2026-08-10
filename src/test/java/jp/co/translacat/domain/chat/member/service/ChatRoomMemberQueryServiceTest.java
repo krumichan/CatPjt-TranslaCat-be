@@ -1,12 +1,16 @@
 package jp.co.translacat.domain.chat.member.service;
 
+import jp.co.translacat.domain.chat.ai.dto.response.ChatAiDisplayMembersResponseDto;
 import jp.co.translacat.domain.chat.ai.service.ChatAiDisplayMemberService;
 import jp.co.translacat.domain.chat.language.service.ChatLanguageSettingResolver;
+import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberListResponseDto;
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberProfileResponseDto;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
+import jp.co.translacat.domain.chat.presence.service.ChatPresenceQueryService;
+import jp.co.translacat.domain.chat.presence.service.ChatPresenceVisibilityPolicy;
 import jp.co.translacat.domain.user.block.service.UserBlockService;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.friend.request.enums.FriendRequestStatus;
@@ -23,6 +27,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,6 +60,12 @@ class ChatRoomMemberQueryServiceTest {
     private UserBlockService userBlockService;
 
     @Mock
+    private ChatPresenceQueryService chatPresenceQueryService;
+
+    @Mock
+    private ChatPresenceVisibilityPolicy chatPresenceVisibilityPolicy;
+
+    @Mock
     private ChatRoom chatRoom;
 
     @Mock
@@ -74,9 +87,60 @@ class ChatRoomMemberQueryServiceTest {
                 userProfileQueryService,
                 friendService,
                 friendRequestRepository,
-                userBlockService
+                userBlockService,
+                chatPresenceQueryService,
+                chatPresenceVisibilityPolicy
         );
     }
+
+    @Test
+    void getMembersIncludesPresenceSnapshotForHumanMembers() {
+        Long loginUserId = 1L;
+        Long chatRoomId = 501L;
+        Long targetUserId = 2L;
+        LocalDateTime joinedAt = LocalDateTime.of(2026, 8, 10, 20, 0);
+
+        stubGeneralProfileRoom();
+        when(chatRoom.getId()).thenReturn(chatRoomId);
+        when(chatRoomMemberRepository
+                .findByChatRoomIdAndUserIdAndActiveTrueAndDeletedAtIsNull(
+                        chatRoomId,
+                        loginUserId
+                ))
+                .thenReturn(Optional.of(loginMember));
+        when(chatRoomMemberRepository
+                .findByChatRoomIdAndActiveTrueAndDeletedAtIsNull(chatRoomId))
+                .thenReturn(List.of(targetMember));
+        when(targetMember.getChatRoom()).thenReturn(chatRoom);
+        when(targetMember.getUser()).thenReturn(targetUser);
+        when(targetMember.getJoinedAt()).thenReturn(joinedAt);
+        when(targetUser.getId()).thenReturn(targetUserId);
+        when(userProfileQueryService.getSummaryByUser(targetUser))
+                .thenReturn(new UserSummaryProfileResponseDto(
+                        targetUserId,
+                        "TC-GROUP-MEMBER",
+                        "group-member",
+                        null
+                ));
+        when(chatPresenceVisibilityPolicy.isVisible(chatRoomId))
+                .thenReturn(true);
+        when(chatPresenceQueryService.resolveOnlineByUserIds(
+                List.of(targetUserId)
+        )).thenReturn(Map.of(targetUserId, true));
+        when(chatAiDisplayMemberService.getDisplayMembers(chatRoomId))
+                .thenReturn(ChatAiDisplayMembersResponseDto.empty());
+
+        ChatRoomMemberListResponseDto result = service.getMembers(
+                loginUserId,
+                chatRoomId
+        );
+
+        assertThat(result.members()).hasSize(1);
+        assertThat(result.members().get(0).online()).isTrue();
+        assertThat(result.members().get(0).publicId())
+                .isEqualTo("TC-GROUP-MEMBER");
+    }
+
     @Test
     void getMemberProfileReturnsLatestProfileAndFriendStatus() {
         Long loginUserId = 1L;
@@ -124,6 +188,10 @@ class ChatRoomMemberQueryServiceTest {
                 targetUserId,
                 FriendRequestStatus.PENDING
         )).thenReturn(Optional.empty());
+        when(chatPresenceVisibilityPolicy.isVisible(chatRoomId))
+                .thenReturn(true);
+        when(chatPresenceQueryService.resolveOnline(targetUserId))
+                .thenReturn(true);
         ChatRoomMemberProfileResponseDto result =
                 service.getMemberProfile(
                         loginUserId,
@@ -140,6 +208,7 @@ class ChatRoomMemberQueryServiceTest {
         assertThat(result.bio()).isEqualTo("상태 메시지");
         assertThat(result.friendStatus())
                 .isEqualTo(UserSearchFriendStatus.NONE);
+        assertThat(result.online()).isTrue();
     }
     @Test
     void getMemberProfileRejectsNonMemberRequester() {
@@ -160,7 +229,9 @@ class ChatRoomMemberQueryServiceTest {
                 userProfileQueryService,
                 friendService,
                 friendRequestRepository,
-                userBlockService
+                userBlockService,
+                chatPresenceQueryService,
+                chatPresenceVisibilityPolicy
         );
     }
     @Test
@@ -190,7 +261,9 @@ class ChatRoomMemberQueryServiceTest {
                 userProfileQueryService,
                 friendService,
                 friendRequestRepository,
-                userBlockService
+                userBlockService,
+                chatPresenceQueryService,
+                chatPresenceVisibilityPolicy
         );
     }
 

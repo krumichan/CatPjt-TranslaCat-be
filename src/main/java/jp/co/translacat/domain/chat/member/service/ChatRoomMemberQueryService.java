@@ -11,6 +11,8 @@ import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberResponseDt
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
+import jp.co.translacat.domain.chat.presence.service.ChatPresenceQueryService;
+import jp.co.translacat.domain.chat.presence.service.ChatPresenceVisibilityPolicy;
 import jp.co.translacat.domain.user.block.service.UserBlockService;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.friend.request.repository.FriendRequestRepository;
@@ -28,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +44,8 @@ public class ChatRoomMemberQueryService {
     private final FriendService friendService;
     private final FriendRequestRepository friendRequestRepository;
     private final UserBlockService userBlockService;
+    private final ChatPresenceQueryService chatPresenceQueryService;
+    private final ChatPresenceVisibilityPolicy chatPresenceVisibilityPolicy;
 
     public ChatRoomMemberListResponseDto getMembers(
             Long loginUserId,
@@ -50,25 +55,31 @@ public class ChatRoomMemberQueryService {
                 getActiveMember(loginUserId, chatRoomId);
         validateGeneralProfileApiAllowed(currentMember);
 
-        List<ChatRoomMemberResponseDto> members =
-                chatRoomMemberRepository
-                        .findByChatRoomIdAndActiveTrueAndDeletedAtIsNull(
-                                chatRoomId
+        List<ChatRoomMember> activeMembers = chatRoomMemberRepository
+                .findByChatRoomIdAndActiveTrueAndDeletedAtIsNull(chatRoomId)
+                .stream()
+                .sorted(Comparator.comparing(ChatRoomMember::getJoinedAt))
+                .toList();
+
+        Map<Long, Boolean> onlineByUserId =
+                chatPresenceVisibilityPolicy.isVisible(chatRoomId)
+                        ? chatPresenceQueryService.resolveOnlineByUserIds(
+                                activeMembers.stream()
+                                        .map(ChatRoomMember::getUser)
+                                        .map(User::getId)
+                                        .toList()
                         )
-                        .stream()
-                        .sorted(Comparator.comparing(
-                                ChatRoomMember::getJoinedAt
-                        ))
-                        .map(member ->
-                                ChatRoomMemberResponseDto.from(
-                                        member,
-                                        userProfileQueryService
-                                                .getSummaryByUser(
-                                                        member.getUser()
-                                                )
-                                )
-                        )
-                        .toList();
+                        : Map.of();
+
+        List<ChatRoomMemberResponseDto> members = activeMembers.stream()
+                .map(member -> ChatRoomMemberResponseDto.from(
+                        member,
+                        userProfileQueryService.getSummaryByUser(
+                                member.getUser()
+                        ),
+                        onlineByUserId.get(member.getUser().getId())
+                ))
+                .toList();
 
         ChatAiDisplayMembersResponseDto aiMembers =
                 chatAiDisplayMemberService.getDisplayMembers(chatRoomId);
@@ -108,9 +119,14 @@ public class ChatRoomMemberQueryService {
                         friendRequestRepository
                 );
 
+        Boolean online = chatPresenceVisibilityPolicy.isVisible(chatRoomId)
+                ? chatPresenceQueryService.resolveOnline(targetUserId)
+                : null;
+
         return ChatRoomMemberProfileResponseDto.of(
                 profile,
-                friendStatus
+                friendStatus,
+                online
         );
     }
 

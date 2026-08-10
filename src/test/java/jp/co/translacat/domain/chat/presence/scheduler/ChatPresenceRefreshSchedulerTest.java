@@ -13,9 +13,9 @@ import java.util.concurrent.ScheduledFuture;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ChatPresenceRefreshSchedulerTest {
@@ -28,8 +28,9 @@ class ChatPresenceRefreshSchedulerTest {
         ChatPresenceProperties properties = new ChatPresenceProperties();
         properties.setRefreshInterval(Duration.ofSeconds(20));
         ScheduledFuture<?> future = mock(ScheduledFuture.class);
-        when(taskScheduler.scheduleWithFixedDelay(any(Runnable.class), eq(Duration.ofSeconds(20))))
-                .thenReturn(future);
+        doReturn(future)
+                .when(taskScheduler)
+                .scheduleWithFixedDelay(any(Runnable.class), eq(Duration.ofSeconds(20)));
 
         ChatPresenceRefreshScheduler scheduler = new ChatPresenceRefreshScheduler(
                 taskScheduler,

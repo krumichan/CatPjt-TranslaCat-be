@@ -6,6 +6,7 @@ import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ChatPresencePropertiesTest {
@@ -14,6 +15,7 @@ class ChatPresencePropertiesTest {
     void defaults_MatchPhase2PresencePolicy() {
         ChatPresenceProperties properties = new ChatPresenceProperties();
 
+        assertFalse(properties.isEnabled());
         assertEquals(Duration.ofSeconds(60), properties.getSessionTtl());
         assertEquals(Duration.ofSeconds(20), properties.getRefreshInterval());
         assertEquals(Duration.ofSeconds(30), properties.getOfflineGrace());

@@ -11,6 +11,7 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "translacat.chat.presence")
 public class ChatPresenceProperties {
 
+    private boolean enabled = false;
     private String keyPrefix = "translacat:chat:presence";
     private Duration sessionTtl = Duration.ofSeconds(60);
     private Duration refreshInterval = Duration.ofSeconds(20);

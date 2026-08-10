@@ -147,6 +147,58 @@ class RedisChatPresenceStoreIntegrationTest {
         assertEquals(1L, store.getActiveSessionCount(500L));
     }
 
+    @Test
+    void claimOnlineTransition_IsGloballyIdempotentUntilOfflineIsClaimed() {
+        RedisChatPresenceStore instanceB = new RedisChatPresenceStore(
+                redisTemplate,
+                properties
+        );
+        store.registerSession(600L, "session-a");
+
+        assertTrue(store.claimOnlineTransition(600L));
+        assertFalse(instanceB.claimOnlineTransition(600L));
+
+        store.removeSession(600L, "session-a");
+        assertTrue(instanceB.claimOfflineTransitionIfNoActiveSessions(600L));
+        assertFalse(store.claimOfflineTransitionIfNoActiveSessions(600L));
+
+        instanceB.registerSession(600L, "session-b");
+        assertTrue(store.claimOnlineTransition(600L));
+    }
+
+    @Test
+    void claimOfflineTransition_WhenAnotherInstanceSessionExists_DoesNotClaimOffline() {
+        RedisChatPresenceStore instanceB = new RedisChatPresenceStore(
+                redisTemplate,
+                properties
+        );
+        store.registerSession(700L, "instance-a-session");
+        assertTrue(store.claimOnlineTransition(700L));
+
+        instanceB.registerSession(700L, "instance-b-session");
+        store.removeSession(700L, "instance-a-session");
+
+        assertFalse(store.claimOfflineTransitionIfNoActiveSessions(700L));
+        assertTrue(instanceB.isOnline(700L));
+    }
+
+    @Test
+    void claimOfflineTransition_AfterLastSessionRemoved_IsClaimedOnlyOnce() {
+        RedisChatPresenceStore instanceB = new RedisChatPresenceStore(
+                redisTemplate,
+                properties
+        );
+        store.registerSession(800L, "session-a");
+        instanceB.registerSession(800L, "session-b");
+        assertTrue(store.claimOnlineTransition(800L));
+
+        store.removeSession(800L, "session-a");
+        instanceB.removeSession(800L, "session-b");
+
+        assertTrue(store.claimOfflineTransitionIfNoActiveSessions(800L));
+        assertFalse(instanceB.claimOfflineTransitionIfNoActiveSessions(800L));
+    }
+
     private void await(Duration timeout, BooleanSupplier condition) {
         long deadline = System.nanoTime() + timeout.toNanos();
         while (System.nanoTime() < deadline) {

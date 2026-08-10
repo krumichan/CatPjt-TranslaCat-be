@@ -3,10 +3,8 @@ package jp.co.translacat.domain.chat.presence.event;
 import java.time.LocalDateTime;
 
 /**
- * Internal presence transition event.
- *
- * Stage 3 only publishes this application event. Room-scoped WebSocket fan-out is
- * intentionally deferred to the multi-instance/PubSub stage.
+ * Presence transition distributed through Redis Pub/Sub and then published inside
+ * each Backend instance for local WebSocket fan-out.
  */
 public record ChatPresenceChangedApplicationEvent(
         Long userId,

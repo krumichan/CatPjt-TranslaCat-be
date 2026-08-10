@@ -3,10 +3,10 @@ package jp.co.translacat.domain.chat.presence.service;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import jp.co.translacat.domain.chat.presence.event.ChatPresenceChangedApplicationEvent;
 import jp.co.translacat.domain.chat.presence.port.ChatPresenceStore;
+import jp.co.translacat.domain.chat.presence.port.ChatPresenceTransitionPublisher;
 import jp.co.translacat.domain.chat.presence.scheduler.ChatPresenceOfflineGraceScheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -22,24 +22,25 @@ public class ChatPresenceSessionLifecycleService {
     private final ChatPresenceStore presenceStore;
     private final ChatPresenceLocalSessionRegistry localSessionRegistry;
     private final ChatPresenceOfflineGraceScheduler offlineGraceScheduler;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ChatPresenceTransitionPublisher transitionPublisher;
 
     /**
      * Called after a STOMP/WebSocket session is fully connected and authenticated.
      * Redis failures are intentionally isolated from the WebSocket core flow.
      */
     public void connected(Long userId, String sessionId) {
-        boolean newLocalSession = localSessionRegistry.register(userId, sessionId);
-        boolean reconnectDuringGrace = offlineGraceScheduler.cancel(userId);
+        localSessionRegistry.register(userId, sessionId);
+        offlineGraceScheduler.cancel(userId);
 
         try {
-            long activeSessionCount = presenceStore.registerSession(userId, sessionId);
-            if (newLocalSession && activeSessionCount == 1L && !reconnectDuringGrace) {
+            presenceStore.registerSession(userId, sessionId);
+            if (presenceStore.claimOnlineTransition(userId)) {
                 publishOnline(userId);
             }
         } catch (RuntimeException e) {
             log.warn(
-                    "Failed to register Redis presence session. WebSocket remains connected. userId={}, sessionId={}, cause={}",
+                    "Failed to register/claim Redis presence session. WebSocket remains connected. "
+                            + "userId={}, sessionId={}, cause={}",
                     userId,
                     sessionId,
                     e.getMessage()
@@ -65,7 +66,7 @@ public class ChatPresenceSessionLifecycleService {
         } catch (RuntimeException e) {
             // Redis failure must not break WebSocket disconnect processing.
             // A verification task is still scheduled; if Redis is available after the
-            // grace period, the current shared state is checked before emitting OFFLINE.
+            // grace period, the shared transition claim performs the current-state check.
             log.warn(
                     "Failed to remove Redis presence session. Scheduling degraded offline verification. "
                             + "userId={}, sessionId={}, cause={}",
@@ -99,13 +100,14 @@ public class ChatPresenceSessionLifecycleService {
             }
 
             // Redis restart/TTL loss can remove a lease while the WebSocket is still alive.
-            // Re-register from the authoritative local connection registry.
-            long activeSessionCount = presenceStore.registerSession(
+            // Re-register from the authoritative local connection registry, then atomically
+            // claim ONLINE so multiple Backend instances do not publish duplicates.
+            presenceStore.registerSession(
                     session.userId(),
                     session.sessionId()
             );
 
-            if (activeSessionCount == 1L && !offlineGraceScheduler.isPending(session.userId())) {
+            if (presenceStore.claimOnlineTransition(session.userId())) {
                 publishOnline(session.userId());
             }
         } catch (RuntimeException e) {
@@ -127,18 +129,22 @@ public class ChatPresenceSessionLifecycleService {
     }
 
     private void verifyOfflineAfterGrace(Long userId) {
-        // A reconnect on the same instance may already exist even if Redis is degraded.
+        // A reconnect on the same instance is an immediate local no-op optimization.
         if (localSessionRegistry.countForUser(userId) > 0L) {
             return;
         }
 
         try {
-            if (presenceStore.getActiveSessionCount(userId) == 0L) {
+            // Redis performs "no active session?" + "OFFLINE not already emitted?" atomically.
+            // A reconnect on another Backend instance therefore cannot race this verification,
+            // and multiple degraded grace tasks cannot emit duplicate OFFLINE transitions.
+            if (presenceStore.claimOfflineTransitionIfNoActiveSessions(userId)) {
                 publishOffline(userId);
             }
         } catch (RuntimeException e) {
             log.warn(
-                    "Failed to verify OFFLINE presence after grace. Presence remains unknown. userId={}, cause={}",
+                    "Failed to verify/claim OFFLINE presence after grace. Presence remains unknown. "
+                            + "userId={}, cause={}",
                     userId,
                     e.getMessage()
             );
@@ -146,12 +152,12 @@ public class ChatPresenceSessionLifecycleService {
     }
 
     private void publishOnline(Long userId) {
-        log.info("Chat presence transition detected. userId={}, online=true", userId);
-        eventPublisher.publishEvent(ChatPresenceChangedApplicationEvent.online(userId));
+        log.info("Chat presence transition claimed. userId={}, online=true", userId);
+        transitionPublisher.publish(ChatPresenceChangedApplicationEvent.online(userId));
     }
 
     private void publishOffline(Long userId) {
-        log.info("Chat presence transition detected. userId={}, online=false", userId);
-        eventPublisher.publishEvent(ChatPresenceChangedApplicationEvent.offline(userId));
+        log.info("Chat presence transition claimed. userId={}, online=false", userId);
+        transitionPublisher.publish(ChatPresenceChangedApplicationEvent.offline(userId));
     }
 }

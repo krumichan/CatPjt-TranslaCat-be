@@ -22,6 +22,26 @@ public interface ChatPresenceStore {
 
     long getActiveSessionCount(Long userId);
 
+    /**
+     * Atomically claims the shared ONLINE transition when at least one live session exists.
+     *
+     * <p>The Redis implementation keeps a short-lived shared transition state so multiple
+     * Backend instances do not emit duplicate ONLINE events for the same logical transition.</p>
+     *
+     * @return true only for the Backend instance that successfully changed shared state to ONLINE
+     */
+    boolean claimOnlineTransition(Long userId);
+
+    /**
+     * Atomically verifies that no live session exists and claims the shared OFFLINE transition.
+     *
+     * <p>The active-session check and state transition must be atomic so a reconnect on another
+     * Backend instance cannot race with the grace-period verification.</p>
+     *
+     * @return true only for the Backend instance that successfully changed shared state to OFFLINE
+     */
+    boolean claimOfflineTransitionIfNoActiveSessions(Long userId);
+
     default boolean isOnline(Long userId) {
         return getActiveSessionCount(userId) > 0;
     }

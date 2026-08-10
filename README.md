@@ -354,6 +354,12 @@ jp.co.translacat.TranslacatApplication
 | `AI_SERVER_URL` | FastAPI AI Server URL |
 | `AI_SERVER_API_KEY` | AI Server 呼び出し用 API Key |
 | `JWT_SECRET_KEY` | JWT 署名キー |
+| `CHAT_PRESENCE_ENABLED` | Redis ベース Chat Presence 機能の有効化 |
+| `REDIS_HOST` | Redis host |
+| `REDIS_PORT` | Redis port |
+| `REDIS_CONNECT_TIMEOUT` | Redis 接続 timeout (`2s` など) |
+| `REDIS_COMMAND_TIMEOUT` | Redis command timeout (`2s` など) |
+| `REDIS_VERIFY_ON_STARTUP` | 起動時 Redis PING 検証の有効化 |
 
 レシート画像を扱うため、multipart 制限も明示的に設定します。
 
@@ -366,6 +372,42 @@ spring:
 ```
 
 開発中に大きな画像を使う場合は、必要に応じて 10MB / 12MB 程度へ調整できます。
+
+---
+
+### 12-1. Chat Presence / Redis PoC
+
+Chat Presence は永続データではなく、Redis の TTL と Pub/Sub を使う復旧可能な一時状態として扱います。
+ローカルでは `CHAT_PRESENCE_ENABLED=false` のまま Redis なしで開発でき、本番相当環境では `true` にして有効化します。
+
+```text
+WebSocket CONNECT
+  -> local session registry
+  -> Redis session lease (TTL 60s)
+  -> shared ONLINE transition claim
+  -> Redis Pub/Sub
+  -> each Backend instance
+  -> /topic/chat/rooms/{roomId}
+
+WebSocket DISCONNECT
+  -> Redis session remove
+  -> 30s grace
+  -> atomic no-session + OFFLINE transition claim
+  -> Redis Pub/Sub
+  -> room WebSocket fan-out
+```
+
+主な Redis データは以下です。
+
+```text
+translacat:chat:presence:user:{userId}:session:{sessionId}
+translacat:chat:presence:user:{userId}:sessions
+translacat:chat:presence:user:{userId}:state
+channel: translacat:chat:presence:events
+```
+
+Redis 障害時もメッセージ原文・翻訳結果・ルーム情報などの永続データは MySQL 側に残り、
+Presence Pub/Sub 失敗は WebSocket のコア接続/メッセージ保存フローを失敗させない方針です。
 
 ---
 

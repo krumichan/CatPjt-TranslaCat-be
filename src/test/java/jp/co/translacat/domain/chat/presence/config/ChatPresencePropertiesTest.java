@@ -19,6 +19,7 @@ class ChatPresencePropertiesTest {
         assertEquals(Duration.ofSeconds(60), properties.getSessionTtl());
         assertEquals(Duration.ofSeconds(20), properties.getRefreshInterval());
         assertEquals(Duration.ofSeconds(30), properties.getOfflineGrace());
+        assertEquals("translacat:chat:presence:events", properties.resolveEventChannel());
         assertDoesNotThrow(properties::validate);
     }
 

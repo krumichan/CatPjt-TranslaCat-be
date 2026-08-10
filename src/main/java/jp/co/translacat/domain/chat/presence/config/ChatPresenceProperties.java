@@ -17,6 +17,10 @@ public class ChatPresenceProperties {
     private Duration refreshInterval = Duration.ofSeconds(20);
     private Duration offlineGrace = Duration.ofSeconds(30);
 
+    public String resolveEventChannel() {
+        return keyPrefix + ":events";
+    }
+
     public void validate() {
         if (keyPrefix == null || keyPrefix.isBlank()) {
             throw new IllegalStateException("Presence Redis key prefix must not be blank.");

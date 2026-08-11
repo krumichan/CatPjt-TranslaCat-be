@@ -16,6 +16,7 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
@@ -50,7 +51,16 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
             @NotNull Message<?> message,
             @NotNull MessageChannel channel
     ) {
-        StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
+        StompHeaderAccessor accessor =
+                MessageHeaderAccessor.getAccessor(
+                        message,
+                        StompHeaderAccessor.class
+                );
+
+        if (accessor == null) {
+            accessor = StompHeaderAccessor.wrap(message);
+        }
+
         StompCommand command = accessor.getCommand();
 
         try {

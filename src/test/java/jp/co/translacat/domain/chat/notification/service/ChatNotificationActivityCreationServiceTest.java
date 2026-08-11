@@ -214,6 +214,34 @@ class ChatNotificationActivityCreationServiceTest {
     }
 
     @Test
+    void skipsOpenRoleChangedNotificationWhenActorIsRecipient() {
+        User recipient = user(2L, "self-role");
+        ChatRoom room = openRoom(100L, recipient, "open-room");
+        ChatRoomMember member = ChatRoomMember.createOwner(
+                room,
+                recipient,
+                "ko",
+                "ja"
+        );
+        ReflectionTestUtils.setField(member, "id", 20L);
+        OpenChatMemberRoleUpdatedApplicationEvent event =
+                OpenChatMemberRoleUpdatedApplicationEvent.of(
+                        100L,
+                        20L,
+                        ChatRoomMemberRole.MEMBER,
+                        2L
+                );
+        when(memberRepository.findById(20L))
+                .thenReturn(Optional.of(member));
+
+        service.createOpenChatRoleChanged(event);
+
+        verify(notificationRepository, never())
+                .saveAndFlush(any(ChatNotification.class));
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
     void createsRoomClosedForActiveParticipantsExceptOwner() {
         stubSaveAndFlush();
         User owner = user(1L, "owner");

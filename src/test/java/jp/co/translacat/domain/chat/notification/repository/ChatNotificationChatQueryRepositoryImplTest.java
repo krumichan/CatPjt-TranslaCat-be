@@ -1,9 +1,13 @@
 package jp.co.translacat.domain.chat.notification.repository;
 
+import jp.co.translacat.domain.chat.ai.entity.ChatAiAgent;
+import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiMember;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.notification.repository.projection.ChatNotificationRoomQueryRow;
 import jp.co.translacat.domain.chat.notification.repository.projection.ChatNotificationUnreadSummary;
+import jp.co.translacat.domain.chat.openchat.entity.OpenChatRoom;
+import jp.co.translacat.domain.chat.openchat.enums.OpenChatVisibility;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomSourceType;
 import jp.co.translacat.domain.user.entity.User;
@@ -125,6 +129,103 @@ class ChatNotificationChatQueryRepositoryImplTest {
         assertThat(olderRow.firstUnreadMessageId())
                 .isEqualTo(olderFirstUnread.getId());
         assertThat(olderRow.unreadCount()).isEqualTo(2L);
+    }
+
+    @Test
+    void countsAiConversationMessagesAndExcludesClosedOpenRooms() {
+        User reader = persistUser(
+                "open-ai-reader@translacat.test",
+                "open-ai-reader",
+                "OPENAIREAD"
+        );
+
+        ChatRoom activeRoom = entityManager.persist(
+                ChatRoom.createOpenRoom(
+                        "active-open",
+                        null,
+                        reader
+                )
+        );
+        ChatRoom closedRoom = entityManager.persist(
+                ChatRoom.createOpenRoom(
+                        "closed-open",
+                        null,
+                        reader
+                )
+        );
+        OpenChatRoom activeOpen = entityManager.persist(
+                OpenChatRoom.create(
+                        activeRoom,
+                        OpenChatVisibility.PUBLIC,
+                        50
+                )
+        );
+        OpenChatRoom closedOpen = entityManager.persist(
+                OpenChatRoom.create(
+                        closedRoom,
+                        OpenChatVisibility.PUBLIC,
+                        50
+                )
+        );
+        closedOpen.close();
+
+        persistMember(activeRoom, reader);
+        persistMember(closedRoom, reader);
+
+        ChatAiAgent aiAgent = entityManager.persist(
+                ChatAiAgent.create(
+                        "notification-ai",
+                        null,
+                        "ja",
+                        "테스트 persona"
+                )
+        );
+        ChatRoomAiMember activeAiMember = entityManager.persist(
+                ChatRoomAiMember.create(activeRoom, aiAgent)
+        );
+        ChatRoomAiMember closedAiMember = entityManager.persist(
+                ChatRoomAiMember.create(closedRoom, aiAgent)
+        );
+
+        ChatMessage activeAiMessage = entityManager.persist(
+                ChatMessage.createAiTextMessage(
+                        activeRoom,
+                        activeAiMember,
+                        "active AI unread"
+                )
+        );
+        entityManager.persist(
+                ChatMessage.createAiTextMessage(
+                        closedRoom,
+                        closedAiMember,
+                        "closed AI unread"
+                )
+        );
+        entityManager.flush();
+
+        List<ChatNotificationRoomQueryRow> rows =
+                repository.findUnreadChatRoomPage(
+                        reader.getId(),
+                        null,
+                        10
+                );
+
+        assertThat(rows).hasSize(1);
+        assertThat(rows.getFirst().roomId())
+                .isEqualTo(activeRoom.getId());
+        assertThat(rows.getFirst().latestMessageId())
+                .isEqualTo(activeAiMessage.getId());
+        assertThat(rows.getFirst().firstUnreadMessageId())
+                .isEqualTo(activeAiMessage.getId());
+        assertThat(rows.getFirst().unreadCount()).isEqualTo(1L);
+
+        ChatNotificationUnreadSummary summary =
+                repository.summarizeUnreadChats(reader.getId());
+
+        assertThat(summary.unreadMessageCount()).isEqualTo(1L);
+        assertThat(summary.unreadRoomCount()).isEqualTo(1L);
+        assertThat(activeOpen.isActiveStatus()).isTrue();
+        assertThat(closedOpen.isClosed()).isTrue();
     }
 
     @Test

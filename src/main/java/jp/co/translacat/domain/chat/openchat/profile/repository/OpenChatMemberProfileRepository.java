@@ -64,4 +64,15 @@ public interface OpenChatMemberProfileRepository
             Long chatRoomId,
             Collection<Long> userIds
     );
+
+    @EntityGraph(attributePaths = {
+            "chatRoomMember",
+            "chatRoomMember.chatRoom",
+            "chatRoomMember.user"
+    })
+    List<OpenChatMemberProfile>
+    findByChatRoomMemberChatRoomIdInAndChatRoomMemberUserIdIn(
+            Collection<Long> chatRoomIds,
+            Collection<Long> userIds
+    );
 }

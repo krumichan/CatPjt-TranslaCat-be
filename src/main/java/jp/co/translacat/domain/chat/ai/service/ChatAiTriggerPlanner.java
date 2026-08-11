@@ -62,7 +62,7 @@ public class ChatAiTriggerPlanner {
         }
 
         ChatMessage triggerMessage = chatMessageRepository
-                .findWithSenderById(triggerMessageId)
+                .findByIdAndDeletedAtIsNull(triggerMessageId)
                 .orElse(null);
 
         if (!isEligibleUserTrigger(triggerMessage)) {

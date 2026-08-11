@@ -7,21 +7,36 @@ import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface ChatMessageRepository
         extends JpaRepository<ChatMessage, Long> {
 
+    @EntityGraph(attributePaths = {
+            "chatRoom",
+            "senderUser",
+            "senderAiMember",
+            "senderAiMember.aiAgent"
+    })
     Optional<ChatMessage> findByIdAndDeletedAtIsNull(Long id);
 
     Optional<ChatMessage> findByIdAndChatRoomIdAndDeletedAtIsNull(
             Long id,
             Long chatRoomId
+    );
+
+    @EntityGraph(attributePaths = {
+            "chatRoom",
+            "senderUser",
+            "senderAiMember",
+            "senderAiMember.aiAgent"
+    })
+    List<ChatMessage> findByIdInAndDeletedAtIsNull(
+            Collection<Long> ids
     );
 
     Optional<ChatMessage>
@@ -67,22 +82,6 @@ public interface ChatMessageRepository
     long countByChatRoomIdAndStatusAndDeletedAtIsNull(
             Long chatRoomId,
             ChatMessageStatus status
-    );
-
-    @EntityGraph(attributePaths = {
-            "chatRoom",
-            "senderUser",
-            "senderAiMember",
-            "senderAiMember.aiAgent"
-    })
-    @Query("""
-            select message
-            from ChatMessage message
-            where message.id = :messageId
-              and message.deletedAt is null
-            """)
-    Optional<ChatMessage> findWithSenderById(
-            @Param("messageId") Long messageId
     );
 
     @EntityGraph(attributePaths = {

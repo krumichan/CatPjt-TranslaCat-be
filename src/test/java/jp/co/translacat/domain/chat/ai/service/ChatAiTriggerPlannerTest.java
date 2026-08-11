@@ -228,7 +228,7 @@ class ChatAiTriggerPlannerTest {
             ChatMessage trigger,
             ChatRoomAiSetting roomSetting
     ) {
-        when(messageRepository.findWithSenderById(trigger.getId()))
+        when(messageRepository.findByIdAndDeletedAtIsNull(trigger.getId()))
                 .thenReturn(Optional.of(trigger));
         when(aiMemberRepository
                 .findByChatRoomIdAndActiveTrueAndDeletedAtIsNullOrderByJoinedAtAsc(100L))

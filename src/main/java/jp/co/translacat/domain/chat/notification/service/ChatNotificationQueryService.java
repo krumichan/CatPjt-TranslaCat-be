@@ -4,11 +4,16 @@ import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
+import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationActivityItemResponseDto;
+import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationActivityListResponseDto;
 import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationChatItemResponseDto;
 import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationChatListResponseDto;
 import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationLatestMessageResponseDto;
 import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationSummaryResponseDto;
+import jp.co.translacat.domain.chat.notification.entity.ChatNotification;
 import jp.co.translacat.domain.chat.notification.repository.ChatNotificationChatQueryRepository;
+import jp.co.translacat.domain.chat.notification.repository.ChatNotificationRepository;
+import jp.co.translacat.domain.chat.notification.support.ChatNotificationErrorCode;
 import jp.co.translacat.domain.chat.notification.repository.projection.ChatNotificationRoomQueryRow;
 import jp.co.translacat.domain.chat.notification.repository.projection.ChatNotificationUnreadSummary;
 import jp.co.translacat.domain.chat.openchat.profile.entity.OpenChatMemberProfile;
@@ -43,6 +48,8 @@ public class ChatNotificationQueryService {
     private static final int MESSAGE_PREVIEW_MAX_LENGTH = 160;
 
     private final ChatNotificationChatQueryRepository chatQueryRepository;
+    private final ChatNotificationRepository notificationRepository;
+    private final ChatNotificationActivityResponseMapper activityResponseMapper;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final UserProfileRepository userProfileRepository;
@@ -55,12 +62,49 @@ public class ChatNotificationQueryService {
                         loginUserId
                 );
 
-        // Stage 3에서 Activity Notification Repository Count로 교체한다.
-        long unreadActivityCount = 0L;
+        long unreadActivityCount =
+                notificationRepository.countUnreadActivities(loginUserId);
         return ChatNotificationSummaryResponseDto.of(
                 unreadSummary.unreadMessageCount(),
                 unreadSummary.unreadRoomCount(),
                 unreadActivityCount
+        );
+    }
+
+    public ChatNotificationActivityListResponseDto getActivities(
+            Long loginUserId,
+            Boolean onlyUnread,
+            Long cursorId,
+            Integer requestedSize
+    ) {
+        validateActivityCursor(cursorId);
+        int size = normalizePageSize(requestedSize);
+
+        List<ChatNotification> fetched =
+                notificationRepository.findActivityPage(
+                        loginUserId,
+                        Boolean.TRUE.equals(onlyUnread),
+                        cursorId,
+                        size + 1
+                );
+        boolean hasNext = fetched.size() > size;
+        List<ChatNotification> page = hasNext
+                ? new ArrayList<>(fetched.subList(0, size))
+                : new ArrayList<>(fetched);
+
+        List<ChatNotificationActivityItemResponseDto> items = page
+                .stream()
+                .map(activityResponseMapper::toResponse)
+                .toList();
+
+        Long nextCursorId = hasNext && !page.isEmpty()
+                ? page.get(page.size() - 1).getId()
+                : null;
+
+        return ChatNotificationActivityListResponseDto.of(
+                items,
+                nextCursorId,
+                hasNext
         );
     }
 
@@ -395,6 +439,15 @@ public class ChatNotificationQueryService {
             );
         }
         return Math.min(requestedSize, MAX_PAGE_SIZE);
+    }
+
+    private void validateActivityCursor(Long cursorId) {
+        if (cursorId != null && cursorId <= 0L) {
+            throw new BusinessException(
+                    "cursorId는 1 이상이어야 합니다.",
+                    ChatNotificationErrorCode.CURSOR_INVALID
+            );
+        }
     }
 
     private void validateCursor(Long cursorMessageId) {

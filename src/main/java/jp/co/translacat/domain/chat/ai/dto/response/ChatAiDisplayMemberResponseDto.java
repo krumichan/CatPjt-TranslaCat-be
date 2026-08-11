@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.ai.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiMember;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 
@@ -11,7 +12,7 @@ public record ChatAiDisplayMemberResponseDto(
         String profileImageUrl,
         ChatRoomMemberRole role,
         boolean active,
-        LocalDateTime joinedAt
+        @ChatUtcTimestamp LocalDateTime joinedAt
 ) {
     public static ChatAiDisplayMemberResponseDto from(
             ChatRoomAiMember aiMember,

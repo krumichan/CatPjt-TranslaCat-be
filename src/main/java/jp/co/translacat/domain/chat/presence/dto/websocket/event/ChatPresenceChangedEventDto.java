@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.presence.dto.websocket.event;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.chat.websocket.enums.ChatWebSocketEventType;
 
@@ -11,7 +12,7 @@ public record ChatPresenceChangedEventDto(
         ChatRoomType roomType,
         String memberRef,
         boolean online,
-        LocalDateTime occurredAt
+        @ChatUtcTimestamp LocalDateTime occurredAt
 ) {
     public static ChatPresenceChangedEventDto of(
             Long roomId,

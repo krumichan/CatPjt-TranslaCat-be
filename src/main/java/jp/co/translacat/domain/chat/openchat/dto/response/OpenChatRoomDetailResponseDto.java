@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.openchat.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.ai.dto.response.ChatAiRoomSummaryResponseDto;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.openchat.enums.OpenChatJoinBlockedReason;
@@ -26,9 +27,9 @@ public record OpenChatRoomDetailResponseDto(
         ChatRoomMemberRole myRole,
         OpenChatMemberProfileResponseDto ownerProfile,
         OpenChatMemberProfileResponseDto myOpenProfile,
-        LocalDateTime lastActivityAt,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt,
+        @ChatUtcTimestamp LocalDateTime lastActivityAt,
+        @ChatUtcTimestamp LocalDateTime createdAt,
+        @ChatUtcTimestamp LocalDateTime updatedAt,
         ChatAiRoomSummaryResponseDto ai
 ) {
     public OpenChatRoomDetailResponseDto(

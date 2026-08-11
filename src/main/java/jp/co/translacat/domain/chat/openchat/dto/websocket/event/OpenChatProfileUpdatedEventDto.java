@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.openchat.dto.websocket.event;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.websocket.enums.ChatWebSocketEventType;
 
@@ -13,7 +14,7 @@ public record OpenChatProfileUpdatedEventDto(
         String nickname,
         String profileImageUrl,
         ChatRoomMemberRole role,
-        LocalDateTime occurredAt
+        @ChatUtcTimestamp LocalDateTime occurredAt
 ) {
 
     public static OpenChatProfileUpdatedEventDto of(

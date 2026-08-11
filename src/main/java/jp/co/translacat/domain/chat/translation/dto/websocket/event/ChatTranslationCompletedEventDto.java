@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.translation.dto.websocket.event;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.translation.enums.ChatMessageTranslationStatus;
 import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationCompletedEvent;
 import jp.co.translacat.domain.chat.websocket.enums.ChatWebSocketEventType;
@@ -14,7 +15,7 @@ public record ChatTranslationCompletedEventDto(
         String languageCode,
         String translatedContent,
         ChatMessageTranslationStatus status,
-        LocalDateTime occurredAt
+        @ChatUtcTimestamp LocalDateTime occurredAt
 ) {
 
     public static ChatTranslationCompletedEventDto from(

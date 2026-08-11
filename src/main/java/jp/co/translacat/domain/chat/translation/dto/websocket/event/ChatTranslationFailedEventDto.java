@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.translation.dto.websocket.event;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.translation.enums.ChatMessageTranslationStatus;
 import jp.co.translacat.domain.chat.translation.event.ChatMessageTranslationFailedEvent;
 import jp.co.translacat.domain.chat.websocket.enums.ChatWebSocketEventType;
@@ -15,7 +16,7 @@ public record ChatTranslationFailedEventDto(
         String translatedContent,
         ChatMessageTranslationStatus status,
         String failureReason,
-        LocalDateTime occurredAt
+        @ChatUtcTimestamp LocalDateTime occurredAt
 ) {
 
     public static ChatTranslationFailedEventDto from(

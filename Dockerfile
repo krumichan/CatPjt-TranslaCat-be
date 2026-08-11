@@ -27,6 +27,9 @@ RUN ./gradlew bootJar -x test
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
+# Keep persistence-generated LocalDateTime values deterministic in production.
+ENV TZ=UTC
+
 # 빌드 스테이지에서 생성된 jar 파일만 가져오기
 COPY --from=build /app/build/libs/*.jar app.jar
 
@@ -37,4 +40,4 @@ COPY sudachi/system_full.dic /app/dictionaries/system_full.dic
 EXPOSE 8080
 
 # 앱 실행
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=UTC", "-jar", "app.jar"]

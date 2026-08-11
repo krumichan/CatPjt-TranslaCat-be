@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.openchat.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 
 import java.time.LocalDateTime;
@@ -12,7 +13,7 @@ public record OpenChatMemberProfileResponseDto(
         ChatRoomMemberRole role,
         boolean active,
         Boolean online,
-        LocalDateTime joinedAt
+        @ChatUtcTimestamp LocalDateTime joinedAt
 ) {
 
     public OpenChatMemberProfileResponseDto(

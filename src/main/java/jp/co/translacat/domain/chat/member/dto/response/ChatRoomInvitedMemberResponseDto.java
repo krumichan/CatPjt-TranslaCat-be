@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.member.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
 
@@ -10,7 +11,7 @@ public record ChatRoomInvitedMemberResponseDto(
         String publicId,
         String displayName,
         String profileImageUrl,
-        LocalDateTime joinedAt
+        @ChatUtcTimestamp LocalDateTime joinedAt
 ) {
 
     public static ChatRoomInvitedMemberResponseDto of(

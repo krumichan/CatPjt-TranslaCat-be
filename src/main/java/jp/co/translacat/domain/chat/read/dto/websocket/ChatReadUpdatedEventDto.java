@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.read.dto.websocket;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.read.dto.response.ChatRoomReadResponseDto;
 import jp.co.translacat.domain.chat.websocket.enums.ChatWebSocketEventType;
 
@@ -10,9 +11,9 @@ public record ChatReadUpdatedEventDto(
         Long chatRoomId,
         Long userId,
         Long lastReadMessageId,
-        LocalDateTime lastReadAt,
+        @ChatUtcTimestamp LocalDateTime lastReadAt,
         long unreadCount,
-        LocalDateTime occurredAt
+        @ChatUtcTimestamp LocalDateTime occurredAt
 ) {
     public static ChatReadUpdatedEventDto from(
             Long userId,

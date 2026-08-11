@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.ai.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiMember;
 
 import java.time.LocalDateTime;
@@ -15,9 +16,9 @@ public record ChatAiMemberResponseDto(
         String originalLanguageCode,
         String personaPrompt,
         boolean active,
-        LocalDateTime joinedAt,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        @ChatUtcTimestamp LocalDateTime joinedAt,
+        @ChatUtcTimestamp LocalDateTime createdAt,
+        @ChatUtcTimestamp LocalDateTime updatedAt
 ) {
     public static ChatAiMemberResponseDto from(
             ChatRoomAiMember aiMember,

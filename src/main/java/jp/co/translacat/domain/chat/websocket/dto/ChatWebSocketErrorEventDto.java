@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.websocket.dto;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.websocket.enums.ChatWebSocketEventType;
 
 import java.time.LocalDateTime;
@@ -8,7 +9,7 @@ public record ChatWebSocketErrorEventDto(
         String eventType,
         String errorCode,
         String message,
-        LocalDateTime occurredAt
+        @ChatUtcTimestamp LocalDateTime occurredAt
 ) {
 
     public static ChatWebSocketErrorEventDto business(String message) {

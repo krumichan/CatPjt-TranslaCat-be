@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.read.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 
 import java.time.LocalDateTime;
@@ -7,7 +8,7 @@ import java.time.LocalDateTime;
 public record ChatRoomReadResponseDto(
         Long chatRoomId,
         Long lastReadMessageId,
-        LocalDateTime lastReadAt,
+        @ChatUtcTimestamp LocalDateTime lastReadAt,
         long unreadCount
 ) {
     public static ChatRoomReadResponseDto from(

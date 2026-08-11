@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.message.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageSenderType;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
@@ -24,8 +25,8 @@ public record ChatMessageResponseDto(
         ChatMessageStatus status,
         Long unreadMemberCount,
         List<ChatMessageTranslationResponseDto> translations,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt,
+        @ChatUtcTimestamp LocalDateTime createdAt,
+        @ChatUtcTimestamp LocalDateTime updatedAt,
         OpenChatMessageSenderResponseDto sender
 ) {
 

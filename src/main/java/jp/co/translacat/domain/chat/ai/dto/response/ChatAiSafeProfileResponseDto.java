@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.ai.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiMember;
 
 import java.time.LocalDateTime;
@@ -12,7 +13,7 @@ public record ChatAiSafeProfileResponseDto(
         String bio,
         String originalLanguageCode,
         boolean active,
-        LocalDateTime joinedAt
+        @ChatUtcTimestamp LocalDateTime joinedAt
 ) {
     public static ChatAiSafeProfileResponseDto from(
             ChatRoomAiMember aiMember,

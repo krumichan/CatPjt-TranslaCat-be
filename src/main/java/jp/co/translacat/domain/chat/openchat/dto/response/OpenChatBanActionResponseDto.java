@@ -1,5 +1,7 @@
 package jp.co.translacat.domain.chat.openchat.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
+
 import java.time.LocalDateTime;
 
 public record OpenChatBanActionResponseDto(
@@ -7,7 +9,7 @@ public record OpenChatBanActionResponseDto(
         Long banId,
         Long targetOpenChatMemberId,
         boolean active,
-        LocalDateTime bannedAt,
-        LocalDateTime releasedAt
+        @ChatUtcTimestamp LocalDateTime bannedAt,
+        @ChatUtcTimestamp LocalDateTime releasedAt
 ) {
 }

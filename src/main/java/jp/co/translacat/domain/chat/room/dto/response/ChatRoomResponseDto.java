@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.room.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.language.dto.ChatLanguageSettingResult;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
@@ -20,8 +21,8 @@ public record ChatRoomResponseDto(
         String originalLanguageCode,
         String translationLanguageCode,
         boolean roomLanguageSettingApplied,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt,
+        @ChatUtcTimestamp LocalDateTime createdAt,
+        @ChatUtcTimestamp LocalDateTime updatedAt,
         ChatRoomMemberRole myRole,
         DirectPartnerProfileResponseDto directPartner
 ) {

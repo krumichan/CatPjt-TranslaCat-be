@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.openchat.dto.websocket.event;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.websocket.enums.ChatWebSocketEventType;
 
 import java.time.LocalDateTime;
@@ -7,8 +8,8 @@ import java.time.LocalDateTime;
 public record OpenChatRoomClosedEventDto(
         String eventType,
         Long roomId,
-        LocalDateTime closedAt,
-        LocalDateTime occurredAt
+        @ChatUtcTimestamp LocalDateTime closedAt,
+        @ChatUtcTimestamp LocalDateTime occurredAt
 ) {
 
     public static OpenChatRoomClosedEventDto of(

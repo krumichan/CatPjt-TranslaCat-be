@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.notification.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.notification.enums.ChatNotificationType;
 
 import java.time.LocalDateTime;
@@ -11,7 +12,7 @@ public record ChatNotificationActivityItemResponseDto(
         Long roomId,
         Map<String, Object> payload,
         boolean isRead,
-        LocalDateTime readAt,
-        LocalDateTime createdAt
+        @ChatUtcTimestamp LocalDateTime readAt,
+        @ChatUtcTimestamp LocalDateTime createdAt
 ) {
 }

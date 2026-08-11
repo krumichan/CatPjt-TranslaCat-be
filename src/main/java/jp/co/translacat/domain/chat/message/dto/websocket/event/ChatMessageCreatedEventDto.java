@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.message.dto.websocket.event;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageResponseDto;
 import jp.co.translacat.domain.chat.websocket.enums.ChatWebSocketEventType;
 
@@ -9,7 +10,7 @@ public record ChatMessageCreatedEventDto(
         String eventType,
         Long chatRoomId,
         ChatMessageResponseDto message,
-        LocalDateTime occurredAt
+        @ChatUtcTimestamp LocalDateTime occurredAt
 ) {
 
     public static ChatMessageCreatedEventDto from(

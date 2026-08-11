@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.openchat.dto.websocket.event;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.websocket.enums.ChatWebSocketEventType;
 
 import java.time.LocalDateTime;
@@ -9,8 +10,8 @@ public record OpenChatMemberBannedEventDto(
         Long roomId,
         Long targetOpenChatMemberId,
         String reason,
-        LocalDateTime bannedAt,
-        LocalDateTime occurredAt
+        @ChatUtcTimestamp LocalDateTime bannedAt,
+        @ChatUtcTimestamp LocalDateTime occurredAt
 ) {
 
     public static OpenChatMemberBannedEventDto of(

@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.room.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomSourceType;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
@@ -15,8 +16,8 @@ public record ChatRoomListItemResponseDto(
         Long ownerId,
         long memberCount,
         long unreadCount,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt,
+        @ChatUtcTimestamp LocalDateTime createdAt,
+        @ChatUtcTimestamp LocalDateTime updatedAt,
         DirectPartnerProfileResponseDto directPartner
 ) {
     /**

@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.message.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
 import jp.co.translacat.domain.chat.translation.enums.ChatMessageTranslationStatus;
 
@@ -11,7 +12,7 @@ public record ChatMessageTranslationResponseDto(
         String translatedContent,
         ChatMessageTranslationStatus status,
         String failureReason,
-        LocalDateTime completedAt
+        @ChatUtcTimestamp LocalDateTime completedAt
 ) {
 
     public static ChatMessageTranslationResponseDto from(

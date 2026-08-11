@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.chat.member.dto.response;
 
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
@@ -16,8 +17,8 @@ public record ChatRoomMemberResponseDto(
         ChatRoomMemberRole role,
         boolean active,
         Boolean online,
-        LocalDateTime joinedAt,
-        LocalDateTime leftAt
+        @ChatUtcTimestamp LocalDateTime joinedAt,
+        @ChatUtcTimestamp LocalDateTime leftAt
 ) {
 
     /**

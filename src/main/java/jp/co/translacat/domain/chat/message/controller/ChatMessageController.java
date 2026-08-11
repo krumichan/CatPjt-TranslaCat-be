@@ -3,6 +3,7 @@ package jp.co.translacat.domain.chat.message.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import jp.co.translacat.domain.chat.message.dto.request.ChatMessageCreateRequestDto;
+import jp.co.translacat.domain.chat.message.dto.response.ChatMessageAnchorListResponseDto;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageListResponseDto;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageResponseDto;
 import jp.co.translacat.domain.chat.message.service.ChatMessageCommandService;
@@ -37,6 +38,50 @@ public class ChatMessageController {
                         userPrincipal.getId(),
                         chatRoomId,
                         cursorId
+                )
+        );
+    }
+
+    @GetMapping("/anchor")
+    @Operation(
+            summary = "채팅방 메시지 Anchor 구간 조회",
+            description = "anchorMessageId를 기준으로 이전/이후 일부 메시지만 조회한다. first-unread 진입 시 대량 미읽음 전체를 조회하지 않기 위한 API다."
+    )
+    public ResponseDto<ChatMessageAnchorListResponseDto> getMessagesAroundAnchor(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long chatRoomId,
+            @RequestParam Long anchorMessageId,
+            @RequestParam(required = false) Integer beforeSize,
+            @RequestParam(required = false) Integer afterSize
+    ) {
+        return ResponseUtil.ok(
+                chatMessageQueryService.getMessagesAroundAnchor(
+                        userPrincipal.getId(),
+                        chatRoomId,
+                        anchorMessageId,
+                        beforeSize,
+                        afterSize
+                )
+        );
+    }
+
+    @GetMapping("/after")
+    @Operation(
+            summary = "채팅방 메시지 이후 Page 조회",
+            description = "cursorId 이후의 메시지를 오래된 순으로 조회한다. first-unread Anchor 진입 후 최신 방향 Pagination에 사용한다."
+    )
+    public ResponseDto<ChatMessageListResponseDto> getMessagesAfter(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long chatRoomId,
+            @RequestParam Long cursorId,
+            @RequestParam(required = false) Integer size
+    ) {
+        return ResponseUtil.ok(
+                chatMessageQueryService.getMessagesAfter(
+                        userPrincipal.getId(),
+                        chatRoomId,
+                        cursorId,
+                        size
                 )
         );
     }

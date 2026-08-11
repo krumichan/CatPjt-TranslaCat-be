@@ -14,7 +14,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ChatMessageRepository
-        extends JpaRepository<ChatMessage, Long> {
+        extends JpaRepository<ChatMessage, Long>,
+        ChatMessageRepositoryCustom {
 
     @EntityGraph(attributePaths = {
             "chatRoom",

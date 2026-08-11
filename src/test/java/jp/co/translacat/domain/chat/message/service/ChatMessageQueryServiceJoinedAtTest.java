@@ -4,8 +4,6 @@ import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.service.ChatRoomMemberQueryService;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
-import jp.co.translacat.domain.chat.room.entity.ChatRoom;
-import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.chat.translation.repository.ChatMessageTranslationRepository;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -38,9 +36,6 @@ class ChatMessageQueryServiceJoinedAtTest {
     @Mock
     private ChatRoomMember currentMember;
 
-    @Mock
-    private ChatRoom currentRoom;
-
     private ChatMessageQueryService service;
 
     @BeforeEach
@@ -51,11 +46,6 @@ class ChatMessageQueryServiceJoinedAtTest {
                 memberQueryService,
                 senderProfileService
         );
-
-        when(currentMember.getChatRoom())
-                .thenReturn(currentRoom);
-        when(currentRoom.getRoomType())
-                .thenReturn(ChatRoomType.GROUP);
     }
 
     @Test

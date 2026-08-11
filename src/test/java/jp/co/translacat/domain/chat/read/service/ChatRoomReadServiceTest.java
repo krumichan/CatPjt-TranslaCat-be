@@ -233,6 +233,51 @@ class ChatRoomReadServiceTest {
     }
 
     @Test
+    void jumpsReadCursorToLatestWithoutLoadingIntermediateMessages() {
+        member.initializeReadCursor(1030L);
+        ChatMessage latestMessage = createMessage(
+                1500L,
+                joinedAt.plusMinutes(5)
+        );
+        when(chatRoomMemberRepository
+                .findActiveByRoomIdAndUserIdForUpdate(10L, 1L))
+                .thenReturn(Optional.of(member));
+        when(chatMessageRepository
+                .findByIdAndChatRoomIdAndDeletedAtIsNull(1500L, 10L))
+                .thenReturn(Optional.of(latestMessage));
+        when(chatUnreadCountRepository.countUnread(1L, 10L))
+                .thenReturn(0L);
+
+        ChatRoomReadResponseDto response = chatRoomReadService.markAsRead(
+                1L,
+                10L,
+                new ChatRoomReadRequestDto(1500L)
+        );
+
+        assertThat(response.lastReadMessageId()).isEqualTo(1500L);
+        assertThat(response.unreadCount()).isZero();
+        verify(chatMessageRepository, times(1))
+                .findByIdAndChatRoomIdAndDeletedAtIsNull(1500L, 10L);
+        verify(chatRoomMemberRepository).saveAndFlush(member);
+
+        ArgumentCaptor<Object> eventCaptor =
+                ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher, times(2))
+                .publishEvent(eventCaptor.capture());
+
+        ChatMemberReadUpdatedApplicationEvent roomEvent =
+                eventCaptor.getAllValues().stream()
+                        .filter(ChatMemberReadUpdatedApplicationEvent.class::isInstance)
+                        .map(ChatMemberReadUpdatedApplicationEvent.class::cast)
+                        .findFirst()
+                        .orElseThrow();
+
+        assertThat(roomEvent.previousLastReadMessageId())
+                .isEqualTo(1030L);
+        assertThat(roomEvent.lastReadMessageId()).isEqualTo(1500L);
+    }
+
+    @Test
     void bannedOpenChatUserCannotMarkAsRead() {
         doThrow(new BusinessException(
                 "banned",

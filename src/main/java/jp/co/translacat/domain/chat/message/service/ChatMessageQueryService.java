@@ -3,12 +3,14 @@ package jp.co.translacat.domain.chat.message.service;
 import jp.co.translacat.domain.chat.ai.service.ChatAiProfileImageUrlResolver;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.service.ChatRoomMemberQueryService;
+import jp.co.translacat.domain.chat.message.dto.response.ChatMessageAnchorListResponseDto;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageListResponseDto;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageResponseDto;
 import jp.co.translacat.domain.chat.message.dto.response.ChatMessageTranslationResponseDto;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
+import jp.co.translacat.domain.chat.message.repository.projection.ChatMessageAnchorWindowQueryResult;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatMessageSenderResponseDto;
 import jp.co.translacat.domain.chat.openchat.profile.service.OpenChatMessageProfileService;
 import jp.co.translacat.domain.chat.openchat.service.OpenChatAccessService;
@@ -35,6 +37,11 @@ import java.util.stream.Collectors;
 public class ChatMessageQueryService {
 
     private static final int MESSAGE_PAGE_SIZE = 100;
+    private static final int DEFAULT_ANCHOR_BEFORE_SIZE = 5;
+    private static final int DEFAULT_ANCHOR_AFTER_SIZE = 30;
+    private static final int MAX_ANCHOR_SIDE_SIZE = 100;
+    private static final int DEFAULT_FORWARD_PAGE_SIZE = 100;
+    private static final int MAX_FORWARD_PAGE_SIZE = 100;
 
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMessageTranslationRepository chatMessageTranslationRepository;
@@ -194,6 +201,145 @@ public class ChatMessageQueryService {
          */
         Collections.reverse(pageMessages);
 
+        List<ChatMessageResponseDto> messages = toResponses(
+                chatRoomId,
+                currentMember,
+                pageMessages
+        );
+
+        Long nextCursorId = resolveNextCursorId(
+                pageMessages,
+                hasNext
+        );
+
+        return ChatMessageListResponseDto.of(
+                messages,
+                nextCursorId,
+                hasNext
+        );
+    }
+
+    public ChatMessageAnchorListResponseDto getMessagesAroundAnchor(
+            Long loginUserId,
+            Long chatRoomId,
+            Long anchorMessageId,
+            Integer requestedBeforeSize,
+            Integer requestedAfterSize
+    ) {
+        validateRequiredMessageId(
+                anchorMessageId,
+                "anchorMessageId"
+        );
+        int beforeSize = normalizeAnchorSideSize(
+                requestedBeforeSize,
+                DEFAULT_ANCHOR_BEFORE_SIZE,
+                "beforeSize"
+        );
+        int afterSize = normalizeAnchorSideSize(
+                requestedAfterSize,
+                DEFAULT_ANCHOR_AFTER_SIZE,
+                "afterSize"
+        );
+
+        validateOpenChatAccess(loginUserId, chatRoomId);
+        ChatRoomMember currentMember =
+                chatRoomMemberQueryService.getActiveMember(
+                        loginUserId,
+                        chatRoomId
+                );
+        validateAccessibleCursorMessage(
+                currentMember,
+                chatRoomId,
+                anchorMessageId,
+                "Anchor 메시지를 찾을 수 없거나 접근할 수 없습니다.",
+                "CHAT_MESSAGE_ANCHOR_NOT_ACCESSIBLE"
+        );
+
+        ChatMessageAnchorWindowQueryResult window =
+                chatMessageRepository.findAnchorWindowIds(
+                        chatRoomId,
+                        anchorMessageId,
+                        currentMember.getJoinedAt(),
+                        beforeSize,
+                        afterSize
+                );
+        List<ChatMessage> pageMessages =
+                findMessagesByIdsPreservingOrder(window.messageIds());
+
+        return ChatMessageAnchorListResponseDto.of(
+                toResponses(
+                        chatRoomId,
+                        currentMember,
+                        pageMessages
+                ),
+                anchorMessageId,
+                window.previousCursorId(),
+                window.hasPrevious(),
+                window.nextCursorId(),
+                window.hasNext()
+        );
+    }
+
+    public ChatMessageListResponseDto getMessagesAfter(
+            Long loginUserId,
+            Long chatRoomId,
+            Long cursorId,
+            Integer requestedSize
+    ) {
+        validateRequiredMessageId(cursorId, "cursorId");
+        int size = normalizeForwardPageSize(requestedSize);
+
+        validateOpenChatAccess(loginUserId, chatRoomId);
+        ChatRoomMember currentMember =
+                chatRoomMemberQueryService.getActiveMember(
+                        loginUserId,
+                        chatRoomId
+                );
+        validateAccessibleCursorMessage(
+                currentMember,
+                chatRoomId,
+                cursorId,
+                "이후 메시지 조회 기준점을 찾을 수 없거나 접근할 수 없습니다.",
+                "CHAT_MESSAGE_FORWARD_CURSOR_NOT_ACCESSIBLE"
+        );
+
+        List<Long> fetchedIds = chatMessageRepository.findNextMessageIds(
+                chatRoomId,
+                cursorId,
+                currentMember.getJoinedAt(),
+                size + 1
+        );
+        boolean hasNext = fetchedIds.size() > size;
+        List<Long> pageIds = fetchedIds.size() > size
+                ? new ArrayList<>(fetchedIds.subList(0, size))
+                : new ArrayList<>(fetchedIds);
+        List<ChatMessage> pageMessages =
+                findMessagesByIdsPreservingOrder(pageIds);
+
+        Long nextCursorId = hasNext && !pageMessages.isEmpty()
+                ? pageMessages.getLast().getId()
+                : null;
+
+        return ChatMessageListResponseDto.of(
+                toResponses(
+                        chatRoomId,
+                        currentMember,
+                        pageMessages
+                ),
+                nextCursorId,
+                hasNext
+        );
+    }
+
+    private List<ChatMessageResponseDto> toResponses(
+            Long chatRoomId,
+            ChatRoomMember currentMember,
+            List<ChatMessage> pageMessages
+    ) {
+        if (pageMessages.isEmpty()) {
+            return List.of();
+        }
+
         Map<Long, List<ChatMessageTranslationResponseDto>> translationMap =
                 getTranslationMap(pageMessages);
         Map<Long, Long> unreadMemberCountMap =
@@ -201,7 +347,6 @@ public class ChatMessageQueryService {
 
         boolean openRoom = currentMember.getChatRoom().getRoomType()
                 == ChatRoomType.OPEN;
-
         Map<Long, String> senderProfileImageUrlMap = openRoom
                 ? Map.of()
                 : getSenderProfileImageUrlMap(pageMessages);
@@ -213,7 +358,7 @@ public class ChatMessageQueryService {
                         )
                         : Map.of();
 
-        List<ChatMessageResponseDto> messages = pageMessages.stream()
+        return pageMessages.stream()
                 .map(message -> toResponse(
                         message,
                         openRoom,
@@ -229,17 +374,6 @@ public class ChatMessageQueryService {
                         )
                 ))
                 .toList();
-
-        Long nextCursorId = resolveNextCursorId(
-                pageMessages,
-                hasNext
-        );
-
-        return ChatMessageListResponseDto.of(
-                messages,
-                nextCursorId,
-                hasNext
-        );
     }
 
     private ChatMessageResponseDto toResponse(
@@ -303,6 +437,107 @@ public class ChatMessageQueryService {
                     "cursorId는 1 이상이어야 합니다."
             );
         }
+    }
+
+    private void validateRequiredMessageId(
+            Long messageId,
+            String fieldName
+    ) {
+        if (messageId == null || messageId <= 0) {
+            throw new BusinessException(
+                    fieldName + "는 1 이상이어야 합니다.",
+                    "CHAT_MESSAGE_CURSOR_INVALID"
+            );
+        }
+    }
+
+    private int normalizeAnchorSideSize(
+            Integer requestedSize,
+            int defaultSize,
+            String fieldName
+    ) {
+        if (requestedSize == null) {
+            return defaultSize;
+        }
+        if (requestedSize < 0
+                || requestedSize > MAX_ANCHOR_SIDE_SIZE) {
+            throw new BusinessException(
+                    fieldName + "는 0 이상 "
+                            + MAX_ANCHOR_SIDE_SIZE
+                            + " 이하여야 합니다.",
+                    "CHAT_MESSAGE_ANCHOR_SIZE_INVALID"
+            );
+        }
+        return requestedSize;
+    }
+
+    private int normalizeForwardPageSize(Integer requestedSize) {
+        if (requestedSize == null) {
+            return DEFAULT_FORWARD_PAGE_SIZE;
+        }
+        if (requestedSize <= 0
+                || requestedSize > MAX_FORWARD_PAGE_SIZE) {
+            throw new BusinessException(
+                    "size는 1 이상 "
+                            + MAX_FORWARD_PAGE_SIZE
+                            + " 이하여야 합니다.",
+                    "CHAT_MESSAGE_FORWARD_SIZE_INVALID"
+            );
+        }
+        return requestedSize;
+    }
+
+    private void validateAccessibleCursorMessage(
+            ChatRoomMember currentMember,
+            Long chatRoomId,
+            Long messageId,
+            String errorMessage,
+            String errorCode
+    ) {
+        ChatMessage message = chatMessageRepository
+                .findByIdAndChatRoomIdAndDeletedAtIsNull(
+                        messageId,
+                        chatRoomId
+                )
+                .orElseThrow(() -> new BusinessException(
+                        errorMessage,
+                        errorCode
+                ));
+
+        if (!message.isSent()
+                || message.getCreatedAt() == null
+                || currentMember.getJoinedAt() == null
+                || message.getCreatedAt().isBefore(
+                        currentMember.getJoinedAt()
+                )) {
+            throw new BusinessException(
+                    errorMessage,
+                    errorCode
+            );
+        }
+    }
+
+    private List<ChatMessage> findMessagesByIdsPreservingOrder(
+            List<Long> messageIds
+    ) {
+        if (messageIds == null || messageIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, ChatMessage> messageById = chatMessageRepository
+                .findByIdInAndDeletedAtIsNull(messageIds)
+                .stream()
+                .filter(ChatMessage::isSent)
+                .collect(Collectors.toMap(
+                        ChatMessage::getId,
+                        message -> message,
+                        (left, right) -> left
+                ));
+
+        return messageIds.stream()
+                .map(messageById::get)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private List<ChatMessage> fetchMessages(

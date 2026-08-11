@@ -155,6 +155,7 @@ class ChatRoomReadServiceTest {
 
         assertThat(roomEvent.chatRoomId()).isEqualTo(10L);
         assertThat(roomEvent.readerUserId()).isEqualTo(1L);
+        assertThat(roomEvent.readerOpenChatMemberId()).isNull();
         assertThat(roomEvent.previousLastReadMessageId()).isNull();
         assertThat(roomEvent.lastReadMessageId()).isEqualTo(100L);
         assertThat(roomEvent.readAt()).isNotNull();
@@ -275,6 +276,68 @@ class ChatRoomReadServiceTest {
         assertThat(roomEvent.previousLastReadMessageId())
                 .isEqualTo(1030L);
         assertThat(roomEvent.lastReadMessageId()).isEqualTo(1500L);
+    }
+
+    @Test
+    void openRoomPublishesRoomScopedReaderReferenceWithoutGlobalUserId() {
+        ChatRoom openRoom = ChatRoom.createOpenRoom(
+                "open",
+                "desc",
+                loginUser
+        );
+        ReflectionTestUtils.setField(openRoom, "id", 20L);
+
+        ChatRoomMember openMember = ChatRoomMember.createMember(
+                openRoom,
+                loginUser,
+                "ko",
+                "ja"
+        );
+        ReflectionTestUtils.setField(openMember, "id", 200L);
+        LocalDateTime openJoinedAt = LocalDateTime.now().minusMinutes(10);
+        ReflectionTestUtils.setField(openMember, "joinedAt", openJoinedAt);
+
+        ChatMessage openMessage = ChatMessage.createUserTextMessage(
+                openRoom,
+                sender,
+                "hello open"
+        );
+        ReflectionTestUtils.setField(openMessage, "id", 300L);
+        ReflectionTestUtils.setField(
+                openMessage,
+                "createdAt",
+                openJoinedAt.plusMinutes(1)
+        );
+
+        when(chatRoomMemberRepository
+                .findActiveByRoomIdAndUserIdForUpdate(20L, 1L))
+                .thenReturn(Optional.of(openMember));
+        when(chatMessageRepository
+                .findByIdAndChatRoomIdAndDeletedAtIsNull(300L, 20L))
+                .thenReturn(Optional.of(openMessage));
+        when(chatUnreadCountRepository.countUnread(1L, 20L))
+                .thenReturn(0L);
+        chatRoomReadService.markAsRead(
+                1L,
+                20L,
+                new ChatRoomReadRequestDto(300L)
+        );
+
+        ArgumentCaptor<Object> eventCaptor =
+                ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher, times(2))
+                .publishEvent(eventCaptor.capture());
+
+        ChatMemberReadUpdatedApplicationEvent roomEvent =
+                eventCaptor.getAllValues().stream()
+                        .filter(ChatMemberReadUpdatedApplicationEvent.class::isInstance)
+                        .map(ChatMemberReadUpdatedApplicationEvent.class::cast)
+                        .findFirst()
+                        .orElseThrow();
+
+        assertThat(roomEvent.readerUserId()).isNull();
+        assertThat(roomEvent.readerOpenChatMemberId()).isEqualTo(200L);
+        assertThat(roomEvent.lastReadMessageId()).isEqualTo(300L);
     }
 
     @Test

@@ -10,6 +10,7 @@ import jp.co.translacat.domain.chat.read.dto.response.ChatRoomReadResponseDto;
 import jp.co.translacat.domain.chat.read.event.ChatMemberReadUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.read.event.ChatReadUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.read.repository.ChatUnreadCountRepository;
+import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -94,7 +95,7 @@ public class ChatRoomReadService {
 
         if (advanced) {
             publishMemberReadUpdatedEvent(
-                    loginUserId,
+                    member,
                     chatRoomId,
                     previousLastReadMessageId,
                     response
@@ -119,15 +120,30 @@ public class ChatRoomReadService {
     }
 
     private void publishMemberReadUpdatedEvent(
-            Long loginUserId,
+            ChatRoomMember member,
             Long chatRoomId,
             Long previousLastReadMessageId,
             ChatRoomReadResponseDto response
     ) {
+        boolean openRoom = member.getChatRoom().getRoomType()
+                == ChatRoomType.OPEN;
+
+        Long readerUserId = openRoom
+                ? null
+                : member.getUser().getId();
+        Long readerOpenChatMemberId = openRoom
+                ? member.getId()
+                : null;
+
+        if (readerUserId == null && readerOpenChatMemberId == null) {
+            return;
+        }
+
         applicationEventPublisher.publishEvent(
                 ChatMemberReadUpdatedApplicationEvent.of(
                         chatRoomId,
-                        loginUserId,
+                        readerUserId,
+                        readerOpenChatMemberId,
                         previousLastReadMessageId,
                         response.lastReadMessageId(),
                         response.lastReadAt()

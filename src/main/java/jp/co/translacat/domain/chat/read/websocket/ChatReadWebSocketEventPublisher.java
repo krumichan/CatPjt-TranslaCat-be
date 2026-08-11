@@ -45,7 +45,8 @@ public class ChatReadWebSocketEventPublisher {
             ChatMemberReadUpdatedApplicationEvent event
     ) {
         if (event.chatRoomId() == null
-                || event.readerUserId() == null
+                || (event.readerUserId() == null
+                && event.readerOpenChatMemberId() == null)
                 || event.lastReadMessageId() == null) {
             return;
         }

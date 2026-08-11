@@ -94,9 +94,41 @@ class ChatReadWebSocketEventPublisherTest {
                 (ChatMemberReadUpdatedEventDto) payloadCaptor.getValue();
         assertThat(payload.eventType())
                 .isEqualTo("chat.member.read.updated");
+        assertThat(payload.readerUserId()).isEqualTo(1L);
+        assertThat(payload.readerOpenChatMemberId()).isNull();
         assertThat(payload.previousLastReadMessageId())
                 .isEqualTo(90L);
         assertThat(payload.lastReadMessageId())
                 .isEqualTo(100L);
     }
+    @Test
+    void publishesOpenMemberReadEventWithoutGlobalUserId() {
+        LocalDateTime readAt = LocalDateTime.now();
+
+        publisher.publish(
+                ChatMemberReadUpdatedApplicationEvent.of(
+                        10L,
+                        null,
+                        900L,
+                        90L,
+                        100L,
+                        readAt
+                )
+        );
+
+        ArgumentCaptor<Object> payloadCaptor =
+                ArgumentCaptor.forClass(Object.class);
+        verify(messagingTemplate).convertAndSend(
+                org.mockito.ArgumentMatchers.eq(
+                        "/topic/chat/rooms/10"
+                ),
+                payloadCaptor.capture()
+        );
+
+        ChatMemberReadUpdatedEventDto payload =
+                (ChatMemberReadUpdatedEventDto) payloadCaptor.getValue();
+        assertThat(payload.readerUserId()).isNull();
+        assertThat(payload.readerOpenChatMemberId()).isEqualTo(900L);
+    }
+
 }

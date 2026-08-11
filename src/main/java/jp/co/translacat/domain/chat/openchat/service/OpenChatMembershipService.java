@@ -16,6 +16,7 @@ import jp.co.translacat.domain.chat.openchat.dto.request.OpenChatProfileRequestD
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatMembershipResponseDto;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatRoomDetailResponseDto;
 import jp.co.translacat.domain.chat.openchat.entity.OpenChatRoom;
+import jp.co.translacat.domain.chat.openchat.event.OpenChatMemberRoleUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.event.OpenChatProfileUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.event.OpenChatRoomClosedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.profile.entity.OpenChatMemberProfile;
@@ -213,6 +214,23 @@ public class OpenChatMembershipService {
         memberRepository.flush();
         chatRoomRepository.flush();
 
+        eventPublisher.publishEvent(
+                OpenChatMemberRoleUpdatedApplicationEvent.of(
+                        roomId,
+                        currentOwner.getId(),
+                        currentOwner.getRole(),
+                        loginUserId
+                )
+        );
+        eventPublisher.publishEvent(
+                OpenChatMemberRoleUpdatedApplicationEvent.of(
+                        roomId,
+                        targetMember.getId(),
+                        targetMember.getRole(),
+                        loginUserId
+                )
+        );
+
         return roomQueryService.getDetail(loginUserId, roomId);
     }
 
@@ -232,7 +250,8 @@ public class OpenChatMembershipService {
             eventPublisher.publishEvent(
                     OpenChatRoomClosedApplicationEvent.of(
                             roomId,
-                            openChatRoom.getClosedAt()
+                            openChatRoom.getClosedAt(),
+                            loginUserId
                     )
             );
         }

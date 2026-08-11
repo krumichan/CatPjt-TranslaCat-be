@@ -7,6 +7,7 @@ import jp.co.translacat.domain.chat.member.dto.request.ChatRoomMemberInvitationR
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomInvitationResponseDto;
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomInvitedMemberResponseDto;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
+import jp.co.translacat.domain.chat.member.event.ChatRoomMemberInvitedApplicationEvent;
 import jp.co.translacat.domain.chat.member.event.ChatRoomMembersChangedApplicationEvent;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
@@ -109,6 +110,11 @@ public class ChatRoomInvitationService {
             );
         }
 
+        publishInvitationEvents(
+                chatRoom,
+                requesterMember.getUser().getId(),
+                invitedMembers
+        );
         applicationEventPublisher.publishEvent(
                 ChatRoomMembersChangedApplicationEvent.of(chatRoomId)
         );
@@ -204,6 +210,12 @@ public class ChatRoomInvitationService {
                         ))
                         .map(chatRoomMemberRepository::save)
                         .toList();
+
+        publishInvitationEvents(
+                savedGroupRoom,
+                loginUserId,
+                invitedMembers
+        );
 
         return ChatRoomInvitationResponseDto.forNewGroup(
                 savedGroupRoom.getId(),
@@ -503,6 +515,35 @@ public class ChatRoomInvitationService {
                 languageSetting.showOriginal(),
                 languageSetting.showTranslation()
         );
+    }
+
+    private void publishInvitationEvents(
+            ChatRoom chatRoom,
+            Long actorUserId,
+            List<ChatRoomMember> invitedMembers
+    ) {
+        if (chatRoom == null
+                || invitedMembers == null
+                || invitedMembers.isEmpty()) {
+            return;
+        }
+        for (ChatRoomMember invitedMember : invitedMembers) {
+            if (invitedMember == null
+                    || invitedMember.getUser() == null
+                    || invitedMember.getId() == null
+                    || invitedMember.getJoinedAt() == null) {
+                continue;
+            }
+            applicationEventPublisher.publishEvent(
+                    ChatRoomMemberInvitedApplicationEvent.of(
+                            chatRoom.getId(),
+                            invitedMember.getUser().getId(),
+                            actorUserId,
+                            invitedMember.getId(),
+                            invitedMember.getJoinedAt()
+                    )
+            );
+        }
     }
 
     private Long findLatestSentMessageId(Long chatRoomId) {

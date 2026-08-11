@@ -63,7 +63,8 @@ public class OpenChatModerationService {
                 OpenChatMemberRoleUpdatedApplicationEvent.of(
                         openChatRoom.getChatRoom().getId(),
                         target.getId(),
-                        target.getRole()
+                        target.getRole(),
+                        loginUserId
                 )
         );
 
@@ -102,7 +103,8 @@ public class OpenChatModerationService {
                 OpenChatMemberRoleUpdatedApplicationEvent.of(
                         openChatRoom.getChatRoom().getId(),
                         target.getId(),
-                        target.getRole()
+                        target.getRole(),
+                        loginUserId
                 )
         );
 
@@ -182,7 +184,9 @@ public class OpenChatModerationService {
                         target.getId(),
                         target.getUser().getEmail(),
                         reason,
-                        savedBan.getBannedAt()
+                        savedBan.getBannedAt(),
+                        savedBan.getId(),
+                        loginUserId
                 )
         );
 

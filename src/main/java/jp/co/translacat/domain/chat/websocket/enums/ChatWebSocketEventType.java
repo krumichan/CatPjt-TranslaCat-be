@@ -18,6 +18,7 @@ public enum ChatWebSocketEventType {
     MEMBER_BANNED("chat.member.banned"),
     ROOM_CLOSED("chat.room.closed"),
     PRESENCE_CHANGED("chat.presence.changed"),
+    NOTIFICATION_CREATED("chat.notification.created"),
     ERROR("chat.error");
 
     private final String eventName;

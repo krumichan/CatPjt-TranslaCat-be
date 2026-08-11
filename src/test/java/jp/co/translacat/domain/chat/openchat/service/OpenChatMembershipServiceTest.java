@@ -15,6 +15,7 @@ import jp.co.translacat.domain.chat.openchat.dto.request.OpenChatProfileRequestD
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatMemberProfileResponseDto;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatRoomDetailResponseDto;
 import jp.co.translacat.domain.chat.openchat.entity.OpenChatRoom;
+import jp.co.translacat.domain.chat.openchat.event.OpenChatMemberRoleUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.event.OpenChatProfileUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.event.OpenChatRoomClosedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.enums.OpenChatVisibility;
@@ -390,6 +391,32 @@ class OpenChatMembershipServiceTest {
         assertThat(targetMember.getRole())
                 .isEqualTo(ChatRoomMemberRole.OWNER);
         assertThat(chatRoom.getOwner()).isEqualTo(joiningUser);
+
+        ArgumentCaptor<OpenChatMemberRoleUpdatedApplicationEvent> eventCaptor =
+                ArgumentCaptor.forClass(
+                        OpenChatMemberRoleUpdatedApplicationEvent.class
+                );
+        verify(eventPublisher, times(2)).publishEvent(
+                eventCaptor.capture()
+        );
+        assertThat(eventCaptor.getAllValues())
+                .extracting(
+                        OpenChatMemberRoleUpdatedApplicationEvent::targetOpenChatMemberId,
+                        OpenChatMemberRoleUpdatedApplicationEvent::role,
+                        OpenChatMemberRoleUpdatedApplicationEvent::actorUserId
+                )
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(
+                                10L,
+                                ChatRoomMemberRole.MEMBER,
+                                1L
+                        ),
+                        org.assertj.core.groups.Tuple.tuple(
+                                20L,
+                                ChatRoomMemberRole.OWNER,
+                                1L
+                        )
+                );
     }
 
     @Test

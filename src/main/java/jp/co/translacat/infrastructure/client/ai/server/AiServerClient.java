@@ -4,6 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.co.translacat.domain.chat.ai.dto.server.ChatAiReplyRequestDto;
 import jp.co.translacat.domain.chat.ai.dto.server.ChatAiReplyResponseDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.request.AiDailyWritingGenerationRequestDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.request.AiLevelTestQuestionRequestDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.request.AiWritingEvaluationRequestDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.response.AiDailyWritingGenerationResponseDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.response.AiLevelTestQuestionResponseDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.response.AiWritingEvaluationResponseDto;
 import jp.co.translacat.global.exception.AiServerCommunicationException;
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiChatTranslationRequest;
@@ -168,6 +174,87 @@ public class AiServerClient {
             );
             throw new AiServerCommunicationException(
                     "AI Server Chat Reply Error",
+                    e
+            );
+        }
+    }
+
+    public AiDailyWritingGenerationResponseDto callLanguageLearningDailyGeneration(
+            AiDailyWritingGenerationRequestDto request
+    ) {
+        String url = aiServerUrl
+                + "/api/v1/language-learning/writing/daily/generate";
+
+        try {
+            return this.apiClient.postOnce(
+                    url,
+                    request,
+                    this.basicHeader(),
+                    AiDailyWritingGenerationResponseDto.class
+            );
+        } catch (Exception e) {
+            log.error(
+                    "AI Server language learning daily generation failed. "
+                            + "requestId={}, cause={}",
+                    request == null ? null : request.requestId(),
+                    e.getMessage()
+            );
+            throw new AiServerCommunicationException(
+                    "AI Server Language Learning Daily Generation Error",
+                    e
+            );
+        }
+    }
+
+    public AiWritingEvaluationResponseDto callLanguageLearningEvaluation(
+            AiWritingEvaluationRequestDto request
+    ) {
+        String url = aiServerUrl
+                + "/api/v1/language-learning/writing/evaluate";
+
+        try {
+            return this.apiClient.postOnce(
+                    url,
+                    request,
+                    this.basicHeader(),
+                    AiWritingEvaluationResponseDto.class
+            );
+        } catch (Exception e) {
+            log.error(
+                    "AI Server language learning evaluation failed. "
+                            + "requestId={}, cause={}",
+                    request == null ? null : request.requestId(),
+                    e.getMessage()
+            );
+            throw new AiServerCommunicationException(
+                    "AI Server Language Learning Evaluation Error",
+                    e
+            );
+        }
+    }
+
+    public AiLevelTestQuestionResponseDto callLanguageLearningLevelTestQuestion(
+            AiLevelTestQuestionRequestDto request
+    ) {
+        String url = aiServerUrl
+                + "/api/v1/language-learning/writing/level-test/question";
+
+        try {
+            return this.apiClient.postOnce(
+                    url,
+                    request,
+                    this.basicHeader(),
+                    AiLevelTestQuestionResponseDto.class
+            );
+        } catch (Exception e) {
+            log.error(
+                    "AI Server language learning level test generation failed. "
+                            + "requestId={}, cause={}",
+                    request == null ? null : request.requestId(),
+                    e.getMessage()
+            );
+            throw new AiServerCommunicationException(
+                    "AI Server Language Learning Level Test Error",
                     e
             );
         }

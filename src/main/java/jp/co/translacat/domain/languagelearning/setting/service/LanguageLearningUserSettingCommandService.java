@@ -40,9 +40,20 @@ public class LanguageLearningUserSettingCommandService {
         );
         String timezone = settingPolicy.cleanTimezone(request.timezone());
         Integer dailySentenceCount = request.dailySentenceCount();
+        Integer speakingGoal = request.dailySpeakingGoalMinutes();
+        String speakingVoice = settingPolicy.cleanVoiceId(
+                request.speakingVoiceId()
+        );
+        String playbackSpeed = settingPolicy.cleanPlaybackSpeed(
+                request.speakingPlaybackSpeed()
+        );
 
         settingPolicy.validateSentenceCount(
                 dailySentenceCount,
+                adminSetting
+        );
+        settingPolicy.validateSpeakingGoal(
+                speakingGoal,
                 adminSetting
         );
         settingPolicy.validateLanguagePair(
@@ -62,10 +73,18 @@ public class LanguageLearningUserSettingCommandService {
                     originLanguage,
                     learningLanguage,
                     timezone,
-                    dailySentenceCount
+                    dailySentenceCount,
+                    speakingGoal,
+                    speakingVoice,
+                    playbackSpeed
             );
             return setting;
         }
+
+        setting.updateSpeakingPlayback(
+                speakingVoice,
+                playbackSpeed
+        );
 
         LocalDate today = settingQueryService.resolveToday(setting);
         setting.scheduleUpdate(
@@ -73,6 +92,7 @@ public class LanguageLearningUserSettingCommandService {
                 learningLanguage,
                 timezone,
                 dailySentenceCount,
+                speakingGoal,
                 today.plusDays(1)
         );
 
@@ -84,7 +104,10 @@ public class LanguageLearningUserSettingCommandService {
             String originLanguage,
             String learningLanguage,
             String timezone,
-            Integer dailySentenceCount
+            Integer dailySentenceCount,
+            Integer speakingGoal,
+            String speakingVoice,
+            String playbackSpeed
     ) {
         String nextOriginLanguage =
                 settingPolicy.resolveNextOriginLanguage(
@@ -109,7 +132,10 @@ public class LanguageLearningUserSettingCommandService {
                 nextOriginLanguage,
                 nextLearningLanguage,
                 timezone,
-                dailySentenceCount
+                dailySentenceCount,
+                speakingGoal,
+                speakingVoice,
+                playbackSpeed
         );
     }
 }

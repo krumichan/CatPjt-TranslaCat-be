@@ -7,13 +7,19 @@ public record UserSettingResponseDto(
         String learningLanguage,
         String timezone,
         int dailySentenceCount,
+        int dailySpeakingGoalMinutes,
+        String speakingVoiceId,
+        String speakingPlaybackSpeed,
         String pendingOriginLanguage,
         String pendingLearningLanguage,
         String pendingTimezone,
         Integer pendingDailySentenceCount,
+        Integer pendingDailySpeakingGoalMinutes,
         LocalDate pendingEffectiveDate,
         int minDailySentenceCount,
         int maxDailySentenceCount,
+        int minDailySpeakingGoalMinutes,
+        int maxDailySpeakingGoalMinutes,
         boolean configured
 ) {
 }

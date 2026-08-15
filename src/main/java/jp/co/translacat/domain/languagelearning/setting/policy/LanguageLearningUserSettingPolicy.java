@@ -19,10 +19,7 @@ public class LanguageLearningUserSettingPolicy {
 
         String cleaned = value.trim();
         if (cleaned.length() < 2 || cleaned.length() > 20) {
-            throw new BusinessException(
-                    "언어 코드가 유효하지 않습니다.",
-                    LanguageLearningErrorCode.SETTING_INVALID
-            );
+            throw invalid("언어 코드가 유효하지 않습니다.");
         }
 
         return cleaned;
@@ -38,11 +35,34 @@ public class LanguageLearningUserSettingPolicy {
             ZoneId.of(cleaned);
             return cleaned;
         } catch (Exception e) {
-            throw new BusinessException(
-                    "Timezone이 유효하지 않습니다.",
-                    LanguageLearningErrorCode.SETTING_INVALID
-            );
+            throw invalid("Timezone이 유효하지 않습니다.");
         }
+    }
+
+    public String cleanVoiceId(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String cleaned = value.trim();
+        if (cleaned.isBlank() || cleaned.length() > 100) {
+            throw invalid("Speaking Voice가 유효하지 않습니다.");
+        }
+
+        return cleaned;
+    }
+
+    public String cleanPlaybackSpeed(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String cleaned = value.trim().toUpperCase();
+        if (!cleaned.equals("NORMAL") && !cleaned.equals("SLOW")) {
+            throw invalid("Speaking 재생 속도가 유효하지 않습니다.");
+        }
+
+        return cleaned;
     }
 
     public void validateSentenceCount(
@@ -57,9 +77,27 @@ public class LanguageLearningUserSettingPolicy {
                 < adminSetting.getMinDailySentenceCount()
                 || sentenceCount > adminSetting.getMaxDailySentenceCount();
         if (outOfRange) {
-            throw new BusinessException(
-                    "Daily Sentence Count가 관리자 허용 범위를 벗어났습니다.",
-                    LanguageLearningErrorCode.SETTING_INVALID
+            throw invalid(
+                    "Daily Sentence Count가 관리자 허용 범위를 벗어났습니다."
+            );
+        }
+    }
+
+    public void validateSpeakingGoal(
+            Integer goalMinutes,
+            LanguageLearningAdminSetting adminSetting
+    ) {
+        if (goalMinutes == null) {
+            return;
+        }
+
+        boolean outOfRange = goalMinutes
+                < adminSetting.getMinDailySpeakingGoalMinutes()
+                || goalMinutes > adminSetting.getMaxDailySpeakingGoalMinutes();
+
+        if (outOfRange) {
+            throw invalid(
+                    "Daily Speaking Goal이 관리자 허용 범위를 벗어났습니다."
             );
         }
     }
@@ -75,9 +113,8 @@ public class LanguageLearningUserSettingPolicy {
             return;
         }
 
-        throw new BusinessException(
-                "Origin Language와 Learning Language는 달라야 합니다.",
-                LanguageLearningErrorCode.SETTING_INVALID
+        throw invalid(
+                "Origin Language와 Learning Language는 달라야 합니다."
         );
     }
 
@@ -115,5 +152,12 @@ public class LanguageLearningUserSettingPolicy {
         return setting.getOriginLanguage() == null
                 && setting.getLearningLanguage() == null
                 && setting.getPendingEffectiveDate() == null;
+    }
+
+    private BusinessException invalid(String message) {
+        return new BusinessException(
+                message,
+                LanguageLearningErrorCode.SETTING_INVALID
+        );
     }
 }

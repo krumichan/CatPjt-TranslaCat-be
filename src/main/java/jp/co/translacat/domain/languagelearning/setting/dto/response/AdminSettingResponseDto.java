@@ -8,6 +8,26 @@ public record AdminSettingResponseDto(
         int reviewAvailableDays,
         int levelRecheckRecommendationDays,
         boolean adaptiveWritingEnabled,
-        boolean aiEvaluationEnabled
+        boolean aiEvaluationEnabled,
+        boolean speakingEnabled,
+        boolean speakingEvaluationEnabled,
+        int defaultDailySpeakingGoalMinutes,
+        int minDailySpeakingGoalMinutes,
+        int maxDailySpeakingGoalMinutes,
+        int dailySpeakingHardLimitMinutes,
+        int dailySpeakingSessionLimit,
+        int maxSessionMinutes,
+        int maxTurnsPerSession,
+        double minValidAudioSeconds,
+        int maxTurnAudioSeconds,
+        long maxAudioFileBytes,
+        int rawAudioRetentionDays,
+        int reportedAudioRetentionDays,
+        int activeSessionResumeHours,
+        int automaticRetryLimitPerStage,
+        int manualRetryLimitPerStage,
+        int sttTimeoutSeconds,
+        int ttsTimeoutSeconds,
+        int evaluationTimeoutSeconds
 ) {
 }

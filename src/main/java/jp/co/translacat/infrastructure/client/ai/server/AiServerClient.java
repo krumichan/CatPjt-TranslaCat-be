@@ -10,6 +10,15 @@ import jp.co.translacat.domain.languagelearning.ai.dto.request.AiWritingEvaluati
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiDailyWritingGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiLevelTestQuestionResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiWritingEvaluationResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingSessionStartRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingTtsRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingTurnProcessRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingConversationResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingEvaluationResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingSessionStartResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingTtsResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingTurnProcessResponseDto;
 import jp.co.translacat.global.exception.AiServerCommunicationException;
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiChatTranslationRequest;
@@ -20,6 +29,7 @@ import jp.co.translacat.infrastructure.client.legacy.ExternalApiClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Component;
@@ -259,5 +269,153 @@ public class AiServerClient {
             );
         }
     }
+
+
+    public AiSpeakingSessionStartResponseDto callSpeakingSessionStart(
+            AiSpeakingSessionStartRequestDto request
+    ) {
+        return postSpeaking(
+                "/api/v1/language-learning/speaking/sessions/start",
+                request,
+                AiSpeakingSessionStartResponseDto.class,
+                "Speaking Session Start"
+        );
+    }
+
+    public AiSpeakingTurnProcessResponseDto callSpeakingTurnProcess(
+            AiSpeakingTurnProcessRequestDto request,
+            byte[] audioBytes,
+            String fileName,
+            String contentType
+    ) {
+        String url = aiServerUrl
+                + "/api/v1/language-learning/speaking/turns/process";
+
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("context", toJson(request))
+                .contentType(MediaType.TEXT_PLAIN);
+
+        ByteArrayResource resource = new ByteArrayResource(audioBytes) {
+            @Override
+            public String getFilename() {
+                return fileName == null || fileName.isBlank()
+                        ? "speaking-audio.wav"
+                        : fileName;
+            }
+        };
+
+        builder.part("audio", resource)
+                .filename(resource.getFilename())
+                .contentType(MediaType.parseMediaType(
+                        contentType == null || contentType.isBlank()
+                                ? "application/octet-stream"
+                                : contentType
+                ));
+
+        try {
+            return apiClient.postMultipartOnce(
+                    url,
+                    builder.build(),
+                    basicHeader(),
+                    AiSpeakingTurnProcessResponseDto.class
+            );
+        } catch (Exception e) {
+            log.error(
+                    "AI Server speaking turn processing failed. "
+                            + "requestId={}, sessionId={}, turnIndex={}, cause={}",
+                    request == null ? null : request.requestId(),
+                    request == null ? null : request.sessionId(),
+                    request == null ? null : request.turnIndex(),
+                    e.getMessage()
+            );
+            throw new AiServerCommunicationException(
+                    "AI Server Speaking Turn Error",
+                    e
+            );
+        }
+    }
+
+    public AiSpeakingConversationResponseDto callSpeakingResponse(
+            AiSpeakingTurnProcessRequestDto request
+    ) {
+        return postSpeaking(
+                "/api/v1/language-learning/speaking/turns/respond",
+                request,
+                AiSpeakingConversationResponseDto.class,
+                "Speaking Conversation"
+        );
+    }
+
+    public AiSpeakingTtsResponseDto callSpeakingTts(
+            AiSpeakingTtsRequestDto request
+    ) {
+        return postSpeaking(
+                "/api/v1/language-learning/speaking/tts",
+                request,
+                AiSpeakingTtsResponseDto.class,
+                "Speaking TTS"
+        );
+    }
+
+    public AiSpeakingEvaluationResponseDto callSpeakingEvaluation(
+            AiSpeakingEvaluationRequestDto request
+    ) {
+        return postSpeaking(
+                "/api/v1/language-learning/speaking/evaluate",
+                request,
+                AiSpeakingEvaluationResponseDto.class,
+                "Speaking Evaluation"
+        );
+    }
+
+    public byte[] callSpeakingAudio(String audioReference) {
+        String url = aiServerUrl
+                + "/api/v1/language-learning/speaking/audio/"
+                + audioReference;
+
+        try {
+            return apiClient.getBytesOnce(url, basicHeader());
+        } catch (Exception e) {
+            log.error(
+                    "AI Server speaking audio download failed. "
+                            + "audioReference={}, cause={}",
+                    audioReference,
+                    e.getMessage()
+            );
+            throw new AiServerCommunicationException(
+                    "AI Server Speaking Audio Error",
+                    e
+            );
+        }
+    }
+
+    private <T, R> R postSpeaking(
+            String path,
+            T request,
+            Class<R> responseType,
+            String operation
+    ) {
+        String url = aiServerUrl + path;
+
+        try {
+            return apiClient.postOnce(
+                    url,
+                    request,
+                    basicHeader(),
+                    responseType
+            );
+        } catch (Exception e) {
+            log.error(
+                    "AI Server {} failed. cause={}",
+                    operation,
+                    e.getMessage()
+            );
+            throw new AiServerCommunicationException(
+                    "AI Server " + operation + " Error",
+                    e
+            );
+        }
+    }
+
 
 }

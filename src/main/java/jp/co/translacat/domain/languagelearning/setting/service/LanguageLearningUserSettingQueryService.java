@@ -42,6 +42,10 @@ public class LanguageLearningUserSettingQueryService {
                 admin.getMinDailySentenceCount(),
                 admin.getMaxDailySentenceCount()
         );
+        setting.clampSpeakingGoalActiveAndPending(
+                admin.getMinDailySpeakingGoalMinutes(),
+                admin.getMaxDailySpeakingGoalMinutes()
+        );
 
         return setting;
     }
@@ -56,9 +60,7 @@ public class LanguageLearningUserSettingQueryService {
     }
 
     public LocalDate resolveToday(LanguageLearningUserSetting setting) {
-        String timezone = setting.getTimezone();
-        ZoneId zoneId = resolveZoneId(timezone);
-        return LocalDate.now(zoneId);
+        return LocalDate.now(resolveZoneId(setting.getTimezone()));
     }
 
     public void requireConfigured(LanguageLearningUserSetting setting) {
@@ -80,13 +82,19 @@ public class LanguageLearningUserSettingQueryService {
                 setting.getLearningLanguage(),
                 setting.getTimezone(),
                 setting.getDailySentenceCount(),
+                setting.getDailySpeakingGoalMinutes(),
+                setting.getSpeakingVoiceId(),
+                setting.getSpeakingPlaybackSpeed(),
                 setting.getPendingOriginLanguage(),
                 setting.getPendingLearningLanguage(),
                 setting.getPendingTimezone(),
                 setting.getPendingDailySentenceCount(),
+                setting.getPendingDailySpeakingGoalMinutes(),
                 setting.getPendingEffectiveDate(),
                 admin.getMinDailySentenceCount(),
                 admin.getMaxDailySentenceCount(),
+                admin.getMinDailySpeakingGoalMinutes(),
+                admin.getMaxDailySpeakingGoalMinutes(),
                 setting.getOriginLanguage() != null
                         && setting.getLearningLanguage() != null
         );
@@ -102,10 +110,22 @@ public class LanguageLearningUserSettingQueryService {
                         LanguageLearningErrorCode.USER_NOT_FOUND
                 ));
 
-        return repository.save(LanguageLearningUserSetting.create(
-                user,
-                admin.getDefaultDailySentenceCount()
-        ));
+        LanguageLearningUserSetting setting =
+                LanguageLearningUserSetting.create(
+                        user,
+                        admin.getDefaultDailySentenceCount()
+                );
+        setting.initialize(
+                null,
+                null,
+                null,
+                null,
+                admin.getDefaultDailySpeakingGoalMinutes(),
+                null,
+                null
+        );
+
+        return repository.save(setting);
     }
 
     private ZoneId resolveZoneId(String timezone) {

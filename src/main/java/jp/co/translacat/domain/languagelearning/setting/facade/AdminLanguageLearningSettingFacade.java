@@ -22,9 +22,13 @@ public class AdminLanguageLearningSettingFacade {
     }
 
     public AdminSettingResponseDto update(
+            Long adminUserId,
             AdminSettingUpdateRequestDto request
     ) {
-        LanguageLearningAdminSetting setting = commandService.update(request);
+        LanguageLearningAdminSetting setting = commandService.update(
+                adminUserId,
+                request
+        );
         return queryService.toResponse(setting);
     }
 }

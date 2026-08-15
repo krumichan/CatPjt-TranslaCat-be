@@ -167,6 +167,63 @@ public class ExternalApiClient {
                 .block();
     }
 
+
+    /**
+     * Retry를 적용하지 않는 단발 Multipart POST.
+     * 자체 단계별 Retry 정책을 가진 AI Speaking 호출에 사용한다.
+     */
+    @CircuitBreaker(
+            name = "externalApiClient",
+            fallbackMethod = "postMultipartFallback"
+    )
+    public <R> R postMultipartOnce(
+            String uri,
+            MultiValueMap<String, HttpEntity<?>> multipartData,
+            Map<String, String> headers,
+            Class<R> responseType
+    ) {
+        return webClient.post()
+                .uri(uri)
+                .headers(h -> headers.forEach(h::add))
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(multipartData))
+                .retrieve()
+                .bodyToMono(responseType)
+                .block();
+    }
+
+    /**
+     * Retry를 적용하지 않는 단발 Binary GET.
+     */
+    @CircuitBreaker(
+            name = "externalApiClient",
+            fallbackMethod = "getBytesFallback"
+    )
+    public byte[] getBytesOnce(
+            String uri,
+            Map<String, String> headers
+    ) {
+        return webClient.get()
+                .uri(uri)
+                .headers(h -> headers.forEach(h::add))
+                .retrieve()
+                .bodyToMono(byte[].class)
+                .block();
+    }
+
+    public byte[] getBytesFallback(
+            String uri,
+            Map<String, String> headers,
+            Throwable throwable
+    ) {
+        String errorMessage = String.format(
+                "[External API Binary GET Error] URI: %s | Cause: %s",
+                uri,
+                getErrorMessage(throwable)
+        );
+        throw new ExternalApiInvocationException(errorMessage, throwable);
+    }
+
     private String getErrorMessage(Throwable t) {
         if (t instanceof io.github.resilience4j.circuitbreaker.CallNotPermittedException) {
             return "서킷 브레이커가 열려 있어 요청이 차단되었습니다 (Circuit Breaker Open)";

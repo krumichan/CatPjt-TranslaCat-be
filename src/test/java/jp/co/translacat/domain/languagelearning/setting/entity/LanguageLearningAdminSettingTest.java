@@ -24,6 +24,42 @@ class LanguageLearningAdminSettingTest {
     }
 
     @Test
+    void phase2SpeakingDefaultsAreStable() {
+        LanguageLearningAdminSetting setting = LanguageLearningAdminSetting.createDefault();
+
+        assertThat(setting.isSpeakingEnabled()).isTrue();
+        assertThat(setting.isSpeakingEvaluationEnabled()).isTrue();
+        assertThat(setting.getDefaultDailySpeakingGoalMinutes()).isEqualTo(5);
+        assertThat(setting.getMinDailySpeakingGoalMinutes()).isEqualTo(3);
+        assertThat(setting.getMaxDailySpeakingGoalMinutes()).isEqualTo(20);
+        assertThat(setting.getDailySpeakingHardLimitMinutes()).isEqualTo(30);
+        assertThat(setting.getDailySpeakingSessionLimit()).isEqualTo(5);
+        assertThat(setting.getMaxSessionMinutes()).isEqualTo(10);
+        assertThat(setting.getMaxTurnsPerSession()).isEqualTo(20);
+        assertThat(setting.getMinValidAudioSeconds()).isEqualTo(1.0);
+        assertThat(setting.getMaxTurnAudioSeconds()).isEqualTo(60);
+        assertThat(setting.getMaxAudioFileBytes()).isEqualTo(10L * 1024L * 1024L);
+        assertThat(setting.getRawAudioRetentionDays()).isEqualTo(7);
+        assertThat(setting.getReportedAudioRetentionDays()).isEqualTo(30);
+        assertThat(setting.getActiveSessionResumeHours()).isEqualTo(2);
+        assertThat(setting.getAutomaticRetryLimitPerStage()).isEqualTo(2);
+        assertThat(setting.getManualRetryLimitPerStage()).isEqualTo(1);
+    }
+
+    @Test
+    void rejectsSpeakingHardLimitBelowUserMaximum() {
+        LanguageLearningAdminSetting setting = LanguageLearningAdminSetting.createDefault();
+
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> setting.update(
+                        null, null, null, null, null, null, null, null,
+                        null, null, 5, 3, 20, 10, null, null, null,
+                        null, null, null, null, null, null, null, null,
+                        null, null, null
+                ));
+    }
+
+    @Test
     void rejectsInvalidBounds() {
         LanguageLearningAdminSetting setting = LanguageLearningAdminSetting.createDefault();
 

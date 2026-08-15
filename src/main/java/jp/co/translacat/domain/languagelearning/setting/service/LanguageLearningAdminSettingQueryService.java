@@ -23,11 +23,7 @@ public class LanguageLearningAdminSettingQueryService {
 
     @Transactional
     public AdminSettingResponseDto getSettings() {
-        LanguageLearningAdminSetting setting = repository
-                .findById(LanguageLearningAdminSetting.DEFAULT_ID)
-                .orElseGet(this::createDefault);
-
-        return toResponse(setting);
+        return toResponse(getOrCreateEntity());
     }
 
     public AdminSettingResponseDto toResponse(
@@ -41,7 +37,27 @@ public class LanguageLearningAdminSettingQueryService {
                 setting.getReviewAvailableDays(),
                 setting.getLevelRecheckRecommendationDays(),
                 setting.isAdaptiveWritingEnabled(),
-                setting.isAiEvaluationEnabled()
+                setting.isAiEvaluationEnabled(),
+                setting.isSpeakingEnabled(),
+                setting.isSpeakingEvaluationEnabled(),
+                setting.getDefaultDailySpeakingGoalMinutes(),
+                setting.getMinDailySpeakingGoalMinutes(),
+                setting.getMaxDailySpeakingGoalMinutes(),
+                setting.getDailySpeakingHardLimitMinutes(),
+                setting.getDailySpeakingSessionLimit(),
+                setting.getMaxSessionMinutes(),
+                setting.getMaxTurnsPerSession(),
+                setting.getMinValidAudioSeconds(),
+                setting.getMaxTurnAudioSeconds(),
+                setting.getMaxAudioFileBytes(),
+                setting.getRawAudioRetentionDays(),
+                setting.getReportedAudioRetentionDays(),
+                setting.getActiveSessionResumeHours(),
+                setting.getAutomaticRetryLimitPerStage(),
+                setting.getManualRetryLimitPerStage(),
+                setting.getSttTimeoutSeconds(),
+                setting.getTtsTimeoutSeconds(),
+                setting.getEvaluationTimeoutSeconds()
         );
     }
 

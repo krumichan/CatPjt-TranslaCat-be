@@ -21,6 +21,12 @@ public record DashboardResponseDto(
         List<ProfileSignalResponseDto> grammarWeaknesses,
         List<ProfileSignalResponseDto> errorPatterns,
         List<RecentLearningResponseDto> recentLearningHistory,
-        MonthlyReportResponseDto monthlyReport
+        MonthlyReportResponseDto monthlyReport,
+        SpeakingTodayProgressResponseDto speakingToday,
+        StreakResponseDto streak,
+        SpeakingFeatureSummaryResponseDto speakingSummary,
+        SourceSkillTrendResponseDto sourceSkillTrend,
+        DashboardInsightsResponseDto insights,
+        String source
 ) {
 }

@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.languagelearning.setting.service;
 
+import jp.co.translacat.domain.languagelearning.setting.audit.service.LanguageLearningAdminSettingAuditCommandService;
 import jp.co.translacat.domain.languagelearning.setting.dto.request.AdminSettingUpdateRequestDto;
 import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
 import jp.co.translacat.domain.languagelearning.setting.repository.LanguageLearningAdminSettingRepository;
@@ -13,6 +14,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -21,6 +25,9 @@ class LanguageLearningAdminSettingCommandServiceTest {
     @Mock
     private LanguageLearningAdminSettingRepository repository;
 
+    @Mock
+    private LanguageLearningAdminSettingAuditCommandService auditCommandService;
+
     private LanguageLearningAdminSettingQueryService queryService;
     private LanguageLearningAdminSettingCommandService commandService;
 
@@ -28,7 +35,8 @@ class LanguageLearningAdminSettingCommandServiceTest {
     void setUp() {
         queryService = new LanguageLearningAdminSettingQueryService(repository);
         commandService = new LanguageLearningAdminSettingCommandService(
-                queryService
+                queryService,
+                auditCommandService
         );
     }
 
@@ -57,4 +65,32 @@ class LanguageLearningAdminSettingCommandServiceTest {
         assertThat(updated.getMaxDailySentenceCount()).isEqualTo(12);
         assertThat(updated.getReviewAvailableDays()).isEqualTo(14);
     }
+    @Test
+    void recordsAdminSettingChangeAudit() {
+        LanguageLearningAdminSetting setting =
+                LanguageLearningAdminSetting.createDefault();
+        when(repository.findById(LanguageLearningAdminSetting.DEFAULT_ID))
+                .thenReturn(Optional.of(setting));
+
+        commandService.update(
+                7L,
+                new AdminSettingUpdateRequestDto(
+                        6,
+                        2,
+                        12,
+                        4,
+                        14,
+                        45,
+                        true,
+                        true
+                )
+        );
+
+        verify(auditCommandService).record(
+                eq(7L),
+                any(),
+                any()
+        );
+    }
+
 }

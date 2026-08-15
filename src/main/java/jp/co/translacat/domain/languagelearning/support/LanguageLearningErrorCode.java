@@ -43,6 +43,43 @@ public final class LanguageLearningErrorCode {
     public static final String JSON_PROCESSING_FAILED =
             "LANGUAGE_LEARNING_JSON_PROCESSING_FAILED";
 
+    public static final String SPEAKING_DISABLED =
+            "SPEAKING_DISABLED";
+    public static final String DAILY_LIMIT_EXCEEDED =
+            "DAILY_LIMIT_EXCEEDED";
+    public static final String SPEAKING_TOPIC_NOT_FOUND =
+            "SPEAKING_TOPIC_NOT_FOUND";
+    public static final String SESSION_NOT_FOUND =
+            "SESSION_NOT_FOUND";
+    public static final String SESSION_NOT_ACTIVE =
+            "SESSION_NOT_ACTIVE";
+    public static final String TURN_ALREADY_EXISTS =
+            "TURN_ALREADY_EXISTS";
+    public static final String TURN_NOT_FOUND =
+            "TURN_NOT_FOUND";
+    public static final String INVALID_TURN_ORDER =
+            "INVALID_TURN_ORDER";
+    public static final String INVALID_AUDIO =
+            "INVALID_AUDIO";
+    public static final String AUDIO_UPLOAD_EXPIRED =
+            "AUDIO_UPLOAD_EXPIRED";
+    public static final String TURN_PROCESSING =
+            "TURN_PROCESSING";
+    public static final String STT_FAILED =
+            "STT_FAILED";
+    public static final String TTS_FAILED =
+            "TTS_FAILED";
+    public static final String EVALUATION_PENDING =
+            "EVALUATION_PENDING";
+    public static final String SPEAKING_EVALUATION_FAILED =
+            "EVALUATION_FAILED";
+    public static final String INSUFFICIENT_EVIDENCE =
+            "INSUFFICIENT_EVIDENCE";
+    public static final String STT_REPORT_NOT_FOUND =
+            "STT_REPORT_NOT_FOUND";
+    public static final String FORBIDDEN =
+            "FORBIDDEN";
+
     private LanguageLearningErrorCode() {
     }
 }

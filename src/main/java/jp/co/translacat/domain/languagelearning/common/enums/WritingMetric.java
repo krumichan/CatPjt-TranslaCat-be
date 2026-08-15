@@ -6,5 +6,9 @@ public enum WritingMetric {
     VOCABULARY,
     NATURALNESS,
     EXPRESSION,
+    EXPRESSIVENESS,
+    FLUENCY,
+    PRONUNCIATION,
+    INTERACTION,
     OVERALL
 }

@@ -18,4 +18,10 @@ public interface DailyWritingSetRepository extends JpaRepository<DailyWritingSet
     Optional<DailyWritingSet> findTopByUserIdAndStatusOrderByLearningDateDesc(Long userId, DailySetStatus status);
 
     List<DailyWritingSet> findTop30ByUserIdOrderByLearningDateDesc(Long userId);
+
+    List<DailyWritingSet> findAllByUserIdAndLearningDateBetweenOrderByLearningDateDesc(
+            Long userId,
+            LocalDate from,
+            LocalDate to
+    );
 }

@@ -1,9 +1,12 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.facade;
 
+import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCompleteRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCreateRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingEvaluationEligibilityResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingSessionDetailResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingSessionResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvaluationEligibilityPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionCommandService;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionCompletionCommandService;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionLifecycleService;
@@ -23,6 +26,7 @@ public class SpeakingSessionFacade {
     private final SpeakingSessionQueryService sessionQueryService;
     private final SpeakingSessionLifecycleService lifecycleService;
     private final SpeakingTurnQueryService turnQueryService;
+    private final SpeakingEvaluationEligibilityPolicy eligibilityPolicy;
 
     public SpeakingSessionResponseDto create(
             Long userId,
@@ -34,11 +38,14 @@ public class SpeakingSessionFacade {
 
     public SpeakingSessionResponseDto complete(
             Long userId,
-            Long sessionId
+            Long sessionId,
+            SpeakingSessionCompleteRequestDto request
     ) {
+        boolean skipEvaluation = request != null && request.skipEvaluation();
         SpeakingSession session = completionCommandService.complete(
                 userId,
-                sessionId
+                sessionId,
+                skipEvaluation
         );
         return sessionQueryService.toResponse(userId, session);
     }
@@ -53,10 +60,14 @@ public class SpeakingSessionFacade {
         );
         lifecycleService.expireIfNeeded(session);
 
+        var turns = turnQueryService.getEntities(sessionId);
         return new SpeakingSessionDetailResponseDto(
                 sessionQueryService.toResponse(userId, session),
                 sessionQueryService.getDailyUsage(userId),
                 turnQueryService.getResponses(userId, sessionId),
+                SpeakingEvaluationEligibilityResponseDto.from(
+                        eligibilityPolicy.evaluate(turns)
+                ),
                 lifecycleService.isResumable(session)
         );
     }

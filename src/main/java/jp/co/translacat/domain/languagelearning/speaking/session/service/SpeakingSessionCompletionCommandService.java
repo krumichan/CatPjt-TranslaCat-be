@@ -5,8 +5,12 @@ import jp.co.translacat.domain.languagelearning.activity.service.LearningActivit
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.event.SpeakingEvaluationRequestedEvent;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvaluationEligibilityPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionPolicySnapshot;
+import jp.co.translacat.domain.languagelearning.speaking.turn.service.SpeakingTurnQueryService;
+import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
+import jp.co.translacat.global.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,16 +31,39 @@ public class SpeakingSessionCompletionCommandService {
     private final LearningActivityCommandService activityCommandService;
     private final ApplicationEventPublisher eventPublisher;
     private final LanguageLearningJsonCodec jsonCodec;
+    private final SpeakingTurnQueryService turnQueryService;
+    private final SpeakingEvaluationEligibilityPolicy eligibilityPolicy;
 
     @Transactional
     public SpeakingSession complete(Long userId, Long sessionId) {
+        return complete(userId, sessionId, false);
+    }
+
+    @Transactional
+    public SpeakingSession complete(
+            Long userId,
+            Long sessionId,
+            boolean skipEvaluation
+    ) {
         SpeakingSession session = sessionQueryService.getOwnedEntity(
                 userId,
                 sessionId
         );
         lifecycleService.requireActive(session);
         SpeakingSessionPolicySnapshot snapshot = snapshotService.read(session);
-        boolean evaluate = snapshot.speakingEvaluationEnabled();
+        var eligibility = eligibilityPolicy.evaluate(
+                turnQueryService.getEntities(sessionId)
+        );
+        if (skipEvaluation
+                && snapshot.speakingEvaluationEnabled()
+                && eligibility.eligibleBeforeAi()) {
+            throw new BusinessException(
+                    "평가 가능 조건을 충족한 Session은 평가 없이 종료할 수 없습니다.",
+                    LanguageLearningErrorCode.SPEAKING_EVALUATION_SKIP_NOT_ALLOWED
+            );
+        }
+        boolean evaluate = snapshot.speakingEvaluationEnabled()
+                && !skipEvaluation;
         session.complete(evaluate);
 
         LearningActivity activity = activityCommandService.getOrCreate(
@@ -49,7 +76,7 @@ public class SpeakingSessionCompletionCommandService {
                 session.getStartedAt(),
                 session.getCompletedAt()
         );
-        activity.updateMetadataJson(metadata(session));
+        activity.updateMetadataJson(metadata(session, skipEvaluation));
         if (evaluate) {
             activity.markEvaluating();
             eventPublisher.publishEvent(
@@ -62,7 +89,10 @@ public class SpeakingSessionCompletionCommandService {
         return session;
     }
 
-    private String metadata(SpeakingSession session) {
+    private String metadata(
+            SpeakingSession session,
+            boolean evaluationSkipped
+    ) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("topicCategory", session.getTopicCategory());
         metadata.put(
@@ -75,6 +105,7 @@ public class SpeakingSessionCompletionCommandService {
         );
         metadata.put("correctionMode", session.getCorrectionMode().name());
         metadata.put("selectedKeywords", session.getSelectedKeywordsJson());
+        metadata.put("evaluationSkipped", evaluationSkipped);
         return jsonCodec.write(metadata);
     }
 }

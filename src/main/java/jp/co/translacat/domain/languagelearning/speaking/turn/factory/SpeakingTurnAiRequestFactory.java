@@ -103,7 +103,7 @@ public class SpeakingTurnAiRequestFactory {
         for (SpeakingTurn turn : turns) {
             if (turn.getTranscript() != null && !turn.getTranscript().isBlank()) {
                 result.add(new AiSpeakingConversationMessageDto(
-                        "user",
+                        "USER",
                         turn.getTranscript(),
                         String.valueOf(turn.getId())
                 ));
@@ -111,7 +111,7 @@ public class SpeakingTurnAiRequestFactory {
             if (turn.getAssistantText() != null
                     && !turn.getAssistantText().isBlank()) {
                 result.add(new AiSpeakingConversationMessageDto(
-                        "assistant",
+                        "ASSISTANT",
                         turn.getAssistantText(),
                         String.valueOf(turn.getId())
                 ));

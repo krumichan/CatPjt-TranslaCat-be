@@ -8,6 +8,7 @@ public record SpeakingSessionDetailResponseDto(
         SpeakingSessionResponseDto session,
         SpeakingDailyUsageResponseDto dailyUsage,
         List<SpeakingTurnResponseDto> turns,
+        SpeakingEvaluationEligibilityResponseDto evaluationEligibility,
         boolean resumable
 ) {
 }

@@ -143,6 +143,11 @@ public class SttErrorReport extends BaseAuditable {
         );
     }
 
+    public void requestSupport(String supportReference) {
+        this.supportRequested = true;
+        this.supportReference = supportReference;
+    }
+
     public void resolve(SttReportStatus status) {
         this.reportStatus = status;
         this.resolvedAt = LocalDateTime.now();

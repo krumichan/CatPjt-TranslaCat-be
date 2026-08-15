@@ -38,6 +38,27 @@ public class SpeakingAudioQueryService {
         );
     }
 
+    public SpeakingAudioObject getUserAudio(
+            Long userId,
+            Long sessionId,
+            Long turnId
+    ) {
+        SpeakingTurn turn = turnQueryService.getOwnedEntity(
+                userId,
+                sessionId,
+                turnId
+        );
+        if (turn.getUserAudioObjectKey() == null) {
+            throw notFound();
+        }
+        return storagePort.load(
+                turn.getUserAudioObjectKey(),
+                turn.getUserAudioContentType() == null
+                        ? "application/octet-stream"
+                        : turn.getUserAudioContentType()
+        );
+    }
+
     public SpeakingAudioObject getAssistantAudio(
             Long userId,
             Long sessionId,

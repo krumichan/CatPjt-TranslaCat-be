@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.controller;
 
+import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCompleteRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCreateRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingSessionDetailResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingSessionResponseDto;
@@ -42,12 +43,14 @@ public class SpeakingSessionController {
     @PostMapping("/{sessionId}/complete")
     public ResponseDto<SpeakingSessionResponseDto> complete(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId
+            @PathVariable Long sessionId,
+            @RequestBody(required = false) SpeakingSessionCompleteRequestDto request
     ) {
         return ResponseUtil.ok(
                 sessionFacade.complete(
                         SecurityUtil.getLoginUserId(principal),
-                        sessionId
+                        sessionId,
+                        request
                 )
         );
     }

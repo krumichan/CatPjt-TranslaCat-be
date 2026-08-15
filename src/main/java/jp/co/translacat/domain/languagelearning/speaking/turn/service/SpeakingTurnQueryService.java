@@ -1,5 +1,9 @@
 package jp.co.translacat.domain.languagelearning.speaking.turn.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+
+import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.AssistanceType;
 import jp.co.translacat.domain.languagelearning.speaking.turn.dto.response.SpeakingTurnResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import jp.co.translacat.domain.languagelearning.speaking.turn.repository.SpeakingTurnRepository;
@@ -19,6 +23,7 @@ import java.util.List;
 public class SpeakingTurnQueryService {
 
     private final SpeakingTurnRepository turnRepository;
+    private final LanguageLearningJsonCodec jsonCodec;
 
     public SpeakingTurn getOwnedEntity(
             Long userId,
@@ -74,18 +79,36 @@ public class SpeakingTurnQueryService {
                 turn.getDurationSeconds(),
                 turn.getTranscript(),
                 turn.getSttConfidence(),
+                turn.getUserAudioObjectKey() == null
+                        ? null
+                        : "/api/v1/language-learning/speaking/sessions/"
+                        + turn.getSession().getId()
+                        + "/turns/" + turn.getId() + "/audio/user",
                 turn.getAssistantText(),
                 turn.getAssistantAudioObjectKey() == null
                         ? null
                         : "/api/v1/language-learning/speaking/sessions/"
                         + turn.getSession().getId()
                         + "/turns/" + turn.getId() + "/audio",
+                assistanceUsage(turn),
                 turn.isExcludedFromEvaluation(),
                 turn.getFailedStage(),
                 turn.getErrorCode(),
                 turn.getErrorMessage(),
                 turn.getManualRetryCount(),
                 turn.getCompletedAt()
+        );
+    }
+
+    private List<AssistanceType> assistanceUsage(SpeakingTurn turn) {
+        if (turn.getAssistanceUsageJson() == null
+                || turn.getAssistanceUsageJson().isBlank()) {
+            return List.of();
+        }
+        return jsonCodec.read(
+                turn.getAssistanceUsageJson(),
+                new TypeReference<List<AssistanceType>>() {
+                }
         );
     }
 }

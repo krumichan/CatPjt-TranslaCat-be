@@ -10,10 +10,12 @@ import jp.co.translacat.domain.languagelearning.ai.dto.request.AiWritingEvaluati
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiDailyWritingGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiLevelTestQuestionResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiWritingEvaluationResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingAssistanceRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingSessionStartRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingTtsRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingTurnProcessRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingAssistanceResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingConversationResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingSessionStartResponseDto;
@@ -343,6 +345,17 @@ public class AiServerClient {
                 request,
                 AiSpeakingConversationResponseDto.class,
                 "Speaking Conversation"
+        );
+    }
+
+    public AiSpeakingAssistanceResponseDto callSpeakingAssistance(
+            AiSpeakingAssistanceRequestDto request
+    ) {
+        return postSpeaking(
+                "/api/v1/language-learning/speaking/assistance",
+                request,
+                AiSpeakingAssistanceResponseDto.class,
+                "Speaking Assistance"
         );
     }
 

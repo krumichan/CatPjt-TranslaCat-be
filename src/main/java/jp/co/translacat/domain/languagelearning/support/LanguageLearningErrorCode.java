@@ -77,6 +77,10 @@ public final class LanguageLearningErrorCode {
             "INSUFFICIENT_EVIDENCE";
     public static final String STT_REPORT_NOT_FOUND =
             "STT_REPORT_NOT_FOUND";
+    public static final String SPEAKING_ASSISTANCE_FAILED =
+            "SPEAKING_ASSISTANCE_FAILED";
+    public static final String SPEAKING_EVALUATION_SKIP_NOT_ALLOWED =
+            "SPEAKING_EVALUATION_SKIP_NOT_ALLOWED";
     public static final String FORBIDDEN =
             "FORBIDDEN";
 

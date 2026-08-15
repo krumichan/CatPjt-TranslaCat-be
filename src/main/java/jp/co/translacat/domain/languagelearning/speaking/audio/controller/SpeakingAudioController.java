@@ -36,6 +36,21 @@ public class SpeakingAudioController {
         );
     }
 
+    @GetMapping("/turns/{turnId}/audio/user")
+    public ResponseEntity<byte[]> getUser(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long sessionId,
+            @PathVariable Long turnId
+    ) {
+        return response(
+                audioQueryService.getUserAudio(
+                        SecurityUtil.getLoginUserId(principal),
+                        sessionId,
+                        turnId
+                )
+        );
+    }
+
     @GetMapping("/turns/{turnId}/audio")
     public ResponseEntity<byte[]> getAssistant(
             @AuthenticationPrincipal UserPrincipal principal,

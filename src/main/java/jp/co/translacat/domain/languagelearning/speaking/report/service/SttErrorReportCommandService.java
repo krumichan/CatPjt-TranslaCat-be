@@ -96,6 +96,23 @@ public class SttErrorReportCommandService {
         );
     }
 
+    @Transactional
+    public SttErrorReport requestSupport(Long userId, Long reportId) {
+        SttErrorReport report = reportRepository.findByIdAndUserId(
+                reportId,
+                userId
+        ).orElseThrow(() -> new BusinessException(
+                "STT Error Report를 찾을 수 없습니다.",
+                LanguageLearningErrorCode.STT_REPORT_NOT_FOUND
+        ));
+        if (!report.isSupportRequested()) {
+            report.requestSupport(
+                    "SUP-" + report.getReportReference().substring(4)
+            );
+        }
+        return report;
+    }
+
     private String trim(String value, int max) {
         if (value == null) {
             return null;

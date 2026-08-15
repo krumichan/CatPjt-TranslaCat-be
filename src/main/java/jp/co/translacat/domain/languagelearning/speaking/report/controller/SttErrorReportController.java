@@ -43,6 +43,21 @@ public class SttErrorReportController {
         return ResponseUtil.ok(queryService.toResponse(report));
     }
 
+    @PostMapping("/stt-reports/{reportId}/support")
+    public ResponseDto<SttErrorReportResponseDto> requestSupport(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long reportId
+    ) {
+        return ResponseUtil.ok(
+                queryService.toResponse(
+                        commandService.requestSupport(
+                                SecurityUtil.getLoginUserId(principal),
+                                reportId
+                        )
+                )
+        );
+    }
+
     @GetMapping("/stt-reports/{reportId}")
     public ResponseDto<SttErrorReportResponseDto> get(
             @AuthenticationPrincipal UserPrincipal principal,

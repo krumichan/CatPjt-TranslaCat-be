@@ -1,9 +1,11 @@
 package jp.co.translacat.domain.languagelearning.speaking.ai.port;
 
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingAssistanceRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingSessionStartRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingTtsRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingTurnProcessRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingAssistanceResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingConversationResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingSessionStartResponseDto;
@@ -25,6 +27,10 @@ public interface SpeakingAiClient {
 
     AiSpeakingConversationResponseDto generateResponse(
             AiSpeakingTurnProcessRequestDto request
+    );
+
+    AiSpeakingAssistanceResponseDto generateAssistance(
+            AiSpeakingAssistanceRequestDto request
     );
 
     AiSpeakingTtsResponseDto synthesize(

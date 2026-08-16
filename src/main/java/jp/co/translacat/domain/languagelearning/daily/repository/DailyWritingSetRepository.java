@@ -11,6 +11,8 @@ import java.util.Optional;
 
 public interface DailyWritingSetRepository extends JpaRepository<DailyWritingSet, Long> {
 
+    boolean existsByUserId(Long userId);
+
     Optional<DailyWritingSet> findByUserIdAndLearningDate(Long userId, LocalDate date);
 
     List<DailyWritingSet> findAllByUserIdAndStatusOrderByLearningDateDesc(Long userId, DailySetStatus status);

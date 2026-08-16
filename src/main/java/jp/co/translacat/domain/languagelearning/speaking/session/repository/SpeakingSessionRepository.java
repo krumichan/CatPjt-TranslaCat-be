@@ -16,6 +16,8 @@ import java.util.Optional;
 public interface SpeakingSessionRepository
         extends JpaRepository<SpeakingSession, Long> {
 
+    boolean existsByUserId(Long userId);
+
     Optional<SpeakingSession> findByIdAndUserId(Long id, Long userId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

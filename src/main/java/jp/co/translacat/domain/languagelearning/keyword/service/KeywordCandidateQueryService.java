@@ -8,6 +8,7 @@ import jp.co.translacat.domain.languagelearning.keyword.entity.KeywordMastery;
 import jp.co.translacat.domain.languagelearning.keyword.entity.SystemKeyword;
 import jp.co.translacat.domain.languagelearning.keyword.entity.UserSystemKeywordSelection;
 import jp.co.translacat.domain.languagelearning.keyword.model.SelectedKeywordCandidate;
+import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordApplicationTimingPolicy;
 import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordSelectionWeightPolicy;
 import jp.co.translacat.domain.languagelearning.keyword.repository.CustomKeywordRepository;
 import jp.co.translacat.domain.languagelearning.keyword.repository.KeywordMasteryRepository;
@@ -31,6 +32,7 @@ public class KeywordCandidateQueryService {
     private final UserSystemKeywordSelectionRepository selectionRepository;
     private final KeywordMasteryRepository masteryRepository;
     private final KeywordSelectionWeightPolicy weightPolicy;
+    private final KeywordApplicationTimingPolicy applicationTimingPolicy;
 
     @Transactional
     public List<SelectedKeywordCandidate> findCandidates(
@@ -38,15 +40,19 @@ public class KeywordCandidateQueryService {
             LocalDate learningDate
     ) {
         List<SelectedKeywordCandidate> candidates = new ArrayList<>();
+        boolean applyPendingImmediately = !applicationTimingPolicy
+                .hasStartedLearning(userId);
 
         addCustomKeywordCandidates(
                 userId,
                 learningDate,
+                applyPendingImmediately,
                 candidates
         );
         addSystemKeywordCandidates(
                 userId,
                 learningDate,
+                applyPendingImmediately,
                 candidates
         );
 
@@ -56,13 +62,18 @@ public class KeywordCandidateQueryService {
     private void addCustomKeywordCandidates(
             Long userId,
             LocalDate learningDate,
+            boolean applyPendingImmediately,
             List<SelectedKeywordCandidate> candidates
     ) {
         List<CustomKeyword> customKeywords = customKeywordRepository
                 .findAllByUserIdOrderByIdAsc(userId);
 
         for (CustomKeyword keyword : customKeywords) {
-            keyword.promoteIfEffective(learningDate);
+            promote(
+                    keyword,
+                    learningDate,
+                    applyPendingImmediately
+            );
 
             if (!keyword.isActive()) {
                 continue;
@@ -84,13 +95,18 @@ public class KeywordCandidateQueryService {
     private void addSystemKeywordCandidates(
             Long userId,
             LocalDate learningDate,
+            boolean applyPendingImmediately,
             List<SelectedKeywordCandidate> candidates
     ) {
         List<UserSystemKeywordSelection> selections = selectionRepository
                 .findAllByUserId(userId);
 
         for (UserSystemKeywordSelection selection : selections) {
-            selection.promoteIfEffective(learningDate);
+            promote(
+                    selection,
+                    learningDate,
+                    applyPendingImmediately
+            );
             SystemKeyword keyword = selection.getSystemKeyword();
 
             if (!selection.isActive() || !keyword.isActive()) {
@@ -108,6 +124,30 @@ public class KeywordCandidateQueryService {
                     learningDate
             ));
         }
+    }
+
+    private void promote(
+            CustomKeyword keyword,
+            LocalDate learningDate,
+            boolean applyPendingImmediately
+    ) {
+        if (applyPendingImmediately) {
+            keyword.promotePendingNow();
+            return;
+        }
+        keyword.promoteIfEffective(learningDate);
+    }
+
+    private void promote(
+            UserSystemKeywordSelection selection,
+            LocalDate learningDate,
+            boolean applyPendingImmediately
+    ) {
+        if (applyPendingImmediately) {
+            selection.promotePendingNow();
+            return;
+        }
+        selection.promoteIfEffective(learningDate);
     }
 
     private SelectedKeywordCandidate createCandidate(

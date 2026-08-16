@@ -2,6 +2,7 @@ package jp.co.translacat.domain.languagelearning.keyword.service;
 
 import jp.co.translacat.domain.languagelearning.keyword.entity.SystemKeyword;
 import jp.co.translacat.domain.languagelearning.keyword.entity.UserSystemKeywordSelection;
+import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordApplicationTimingPolicy;
 import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordValidationPolicy;
 import jp.co.translacat.domain.languagelearning.keyword.repository.SystemKeywordRepository;
 import jp.co.translacat.domain.languagelearning.keyword.repository.UserSystemKeywordSelectionRepository;
@@ -26,6 +27,7 @@ public class SystemKeywordSelectionCommandService {
     private final UserSystemKeywordSelectionRepository selectionRepository;
     private final UserRepository userRepository;
     private final LanguageLearningKeywordQueryService keywordQueryService;
+    private final KeywordApplicationTimingPolicy applicationTimingPolicy;
     private final KeywordValidationPolicy validationPolicy;
 
     public UserSystemKeywordSelection updateSelection(
@@ -38,20 +40,25 @@ public class SystemKeywordSelectionCommandService {
                 .filter(SystemKeyword::isActive)
                 .orElseThrow(validationPolicy::keywordNotFound);
         LocalDate today = keywordQueryService.resolveToday(userId);
+        LocalDate effectiveDate = applicationTimingPolicy.resolveEffectiveDate(
+                userId,
+                today
+        );
 
         UserSystemKeywordSelection selection = selectionRepository
                 .findByUserIdAndSystemKeywordId(userId, keywordId)
                 .orElseGet(() -> createSelection(
                         user,
                         keyword,
-                        today.plusDays(1)
+                        effectiveDate
                 ));
 
         selection.promoteIfEffective(today);
         selection.scheduleActive(
                 selected,
-                today.plusDays(1)
+                effectiveDate
         );
+        selection.promoteIfEffective(today);
 
         return selection;
     }

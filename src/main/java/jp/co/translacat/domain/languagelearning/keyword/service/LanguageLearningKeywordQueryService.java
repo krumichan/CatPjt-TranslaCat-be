@@ -6,6 +6,7 @@ import jp.co.translacat.domain.languagelearning.keyword.entity.CustomKeyword;
 import jp.co.translacat.domain.languagelearning.keyword.entity.UserSystemKeywordSelection;
 import jp.co.translacat.domain.languagelearning.keyword.mapper.KeywordResponseMapper;
 import jp.co.translacat.domain.languagelearning.keyword.model.KeywordDisplayName;
+import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordApplicationTimingPolicy;
 import jp.co.translacat.domain.languagelearning.keyword.repository.CustomKeywordRepository;
 import jp.co.translacat.domain.languagelearning.keyword.repository.SystemKeywordRepository;
 import jp.co.translacat.domain.languagelearning.keyword.repository.UserSystemKeywordSelectionRepository;
@@ -32,6 +33,7 @@ public class LanguageLearningKeywordQueryService {
     private final LanguageLearningUserSettingQueryService settingQueryService;
     private final SystemKeywordDisplayNameResolver displayNameResolver;
     private final KeywordResponseMapper responseMapper;
+    private final KeywordApplicationTimingPolicy applicationTimingPolicy;
 
     @Transactional
     public KeywordListResponseDto getKeywords(
@@ -39,13 +41,23 @@ public class LanguageLearningKeywordQueryService {
             String uiLocale
     ) {
         LocalDate today = resolveToday(userId);
+        boolean applyPendingImmediately = !applicationTimingPolicy
+                .hasStartedLearning(userId);
 
         Map<Long, UserSystemKeywordSelection> selections =
-                promoteSystemSelections(userId, today);
+                promoteSystemSelections(
+                        userId,
+                        today,
+                        applyPendingImmediately
+                );
         List<KeywordResponseDto> systemKeywords =
                 mapSystemKeywords(selections, uiLocale);
         List<KeywordResponseDto> customKeywords =
-                promoteAndMapCustomKeywords(userId, today);
+                promoteAndMapCustomKeywords(
+                        userId,
+                        today,
+                        applyPendingImmediately
+                );
 
         return new KeywordListResponseDto(
                 systemKeywords,
@@ -73,14 +85,19 @@ public class LanguageLearningKeywordQueryService {
 
     private Map<Long, UserSystemKeywordSelection> promoteSystemSelections(
             Long userId,
-            LocalDate today
+            LocalDate today,
+            boolean applyPendingImmediately
     ) {
         List<UserSystemKeywordSelection> selections =
                 selectionRepository.findAllByUserId(userId);
 
-        selections.forEach(selection ->
-                selection.promoteIfEffective(today)
-        );
+        selections.forEach(selection -> {
+            if (applyPendingImmediately) {
+                selection.promotePendingNow();
+                return;
+            }
+            selection.promoteIfEffective(today);
+        });
 
         Map<Long, UserSystemKeywordSelection> byKeywordId = new HashMap<>();
         for (UserSystemKeywordSelection selection : selections) {
@@ -127,12 +144,19 @@ public class LanguageLearningKeywordQueryService {
 
     private List<KeywordResponseDto> promoteAndMapCustomKeywords(
             Long userId,
-            LocalDate today
+            LocalDate today,
+            boolean applyPendingImmediately
     ) {
         List<CustomKeyword> keywords =
                 customKeywordRepository.findAllByUserIdOrderByIdAsc(userId);
 
-        keywords.forEach(keyword -> keyword.promoteIfEffective(today));
+        keywords.forEach(keyword -> {
+            if (applyPendingImmediately) {
+                keyword.promotePendingNow();
+                return;
+            }
+            keyword.promoteIfEffective(today);
+        });
 
         return keywords.stream()
                 .map(responseMapper::fromCustom)

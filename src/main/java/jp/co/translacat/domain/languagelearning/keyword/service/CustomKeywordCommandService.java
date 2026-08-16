@@ -5,6 +5,7 @@ import jp.co.translacat.domain.languagelearning.keyword.dto.request.KeywordCreat
 import jp.co.translacat.domain.languagelearning.keyword.dto.request.KeywordUpdateRequestDto;
 import jp.co.translacat.domain.languagelearning.keyword.entity.CustomKeyword;
 import jp.co.translacat.domain.languagelearning.keyword.entity.SystemKeyword;
+import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordApplicationTimingPolicy;
 import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordHierarchyPolicy;
 import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordValidationPolicy;
 import jp.co.translacat.domain.languagelearning.keyword.repository.CustomKeywordRepository;
@@ -32,6 +33,7 @@ public class CustomKeywordCommandService {
     private final LanguageLearningKeywordQueryService keywordQueryService;
     private final KeywordValidationPolicy validationPolicy;
     private final KeywordHierarchyPolicy hierarchyPolicy;
+    private final KeywordApplicationTimingPolicy applicationTimingPolicy;
     private final SystemKeywordRepository systemKeywordRepository;
 
     public CustomKeyword create(
@@ -49,8 +51,11 @@ public class CustomKeywordCommandService {
         );
 
         User user = getUser(userId);
-        LocalDate effectiveDate = keywordQueryService.resolveToday(userId)
-                .plusDays(1);
+        LocalDate today = keywordQueryService.resolveToday(userId);
+        LocalDate effectiveDate = applicationTimingPolicy.resolveEffectiveDate(
+                userId,
+                today
+        );
         String canonicalKey = validationPolicy.normalizeCanonicalKey(
                 request.canonicalKey(),
                 normalizedText
@@ -72,6 +77,7 @@ public class CustomKeywordCommandService {
                 parentKeyword,
                 effectiveDate
         );
+        keyword.promoteIfEffective(today);
 
         return customKeywordRepository.save(keyword);
     }
@@ -117,6 +123,10 @@ public class CustomKeywordCommandService {
                 desiredType,
                 parentKeyword
         );
+        LocalDate effectiveDate = applicationTimingPolicy.resolveEffectiveDate(
+                userId,
+                today
+        );
 
         keyword.scheduleUpdate(
                 desiredText.trim(),
@@ -125,8 +135,9 @@ public class CustomKeywordCommandService {
                 canonicalKey,
                 parentKeyword,
                 request.active(),
-                today.plusDays(1)
+                effectiveDate
         );
+        keyword.promoteIfEffective(today);
 
         return keyword;
     }
@@ -134,6 +145,10 @@ public class CustomKeywordCommandService {
     public void deactivate(Long userId, Long keywordId) {
         CustomKeyword keyword = getOwnedKeyword(userId, keywordId);
         LocalDate today = keywordQueryService.resolveToday(userId);
+        LocalDate effectiveDate = applicationTimingPolicy.resolveEffectiveDate(
+                userId,
+                today
+        );
 
         keyword.promoteIfEffective(today);
         keyword.scheduleUpdate(
@@ -143,8 +158,9 @@ public class CustomKeywordCommandService {
                 keyword.getCanonicalKey(),
                 keyword.desiredParentSystemKeyword(),
                 false,
-                today.plusDays(1)
+                effectiveDate
         );
+        keyword.promoteIfEffective(today);
     }
 
     private SystemKeyword resolveParentKeyword(Long parentKeywordId) {

@@ -150,6 +150,14 @@ public class CustomKeyword extends BaseAuditable {
             return false;
         }
 
+        return promotePendingNow();
+    }
+
+    public boolean promotePendingNow() {
+        if (pendingEffectiveDate == null) {
+            return false;
+        }
+
         if (pendingText != null) {
             this.text = pendingText;
         }

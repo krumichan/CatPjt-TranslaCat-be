@@ -33,6 +33,39 @@ class KeywordEffectiveDateTest {
     }
 
     @Test
+    void pendingCustomKeywordCanBecomeEffectiveBeforeFirstLearningStarts() {
+        LocalDate today = LocalDate.of(2026, 8, 12);
+        CustomKeyword keyword = CustomKeyword.create(
+                user(),
+                "IT",
+                "it",
+                KeywordType.TOPIC,
+                "it",
+                null,
+                today.plusDays(1)
+        );
+
+        assertThat(keyword.promotePendingNow()).isTrue();
+        assertThat(keyword.isActive()).isTrue();
+        assertThat(keyword.getPendingEffectiveDate()).isNull();
+    }
+
+    @Test
+    void pendingSystemSelectionCanBecomeEffectiveBeforeFirstLearningStarts() {
+        LocalDate today = LocalDate.of(2026, 8, 12);
+        UserSystemKeywordSelection selection =
+                UserSystemKeywordSelection.create(
+                        user(),
+                        topic("IT", 10),
+                        today.plusDays(1)
+                );
+
+        assertThat(selection.promotePendingNow()).isTrue();
+        assertThat(selection.isActive()).isTrue();
+        assertThat(selection.getPendingEffectiveDate()).isNull();
+    }
+
+    @Test
     void customKeywordUpdateKeepsTodayValueAndPromotesTomorrow() {
         LocalDate today = LocalDate.of(2026, 8, 12);
         CustomKeyword keyword = CustomKeyword.create(

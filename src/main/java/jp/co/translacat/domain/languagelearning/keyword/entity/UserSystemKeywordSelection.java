@@ -85,6 +85,14 @@ public class UserSystemKeywordSelection extends BaseAuditable {
             return false;
         }
 
+        return promotePendingNow();
+    }
+
+    public boolean promotePendingNow() {
+        if (pendingEffectiveDate == null) {
+            return false;
+        }
+
         this.active = Boolean.TRUE.equals(pendingActive);
         this.pendingActive = null;
         this.pendingEffectiveDate = null;

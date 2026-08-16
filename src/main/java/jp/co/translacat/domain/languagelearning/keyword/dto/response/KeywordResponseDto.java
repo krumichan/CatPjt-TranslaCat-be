@@ -8,9 +8,14 @@ import java.time.LocalDate;
 public record KeywordResponseDto(
         Long id,
         String text,
+        String displayName,
+        String secondaryDisplayName,
         KeywordSource source,
         KeywordType type,
         String canonicalKey,
+        Long parentKeywordId,
+        String parentCanonicalKey,
+        int sortOrder,
         boolean active,
         boolean selected,
         LocalDate pendingEffectiveDate

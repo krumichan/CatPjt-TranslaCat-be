@@ -4,8 +4,11 @@ import jp.co.translacat.domain.languagelearning.common.enums.KeywordType;
 import jp.co.translacat.domain.languagelearning.keyword.dto.request.KeywordCreateRequestDto;
 import jp.co.translacat.domain.languagelearning.keyword.dto.request.KeywordUpdateRequestDto;
 import jp.co.translacat.domain.languagelearning.keyword.entity.CustomKeyword;
+import jp.co.translacat.domain.languagelearning.keyword.entity.SystemKeyword;
+import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordHierarchyPolicy;
 import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordValidationPolicy;
 import jp.co.translacat.domain.languagelearning.keyword.repository.CustomKeywordRepository;
+import jp.co.translacat.domain.languagelearning.keyword.repository.SystemKeywordRepository;
 import jp.co.translacat.domain.languagelearning.support.KeywordNormalizer;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.domain.user.entity.User;
@@ -28,6 +31,8 @@ public class CustomKeywordCommandService {
     private final UserRepository userRepository;
     private final LanguageLearningKeywordQueryService keywordQueryService;
     private final KeywordValidationPolicy validationPolicy;
+    private final KeywordHierarchyPolicy hierarchyPolicy;
+    private final SystemKeywordRepository systemKeywordRepository;
 
     public CustomKeyword create(
             Long userId,
@@ -50,6 +55,13 @@ public class CustomKeywordCommandService {
                 request.canonicalKey(),
                 normalizedText
         );
+        SystemKeyword parentKeyword = resolveParentKeyword(
+                request.parentKeywordId()
+        );
+        hierarchyPolicy.validateCustomHierarchy(
+                request.type(),
+                parentKeyword
+        );
 
         CustomKeyword keyword = CustomKeyword.create(
                 user,
@@ -57,6 +69,7 @@ public class CustomKeywordCommandService {
                 normalizedText,
                 request.type(),
                 canonicalKey,
+                parentKeyword,
                 effectiveDate
         );
 
@@ -97,12 +110,20 @@ public class CustomKeywordCommandService {
                 request.canonicalKey(),
                 fallbackCanonicalKey
         );
+        SystemKeyword parentKeyword = resolveParentKeyword(
+                request.parentKeywordId()
+        );
+        hierarchyPolicy.validateCustomHierarchy(
+                desiredType,
+                parentKeyword
+        );
 
         keyword.scheduleUpdate(
                 desiredText.trim(),
                 normalizedText,
                 desiredType,
                 canonicalKey,
+                parentKeyword,
                 request.active(),
                 today.plusDays(1)
         );
@@ -120,9 +141,18 @@ public class CustomKeywordCommandService {
                 keyword.getNormalizedText(),
                 keyword.getType(),
                 keyword.getCanonicalKey(),
+                keyword.desiredParentSystemKeyword(),
                 false,
                 today.plusDays(1)
         );
+    }
+
+    private SystemKeyword resolveParentKeyword(Long parentKeywordId) {
+        if (parentKeywordId == null) {
+            return null;
+        }
+        return systemKeywordRepository.findById(parentKeywordId)
+                .orElseThrow(hierarchyPolicy::invalidHierarchy);
     }
 
     private CustomKeyword getOwnedKeyword(

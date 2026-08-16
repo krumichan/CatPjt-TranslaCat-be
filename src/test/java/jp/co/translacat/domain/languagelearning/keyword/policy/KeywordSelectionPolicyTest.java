@@ -43,6 +43,17 @@ class KeywordSelectionPolicyTest {
                 );
     }
 
+    @Test
+    void allowsLearningWithoutSelectedKeywords() {
+        List<SelectedKeywordCandidate> selected = policy.select(
+                List.of(),
+                5,
+                new Random(1)
+        );
+
+        assertThat(selected).isEmpty();
+    }
+
     private List<SelectedKeywordCandidate> candidates() {
         return List.of(
                 candidate("it", KeywordType.TOPIC, 1.0),

@@ -4,7 +4,9 @@ import jp.co.translacat.domain.languagelearning.common.enums.KeywordType;
 import jp.co.translacat.domain.languagelearning.keyword.dto.request.KeywordCreateRequestDto;
 import jp.co.translacat.domain.languagelearning.keyword.dto.request.KeywordUpdateRequestDto;
 import jp.co.translacat.domain.languagelearning.keyword.entity.SystemKeyword;
+import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordHierarchyPolicy;
 import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordValidationPolicy;
+import jp.co.translacat.domain.languagelearning.keyword.repository.CustomKeywordRepository;
 import jp.co.translacat.domain.languagelearning.keyword.repository.SystemKeywordRepository;
 import jp.co.translacat.domain.languagelearning.support.KeywordNormalizer;
 
@@ -19,7 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class SystemKeywordCommandService {
 
     private final SystemKeywordRepository systemKeywordRepository;
+    private final CustomKeywordRepository customKeywordRepository;
     private final KeywordValidationPolicy validationPolicy;
+    private final KeywordHierarchyPolicy hierarchyPolicy;
 
     public SystemKeyword create(KeywordCreateRequestDto request) {
         validationPolicy.validate(request.text(), request.type());
@@ -31,6 +35,15 @@ public class SystemKeywordCommandService {
                 request.type()
         );
 
+        SystemKeyword parentKeyword = resolveParentKeyword(
+                request.parentKeywordId()
+        );
+        hierarchyPolicy.validateSystemHierarchy(
+                request.type(),
+                parentKeyword,
+                null
+        );
+
         SystemKeyword keyword = SystemKeyword.create(
                 request.text().trim(),
                 normalizedText,
@@ -38,7 +51,9 @@ public class SystemKeywordCommandService {
                 validationPolicy.normalizeCanonicalKey(
                         request.canonicalKey(),
                         normalizedText
-                )
+                ),
+                parentKeyword,
+                hierarchyPolicy.normalizeSortOrder(request.sortOrder(), 0)
         );
 
         return systemKeywordRepository.save(keyword);
@@ -67,6 +82,16 @@ public class SystemKeywordCommandService {
                 desiredType
         );
 
+        SystemKeyword parentKeyword = resolveParentKeyword(
+                request.parentKeywordId()
+        );
+        hierarchyPolicy.validateSystemHierarchy(
+                desiredType,
+                parentKeyword,
+                keywordId
+        );
+        validateParentMutation(keyword, desiredType, request.active());
+
         String fallbackCanonicalKey = keyword.getCanonicalKey() == null
                 ? normalizedText
                 : keyword.getCanonicalKey();
@@ -79,10 +104,48 @@ public class SystemKeywordCommandService {
                         request.canonicalKey(),
                         fallbackCanonicalKey
                 ),
-                request.active()
+                request.active(),
+                parentKeyword,
+                hierarchyPolicy.normalizeSortOrder(
+                        request.sortOrder(),
+                        keyword.getSortOrder()
+                )
         );
 
         return keyword;
+    }
+
+    private SystemKeyword resolveParentKeyword(Long parentKeywordId) {
+        if (parentKeywordId == null) {
+            return null;
+        }
+        return systemKeywordRepository.findById(parentKeywordId)
+                .orElseThrow(hierarchyPolicy::invalidHierarchy);
+    }
+
+    private void validateParentMutation(
+            SystemKeyword keyword,
+            KeywordType desiredType,
+            Boolean requestedActive
+    ) {
+        boolean referencedByCustomKeyword =
+                customKeywordRepository.existsByParentSystemKeywordId(
+                        keyword.getId()
+                ) || customKeywordRepository
+                        .existsByPendingParentSystemKeywordId(keyword.getId());
+
+        if (desiredType != KeywordType.TOPIC
+                && (systemKeywordRepository.existsByParentKeywordId(
+                        keyword.getId()
+                ) || referencedByCustomKeyword)) {
+            throw hierarchyPolicy.invalidHierarchy();
+        }
+        if (Boolean.FALSE.equals(requestedActive)
+                && (systemKeywordRepository
+                        .existsByParentKeywordIdAndActiveTrue(keyword.getId())
+                        || referencedByCustomKeyword)) {
+            throw hierarchyPolicy.invalidHierarchy();
+        }
     }
 
     private void validateDuplicate(

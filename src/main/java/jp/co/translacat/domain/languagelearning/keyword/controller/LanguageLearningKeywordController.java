@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -33,11 +34,16 @@ public class LanguageLearningKeywordController {
 
     @GetMapping
     public ResponseDto<KeywordListResponseDto> getKeywords(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestHeader(
+                    value = "X-TranslaCat-Locale",
+                    defaultValue = "ko"
+            ) String uiLocale
     ) {
         return ResponseUtil.ok(
                 keywordFacade.getKeywords(
-                        SecurityUtil.getLoginUserId(userPrincipal)
+                        SecurityUtil.getLoginUserId(userPrincipal),
+                        uiLocale
                 )
         );
     }

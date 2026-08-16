@@ -5,6 +5,8 @@ import jp.co.translacat.domain.languagelearning.common.enums.KeywordType;
 public record KeywordCreateRequestDto(
         String text,
         KeywordType type,
-        String canonicalKey
+        String canonicalKey,
+        Long parentKeywordId,
+        Integer sortOrder
 ) {
 }

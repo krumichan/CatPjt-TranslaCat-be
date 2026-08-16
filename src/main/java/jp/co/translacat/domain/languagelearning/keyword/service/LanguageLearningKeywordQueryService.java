@@ -5,6 +5,7 @@ import jp.co.translacat.domain.languagelearning.keyword.dto.response.KeywordResp
 import jp.co.translacat.domain.languagelearning.keyword.entity.CustomKeyword;
 import jp.co.translacat.domain.languagelearning.keyword.entity.UserSystemKeywordSelection;
 import jp.co.translacat.domain.languagelearning.keyword.mapper.KeywordResponseMapper;
+import jp.co.translacat.domain.languagelearning.keyword.model.KeywordDisplayName;
 import jp.co.translacat.domain.languagelearning.keyword.repository.CustomKeywordRepository;
 import jp.co.translacat.domain.languagelearning.keyword.repository.SystemKeywordRepository;
 import jp.co.translacat.domain.languagelearning.keyword.repository.UserSystemKeywordSelectionRepository;
@@ -29,16 +30,20 @@ public class LanguageLearningKeywordQueryService {
     private final CustomKeywordRepository customKeywordRepository;
     private final UserSystemKeywordSelectionRepository selectionRepository;
     private final LanguageLearningUserSettingQueryService settingQueryService;
+    private final SystemKeywordDisplayNameResolver displayNameResolver;
     private final KeywordResponseMapper responseMapper;
 
     @Transactional
-    public KeywordListResponseDto getKeywords(Long userId) {
+    public KeywordListResponseDto getKeywords(
+            Long userId,
+            String uiLocale
+    ) {
         LocalDate today = resolveToday(userId);
 
         Map<Long, UserSystemKeywordSelection> selections =
                 promoteSystemSelections(userId, today);
         List<KeywordResponseDto> systemKeywords =
-                mapSystemKeywords(selections);
+                mapSystemKeywords(selections, uiLocale);
         List<KeywordResponseDto> customKeywords =
                 promoteAndMapCustomKeywords(userId, today);
 
@@ -50,7 +55,7 @@ public class LanguageLearningKeywordQueryService {
 
     @Transactional(readOnly = true)
     public List<KeywordResponseDto> getSystemKeywordsForAdmin() {
-        return systemKeywordRepository.findAllByOrderByIdAsc()
+        return systemKeywordRepository.findAllByOrderBySortOrderAscIdAsc()
                 .stream()
                 .map(keyword -> responseMapper.fromSystem(
                         keyword,
@@ -89,9 +94,20 @@ public class LanguageLearningKeywordQueryService {
     }
 
     private List<KeywordResponseDto> mapSystemKeywords(
-            Map<Long, UserSystemKeywordSelection> selections
+            Map<Long, UserSystemKeywordSelection> selections,
+            String uiLocale
     ) {
-        return systemKeywordRepository.findAllByActiveTrueOrderByIdAsc()
+        var keywords = systemKeywordRepository
+                .findAllByActiveTrueOrderBySortOrderAscIdAsc();
+        Map<Long, KeywordDisplayName> displayNames =
+                displayNameResolver.resolve(
+                        keywords.stream()
+                                .map(keyword -> keyword.getId())
+                                .toList(),
+                        uiLocale
+                );
+
+        return keywords
                 .stream()
                 .map(keyword -> {
                     UserSystemKeywordSelection selection =
@@ -102,7 +118,8 @@ public class LanguageLearningKeywordQueryService {
                             selection != null && selection.desiredActive(),
                             selection == null
                                     ? null
-                                    : selection.getPendingEffectiveDate()
+                                    : selection.getPendingEffectiveDate(),
+                            displayNames.get(keyword.getId())
                     );
                 })
                 .toList();

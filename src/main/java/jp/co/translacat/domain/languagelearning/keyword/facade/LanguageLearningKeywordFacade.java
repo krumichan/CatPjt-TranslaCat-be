@@ -16,11 +16,13 @@ import jp.co.translacat.domain.languagelearning.keyword.service.SystemKeywordSel
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class LanguageLearningKeywordFacade {
 
     private final LanguageLearningKeywordQueryService keywordQueryService;
@@ -29,8 +31,11 @@ public class LanguageLearningKeywordFacade {
     private final SystemKeywordSelectionCommandService systemKeywordSelectionCommandService;
     private final KeywordResponseMapper responseMapper;
 
-    public KeywordListResponseDto getKeywords(Long userId) {
-        return keywordQueryService.getKeywords(userId);
+    public KeywordListResponseDto getKeywords(
+            Long userId,
+            String uiLocale
+    ) {
+        return keywordQueryService.getKeywords(userId, uiLocale);
     }
 
     public KeywordResponseDto createCustomKeyword(

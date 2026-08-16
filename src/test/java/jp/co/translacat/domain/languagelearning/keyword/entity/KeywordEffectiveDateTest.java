@@ -21,6 +21,7 @@ class KeywordEffectiveDateTest {
                 "it",
                 KeywordType.TOPIC,
                 "it",
+                null,
                 today.plusDays(1)
         );
 
@@ -40,6 +41,7 @@ class KeywordEffectiveDateTest {
                 "it",
                 KeywordType.TOPIC,
                 "it",
+                null,
                 today
         );
         keyword.promoteIfEffective(today);
@@ -49,6 +51,7 @@ class KeywordEffectiveDateTest {
                 "business",
                 KeywordType.TOPIC,
                 "business",
+                null,
                 true,
                 today.plusDays(1)
         );
@@ -59,6 +62,51 @@ class KeywordEffectiveDateTest {
         keyword.promoteIfEffective(today.plusDays(1));
 
         assertThat(keyword.getText()).isEqualTo("Business");
+    }
+
+    @Test
+    void customVocabularyParentChangeIsPromotedOnEffectiveDate() {
+        LocalDate today = LocalDate.of(2026, 8, 12);
+        SystemKeyword it = topic("IT", 10);
+        SystemKeyword business = topic("Business", 20);
+        CustomKeyword keyword = CustomKeyword.create(
+                user(),
+                "deployment",
+                "deployment",
+                KeywordType.VOCABULARY,
+                "deployment",
+                it,
+                today
+        );
+        keyword.promoteIfEffective(today);
+
+        keyword.scheduleUpdate(
+                "deployment",
+                "deployment",
+                KeywordType.VOCABULARY,
+                "deployment",
+                business,
+                true,
+                today.plusDays(1)
+        );
+
+        assertThat(keyword.getParentSystemKeyword()).isSameAs(it);
+        assertThat(keyword.desiredParentSystemKeyword()).isSameAs(business);
+
+        keyword.promoteIfEffective(today.plusDays(1));
+
+        assertThat(keyword.getParentSystemKeyword()).isSameAs(business);
+    }
+
+    private SystemKeyword topic(String text, int sortOrder) {
+        return SystemKeyword.create(
+                text,
+                text.toLowerCase(),
+                KeywordType.TOPIC,
+                text.toUpperCase(),
+                null,
+                sortOrder
+        );
     }
 
     private User user() {

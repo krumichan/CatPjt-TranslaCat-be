@@ -6,6 +6,8 @@ public record KeywordUpdateRequestDto(
         String text,
         KeywordType type,
         String canonicalKey,
-        Boolean active
+        Boolean active,
+        Long parentKeywordId,
+        Integer sortOrder
 ) {
 }

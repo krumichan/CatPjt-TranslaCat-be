@@ -49,6 +49,10 @@ public class CustomKeyword extends BaseAuditable {
     @Column(name = "canonical_key", length = 200)
     private String canonicalKey;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_system_keyword_id")
+    private SystemKeyword parentSystemKeyword;
+
     @Column(nullable = false)
     private boolean active;
 
@@ -68,6 +72,13 @@ public class CustomKeyword extends BaseAuditable {
     @Column(name = "pending_canonical_key", length = 200)
     private String pendingCanonicalKey;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pending_parent_system_keyword_id")
+    private SystemKeyword pendingParentSystemKeyword;
+
+    @Column(name = "pending_parent_changed", nullable = false)
+    private boolean pendingParentChanged;
+
     @Column(name = "pending_active")
     private Boolean pendingActive;
 
@@ -80,6 +91,7 @@ public class CustomKeyword extends BaseAuditable {
             String normalizedText,
             KeywordType type,
             String canonicalKey,
+            SystemKeyword parentSystemKeyword,
             LocalDate effectiveDate
     ) {
         this.user = user;
@@ -87,6 +99,7 @@ public class CustomKeyword extends BaseAuditable {
         this.normalizedText = normalizedText;
         this.type = type;
         this.canonicalKey = canonicalKey;
+        this.parentSystemKeyword = parentSystemKeyword;
         this.active = false;
         this.availableFrom = effectiveDate;
         this.pendingActive = true;
@@ -99,6 +112,7 @@ public class CustomKeyword extends BaseAuditable {
             String normalizedText,
             KeywordType type,
             String canonicalKey,
+            SystemKeyword parentSystemKeyword,
             LocalDate effectiveDate
     ) {
         return new CustomKeyword(
@@ -107,6 +121,7 @@ public class CustomKeyword extends BaseAuditable {
                 normalizedText,
                 type,
                 canonicalKey,
+                parentSystemKeyword,
                 effectiveDate
         );
     }
@@ -116,6 +131,7 @@ public class CustomKeyword extends BaseAuditable {
             String normalizedText,
             KeywordType type,
             String canonicalKey,
+            SystemKeyword parentSystemKeyword,
             Boolean active,
             LocalDate effectiveDate
     ) {
@@ -123,6 +139,8 @@ public class CustomKeyword extends BaseAuditable {
         this.pendingNormalizedText = normalizedText;
         this.pendingType = type;
         this.pendingCanonicalKey = canonicalKey;
+        this.pendingParentSystemKeyword = parentSystemKeyword;
+        this.pendingParentChanged = true;
         this.pendingActive = active == null ? desiredActive() : active;
         this.pendingEffectiveDate = effectiveDate;
     }
@@ -143,6 +161,9 @@ public class CustomKeyword extends BaseAuditable {
         }
         if (pendingCanonicalKey != null) {
             this.canonicalKey = pendingCanonicalKey;
+        }
+        if (pendingParentChanged) {
+            this.parentSystemKeyword = pendingParentSystemKeyword;
         }
         if (pendingActive != null) {
             this.active = pendingActive;
@@ -176,11 +197,19 @@ public class CustomKeyword extends BaseAuditable {
                 : pendingNormalizedText;
     }
 
+    public SystemKeyword desiredParentSystemKeyword() {
+        return pendingParentChanged
+                ? pendingParentSystemKeyword
+                : parentSystemKeyword;
+    }
+
     private void clearPendingValues() {
         this.pendingText = null;
         this.pendingNormalizedText = null;
         this.pendingType = null;
         this.pendingCanonicalKey = null;
+        this.pendingParentSystemKeyword = null;
+        this.pendingParentChanged = false;
         this.pendingActive = null;
         this.pendingEffectiveDate = null;
     }

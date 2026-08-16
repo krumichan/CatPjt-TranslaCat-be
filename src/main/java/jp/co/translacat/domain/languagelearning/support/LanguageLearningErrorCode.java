@@ -15,6 +15,8 @@ public final class LanguageLearningErrorCode {
             "LANGUAGE_LEARNING_KEYWORD_NOT_FOUND";
     public static final String KEYWORD_ACCESS_DENIED =
             "LANGUAGE_LEARNING_KEYWORD_ACCESS_DENIED";
+    public static final String KEYWORD_HIERARCHY_INVALID =
+            "LANGUAGE_LEARNING_KEYWORD_HIERARCHY_INVALID";
 
     public static final String LEVEL_TEST_REQUIRED =
             "LANGUAGE_LEARNING_LEVEL_TEST_REQUIRED";

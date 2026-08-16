@@ -28,4 +28,8 @@ public interface CustomKeywordRepository extends JpaRepository<CustomKeyword, Lo
             KeywordType type,
             Long id
     );
+
+    boolean existsByParentSystemKeywordId(Long parentSystemKeywordId);
+
+    boolean existsByPendingParentSystemKeywordId(Long parentSystemKeywordId);
 }

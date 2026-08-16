@@ -38,6 +38,13 @@ public class SystemKeyword extends BaseAuditable {
     @Column(name = "canonical_key", length = 200)
     private String canonicalKey;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_keyword_id")
+    private SystemKeyword parentKeyword;
+
+    @Column(name = "sort_order", nullable = false)
+    private int sortOrder;
+
     @Column(nullable = false)
     private boolean active = true;
 
@@ -45,25 +52,33 @@ public class SystemKeyword extends BaseAuditable {
             String text,
             String normalizedText,
             KeywordType type,
-            String canonicalKey
+            String canonicalKey,
+            SystemKeyword parentKeyword,
+            int sortOrder
     ) {
         this.text = text;
         this.normalizedText = normalizedText;
         this.type = type;
         this.canonicalKey = canonicalKey;
+        this.parentKeyword = parentKeyword;
+        this.sortOrder = sortOrder;
     }
 
     public static SystemKeyword create(
             String text,
             String normalizedText,
             KeywordType type,
-            String canonicalKey
+            String canonicalKey,
+            SystemKeyword parentKeyword,
+            int sortOrder
     ) {
         return new SystemKeyword(
                 text,
                 normalizedText,
                 type,
-                canonicalKey
+                canonicalKey,
+                parentKeyword,
+                sortOrder
         );
     }
 
@@ -72,12 +87,16 @@ public class SystemKeyword extends BaseAuditable {
             String normalizedText,
             KeywordType type,
             String canonicalKey,
-            Boolean active
+            Boolean active,
+            SystemKeyword parentKeyword,
+            int sortOrder
     ) {
         this.text = text;
         this.normalizedText = normalizedText;
         this.type = type;
         this.canonicalKey = canonicalKey;
+        this.parentKeyword = parentKeyword;
+        this.sortOrder = sortOrder;
 
         if (active != null) {
             this.active = active;

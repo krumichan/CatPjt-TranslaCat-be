@@ -1,5 +1,6 @@
 package jp.co.translacat.global.config;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jp.co.translacat.global.logging.ApiLoggingFilter;
 import jp.co.translacat.global.security.JwtFilter;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,11 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandlerImpl;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.AnyRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -33,6 +39,23 @@ import java.util.List;
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+
+    private static final RequestMatcher NOVEL_API_REQUESTS = novelApiRequests();
+
+    private static RequestMatcher novelApiRequests() {
+        PathPatternRequestMatcher.Builder paths = PathPatternRequestMatcher.withDefaults();
+
+        return new OrRequestMatcher(
+                paths.matcher("/api/v1/platforms/**"),
+                paths.matcher("/api/v1/{platformCode}/genres/**"),
+                paths.matcher("/api/v1/{platformCode}/ranking/**"),
+                paths.matcher("/api/v1/{platformCode}/novels/**"),
+                paths.matcher("/api/v1/{platformCode}/{novelIdentifier}/episodes/**"),
+                paths.matcher("/api/v1/{platformCode}/search/novels/**"),
+                paths.matcher("/api/v1/dictionary/**"),
+                paths.matcher("/api/v1/recent/**")
+        );
+    }
 
     @Value("${cors.allowed-origin}")
     private List<String> allowedOrigin;
@@ -66,6 +89,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable) // CSRF 비활성화 (REST API 사용 시 필요)
                 .authenticationManager(authenticationManager) // AuthenticationManager 설정
                 .authorizeHttpRequests(request -> request // URL별 접근 권한 설정
+                        .requestMatchers(NOVEL_API_REQUESTS).hasRole("ADMIN")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers(
                                 "/api/v1/auth/register",
@@ -83,6 +107,18 @@ public class SecurityConfig {
                         .anyRequest().authenticated())  // 나머지 경로는 인증 필요
 //                .formLogin(Customizer.withDefaults()) // login default form 사용.
                 .httpBasic(Customizer.withDefaults()) // HTTP Basic 인증 사용
+                .exceptionHandling(exception -> exception
+                        .defaultAuthenticationEntryPointFor(
+                                (request, response, authException) ->
+                                        response.setStatus(HttpServletResponse.SC_NOT_FOUND),
+                                NOVEL_API_REQUESTS)
+                        .defaultAccessDeniedHandlerFor(
+                                (request, response, accessDeniedException) ->
+                                        response.setStatus(HttpServletResponse.SC_NOT_FOUND),
+                                NOVEL_API_REQUESTS)
+                        .defaultAccessDeniedHandlerFor(
+                                new AccessDeniedHandlerImpl(),
+                                AnyRequestMatcher.INSTANCE))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션을 사용하지 않는 Stateless 정책 설정
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class) // JWT 필터를 UsernamePasswordAuthenticationFilter 앞에 적용

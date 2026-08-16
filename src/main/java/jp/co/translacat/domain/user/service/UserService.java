@@ -15,7 +15,7 @@ import jp.co.translacat.domain.user.dto.UserCreateRequestDto;
 import jp.co.translacat.domain.user.dto.UserLoginResponseDto;
 import jp.co.translacat.global.utils.PublicIdGenerator;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
+// import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -71,12 +71,14 @@ public class UserService {
     }
 
     public User getOrRegisterSocialUser(String email, String username, String socialId, SocialType socialType) {
+        /*
         UserAllowed allowed = this.findUserAllowedByEmail(email)
             .orElseThrow(() -> new AccessDeniedException("Your email is not registered in the access list."));
 
         if (!allowed.isAccessible()) {
             throw new AccessDeniedException("Your access period has expired or been restricted.");
         }
+        */
 
         return userRepository.findBySocialIdAndSocialType(socialId, socialType)
             .map(existingUser -> {

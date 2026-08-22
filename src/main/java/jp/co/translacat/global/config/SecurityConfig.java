@@ -97,6 +97,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/token/refresh",
                                 "/api/v1/auth/social/**",
                                 "/api/v1/health",
+                                "/api/v1/voice/sessions/*/channels/*/stream",
                                 "/ws/chat",
                                 "/ws/chat/**",
                                 "/swagger-ui/**",

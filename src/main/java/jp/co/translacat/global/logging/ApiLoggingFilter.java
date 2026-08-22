@@ -24,6 +24,27 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
                                     @NotNull FilterChain chain)
     throws IOException, ServletException {
 
+        // Voice V2에는 transcript, translation, reading token, short-lived WS ticket이 포함될 수 있다.
+        // 일반 API Body logger에는 내용을 남기지 않고 metadata만 기록한다.
+        if (request.getRequestURI().startsWith("/api/v1/voice/")) {
+            String username = SecurityUtil.getSafeUsername();
+            log.info(
+                    "[REQUEST] [{}] {} {} | Body: [VOICE_REDACTED]",
+                    username,
+                    request.getMethod(),
+                    request.getRequestURI()
+            );
+            try {
+                chain.doFilter(request, response);
+            } finally {
+                log.info(
+                        "[RESPONSE] Status: {} | Body: [VOICE_REDACTED]",
+                        response.getStatus()
+                );
+            }
+            return;
+        }
+
         // Multipart의 경우, request를 읽어들이면 Controller 단에서 정보가 얻어지지 않음.
         // 따라서, 바로 반환.
         String contentType = request.getContentType();

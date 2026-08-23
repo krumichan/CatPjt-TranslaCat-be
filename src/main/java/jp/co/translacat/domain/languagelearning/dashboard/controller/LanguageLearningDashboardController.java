@@ -4,9 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.DashboardResponseDto;
-import jp.co.translacat.domain.languagelearning.dashboard.dto.response.DashboardV3ResponseDto;
 import jp.co.translacat.domain.languagelearning.dashboard.service.LanguageLearningDashboardQueryService;
-import jp.co.translacat.domain.languagelearning.dashboard.service.LanguageLearningDashboardV3QueryService;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
@@ -30,30 +28,13 @@ import java.time.LocalDate;
 public class LanguageLearningDashboardController {
 
     private final LanguageLearningDashboardQueryService dashboardQueryService;
-    private final LanguageLearningDashboardV3QueryService dashboardV3QueryService;
-
-    @Operation(summary = "Language Learning Dashboard")
-    @GetMapping
-    public ResponseDto<DashboardResponseDto> get(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestParam(defaultValue = "7d") String period,
-            @RequestParam(defaultValue = "ALL") String source
-    ) {
-        return ResponseUtil.ok(
-                dashboardQueryService.get(
-                        SecurityUtil.getLoginUserId(userPrincipal),
-                        period,
-                        source
-                )
-        );
-    }
 
     @Operation(
-            summary = "Language Learning Dashboard V3",
-            description = "통합 능력, 학습별 성과, 성장, 약점, 추천과 Source/Task별 Trend를 반환합니다."
+            summary = "Language Learning Dashboard",
+            description = "통합 언어 능력, 학습별 성과, 성장, 약점, 추천과 Source/Task별 Trend를 반환합니다."
     )
-    @GetMapping("/v3")
-    public ResponseDto<DashboardV3ResponseDto> getV3(
+    @GetMapping
+    public ResponseDto<DashboardResponseDto> get(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Parameter(description = "조회 시작일. 기본값은 종료일 기준 30일 전")
             @RequestParam(required = false)
@@ -67,7 +48,7 @@ public class LanguageLearningDashboardController {
             @RequestParam(required = false) ListeningTaskType taskType
     ) {
         return ResponseUtil.ok(
-                dashboardV3QueryService.get(
+                dashboardQueryService.get(
                         SecurityUtil.getLoginUserId(userPrincipal),
                         from,
                         to,

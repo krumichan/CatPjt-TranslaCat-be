@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.languagelearning.dashboard.service;
 
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
-import jp.co.translacat.domain.languagelearning.dashboard.dto.response.DashboardV3ResponseDto;
+import jp.co.translacat.domain.languagelearning.dashboard.dto.response.DashboardResponseDto;
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.MetricPointResponseDto;
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.SourceSkillTrendResponseDto;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.Map;
 
 @Component
-public class DashboardV3ProjectionPolicy {
+public class DashboardProjectionPolicy {
 
     public static final int TOTAL_METRIC_COUNT = 10;
     private static final double GROWTH_THRESHOLD = 5.0;
@@ -37,10 +37,10 @@ public class DashboardV3ProjectionPolicy {
         }
     }
 
-    public DashboardV3ResponseDto.IntegratedAbilityView integratedAbility(
+    public DashboardResponseDto.IntegratedAbilityView integratedAbility(
             SourceSkillTrendResponseDto trend
     ) {
-        List<DashboardV3ResponseDto.AbilityMetricView> metrics = trend.metrics()
+        List<DashboardResponseDto.AbilityMetricView> metrics = trend.metrics()
                 .entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(entry -> abilityMetric(entry.getKey(), entry.getValue(), trend))
@@ -48,12 +48,12 @@ public class DashboardV3ProjectionPolicy {
         return integratedAbility(metrics);
     }
 
-    public DashboardV3ResponseDto.IntegratedAbilityView integratedListeningAbility(
+    public DashboardResponseDto.IntegratedAbilityView integratedListeningAbility(
             List<ListeningApiContract.MetricProfileView> profiles
     ) {
-        List<DashboardV3ResponseDto.AbilityMetricView> metrics = profiles.stream()
+        List<DashboardResponseDto.AbilityMetricView> metrics = profiles.stream()
                 .filter(value -> value.score() != null)
-                .map(value -> new DashboardV3ResponseDto.AbilityMetricView(
+                .map(value -> new DashboardResponseDto.AbilityMetricView(
                         value.metric().name(),
                         round(value.score()),
                         value.sampleCount(),
@@ -61,16 +61,16 @@ public class DashboardV3ProjectionPolicy {
                         value.sampleCount() < 3 || value.score() == null
                 ))
                 .sorted(Comparator.comparing(
-                        DashboardV3ResponseDto.AbilityMetricView::metric
+                        DashboardResponseDto.AbilityMetricView::metric
                 ))
                 .toList();
         return integratedAbility(metrics);
     }
 
-    public List<DashboardV3ResponseDto.GrowthView> growth(
+    public List<DashboardResponseDto.GrowthView> growth(
             SourceSkillTrendResponseDto trend
     ) {
-        List<DashboardV3ResponseDto.GrowthView> result = new ArrayList<>();
+        List<DashboardResponseDto.GrowthView> result = new ArrayList<>();
         trend.metrics().forEach((metric, values) -> {
             List<ScorePoint> points = values.stream()
                     .map(value -> new ScorePoint(
@@ -79,7 +79,7 @@ public class DashboardV3ProjectionPolicy {
                     .toList();
             GrowthWindow window = growthWindow(points);
             if (window.active()) {
-                result.add(new DashboardV3ResponseDto.GrowthView(
+                result.add(new DashboardResponseDto.GrowthView(
                         metric,
                         trend.source(),
                         null,
@@ -93,12 +93,12 @@ public class DashboardV3ProjectionPolicy {
         });
         return result.stream()
                 .sorted(Comparator.comparing(
-                        DashboardV3ResponseDto.GrowthView::delta
+                        DashboardResponseDto.GrowthView::delta
                 ).reversed())
                 .toList();
     }
 
-    public List<DashboardV3ResponseDto.GrowthView> listeningGrowth(
+    public List<DashboardResponseDto.GrowthView> listeningGrowth(
             List<ListeningApiContract.MetricTrendView> trends
     ) {
         record Key(
@@ -120,11 +120,11 @@ public class DashboardV3ProjectionPolicy {
                     Math.max(1, value.sampleCount())
             ));
         }
-        List<DashboardV3ResponseDto.GrowthView> result = new ArrayList<>();
+        List<DashboardResponseDto.GrowthView> result = new ArrayList<>();
         grouped.forEach((key, values) -> {
             GrowthWindow window = growthWindow(values);
             if (window.active()) {
-                result.add(new DashboardV3ResponseDto.GrowthView(
+                result.add(new DashboardResponseDto.GrowthView(
                         key.metric(),
                         LearningSource.LISTENING.name(),
                         key.task(),
@@ -138,25 +138,25 @@ public class DashboardV3ProjectionPolicy {
         });
         return result.stream()
                 .sorted(Comparator.comparing(
-                        DashboardV3ResponseDto.GrowthView::delta
+                        DashboardResponseDto.GrowthView::delta
                 ).reversed())
                 .toList();
     }
 
-    private DashboardV3ResponseDto.IntegratedAbilityView integratedAbility(
-            List<DashboardV3ResponseDto.AbilityMetricView> metrics
+    private DashboardResponseDto.IntegratedAbilityView integratedAbility(
+            List<DashboardResponseDto.AbilityMetricView> metrics
     ) {
-        List<DashboardV3ResponseDto.AbilityMetricView> measured = metrics.stream()
+        List<DashboardResponseDto.AbilityMetricView> measured = metrics.stream()
                 .filter(value -> value.score() != null)
                 .toList();
         Double overall = measured.isEmpty()
                 ? null
                 : round(measured.stream()
-                        .mapToDouble(DashboardV3ResponseDto.AbilityMetricView::score)
+                        .mapToDouble(DashboardResponseDto.AbilityMetricView::score)
                         .average()
                         .orElse(0));
         String confidence = aggregateConfidence(measured);
-        return new DashboardV3ResponseDto.IntegratedAbilityView(
+        return new DashboardResponseDto.IntegratedAbilityView(
                 overall,
                 confidence,
                 measured.size(),
@@ -166,7 +166,7 @@ public class DashboardV3ProjectionPolicy {
         );
     }
 
-    private DashboardV3ResponseDto.AbilityMetricView abilityMetric(
+    private DashboardResponseDto.AbilityMetricView abilityMetric(
             String metric,
             List<MetricPointResponseDto> points,
             SourceSkillTrendResponseDto trend
@@ -175,7 +175,7 @@ public class DashboardV3ProjectionPolicy {
                 .max(Comparator.comparing(MetricPointResponseDto::date))
                 .orElse(null);
         boolean collecting = trend.collectingData() || points.size() < 3;
-        return new DashboardV3ResponseDto.AbilityMetricView(
+        return new DashboardResponseDto.AbilityMetricView(
                 metric,
                 latest == null ? null : round(latest.score()),
                 points.size(),
@@ -184,18 +184,18 @@ public class DashboardV3ProjectionPolicy {
         );
     }
 
-    private List<DashboardV3ResponseDto.AbilityGroupView> groups(
-            List<DashboardV3ResponseDto.AbilityMetricView> metrics
+    private List<DashboardResponseDto.AbilityGroupView> groups(
+            List<DashboardResponseDto.AbilityMetricView> metrics
     ) {
         Map<String, List<Double>> grouped = new LinkedHashMap<>();
-        for (DashboardV3ResponseDto.AbilityMetricView metric : metrics) {
+        for (DashboardResponseDto.AbilityMetricView metric : metrics) {
             grouped.computeIfAbsent(
                     group(metric.metric()),
                     ignored -> new ArrayList<>()
             ).add(metric.score());
         }
         return grouped.entrySet().stream()
-                .map(entry -> new DashboardV3ResponseDto.AbilityGroupView(
+                .map(entry -> new DashboardResponseDto.AbilityGroupView(
                         entry.getKey(),
                         round(entry.getValue().stream()
                                 .mapToDouble(Double::doubleValue)
@@ -270,7 +270,7 @@ public class DashboardV3ProjectionPolicy {
     }
 
     private String aggregateConfidence(
-            List<DashboardV3ResponseDto.AbilityMetricView> metrics
+            List<DashboardResponseDto.AbilityMetricView> metrics
     ) {
         if (metrics.isEmpty()) {
             return "DATA_COLLECTING";

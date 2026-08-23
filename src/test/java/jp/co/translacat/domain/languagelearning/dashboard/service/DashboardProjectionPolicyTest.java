@@ -16,10 +16,10 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class DashboardV3ProjectionPolicyTest {
+class DashboardProjectionPolicyTest {
 
-    private final DashboardV3ProjectionPolicy policy =
-            new DashboardV3ProjectionPolicy();
+    private final DashboardProjectionPolicy policy =
+            new DashboardProjectionPolicy();
 
     @Test
     void supportsAllDashboardSourceFilters() {

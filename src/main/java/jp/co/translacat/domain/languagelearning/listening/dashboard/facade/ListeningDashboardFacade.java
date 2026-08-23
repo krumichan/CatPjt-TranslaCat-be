@@ -23,7 +23,7 @@ public class ListeningDashboardFacade {
     private final ListeningDailySetQueryService dailySetQueryService;
     private final LanguageLearningUserSettingQueryService userSettingQueryService;
 
-    public ListeningApiContract.DashboardV3View dashboard(
+    public ListeningApiContract.DashboardView dashboard(
             Long userId,
             LocalDate from,
             LocalDate to,
@@ -44,7 +44,7 @@ public class ListeningDashboardFacade {
                         learningLanguage,
                         taskType
                 );
-        return new ListeningApiContract.DashboardV3View(
+        return new ListeningApiContract.DashboardView(
                 learningLanguage,
                 resolvedFrom,
                 resolvedTo,

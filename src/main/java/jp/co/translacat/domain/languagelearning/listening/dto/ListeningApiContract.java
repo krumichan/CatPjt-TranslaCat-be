@@ -224,7 +224,7 @@ public final class ListeningApiContract {
     ) {
     }
 
-    public record DashboardV3View(
+    public record DashboardView(
             String learningLanguage,
             LocalDate from,
             LocalDate to,

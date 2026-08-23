@@ -26,6 +26,9 @@ public class LanguageLearningUserSetting extends BaseAuditable {
     private static final String DEFAULT_TIMEZONE = "Asia/Tokyo";
     private static final String DEFAULT_SPEAKING_VOICE = "Kore";
     private static final String DEFAULT_PLAYBACK_SPEED = "NORMAL";
+    private static final int DEFAULT_DAILY_LISTENING_GOAL_COUNT = 5;
+    private static final String DEFAULT_LISTENING_TASK_TYPES_JSON =
+            "[\"DICTATION\"]";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -50,6 +53,12 @@ public class LanguageLearningUserSetting extends BaseAuditable {
     @Column(nullable = false)
     private int dailySpeakingGoalMinutes;
 
+    @Column(name = "daily_listening_goal_count", nullable = false)
+    private int dailyListeningGoalCount;
+
+    @Column(name = "default_listening_task_types", nullable = false, length = 200)
+    private String defaultListeningTaskTypesJson;
+
     @Column(nullable = false, length = 100)
     private String speakingVoiceId;
 
@@ -67,6 +76,10 @@ public class LanguageLearningUserSetting extends BaseAuditable {
 
     private Integer pendingDailySentenceCount;
     private Integer pendingDailySpeakingGoalMinutes;
+
+    @Column(name = "pending_daily_listening_goal_count")
+    private Integer pendingDailyListeningGoalCount;
+
     private LocalDate pendingEffectiveDate;
 
     private LanguageLearningUserSetting(
@@ -78,6 +91,8 @@ public class LanguageLearningUserSetting extends BaseAuditable {
         this.dailySentenceCount = defaultDailySentenceCount;
         this.dailySpeakingGoalMinutes =
                 LanguageLearningAdminSetting.DEFAULT_DAILY_SPEAKING_GOAL_MINUTES;
+        this.dailyListeningGoalCount = DEFAULT_DAILY_LISTENING_GOAL_COUNT;
+        this.defaultListeningTaskTypesJson = DEFAULT_LISTENING_TASK_TYPES_JSON;
         this.speakingVoiceId = DEFAULT_SPEAKING_VOICE;
         this.speakingPlaybackSpeed = DEFAULT_PLAYBACK_SPEED;
     }
@@ -180,6 +195,34 @@ public class LanguageLearningUserSetting extends BaseAuditable {
         this.pendingEffectiveDate = effectiveDate;
     }
 
+
+    public void initializeListening(
+            Integer dailyListeningGoalCount,
+            String defaultListeningTaskTypesJson
+    ) {
+        if (dailyListeningGoalCount != null) {
+            this.dailyListeningGoalCount = dailyListeningGoalCount;
+        }
+        updateDefaultListeningTaskTypes(defaultListeningTaskTypesJson);
+    }
+
+    public void scheduleListeningGoal(
+            Integer dailyListeningGoalCount,
+            LocalDate effectiveDate
+    ) {
+        if (dailyListeningGoalCount == null) {
+            return;
+        }
+        this.pendingDailyListeningGoalCount = dailyListeningGoalCount;
+        this.pendingEffectiveDate = effectiveDate;
+    }
+
+    public void updateDefaultListeningTaskTypes(String taskTypesJson) {
+        if (taskTypesJson != null && !taskTypesJson.isBlank()) {
+            this.defaultListeningTaskTypesJson = taskTypesJson;
+        }
+    }
+
     public void updateSpeakingPlayback(
             String speakingVoiceId,
             String speakingPlaybackSpeed
@@ -242,6 +285,24 @@ public class LanguageLearningUserSetting extends BaseAuditable {
         }
     }
 
+    public void clampListeningGoalActiveAndPending(
+            int minGoal,
+            int maxGoal
+    ) {
+        this.dailyListeningGoalCount = clamp(
+                dailyListeningGoalCount,
+                minGoal,
+                maxGoal
+        );
+        if (pendingDailyListeningGoalCount != null) {
+            this.pendingDailyListeningGoalCount = clamp(
+                    pendingDailyListeningGoalCount,
+                    minGoal,
+                    maxGoal
+            );
+        }
+    }
+
     private void applyPendingValues() {
         if (pendingOriginLanguage != null) {
             this.originLanguage = pendingOriginLanguage;
@@ -259,6 +320,9 @@ public class LanguageLearningUserSetting extends BaseAuditable {
             this.dailySpeakingGoalMinutes =
                     pendingDailySpeakingGoalMinutes;
         }
+        if (pendingDailyListeningGoalCount != null) {
+            this.dailyListeningGoalCount = pendingDailyListeningGoalCount;
+        }
     }
 
     private void clearPendingValues() {
@@ -267,6 +331,7 @@ public class LanguageLearningUserSetting extends BaseAuditable {
         this.pendingTimezone = null;
         this.pendingDailySentenceCount = null;
         this.pendingDailySpeakingGoalMinutes = null;
+        this.pendingDailyListeningGoalCount = null;
         this.pendingEffectiveDate = null;
     }
 

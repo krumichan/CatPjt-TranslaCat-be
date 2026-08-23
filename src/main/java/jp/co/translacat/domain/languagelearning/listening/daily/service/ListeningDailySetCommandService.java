@@ -77,8 +77,13 @@ public class ListeningDailySetCommandService {
         int itemCount;
 
         try {
+            Integer requestedItemCount = request == null
+                    ? null
+                    : request.itemCount();
             itemCount = policy.resolveItemCount(
-                    request == null ? null : request.itemCount()
+                    requestedItemCount == null
+                            ? userSetting.getDailyListeningGoalCount()
+                            : requestedItemCount
             );
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(

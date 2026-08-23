@@ -102,6 +102,21 @@ public class LanguageLearningUserSettingPolicy {
         }
     }
 
+    public void validateListeningGoal(
+            Integer goalCount,
+            int minGoal,
+            int maxGoal
+    ) {
+        if (goalCount == null) {
+            return;
+        }
+        if (goalCount < minGoal || goalCount > maxGoal) {
+            throw invalid(
+                    "Daily Listening Goal이 관리자 허용 범위를 벗어났습니다."
+            );
+        }
+    }
+
     public void validateLanguagePair(
             String originLanguage,
             String learningLanguage

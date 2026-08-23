@@ -12,6 +12,9 @@ import jp.co.translacat.global.utils.SecurityUtil;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,6 +42,14 @@ public class ListeningSessionController {
             @RequestBody ListeningApiContract.SessionCreateRequest request
     ) {
         return ResponseUtil.ok(facade.create(userId(principal), request));
+    }
+
+    @Operation(summary = "현재 진행 중인 Listening Session 조회")
+    @GetMapping("/sessions/active")
+    public ResponseDto<ListeningApiContract.ActiveSessionView> active(
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        return ResponseUtil.ok(facade.active(userId(principal)));
     }
 
     @Operation(summary = "Listening Session 조회")
@@ -161,6 +172,19 @@ public class ListeningSessionController {
     ) {
         return ResponseUtil.ok(facade.skip(
                 userId(principal), attemptId, request));
+    }
+
+    @Operation(summary = "보관 기간 내 사용자 Repeat Audio 조회")
+    @GetMapping("/responses/{taskResponseId}/audio")
+    public ResponseEntity<byte[]> userAudio(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long taskResponseId
+    ) {
+        var audio = facade.userAudio(userId(principal), taskResponseId);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .contentType(MediaType.parseMediaType(audio.contentType()))
+                .body(audio.bytes());
     }
 
     @Operation(summary = "Listening 평가 오류 신고")

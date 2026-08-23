@@ -1,5 +1,10 @@
 package jp.co.translacat.domain.languagelearning.setting.service;
 
+import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
+import jp.co.translacat.domain.languagelearning.listening.policy.ListeningTaskSelectionPolicy;
+import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
+import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
 import jp.co.translacat.domain.languagelearning.setting.dto.request.UserSettingUpdateRequestDto;
 import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
 import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
@@ -13,6 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +29,9 @@ public class LanguageLearningUserSettingCommandService {
 
     private final LanguageLearningUserSettingQueryService settingQueryService;
     private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
+    private final ListeningPolicySettingQueryService listeningPolicySettingQueryService;
+    private final ListeningTaskSelectionPolicy listeningTaskSelectionPolicy;
+    private final LanguageLearningJsonCodec jsonCodec;
     private final LanguageLearningUserSettingPolicy settingPolicy;
 
     public LanguageLearningUserSetting update(
@@ -41,6 +52,11 @@ public class LanguageLearningUserSettingCommandService {
         String timezone = settingPolicy.cleanTimezone(request.timezone());
         Integer dailySentenceCount = request.dailySentenceCount();
         Integer speakingGoal = request.dailySpeakingGoalMinutes();
+        Integer listeningGoal = request.dailyListeningGoalCount();
+        ListeningPolicySetting listeningPolicy = listeningPolicySettingQueryService.get();
+        String listeningTaskTypesJson = listeningTaskTypesJson(
+                request.defaultListeningTaskTypes()
+        );
         String speakingVoice = settingPolicy.cleanVoiceId(
                 request.speakingVoiceId()
         );
@@ -55,6 +71,11 @@ public class LanguageLearningUserSettingCommandService {
         settingPolicy.validateSpeakingGoal(
                 speakingGoal,
                 adminSetting
+        );
+        settingPolicy.validateListeningGoal(
+                listeningGoal,
+                listeningPolicy.getMinItemCount(),
+                listeningPolicy.getMaxItemCount()
         );
         settingPolicy.validateLanguagePair(
                 settingPolicy.resolveNextOriginLanguage(
@@ -76,7 +97,9 @@ public class LanguageLearningUserSettingCommandService {
                     dailySentenceCount,
                     speakingGoal,
                     speakingVoice,
-                    playbackSpeed
+                    playbackSpeed,
+                    listeningGoal,
+                    listeningTaskTypesJson
             );
             return setting;
         }
@@ -85,15 +108,27 @@ public class LanguageLearningUserSettingCommandService {
                 speakingVoice,
                 playbackSpeed
         );
+        setting.updateDefaultListeningTaskTypes(listeningTaskTypesJson);
 
         LocalDate today = settingQueryService.resolveToday(setting);
-        setting.scheduleUpdate(
-                originLanguage,
-                learningLanguage,
-                timezone,
-                dailySentenceCount,
-                speakingGoal,
-                today.plusDays(1)
+        LocalDate effectiveDate = today.plusDays(1);
+        if (originLanguage != null
+                || learningLanguage != null
+                || timezone != null
+                || dailySentenceCount != null
+                || speakingGoal != null) {
+            setting.scheduleUpdate(
+                    originLanguage,
+                    learningLanguage,
+                    timezone,
+                    dailySentenceCount,
+                    speakingGoal,
+                    effectiveDate
+            );
+        }
+        setting.scheduleListeningGoal(
+                listeningGoal,
+                effectiveDate
         );
 
         return setting;
@@ -107,7 +142,9 @@ public class LanguageLearningUserSettingCommandService {
             Integer dailySentenceCount,
             Integer speakingGoal,
             String speakingVoice,
-            String playbackSpeed
+            String playbackSpeed,
+            Integer listeningGoal,
+            String listeningTaskTypesJson
     ) {
         String nextOriginLanguage =
                 settingPolicy.resolveNextOriginLanguage(
@@ -137,5 +174,22 @@ public class LanguageLearningUserSettingCommandService {
                 speakingVoice,
                 playbackSpeed
         );
+        setting.initializeListening(
+                listeningGoal,
+                listeningTaskTypesJson
+        );
+    }
+
+    private String listeningTaskTypesJson(List<ListeningTaskType> requested) {
+        if (requested == null) {
+            return null;
+        }
+        Set<ListeningTaskType> selected = listeningTaskSelectionPolicy.validate(
+                requested
+        );
+        List<ListeningTaskType> ordered = selected.stream()
+                .sorted(Comparator.comparingInt(ListeningTaskType::ordinal))
+                .toList();
+        return jsonCodec.write(ordered);
     }
 }

@@ -1,5 +1,11 @@
 package jp.co.translacat.domain.languagelearning.setting.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+
+import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
+import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
+import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
 import jp.co.translacat.domain.languagelearning.setting.dto.response.UserSettingResponseDto;
 import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
 import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
@@ -25,6 +31,8 @@ public class LanguageLearningUserSettingQueryService {
 
     private final LanguageLearningUserSettingRepository repository;
     private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
+    private final ListeningPolicySettingQueryService listeningPolicySettingQueryService;
+    private final LanguageLearningJsonCodec jsonCodec;
     private final UserRepository userRepository;
 
     @Transactional
@@ -45,6 +53,11 @@ public class LanguageLearningUserSettingQueryService {
         setting.clampSpeakingGoalActiveAndPending(
                 admin.getMinDailySpeakingGoalMinutes(),
                 admin.getMaxDailySpeakingGoalMinutes()
+        );
+        ListeningPolicySetting listeningPolicy = listeningPolicySettingQueryService.get();
+        setting.clampListeningGoalActiveAndPending(
+                listeningPolicy.getMinItemCount(),
+                listeningPolicy.getMaxItemCount()
         );
 
         return setting;
@@ -77,6 +90,7 @@ public class LanguageLearningUserSettingQueryService {
             LanguageLearningUserSetting setting,
             LanguageLearningAdminSetting admin
     ) {
+        ListeningPolicySetting listeningPolicy = listeningPolicySettingQueryService.get();
         return new UserSettingResponseDto(
                 setting.getOriginLanguage(),
                 setting.getLearningLanguage(),
@@ -85,16 +99,25 @@ public class LanguageLearningUserSettingQueryService {
                 setting.getDailySpeakingGoalMinutes(),
                 setting.getSpeakingVoiceId(),
                 setting.getSpeakingPlaybackSpeed(),
+                setting.getDailyListeningGoalCount(),
+                jsonCodec.read(
+                        setting.getDefaultListeningTaskTypesJson(),
+                        new TypeReference<java.util.List<ListeningTaskType>>() {
+                        }
+                ),
                 setting.getPendingOriginLanguage(),
                 setting.getPendingLearningLanguage(),
                 setting.getPendingTimezone(),
                 setting.getPendingDailySentenceCount(),
                 setting.getPendingDailySpeakingGoalMinutes(),
+                setting.getPendingDailyListeningGoalCount(),
                 setting.getPendingEffectiveDate(),
                 admin.getMinDailySentenceCount(),
                 admin.getMaxDailySentenceCount(),
                 admin.getMinDailySpeakingGoalMinutes(),
                 admin.getMaxDailySpeakingGoalMinutes(),
+                listeningPolicy.getMinItemCount(),
+                listeningPolicy.getMaxItemCount(),
                 setting.getOriginLanguage() != null
                         && setting.getLearningLanguage() != null
         );
@@ -123,6 +146,11 @@ public class LanguageLearningUserSettingQueryService {
                 admin.getDefaultDailySpeakingGoalMinutes(),
                 null,
                 null
+        );
+        ListeningPolicySetting listeningPolicy = listeningPolicySettingQueryService.get();
+        setting.initializeListening(
+                listeningPolicy.getDefaultItemCount(),
+                "[\"DICTATION\"]"
         );
 
         return repository.save(setting);

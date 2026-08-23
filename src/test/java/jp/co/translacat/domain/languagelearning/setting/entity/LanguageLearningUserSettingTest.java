@@ -105,6 +105,46 @@ class LanguageLearningUserSettingTest {
         assertThat(setting.getPendingDailySpeakingGoalMinutes()).isEqualTo(20);
     }
 
+
+    @Test
+    void listeningGoalStartsNextDayButDefaultTasksAreImmediate() {
+        LanguageLearningUserSetting setting = LanguageLearningUserSetting.create(
+                createUser(),
+                5
+        );
+        LocalDate today = LocalDate.of(2026, 8, 23);
+
+        setting.scheduleListeningGoal(12, today.plusDays(1));
+        setting.updateDefaultListeningTaskTypes(
+                "[\"DICTATION\",\"REPEAT_AFTER_AUDIO\"]"
+        );
+
+        assertThat(setting.getDailyListeningGoalCount()).isEqualTo(5);
+        assertThat(setting.getPendingDailyListeningGoalCount()).isEqualTo(12);
+        assertThat(setting.getDefaultListeningTaskTypesJson())
+                .isEqualTo("[\"DICTATION\",\"REPEAT_AFTER_AUDIO\"]");
+
+        setting.promoteIfEffective(today.plusDays(1));
+
+        assertThat(setting.getDailyListeningGoalCount()).isEqualTo(12);
+        assertThat(setting.getPendingDailyListeningGoalCount()).isNull();
+    }
+
+    @Test
+    void listeningGoalClampCorrectsActiveAndPending() {
+        LanguageLearningUserSetting setting = LanguageLearningUserSetting.create(
+                createUser(),
+                5
+        );
+        setting.initializeListening(25, null);
+        setting.scheduleListeningGoal(30, LocalDate.of(2026, 8, 24));
+
+        setting.clampListeningGoalActiveAndPending(1, 20);
+
+        assertThat(setting.getDailyListeningGoalCount()).isEqualTo(20);
+        assertThat(setting.getPendingDailyListeningGoalCount()).isEqualTo(20);
+    }
+
     private User createUser() {
         return User.createLocalUser(
                 "ll@test.local",

@@ -64,6 +64,12 @@ public final class ListeningApiContract {
     ) {
     }
 
+    public record ActiveSessionView(
+            boolean active,
+            SessionView session
+    ) {
+    }
+
     public record SessionView(
             Long sessionId,
             Long dailySetId,
@@ -87,6 +93,8 @@ public final class ListeningApiContract {
             boolean playable,
             String referenceAudioPath,
             Integer audioDurationMs,
+            String topicHint,
+            List<String> keywordHints,
             String sourceText,
             List<String> referenceMeanings,
             AttemptView attempt

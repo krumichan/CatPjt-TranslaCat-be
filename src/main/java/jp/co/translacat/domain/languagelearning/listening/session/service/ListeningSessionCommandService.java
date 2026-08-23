@@ -18,6 +18,7 @@ import jp.co.translacat.domain.languagelearning.listening.session.entity.Listeni
 import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
 import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
 import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -45,6 +46,7 @@ public class ListeningSessionCommandService {
     private final ListeningTaskSelectionPolicy taskSelectionPolicy;
     private final ListeningIdempotencyPolicy idempotencyPolicy;
     private final ListeningPolicySettingQueryService policySettingService;
+    private final LanguageLearningUserSettingQueryService userSettingQueryService;
     private final LanguageLearningJsonCodec jsonCodec;
 
     @Transactional
@@ -70,6 +72,7 @@ public class ListeningSessionCommandService {
 
         if (existing.isPresent()) {
             validateIdempotentSession(existing.get(), request.dailySetId(), ordered);
+            rememberSelection(userId, ordered);
             return existing.get().getId();
         }
 
@@ -117,14 +120,39 @@ public class ListeningSessionCommandService {
                     .findByUserIdAndIdempotencyKey(userId, key)
                     .orElseThrow(() -> exception);
             validateIdempotentSession(concurrent, request.dailySetId(), ordered);
+            rememberSelection(userId, ordered);
             return concurrent.getId();
         }
+
+        rememberSelection(userId, ordered);
 
         for (ListeningItem item : items) {
             createAttempt(session, item, ListeningEvaluationPurpose.OFFICIAL,
                     ordered, 1, now);
         }
 
+        return session.getId();
+    }
+
+    @Transactional
+    public Long activeSessionId(Long userId) {
+        ListeningPolicySetting policy = policySettingService.get();
+        var active = sessionRepository
+                .findFirstByUserIdAndStatusInOrderByStartedAtDesc(
+                        userId,
+                        List.of(ListeningSessionStatus.IN_PROGRESS)
+                );
+        if (active.isEmpty()) {
+            return null;
+        }
+        ListeningSession session = active.get();
+        if (session.isExpired(
+                LocalDateTime.now(),
+                Duration.ofHours(policy.getResumeHours())
+        )) {
+            session.abandon(LocalDateTime.now());
+            return null;
+        }
         return session.getId();
     }
 
@@ -190,6 +218,14 @@ public class ListeningSessionCommandService {
         session.abandon(LocalDateTime.now());
 
         return true;
+    }
+
+    private void rememberSelection(
+            Long userId,
+            List<ListeningTaskType> ordered
+    ) {
+        userSettingQueryService.getOrCreateEntity(userId)
+                .updateDefaultListeningTaskTypes(jsonCodec.write(ordered));
     }
 
     private void validateIdempotentSession(

@@ -1,5 +1,9 @@
 package jp.co.translacat.domain.languagelearning.setting.dto.request;
 
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
+
+import java.util.List;
+
 public record UserSettingUpdateRequestDto(
         String originLanguage,
         String learningLanguage,
@@ -7,7 +11,9 @@ public record UserSettingUpdateRequestDto(
         Integer dailySentenceCount,
         Integer dailySpeakingGoalMinutes,
         String speakingVoiceId,
-        String speakingPlaybackSpeed
+        String speakingPlaybackSpeed,
+        Integer dailyListeningGoalCount,
+        List<ListeningTaskType> defaultListeningTaskTypes
 ) {
     public UserSettingUpdateRequestDto(
             String originLanguage,
@@ -20,6 +26,8 @@ public record UserSettingUpdateRequestDto(
                 learningLanguage,
                 timezone,
                 dailySentenceCount,
+                null,
+                null,
                 null,
                 null,
                 null

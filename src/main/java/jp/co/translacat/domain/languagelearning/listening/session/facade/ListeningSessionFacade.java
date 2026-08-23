@@ -2,6 +2,7 @@ package jp.co.translacat.domain.languagelearning.listening.session.facade;
 
 import jp.co.translacat.domain.languagelearning.listening.attempt.service.ListeningAttemptCommandService;
 import jp.co.translacat.domain.languagelearning.listening.attempt.service.ListeningAttemptQueryService;
+import jp.co.translacat.domain.languagelearning.listening.audio.model.ListeningAudioObject;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.report.service.ListeningEvaluationReportCommandService;
@@ -34,6 +35,16 @@ public class ListeningSessionFacade {
         Long sessionId = sessionCommandService.create(userId, request);
 
         return sessionQueryService.view(userId, sessionId);
+    }
+
+    public ListeningApiContract.ActiveSessionView active(Long userId) {
+        Long sessionId = sessionCommandService.activeSessionId(userId);
+        return sessionId == null
+                ? new ListeningApiContract.ActiveSessionView(false, null)
+                : new ListeningApiContract.ActiveSessionView(
+                        true,
+                        sessionQueryService.view(userId, sessionId)
+                );
     }
 
     public ListeningApiContract.SessionView get(Long userId, Long sessionId) {
@@ -89,6 +100,13 @@ public class ListeningSessionFacade {
                 taskType,
                 usage
         );
+    }
+
+    public ListeningAudioObject userAudio(
+            Long userId,
+            Long taskResponseId
+    ) {
+        return attemptQueryService.userAudio(userId, taskResponseId);
     }
 
     public ListeningApiContract.AudioUploadView uploadAudio(

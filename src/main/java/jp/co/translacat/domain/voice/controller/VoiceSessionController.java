@@ -139,7 +139,7 @@ public class VoiceSessionController {
 
     @DeleteMapping("/{sessionId}")
     @Operation(summary = "Voice 이력 삭제", description = "완료된 Voice 세션과 Segment 이력을 삭제한다.")
-    public ResponseDto<Void> delete(
+    public ResponseDto<Boolean> delete(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable String sessionId
     ) {
@@ -148,7 +148,7 @@ public class VoiceSessionController {
                 sessionId
         );
 
-        return ResponseUtil.noContent();
+        return ResponseUtil.ok(Boolean.TRUE);
     }
 
     @PostMapping("/{sessionId}/channels/{channel}/ticket")

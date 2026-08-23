@@ -1,6 +1,8 @@
 package jp.co.translacat.global.exception;
 
 import jakarta.persistence.EntityNotFoundException;
+import jp.co.translacat.domain.languagelearning.listening.support.ListeningAiException;
+import jp.co.translacat.domain.languagelearning.listening.support.ListeningErrorDto;
 import jp.co.translacat.global.dto.ErrorDto;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.utils.ExceptionUtil;
@@ -14,10 +16,45 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.Objects;
+import java.time.LocalDateTime;
 
 @Slf4j
 @RestControllerAdvice
 public class ApiExceptionAdvice {
+
+    @ExceptionHandler(ListeningAiException.class)
+    protected ResponseEntity<ResponseDto<ListeningErrorDto>>
+    handleListeningAiException(ListeningAiException e) {
+        log.error(
+                "Listening AI error: code={}, stage={}, resourceId={}",
+                e.getErrorCode(),
+                e.getFailedStage(),
+                e.getResourceId(),
+                e
+        );
+        HttpStatus status = e.isRetryable()
+                ? HttpStatus.BAD_GATEWAY
+                : HttpStatus.UNPROCESSABLE_ENTITY;
+        ListeningErrorDto body = new ListeningErrorDto(
+                e.getErrorCode(),
+                "languageLearning.listening."
+                        + e.getErrorCode().toLowerCase(),
+                e.isRetryable(),
+                e.getRetryAfter() == null
+                        ? null
+                        : e.getRetryAfter().toSeconds(),
+                e.getFailedStage(),
+                e.getResourceId()
+        );
+        ResponseDto<ListeningErrorDto> response =
+                ResponseDto.<ListeningErrorDto>builder()
+                        .resultCode(status.value())
+                        .message(e.getMessage())
+                        .body(body)
+                        .createDate(LocalDateTime.now())
+                        .build();
+        return ResponseEntity.status(status).body(response);
+    }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ResponseDto<ErrorDto>> handleMaxUploadSizeExceededException(

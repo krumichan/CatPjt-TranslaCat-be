@@ -1,0 +1,171 @@
+package jp.co.translacat.domain.languagelearning.listening.service;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+
+import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
+import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
+import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
+import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
+import jp.co.translacat.domain.languagelearning.listening.evaluation.entity.ListeningTaskEvaluation;
+import jp.co.translacat.domain.languagelearning.listening.evaluation.repository.ListeningTaskEvaluationRepository;
+import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
+import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
+import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
+import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Component;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+
+@Component
+@RequiredArgsConstructor
+public class ListeningViewMapper {
+
+    private final ListeningItemAttemptRepository attemptRepository;
+    private final ListeningTaskResponseRepository responseRepository;
+    private final ListeningTaskEvaluationRepository evaluationRepository;
+    private final ListeningPolicySettingQueryService policySettingService;
+    private final LanguageLearningJsonCodec jsonCodec;
+
+    public ListeningApiContract.SessionView session(ListeningSession value) {
+        int resumeHours = policySettingService.get().getResumeHours();
+
+        return new ListeningApiContract.SessionView(
+                value.getId(),
+                value.getDailySet().getId(),
+                value.getStatus(),
+                jsonCodec.read(
+                        value.getSelectedTaskTypesJson(),
+                        new TypeReference<List<ListeningTaskType>>() {
+                        }
+                ),
+                value.getCompletedItemCount(),
+                value.getEvaluatedItemCount(),
+                value.getActualDurationMs(),
+                value.getStartedAt(),
+                value.getLastActivityAt(),
+                value.getLastActivityAt().plus(Duration.ofHours(resumeHours)),
+                attemptRepository
+                        .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
+                                value.getId()
+                        ).stream()
+                        .map(this::attempt)
+                        .toList()
+        );
+    }
+
+    public ListeningApiContract.HistoryDetailView history(
+            ListeningSession value
+    ) {
+        return new ListeningApiContract.HistoryDetailView(
+                session(value),
+                attemptRepository
+                        .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
+                                value.getId()
+                        ).stream()
+                        .map(attempt -> {
+                            boolean reveal = attempt.isFinalized()
+                                    || attempt.isAnswerRevealed();
+
+                            return new ListeningApiContract.HistoryAttemptDetailView(
+                                attempt.getItem().getId(),
+                                attempt.getItem().getItemIndex(),
+                                reveal ? attempt.getItem().getSourceText() : null,
+                                reveal
+                                        ? jsonCodec.read(
+                                                attempt.getItem()
+                                                        .getReferenceMeaningsJson(),
+                                                new TypeReference<List<String>>() {
+                                                }
+                                        )
+                                        : List.of(),
+                                attempt(attempt)
+                            );
+                        })
+                        .toList()
+        );
+    }
+
+    public ListeningApiContract.AttemptView attempt(
+            ListeningItemAttempt value
+    ) {
+        return new ListeningApiContract.AttemptView(
+                value.getId(),
+                value.getItem().getId(),
+                value.getAttemptNo(),
+                value.getEvaluationPurpose(),
+                value.getStatus(),
+                value.isAnswerRevealed(),
+                value.getOverallScore(),
+                value.getEvaluatedTaskCount(),
+                value.getCoverage(),
+                value.getErrorCode(),
+                responseRepository.findAllByAttemptIdOrderByTaskTypeAsc(
+                        value.getId()
+                ).stream().map(this::task).toList()
+        );
+    }
+
+    public ListeningApiContract.TaskView task(ListeningTaskResponse value) {
+        return new ListeningApiContract.TaskView(
+                value.getId(),
+                value.getTaskType(),
+                value.getStatus(),
+                value.getAnswerText(),
+                value.getUserAudioObjectKey() != null
+                        && value.getAudioDeletedAt() == null,
+                value.getAudioDurationMs(),
+                value.getRerecordCount(),
+                value.getAssistanceLevel(),
+                jsonCodec.read(
+                        value.getAssistanceUsageJson(),
+                        new TypeReference<List<ListeningApiContract.AssistanceUsage>>() {
+                        }
+                ),
+                value.getEvaluationErrorCode(),
+                evaluationRepository
+                        .findFirstByTaskResponseIdOrderByEvaluatedAtDesc(
+                                value.getId()
+                        ).map(this::evaluation).orElse(null)
+        );
+    }
+
+    public ListeningApiContract.EvaluationView evaluation(
+            ListeningTaskEvaluation value
+    ) {
+        return new ListeningApiContract.EvaluationView(
+                value.getId(),
+                value.getTaskType(),
+                value.isEvaluable(),
+                value.getScore(),
+                value.getConfidence(),
+                value.getReasonCode(),
+                jsonCodec.read(
+                        value.getMetricScoresJson(),
+                        new TypeReference<List<Map<String, Object>>>() {
+                        }
+                ),
+                jsonCodec.read(
+                        value.getStrengthsJson(),
+                        new TypeReference<List<String>>() {
+                        }
+                ),
+                jsonCodec.read(
+                        value.getImprovementsJson(),
+                        new TypeReference<List<String>>() {
+                        }
+                ),
+                jsonCodec.read(
+                        value.getRecommendedAnswersJson(),
+                        new TypeReference<List<String>>() {
+                        }
+                ),
+                value.getEvaluatedAt()
+        );
+    }
+}

@@ -4,6 +4,7 @@ import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
 import jp.co.translacat.domain.languagelearning.history.dto.response.LearningHistoryDetailResponseDto;
 import jp.co.translacat.domain.languagelearning.history.dto.response.LearningHistoryItemResponseDto;
 import jp.co.translacat.domain.languagelearning.history.service.LearningHistoryQueryService;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
@@ -32,14 +33,16 @@ public class LearningHistoryController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) LearningSource source,
             @RequestParam(defaultValue = "30d") String period,
-            @RequestParam(required = false) String status
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) ListeningTaskType taskType
     ) {
         return ResponseUtil.ok(
                 historyQueryService.getHistory(
                         SecurityUtil.getLoginUserId(principal),
                         source,
                         period,
-                        status
+                        status,
+                        taskType
                 )
         );
     }

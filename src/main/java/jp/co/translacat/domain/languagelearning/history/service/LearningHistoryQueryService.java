@@ -7,6 +7,15 @@ import jp.co.translacat.domain.languagelearning.daily.service.DailyWritingQueryS
 import jp.co.translacat.domain.languagelearning.history.dto.response.LearningHistoryDetailResponseDto;
 import jp.co.translacat.domain.languagelearning.history.dto.response.LearningHistoryItemResponseDto;
 import jp.co.translacat.domain.languagelearning.history.dto.response.SpeakingHistoryDetailResponseDto;
+import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
+import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvaluationPurpose;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskStatus;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
+import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
+import jp.co.translacat.domain.languagelearning.listening.service.ListeningViewMapper;
+import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
+import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
 import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
 import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.entity.SpeakingEvaluation;
@@ -39,6 +48,10 @@ public class LearningHistoryQueryService {
     private final SpeakingSessionQueryService speakingSessionQueryService;
     private final SpeakingTurnQueryService speakingTurnQueryService;
     private final SpeakingEvaluationQueryService speakingEvaluationQueryService;
+    private final ListeningSessionRepository listeningSessionRepository;
+    private final ListeningItemAttemptRepository listeningAttemptRepository;
+    private final ListeningTaskResponseRepository listeningResponseRepository;
+    private final ListeningViewMapper listeningViewMapper;
     private final LanguageLearningUserSettingQueryService userSettingQueryService;
 
     public List<LearningHistoryItemResponseDto> getHistory(
@@ -46,6 +59,16 @@ public class LearningHistoryQueryService {
             LearningSource source,
             String period,
             String status
+    ) {
+        return getHistory(userId, source, period, status, null);
+    }
+
+    public List<LearningHistoryItemResponseDto> getHistory(
+            Long userId,
+            LearningSource source,
+            String period,
+            String status,
+            ListeningTaskType taskType
     ) {
         LanguageLearningUserSetting setting =
                 userSettingQueryService.getOrCreateEntity(userId);
@@ -77,6 +100,19 @@ public class LearningHistoryQueryService {
                     .filter(item -> matchesStatus(item, status))
                     .forEach(result::add);
         }
+        if (source == null || source == LearningSource.LISTENING) {
+            listeningSessionRepository
+                    .findAllByUserIdAndDailySetLearningDateBetweenOrderByStartedAtDesc(
+                            userId,
+                            from,
+                            to
+                    )
+                    .stream()
+                    .filter(session -> matchesTask(session, taskType))
+                    .map(this::listeningSummary)
+                    .filter(item -> matchesStatus(item, status))
+                    .forEach(result::add);
+        }
 
         return result.stream()
                 .sorted(Comparator
@@ -91,42 +127,12 @@ public class LearningHistoryQueryService {
             String activityId
     ) {
         ParsedActivityId parsed = parseActivityId(activityId);
-        if (parsed.source == LearningSource.WRITING) {
-            DailyWritingSet set = dailyWritingSetRepository
-                    .findById(parsed.id)
-                    .filter(value -> value.getUser().getId().equals(userId))
-                    .orElseThrow(this::notFound);
-            return new LearningHistoryDetailResponseDto(
-                    activityId,
-                    LearningSource.WRITING,
-                    dailyWritingQueryService.getByDate(
-                            userId,
-                            set.getLearningDate()
-                    )
-            );
-        }
-
-        SpeakingSession session = speakingSessionQueryService.getOwnedEntity(
-                userId,
-                parsed.id
-        );
-        return new LearningHistoryDetailResponseDto(
-                activityId,
-                LearningSource.SPEAKING,
-                new SpeakingHistoryDetailResponseDto(
-                        speakingSessionQueryService.toResponse(
-                                userId,
-                                session
-                        ),
-                        speakingTurnQueryService.getResponses(
-                                userId,
-                                session.getId()
-                        ),
-                        speakingEvaluationQueryService.getResponse(
-                                session.getId()
-                        )
-                )
-        );
+        return switch (parsed.source) {
+            case WRITING -> writingDetail(userId, activityId, parsed.id);
+            case SPEAKING -> speakingDetail(userId, activityId, parsed.id);
+            case LISTENING -> listeningDetail(userId, activityId, parsed.id);
+            default -> throw notFound();
+        };
     }
 
     private LearningHistoryItemResponseDto writingSummary(
@@ -162,6 +168,106 @@ public class LearningHistoryQueryService {
                         : evaluation.getOverallScore().doubleValue(),
                 session.getStatus().name(),
                 session.getEvaluationStatus().name()
+        );
+    }
+
+    private LearningHistoryItemResponseDto listeningSummary(
+            ListeningSession session
+    ) {
+        List<ListeningItemAttempt> official = listeningAttemptRepository
+                .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
+                        session.getId()
+                ).stream()
+                .filter(value -> value.getEvaluationPurpose()
+                        == ListeningEvaluationPurpose.OFFICIAL)
+                .toList();
+        Double score = official.stream()
+                .filter(value -> value.getOverallScore() != null)
+                .mapToDouble(ListeningItemAttempt::getOverallScore)
+                .average().stream().boxed().findFirst().orElse(null);
+        String evaluationStatus = official.stream().allMatch(
+                ListeningItemAttempt::isFinalized
+        ) ? "COMPLETED" : "PENDING";
+        return new LearningHistoryItemResponseDto(
+                "LISTENING:" + session.getId(),
+                LearningSource.LISTENING,
+                session.getDailySet().getLearningDate(),
+                "Daily Listening",
+                null,
+                session.getActualDurationMs() / 1000,
+                score,
+                session.getStatus().name(),
+                evaluationStatus
+        );
+    }
+
+    private boolean matchesTask(
+            ListeningSession session,
+            ListeningTaskType taskType
+    ) {
+        if (taskType == null) {
+            return true;
+        }
+        return listeningAttemptRepository
+                .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
+                        session.getId()
+                ).stream()
+                .flatMap(attempt -> listeningResponseRepository
+                        .findAllByAttemptIdOrderByTaskTypeAsc(attempt.getId())
+                        .stream())
+                .anyMatch(response -> response.getTaskType() == taskType
+                        && response.getStatus()
+                        != ListeningTaskStatus.NOT_SELECTED);
+    }
+
+    private LearningHistoryDetailResponseDto writingDetail(
+            Long userId,
+            String activityId,
+            Long id
+    ) {
+        DailyWritingSet set = dailyWritingSetRepository
+                .findById(id)
+                .filter(value -> value.getUser().getId().equals(userId))
+                .orElseThrow(this::notFound);
+        return new LearningHistoryDetailResponseDto(
+                activityId,
+                LearningSource.WRITING,
+                dailyWritingQueryService.getByDate(userId, set.getLearningDate())
+        );
+    }
+
+    private LearningHistoryDetailResponseDto speakingDetail(
+            Long userId,
+            String activityId,
+            Long id
+    ) {
+        SpeakingSession session = speakingSessionQueryService.getOwnedEntity(
+                userId,
+                id
+        );
+        return new LearningHistoryDetailResponseDto(
+                activityId,
+                LearningSource.SPEAKING,
+                new SpeakingHistoryDetailResponseDto(
+                        speakingSessionQueryService.toResponse(userId, session),
+                        speakingTurnQueryService.getResponses(userId, session.getId()),
+                        speakingEvaluationQueryService.getResponse(session.getId())
+                )
+        );
+    }
+
+    private LearningHistoryDetailResponseDto listeningDetail(
+            Long userId,
+            String activityId,
+            Long id
+    ) {
+        ListeningSession session = listeningSessionRepository
+                .findByIdAndUserId(id, userId)
+                .orElseThrow(this::notFound);
+        return new LearningHistoryDetailResponseDto(
+                activityId,
+                LearningSource.LISTENING,
+                listeningViewMapper.history(session)
         );
     }
 

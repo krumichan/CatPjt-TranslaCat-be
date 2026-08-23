@@ -86,6 +86,47 @@ public final class LanguageLearningErrorCode {
     public static final String FORBIDDEN =
             "FORBIDDEN";
 
+    public static final String LISTENING_SETTING_REQUIRED =
+            "LISTENING_SETTING_REQUIRED";
+    public static final String LISTENING_DAILY_LIMIT_EXCEEDED =
+            "LISTENING_DAILY_LIMIT_EXCEEDED";
+    public static final String LISTENING_INVALID_TASK_COMBINATION =
+            "LISTENING_INVALID_TASK_COMBINATION";
+    public static final String LISTENING_ACTIVE_SESSION_EXISTS =
+            "LISTENING_ACTIVE_SESSION_EXISTS";
+    public static final String LISTENING_SESSION_EXPIRED =
+            "LISTENING_SESSION_EXPIRED";
+    public static final String LISTENING_INVALID_STATE =
+            "LISTENING_INVALID_STATE";
+    public static final String LISTENING_ITEM_ALREADY_SUBMITTED =
+            "LISTENING_ITEM_ALREADY_SUBMITTED";
+    public static final String LISTENING_AUDIO_INVALID =
+            "LISTENING_AUDIO_INVALID";
+    public static final String LISTENING_RERECORD_LIMIT_EXCEEDED =
+            "LISTENING_RERECORD_LIMIT_EXCEEDED";
+    public static final String LISTENING_ANSWER_REVEALED =
+            "LISTENING_ANSWER_REVEALED";
+    public static final String LISTENING_PRACTICE_LIMIT_EXCEEDED =
+            "LISTENING_PRACTICE_LIMIT_EXCEEDED";
+    public static final String LISTENING_REPORT_AUDIO_EXPIRED =
+            "LISTENING_REPORT_AUDIO_EXPIRED";
+    public static final String LISTENING_REPORT_ALREADY_SUBMITTED =
+            "LISTENING_REPORT_ALREADY_SUBMITTED";
+    public static final String LISTENING_REPLACEMENT_LIMIT_EXCEEDED =
+            "LISTENING_REPLACEMENT_LIMIT_EXCEEDED";
+    public static final String AI_GENERATION_FAILED =
+            "AI_GENERATION_FAILED";
+    public static final String AI_TTS_FAILED =
+            "AI_TTS_FAILED";
+    public static final String AI_STT_FAILED =
+            "AI_STT_FAILED";
+    public static final String AI_EVALUATION_FAILED =
+            "AI_EVALUATION_FAILED";
+    public static final String AI_EXPLANATION_FAILED =
+            "AI_EXPLANATION_FAILED";
+    public static final String AI_SCHEMA_INVALID =
+            "AI_SCHEMA_INVALID";
+
     private LanguageLearningErrorCode() {
     }
 }

@@ -85,6 +85,8 @@ public final class LanguageLearningErrorCode {
             "SPEAKING_EVALUATION_SKIP_NOT_ALLOWED";
     public static final String FORBIDDEN =
             "FORBIDDEN";
+    public static final String DASHBOARD_SOURCE_INVALID =
+            "LANGUAGE_LEARNING_DASHBOARD_SOURCE_INVALID";
 
     public static final String LISTENING_SETTING_REQUIRED =
             "LISTENING_SETTING_REQUIRED";
@@ -98,6 +100,8 @@ public final class LanguageLearningErrorCode {
             "LISTENING_SESSION_EXPIRED";
     public static final String LISTENING_INVALID_STATE =
             "LISTENING_INVALID_STATE";
+    public static final String LISTENING_IDEMPOTENCY_CONFLICT =
+            "LISTENING_IDEMPOTENCY_CONFLICT";
     public static final String LISTENING_ITEM_ALREADY_SUBMITTED =
             "LISTENING_ITEM_ALREADY_SUBMITTED";
     public static final String LISTENING_AUDIO_INVALID =

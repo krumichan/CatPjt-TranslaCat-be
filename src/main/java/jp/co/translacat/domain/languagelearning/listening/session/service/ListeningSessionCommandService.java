@@ -10,6 +10,7 @@ import jp.co.translacat.domain.languagelearning.listening.daily.entity.Listening
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
 import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningDailySetQueryService;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
+import jp.co.translacat.domain.languagelearning.listening.policy.ListeningIdempotencyPolicy;
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningTaskSelectionPolicy;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
@@ -42,6 +43,7 @@ public class ListeningSessionCommandService {
     private final ListeningTaskResponseRepository responseRepository;
     private final ListeningDailySetQueryService dailySetQueryService;
     private final ListeningTaskSelectionPolicy taskSelectionPolicy;
+    private final ListeningIdempotencyPolicy idempotencyPolicy;
     private final ListeningPolicySettingQueryService policySettingService;
     private final LanguageLearningJsonCodec jsonCodec;
 
@@ -54,6 +56,12 @@ public class ListeningSessionCommandService {
             throw invalid("Listening Daily Set이 필요합니다.");
         }
 
+        Set<ListeningTaskType> selected = taskSelectionPolicy.validate(
+                request.selectedTaskTypes()
+        );
+        List<ListeningTaskType> ordered = selected.stream()
+                .sorted(Comparator.comparingInt(ListeningTaskType::ordinal))
+                .toList();
         String key = key(request.idempotencyKey());
         var existing = sessionRepository.findByUserIdAndIdempotencyKey(
                 userId,
@@ -61,6 +69,7 @@ public class ListeningSessionCommandService {
         );
 
         if (existing.isPresent()) {
+            validateIdempotentSession(existing.get(), request.dailySetId(), ordered);
             return existing.get().getId();
         }
 
@@ -90,12 +99,6 @@ public class ListeningSessionCommandService {
             throw invalid("재생 가능한 Listening 문항이 없습니다.");
         }
 
-        Set<ListeningTaskType> selected = taskSelectionPolicy.validate(
-                request.selectedTaskTypes()
-        );
-        List<ListeningTaskType> ordered = selected.stream()
-                .sorted(Comparator.comparingInt(ListeningTaskType::ordinal))
-                .toList();
         LocalDateTime now = LocalDateTime.now();
         ListeningSession session = ListeningSession.create(
                 dailySet.getUser(),
@@ -110,9 +113,11 @@ public class ListeningSessionCommandService {
         try {
             session = sessionRepository.saveAndFlush(session);
         } catch (DataIntegrityViolationException exception) {
-            return sessionRepository.findByUserIdAndIdempotencyKey(userId, key)
-                    .map(ListeningSession::getId)
+            ListeningSession concurrent = sessionRepository
+                    .findByUserIdAndIdempotencyKey(userId, key)
                     .orElseThrow(() -> exception);
+            validateIdempotentSession(concurrent, request.dailySetId(), ordered);
+            return concurrent.getId();
         }
 
         for (ListeningItem item : items) {
@@ -185,6 +190,24 @@ public class ListeningSessionCommandService {
         session.abandon(LocalDateTime.now());
 
         return true;
+    }
+
+    private void validateIdempotentSession(
+            ListeningSession existing,
+            Long requestedDailySetId,
+            List<ListeningTaskType> requestedTasks
+    ) {
+        List<ListeningTaskType> existingTasks = jsonCodec.read(
+                existing.getSelectedTaskTypesJson(),
+                new com.fasterxml.jackson.core.type.TypeReference<List<ListeningTaskType>>() {
+                }
+        );
+        idempotencyPolicy.requireSamePayload(
+                existing.getDailySet().getId(),
+                existingTasks,
+                requestedDailySetId,
+                requestedTasks
+        );
     }
 
     private void createAttempt(

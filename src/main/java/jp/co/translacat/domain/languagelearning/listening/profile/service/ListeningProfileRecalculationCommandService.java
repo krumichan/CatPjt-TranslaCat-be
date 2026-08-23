@@ -2,10 +2,12 @@ package jp.co.translacat.domain.languagelearning.listening.profile.service;
 
 import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningProfileMetric;
+import jp.co.translacat.domain.languagelearning.listening.dashboard.service.ListeningDashboardQueryService;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxTransactionService;
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningProfilePolicy;
 import jp.co.translacat.domain.languagelearning.listening.profile.entity.ListeningMetricHistory;
 import jp.co.translacat.domain.languagelearning.listening.profile.repository.ListeningMetricHistoryRepository;
+import jp.co.translacat.domain.languagelearning.listening.recommendation.service.ListeningRecommendationCommandService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,6 +24,8 @@ public class ListeningProfileRecalculationCommandService {
     private final ListeningItemAttemptRepository attemptRepository;
     private final ListeningMetricHistoryRepository historyRepository;
     private final ListeningProfilePolicy profilePolicy;
+    private final ListeningDashboardQueryService dashboardQueryService;
+    private final ListeningRecommendationCommandService recommendationCommandService;
     private final ListeningOutboxTransactionService outboxTransactionService;
 
     @Transactional
@@ -64,6 +68,12 @@ public class ListeningProfileRecalculationCommandService {
                 history.updateRecency(recency, finalWeight);
             }
         }
+
+        recommendationCommandService.refresh(
+                userId,
+                language,
+                dashboardQueryService.profiles(userId, language, null)
+        );
 
         outboxTransactionService.succeed(event.id(), LocalDateTime.now());
     }

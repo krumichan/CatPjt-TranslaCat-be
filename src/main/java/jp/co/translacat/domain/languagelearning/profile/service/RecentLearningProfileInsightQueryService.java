@@ -10,6 +10,8 @@ import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJson
 import jp.co.translacat.domain.languagelearning.daily.entity.WritingEvaluation;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.profile.dto.response.UnifiedProfileInsightResponseDto;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningWeaknessState;
+import jp.co.translacat.domain.languagelearning.listening.dashboard.service.ListeningDashboardQueryService;
 import jp.co.translacat.domain.languagelearning.profile.policy.LearningProfileAggregationWeightPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingEvaluationEligibilityDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingProfileSignalDto;
@@ -18,6 +20,7 @@ import jp.co.translacat.domain.languagelearning.speaking.evaluation.entity.Speak
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.repository.SpeakingEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import jp.co.translacat.domain.languagelearning.speaking.turn.repository.SpeakingTurnRepository;
+import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -44,6 +47,8 @@ public class RecentLearningProfileInsightQueryService {
     private final SpeakingTurnRepository speakingTurnRepository;
     private final LanguageLearningJsonCodec jsonCodec;
     private final LearningProfileAggregationWeightPolicy weightPolicy;
+    private final ListeningDashboardQueryService listeningDashboardQueryService;
+    private final LanguageLearningUserSettingQueryService userSettingQueryService;
 
     public List<UnifiedProfileInsightResponseDto> getInsights(
             Long userId,
@@ -70,6 +75,10 @@ public class RecentLearningProfileInsightQueryService {
                         : recency;
                 add(values, activity.source(), signal, weighted);
             }
+        }
+
+        if (source == null || source == LearningSource.LISTENING) {
+            addListeningInsights(userId, values);
         }
 
         return values.values().stream()
@@ -165,6 +174,47 @@ public class RecentLearningProfileInsightQueryService {
                 assistance,
                 deduplicate(result)
         );
+    }
+
+    private void addListeningInsights(
+            Long userId,
+            Map<String, Aggregated> values
+    ) {
+        var setting = userSettingQueryService.getOrCreateEntity(userId);
+        String learningLanguage = setting.getLearningLanguage();
+        if (learningLanguage == null || learningLanguage.isBlank()) {
+            return;
+        }
+        listeningDashboardQueryService.profiles(
+                userId,
+                learningLanguage,
+                null
+        ).stream()
+                .filter(value -> value.score() != null)
+                .forEach(value -> {
+                    String direction = value.weaknessState()
+                            == ListeningWeaknessState.ACTIVE
+                            || value.weaknessState()
+                            == ListeningWeaknessState.IMPROVING
+                            ? "WEAKNESS"
+                            : value.score() >= 75 ? "STRENGTH" : null;
+                    if (direction == null) {
+                        return;
+                    }
+                    Signal signal = new Signal(
+                            value.metric().name(),
+                            direction,
+                            "WEAKNESS".equals(direction)
+                                    ? value.metric().name().toLowerCase()
+                                    : null,
+                            1.0,
+                            null
+                    );
+                    int evidenceCount = Math.max(1, value.sampleCount());
+                    for (int index = 0; index < evidenceCount; index++) {
+                        add(values, LearningSource.LISTENING, signal, 1.0);
+                    }
+                });
     }
 
     private double speakingSignalWeight(

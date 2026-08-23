@@ -74,11 +74,51 @@ public class ApiExceptionAdvice {
     }
 
     @ExceptionHandler(BusinessException.class)
-    protected ResponseEntity<ResponseDto<ErrorDto>> handleBusinessException(BusinessException e) {
+    protected ResponseEntity<?> handleBusinessException(BusinessException e) {
         String responseMessage = this.trace(e);
         log.error("Business logic error: code={}, message={}", e.getErrorCode(), e.getMessage());
 
-        return this.entity(HttpStatus.BAD_REQUEST, e.getErrorCode(), responseMessage, e);
+        if (isListeningContractError(e.getErrorCode())) {
+            HttpStatus status = listeningBusinessStatus(e.getErrorCode());
+            ListeningErrorDto body = new ListeningErrorDto(
+                    e.getErrorCode(),
+                    "languageLearning.listening."
+                            + e.getErrorCode().toLowerCase(),
+                    false,
+                    null,
+                    null,
+                    null
+            );
+            ResponseDto<ListeningErrorDto> response =
+                    ResponseDto.<ListeningErrorDto>builder()
+                            .resultCode(status.value())
+                            .message(e.getMessage())
+                            .body(body)
+                            .createDate(LocalDateTime.now())
+                            .build();
+            return ResponseEntity.status(status).body(response);
+        }
+
+        return this.entity(
+                HttpStatus.BAD_REQUEST,
+                e.getErrorCode(),
+                responseMessage,
+                e
+        );
+    }
+
+    private boolean isListeningContractError(String errorCode) {
+        return errorCode != null
+                && (errorCode.startsWith("LISTENING_")
+                || errorCode.startsWith("AI_"));
+    }
+
+    private HttpStatus listeningBusinessStatus(String errorCode) {
+        if ("LISTENING_ACTIVE_SESSION_EXISTS".equals(errorCode)
+                || "LISTENING_IDEMPOTENCY_CONFLICT".equals(errorCode)) {
+            return HttpStatus.CONFLICT;
+        }
+        return HttpStatus.BAD_REQUEST;
     }
 
     @ExceptionHandler(AccessDeniedException.class)

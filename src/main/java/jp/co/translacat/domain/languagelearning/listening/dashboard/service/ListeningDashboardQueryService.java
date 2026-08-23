@@ -1,5 +1,9 @@
 package jp.co.translacat.domain.languagelearning.listening.dashboard.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+
+import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
+import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningProfileMetric;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningRecommendationStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
@@ -34,6 +38,7 @@ public class ListeningDashboardQueryService {
     private final LearningRecommendationRepository recommendationRepository;
     private final ListeningProfilePolicy profilePolicy;
     private final ListeningTaskEvaluationRepository evaluationRepository;
+    private final LanguageLearningJsonCodec jsonCodec;
 
     public List<ListeningApiContract.MetricProfileView> profiles(
             Long userId,
@@ -104,10 +109,15 @@ public class ListeningDashboardQueryService {
         }
 
         Map<Key, List<Double>> grouped = new LinkedHashMap<>();
-        source.forEach(value -> grouped.computeIfAbsent(
-                new Key(value.getTaskType(), value.getEvaluatedAt().toLocalDate()),
-                ignored -> new ArrayList<>()
-        ).add(value.getScore()));
+        source.stream()
+                .filter(value -> value.getScore() != null)
+                .forEach(value -> grouped.computeIfAbsent(
+                        new Key(
+                                value.getTaskType(),
+                                value.getEvaluatedAt().toLocalDate()
+                        ),
+                        ignored -> new ArrayList<>()
+                ).add(value.getScore()));
 
         return grouped.entrySet().stream()
                 .map(entry -> new ListeningApiContract.TaskTrendView(
@@ -122,6 +132,69 @@ public class ListeningDashboardQueryService {
                 .sorted(Comparator.comparing(
                         ListeningApiContract.TaskTrendView::date
                 ).thenComparing(value -> value.taskType().ordinal()))
+                .toList();
+    }
+
+    public List<ListeningApiContract.MetricTrendView> metricTrends(
+            Long userId,
+            String learningLanguage,
+            LocalDate from,
+            LocalDate to,
+            ListeningTaskType taskType
+    ) {
+        List<ListeningTaskEvaluation> source = evaluationRepository
+                .findOfficialTrendSource(
+                        userId,
+                        learningLanguage,
+                        from.atStartOfDay(),
+                        to.atTime(java.time.LocalTime.MAX)
+                ).stream()
+                .filter(value -> taskType == null
+                        || value.getTaskType() == taskType)
+                .toList();
+        record Key(ListeningTaskType task, String metric, LocalDate date) {
+        }
+
+        Map<Key, List<Double>> grouped = new LinkedHashMap<>();
+        for (ListeningTaskEvaluation evaluation : source) {
+            List<AiListeningContract.Metric> metrics = jsonCodec.read(
+                    evaluation.getMetricScoresJson(),
+                    new TypeReference<List<AiListeningContract.Metric>>() {
+                    }
+            );
+            for (AiListeningContract.Metric metric : metrics) {
+                if (metric == null
+                        || metric.type() == null
+                        || metric.type().isBlank()
+                        || metric.score() == null) {
+                    continue;
+                }
+                grouped.computeIfAbsent(
+                        new Key(
+                                evaluation.getTaskType(),
+                                metric.type().trim().toUpperCase(),
+                                evaluation.getEvaluatedAt().toLocalDate()
+                        ),
+                        ignored -> new ArrayList<>()
+                ).add(metric.score());
+            }
+        }
+
+        return grouped.entrySet().stream()
+                .map(entry -> new ListeningApiContract.MetricTrendView(
+                        entry.getKey().task(),
+                        entry.getKey().metric(),
+                        entry.getKey().date(),
+                        entry.getValue().stream()
+                                .mapToDouble(Double::doubleValue)
+                                .average().stream().boxed()
+                                .findFirst().orElse(null),
+                        entry.getValue().size()
+                ))
+                .sorted(Comparator
+                        .comparing(ListeningApiContract.MetricTrendView::date)
+                        .thenComparing(value -> value.taskType().ordinal())
+                        .thenComparing(ListeningApiContract.MetricTrendView::metric))
                 .toList();
     }
 

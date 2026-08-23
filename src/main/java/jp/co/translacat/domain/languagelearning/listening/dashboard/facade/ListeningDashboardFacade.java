@@ -44,20 +44,6 @@ public class ListeningDashboardFacade {
                         learningLanguage,
                         taskType
                 );
-        List<ListeningApiContract.MetricProfileView> recommendationProfiles =
-                taskType == null
-                        ? profiles
-                        : dashboardQueryService.profiles(
-                                userId,
-                                learningLanguage,
-                                null
-                        );
-        recommendationCommandService.refresh(
-                userId,
-                learningLanguage,
-                recommendationProfiles
-        );
-
         return new ListeningApiContract.DashboardV3View(
                 learningLanguage,
                 resolvedFrom,
@@ -74,6 +60,18 @@ public class ListeningDashboardFacade {
                         userId,
                         learningLanguage
                 )
+        );
+    }
+
+    public List<ListeningApiContract.MetricTrendView> metricTrends(
+            Long userId,
+            String learningLanguage,
+            LocalDate from,
+            LocalDate to,
+            ListeningTaskType taskType
+    ) {
+        return dashboardQueryService.metricTrends(
+                userId, learningLanguage, from, to, taskType
         );
     }
 

@@ -17,6 +17,7 @@ import jp.co.translacat.domain.languagelearning.listening.common.enums.Listening
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.service.ListeningAttemptFinalizationCommandService;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
+import jp.co.translacat.domain.languagelearning.listening.policy.ListeningIdempotencyPolicy;
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningTaskSelectionPolicy;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
@@ -28,6 +29,7 @@ import jp.co.translacat.global.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -49,6 +51,7 @@ public class ListeningAttemptCommandService {
     private final ListeningTaskResponseRepository responseRepository;
     private final ListeningPolicySettingQueryService policySettingService;
     private final ListeningTaskSelectionPolicy taskSelectionPolicy;
+    private final ListeningIdempotencyPolicy idempotencyPolicy;
     private final ListeningOutboxCommandService outboxCommandService;
     private final ListeningAttemptFinalizationCommandService finalizationService;
     private final ListeningAudioStoragePort storagePort;
@@ -329,6 +332,36 @@ public class ListeningAttemptCommandService {
             throw invalid("공식 Attempt 완료 후 연습할 수 있습니다.");
         }
 
+        Set<ListeningTaskType> selected = taskSelectionPolicy.validate(
+                request == null || request.selectedTaskTypes() == null
+                        ? jsonCodec.read(
+                                official.getSession().getSelectedTaskTypesJson(),
+                                new TypeReference<List<ListeningTaskType>>() {
+                                }
+                        )
+                        : request.selectedTaskTypes()
+        );
+        List<ListeningTaskType> ordered = selected.stream()
+                .sorted(Comparator.comparingInt(ListeningTaskType::ordinal))
+                .toList();
+        String key = request == null || request.idempotencyKey() == null
+                || request.idempotencyKey().isBlank()
+                ? "session:" + sessionId + ":item:" + itemId + ":practice"
+                : request.idempotencyKey().trim();
+
+        if (key.length() > 200) {
+            throw invalid("Listening idempotencyKey가 너무 깁니다.");
+        }
+
+        var existing = attemptRepository.findBySessionIdAndIdempotencyKey(
+                sessionId,
+                key
+        );
+        if (existing.isPresent()) {
+            validateIdempotentPractice(existing.get(), itemId, ordered);
+            return viewMapper.attempt(existing.get());
+        }
+
         int limit = policySettingService.get().getPracticeAttemptLimit();
         long used = attemptRepository.countBySessionIdAndItemIdAndEvaluationPurpose(
                 sessionId,
@@ -343,46 +376,25 @@ public class ListeningAttemptCommandService {
             );
         }
 
-        Set<ListeningTaskType> selected = taskSelectionPolicy.validate(
-                request == null || request.selectedTaskTypes() == null
-                        ? jsonCodec.read(
-                                official.getSession().getSelectedTaskTypesJson(),
-                                new TypeReference<List<ListeningTaskType>>() {
-                                }
-                        )
-                        : request.selectedTaskTypes()
-        );
-        String key = request == null || request.idempotencyKey() == null
-                || request.idempotencyKey().isBlank()
-                ? "session:" + sessionId + ":item:" + itemId + ":practice"
-                : request.idempotencyKey().trim();
-
-        if (key.length() > 200) {
-            throw invalid("Listening idempotencyKey가 너무 깁니다.");
+        ListeningItemAttempt practice;
+        try {
+            practice = attemptRepository.saveAndFlush(
+                    ListeningItemAttempt.create(
+                            official.getSession(),
+                            official.getItem(),
+                            2,
+                            ListeningEvaluationPurpose.PRACTICE,
+                            key,
+                            LocalDateTime.now()
+                    )
+            );
+        } catch (DataIntegrityViolationException exception) {
+            ListeningItemAttempt concurrent = attemptRepository
+                    .findBySessionIdAndIdempotencyKey(sessionId, key)
+                    .orElseThrow(() -> exception);
+            validateIdempotentPractice(concurrent, itemId, ordered);
+            return viewMapper.attempt(concurrent);
         }
-
-        var existing = attemptRepository.findBySessionIdAndIdempotencyKey(
-                sessionId,
-                key
-        );
-
-        if (existing.isPresent()) {
-            return viewMapper.attempt(existing.get());
-        }
-
-        ListeningItemAttempt practice = attemptRepository.saveAndFlush(
-                ListeningItemAttempt.create(
-                        official.getSession(),
-                        official.getItem(),
-                        2,
-                        ListeningEvaluationPurpose.PRACTICE,
-                        key,
-                        LocalDateTime.now()
-                )
-        );
-        List<ListeningTaskType> ordered = selected.stream()
-                .sorted(Comparator.comparingInt(ListeningTaskType::ordinal))
-                .toList();
 
         for (ListeningTaskType type : ListeningTaskType.values()) {
             responseRepository.save(ordered.contains(type)
@@ -393,6 +405,25 @@ public class ListeningAttemptCommandService {
         }
 
         return viewMapper.attempt(practice);
+    }
+
+    private void validateIdempotentPractice(
+            ListeningItemAttempt existing,
+            Long requestedItemId,
+            List<ListeningTaskType> requestedTasks
+    ) {
+        List<ListeningTaskType> existingTasks = responseRepository
+                .findAllByAttemptIdOrderByTaskTypeAsc(existing.getId())
+                .stream()
+                .filter(value -> value.getStatus() != ListeningTaskStatus.NOT_SELECTED)
+                .map(ListeningTaskResponse::getTaskType)
+                .toList();
+        idempotencyPolicy.requireSamePayload(
+                existing.getItem().getId(),
+                existingTasks,
+                requestedItemId,
+                requestedTasks
+        );
     }
 
     @Transactional

@@ -1,5 +1,8 @@
 package jp.co.translacat.domain.languagelearning.history.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
 import jp.co.translacat.domain.languagelearning.history.dto.response.LearningHistoryDetailResponseDto;
 import jp.co.translacat.domain.languagelearning.history.dto.response.LearningHistoryItemResponseDto;
@@ -28,12 +31,17 @@ public class LearningHistoryController {
 
     private final LearningHistoryQueryService historyQueryService;
 
+    @Operation(
+            summary = "Language Learning History 조회",
+            description = "Source와 Listening Task Type으로 학습 이력을 필터링합니다."
+    )
     @GetMapping
     public ResponseDto<List<LearningHistoryItemResponseDto>> getHistory(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) LearningSource source,
             @RequestParam(defaultValue = "30d") String period,
             @RequestParam(required = false) String status,
+            @Parameter(description = "LISTENING Source에 적용할 Task Filter")
             @RequestParam(required = false) ListeningTaskType taskType
     ) {
         return ResponseUtil.ok(
@@ -47,6 +55,10 @@ public class LearningHistoryController {
         );
     }
 
+    @Operation(
+            summary = "Language Learning History 상세 조회",
+            description = "Listening 상세에는 Reference/User Audio의 available, expired, retentionUntil, deletedAt 상태가 포함됩니다."
+    )
     @GetMapping("/{activityId}")
     public ResponseDto<LearningHistoryDetailResponseDto> getDetail(
             @AuthenticationPrincipal UserPrincipal principal,

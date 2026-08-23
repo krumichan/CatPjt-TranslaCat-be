@@ -230,7 +230,6 @@ public class AiServerListeningClient implements ListeningAiClient {
                         .path("detail");
                 resolvedCode = text(detail, "code", resolvedCode);
                 resolvedStage = text(detail, "failedStage", resolvedStage);
-                resolvedMessage = text(detail, "message", resolvedMessage);
                 if (detail.has("retryable")
                         && detail.get("retryable").isBoolean()) {
                     retryable = retryable

@@ -1,5 +1,7 @@
 package jp.co.translacat.domain.languagelearning.dashboard.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+
 import jp.co.translacat.domain.languagelearning.activity.entity.EvaluationMetricHistory;
 import jp.co.translacat.domain.languagelearning.activity.entity.LearningActivity;
 import jp.co.translacat.domain.languagelearning.activity.repository.EvaluationMetricHistoryRepository;
@@ -9,11 +11,16 @@ import jp.co.translacat.domain.languagelearning.common.enums.LearningActivitySta
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
 import jp.co.translacat.domain.languagelearning.common.enums.MetricEvaluationState;
 import jp.co.translacat.domain.languagelearning.common.enums.WritingEvaluationContext;
+import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.daily.entity.WritingEvaluation;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.MetricPointResponseDto;
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.SourceSkillTrendResponseDto;
+import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
+import jp.co.translacat.domain.languagelearning.listening.evaluation.entity.ListeningTaskEvaluation;
+import jp.co.translacat.domain.languagelearning.listening.evaluation.repository.ListeningTaskEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.profile.policy.LearningProfileAggregationWeightPolicy;
+import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -37,6 +44,9 @@ public class SourceSkillTrendQueryService {
     private final LearningActivityRepository activityRepository;
     private final EvaluationMetricHistoryRepository metricHistoryRepository;
     private final LearningProfileAggregationWeightPolicy weightPolicy;
+    private final ListeningTaskEvaluationRepository listeningEvaluationRepository;
+    private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final LanguageLearningJsonCodec jsonCodec;
 
     public SourceSkillTrendResponseDto get(
             Long userId,
@@ -85,6 +95,31 @@ public class SourceSkillTrendQueryService {
                 }
             }
             addSpeaking(scores, speaking, userId, from, to);
+        }
+
+        if (source == null || source == LearningSource.LISTENING) {
+            var setting = userSettingQueryService.getOrCreateEntity(userId);
+            String learningLanguage = setting.getLearningLanguage();
+            if (learningLanguage != null && !learningLanguage.isBlank()) {
+                List<ListeningTaskEvaluation> listening = listeningEvaluationRepository
+                        .findOfficialTrendSource(
+                                userId,
+                                learningLanguage,
+                                from.atStartOfDay(),
+                                to.atTime(java.time.LocalTime.MAX)
+                        );
+                samples += (int) listening.stream()
+                        .map(value -> value.getTaskResponse().getAttempt().getId())
+                        .distinct()
+                        .count();
+                for (ListeningTaskEvaluation evaluation : listening) {
+                    if (evaluation.getConfidence() != null) {
+                        confidenceSum += clamp(evaluation.getConfidence());
+                        confidenceCount++;
+                    }
+                }
+                addListening(scores, listening);
+            }
         }
 
         return new SourceSkillTrendResponseDto(
@@ -163,6 +198,44 @@ public class SourceSkillTrendQueryService {
         }
     }
 
+    private void addListening(
+            Map<String, Map<LocalDate, List<WeightedScore>>> target,
+            List<ListeningTaskEvaluation> evaluations
+    ) {
+        List<ListeningTaskEvaluation> ordered = evaluations.stream()
+                .sorted(Comparator.comparing(
+                        ListeningTaskEvaluation::getEvaluatedAt
+                ).reversed())
+                .toList();
+        for (int index = 0; index < ordered.size(); index++) {
+            ListeningTaskEvaluation evaluation = ordered.get(index);
+            List<AiListeningContract.Metric> metrics = jsonCodec.read(
+                    evaluation.getMetricScoresJson(),
+                    new TypeReference<List<AiListeningContract.Metric>>() {
+                    }
+            );
+            double recency = weightPolicy.recencyWeight(index, ordered.size());
+            for (AiListeningContract.Metric metric : metrics) {
+                if (metric == null
+                        || metric.type() == null
+                        || metric.type().isBlank()
+                        || metric.score() == null) {
+                    continue;
+                }
+                double weight = recency
+                        * clamp(metric.confidence())
+                        * Math.max(0.0, metric.weight());
+                add(
+                        target,
+                        metric.type().trim().toUpperCase(),
+                        evaluation.getEvaluatedAt().toLocalDate(),
+                        metric.score(),
+                        weight
+                );
+            }
+        }
+    }
+
     private Map<String, List<MetricPointResponseDto>> toResponse(
             Map<String, Map<LocalDate, List<WeightedScore>>> values
     ) {
@@ -213,6 +286,10 @@ public class SourceSkillTrendQueryService {
                 .getDailyItem()
                 .getDailySet()
                 .getLearningDate();
+    }
+
+    private double clamp(double value) {
+        return Math.max(0.0, Math.min(1.0, value));
     }
 
     private double round(double value) {

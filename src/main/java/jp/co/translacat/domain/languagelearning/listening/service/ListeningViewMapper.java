@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -84,6 +85,12 @@ public class ListeningViewMapper {
                                                 }
                                         )
                                         : List.of(),
+                                audioAvailability(
+                                        attempt.getItem().getAudioObjectKey(),
+                                        attempt.getItem().getAudioRetentionUntil(),
+                                        attempt.getItem().getAudioDeletedAt(),
+                                        LocalDateTime.now()
+                                ),
                                 attempt(attempt)
                             );
                         })
@@ -112,14 +119,21 @@ public class ListeningViewMapper {
     }
 
     public ListeningApiContract.TaskView task(ListeningTaskResponse value) {
+        ListeningApiContract.AudioAvailabilityView audioAvailability =
+                audioAvailability(
+                        value.getUserAudioObjectKey(),
+                        value.getAudioRetentionUntil(),
+                        value.getAudioDeletedAt(),
+                        LocalDateTime.now()
+                );
         return new ListeningApiContract.TaskView(
                 value.getId(),
                 value.getTaskType(),
                 value.getStatus(),
                 value.getAnswerText(),
-                value.getUserAudioObjectKey() != null
-                        && value.getAudioDeletedAt() == null,
+                audioAvailability.available(),
                 value.getAudioDurationMs(),
+                audioAvailability,
                 value.getRerecordCount(),
                 value.getAssistanceLevel(),
                 jsonCodec.read(
@@ -132,6 +146,23 @@ public class ListeningViewMapper {
                         .findFirstByTaskResponseIdOrderByEvaluatedAtDesc(
                                 value.getId()
                         ).map(this::evaluation).orElse(null)
+        );
+    }
+
+    static ListeningApiContract.AudioAvailabilityView audioAvailability(
+            String objectKey,
+            LocalDateTime retentionUntil,
+            LocalDateTime deletedAt,
+            LocalDateTime now
+    ) {
+        boolean expired = deletedAt != null
+                || (retentionUntil != null && retentionUntil.isBefore(now));
+        boolean available = objectKey != null && !expired;
+        return new ListeningApiContract.AudioAvailabilityView(
+                available,
+                expired,
+                retentionUntil,
+                deletedAt
         );
     }
 

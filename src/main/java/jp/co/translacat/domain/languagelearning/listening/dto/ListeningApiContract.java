@@ -115,6 +115,7 @@ public final class ListeningApiContract {
             String answerText,
             boolean audioUploaded,
             Integer audioDurationMs,
+            AudioAvailabilityView audioAvailability,
             int rerecordCount,
             ListeningAssistanceLevel assistanceLevel,
             List<AssistanceUsage> assistanceUsage,
@@ -252,6 +253,15 @@ public final class ListeningApiContract {
     ) {
     }
 
+    public record MetricTrendView(
+            ListeningTaskType taskType,
+            String metric,
+            LocalDate date,
+            Double averageScore,
+            int sampleCount
+    ) {
+    }
+
     public record RecommendationView(
             Long recommendationId,
             ListeningProfileMetric targetMetric,
@@ -289,7 +299,16 @@ public final class ListeningApiContract {
             int itemIndex,
             String sourceText,
             List<String> referenceMeanings,
+            AudioAvailabilityView referenceAudio,
             AttemptView attempt
+    ) {
+    }
+
+    public record AudioAvailabilityView(
+            boolean available,
+            boolean expired,
+            LocalDateTime retentionUntil,
+            LocalDateTime deletedAt
     ) {
     }
 

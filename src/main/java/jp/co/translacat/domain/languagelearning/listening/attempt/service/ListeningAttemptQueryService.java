@@ -9,7 +9,6 @@ import jp.co.translacat.domain.languagelearning.listening.attempt.entity.Listeni
 import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
 import jp.co.translacat.domain.languagelearning.listening.audio.model.ListeningAudioObject;
 import jp.co.translacat.domain.languagelearning.listening.audio.port.ListeningAudioStoragePort;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvaluationPurpose;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
@@ -44,10 +43,9 @@ public class ListeningAttemptQueryService {
             Long itemId
     ) {
         ListeningItemAttempt attempt = attemptRepository
-                .findBySessionIdAndItemIdAndEvaluationPurpose(
+                .findTopBySessionIdAndItemIdOrderByAttemptNoDesc(
                         sessionId,
-                        itemId,
-                        ListeningEvaluationPurpose.OFFICIAL
+                        itemId
                 ).filter(value -> value.getSession().getUser().getId()
                         .equals(userId))
                 .orElseThrow(() -> notFound("Listening 문항을 찾을 수 없습니다."));

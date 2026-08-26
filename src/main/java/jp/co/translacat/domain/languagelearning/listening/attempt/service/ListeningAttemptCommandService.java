@@ -12,6 +12,7 @@ import jp.co.translacat.domain.languagelearning.listening.common.enums.Listening
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvaluationPurpose;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
@@ -86,7 +87,7 @@ public class ListeningAttemptCommandService {
                 response,
                 request == null ? List.of() : request.assistanceUsage()
         );
-        attempt.getSession().touch(LocalDateTime.now());
+        touchSessionIfActive(attempt, LocalDateTime.now());
 
         return viewMapper.task(response);
     }
@@ -101,7 +102,7 @@ public class ListeningAttemptCommandService {
         ListeningItemAttempt attempt = mutableAttempt(userId, attemptId);
         ListeningTaskResponse response = selected(attemptId, taskType);
         applyAssistanceInternal(attempt, response, usage);
-        attempt.getSession().touch(LocalDateTime.now());
+        touchSessionIfActive(attempt, LocalDateTime.now());
 
         return viewMapper.task(response);
     }
@@ -162,7 +163,7 @@ public class ListeningAttemptCommandService {
             storagePort.delete(oldKey);
         }
 
-        attempt.getSession().touch(LocalDateTime.now());
+        touchSessionIfActive(attempt, LocalDateTime.now());
 
         return new ListeningApiContract.AudioUploadView(
                 response.getId(),
@@ -191,7 +192,7 @@ public class ListeningAttemptCommandService {
             return viewMapper.attempt(attempt);
         }
 
-        requireActive(attempt);
+        requireMutableSession(attempt);
         List<ListeningTaskResponse> selected = selectedResponses(attemptId);
 
         if (selected.stream().anyMatch(value -> !value.hasRequiredAnswer())) {
@@ -224,7 +225,7 @@ public class ListeningAttemptCommandService {
             }
         }
 
-        attempt.getSession().touch(now);
+        touchSessionIfActive(attempt, now);
 
         if (attempt.isAnswerRevealed()) {
             finalizationService.finalizeIfTerminal(attemptId);
@@ -253,7 +254,7 @@ public class ListeningAttemptCommandService {
                 );
                 response.markNotEvaluable();
         });
-        attempt.getSession().touch(LocalDateTime.now());
+        touchSessionIfActive(attempt, LocalDateTime.now());
         finalizationService.finalizeIfTerminal(attemptId);
 
         return new ListeningApiContract.RevealAnswerView(
@@ -276,7 +277,7 @@ public class ListeningAttemptCommandService {
             ListeningApiContract.RetryRequest request
     ) {
         ListeningItemAttempt attempt = ownedAttempt(userId, attemptId);
-        requireActive(attempt);
+        requireEvaluationRetryAllowed(attempt);
 
         if (request == null || request.taskType() == null) {
             throw invalid("재시도할 Listening Task가 필요합니다.");
@@ -326,7 +327,7 @@ public class ListeningAttemptCommandService {
                 ).filter(value -> value.getSession().getUser().getId()
                         .equals(userId))
                 .orElseThrow(() -> notFound("공식 Listening Attempt가 없습니다."));
-        requireActive(official);
+        requirePracticeCreationAllowed(official);
 
         if (!official.isFinalized()) {
             throw invalid("공식 Attempt 완료 후 연습할 수 있습니다.");
@@ -436,7 +437,7 @@ public class ListeningAttemptCommandService {
         LocalDateTime now = LocalDateTime.now();
         selectedResponses(attemptId).forEach(ListeningTaskResponse::skip);
         attempt.skip(now);
-        attempt.getSession().touch(now);
+        touchSessionIfActive(attempt, now);
 
         return viewMapper.attempt(attempt);
     }
@@ -473,7 +474,7 @@ public class ListeningAttemptCommandService {
 
     private ListeningItemAttempt mutableAttempt(Long userId, Long attemptId) {
         ListeningItemAttempt attempt = ownedAttempt(userId, attemptId);
-        requireActive(attempt);
+        requireMutableSession(attempt);
 
         if (attempt.isFinalized()) {
             throw new BusinessException(
@@ -490,6 +491,35 @@ public class ListeningAttemptCommandService {
                 .filter(value -> value.getSession().getUser().getId()
                         .equals(userId))
                 .orElseThrow(() -> notFound("Listening Attempt를 찾을 수 없습니다."));
+    }
+
+    private void requireMutableSession(ListeningItemAttempt attempt) {
+        if (attempt.isPractice()
+                && attempt.getSession().getStatus()
+                == ListeningSessionStatus.COMPLETED) {
+            return;
+        }
+
+        requireActive(attempt);
+    }
+
+    private void requirePracticeCreationAllowed(ListeningItemAttempt official) {
+        ListeningSessionStatus status = official.getSession().getStatus();
+
+        if (status == ListeningSessionStatus.COMPLETED) {
+            return;
+        }
+
+        requireActive(official);
+    }
+
+    private void touchSessionIfActive(
+            ListeningItemAttempt attempt,
+            LocalDateTime now
+    ) {
+        if (attempt.getSession().isActive()) {
+            attempt.getSession().touch(now);
+        }
     }
 
     private void requireActive(ListeningItemAttempt attempt) {
@@ -509,6 +539,18 @@ public class ListeningAttemptCommandService {
                     LanguageLearningErrorCode.LISTENING_SESSION_EXPIRED
             );
         }
+    }
+
+    private void requireEvaluationRetryAllowed(
+            ListeningItemAttempt attempt
+    ) {
+        ListeningSessionStatus status = attempt.getSession().getStatus();
+
+        if (status == ListeningSessionStatus.COMPLETED) {
+            return;
+        }
+
+        requireActive(attempt);
     }
 
     private ListeningTaskResponse selected(

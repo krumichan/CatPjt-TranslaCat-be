@@ -21,6 +21,12 @@ public interface ListeningItemAttemptRepository
             ListeningEvaluationPurpose purpose
     );
 
+    Optional<ListeningItemAttempt>
+    findTopBySessionIdAndItemIdOrderByAttemptNoDesc(
+            Long sessionId,
+            Long itemId
+    );
+
     Optional<ListeningItemAttempt> findBySessionIdAndIdempotencyKey(
             Long sessionId,
             String idempotencyKey

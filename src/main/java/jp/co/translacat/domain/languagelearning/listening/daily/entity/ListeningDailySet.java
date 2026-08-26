@@ -189,6 +189,18 @@ public class ListeningDailySet extends BaseAuditable {
         this.status = ListeningDailySetStatus.FAILED;
     }
 
+    public void restartGeneration() {
+        if (status != ListeningDailySetStatus.FAILED
+                || physicalItemCount != 0) {
+            throw new IllegalStateException(
+                    "실패한 초기 Listening 생성만 다시 시도할 수 있습니다."
+            );
+        }
+        generationVersion = null;
+        failureReason = null;
+        status = ListeningDailySetStatus.GENERATING;
+    }
+
     public void registerCompletedLearning() {
         if (completedItemCount < targetItemCount) {
             completedItemCount++;

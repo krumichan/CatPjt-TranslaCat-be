@@ -5,6 +5,7 @@ import jp.co.translacat.domain.languagelearning.listening.audio.model.ListeningA
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
 import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningDailySetCommandService;
 import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningDailySetQueryService;
+import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningGenerationRetryCommandService;
 import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningTtsRetryCommandService;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 
@@ -18,6 +19,7 @@ public class ListeningDailySetFacade {
 
     private final ListeningDailySetCommandService commandService;
     private final ListeningDailySetQueryService queryService;
+    private final ListeningGenerationRetryCommandService generationRetryCommandService;
     private final ListeningTtsRetryCommandService ttsRetryCommandService;
     private final ListeningAttemptQueryService attemptQueryService;
 
@@ -26,6 +28,18 @@ public class ListeningDailySetFacade {
             ListeningApiContract.DailySetCreateRequest request
     ) {
         ListeningDailySet dailySet = commandService.getOrCreate(userId, request);
+
+        return queryService.view(userId, dailySet);
+    }
+
+    public ListeningApiContract.DailySetView retryGeneration(
+            Long userId,
+            Long dailySetId
+    ) {
+        ListeningDailySet dailySet = generationRetryCommandService.retry(
+                userId,
+                dailySetId
+        );
 
         return queryService.view(userId, dailySet);
     }

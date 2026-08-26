@@ -16,7 +16,6 @@ public class ResponseDto<T> {
         @NonNull
         private String message;
 
-        @NonNull
         private T body;
 
         private String guid;

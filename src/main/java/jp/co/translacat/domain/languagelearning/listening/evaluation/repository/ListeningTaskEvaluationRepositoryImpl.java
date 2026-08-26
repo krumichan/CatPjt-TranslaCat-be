@@ -2,7 +2,12 @@ package jp.co.translacat.domain.languagelearning.listening.evaluation.repository
 
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
+import jp.co.translacat.domain.languagelearning.listening.attempt.entity.QListeningItemAttempt;
+import jp.co.translacat.domain.languagelearning.listening.daily.entity.QListeningDailySet;
+import jp.co.translacat.domain.languagelearning.listening.daily.entity.QListeningItem;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.entity.ListeningTaskEvaluation;
+import jp.co.translacat.domain.languagelearning.listening.response.entity.QListeningTaskResponse;
+import jp.co.translacat.domain.languagelearning.listening.session.entity.QListeningSession;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,16 +32,26 @@ public class ListeningTaskEvaluationRepositoryImpl
             LocalDateTime from,
             LocalDateTime to
     ) {
+        QListeningTaskResponse taskResponse =
+                new QListeningTaskResponse("taskResponse");
+        QListeningItemAttempt attempt =
+                new QListeningItemAttempt("attempt");
+        QListeningSession session = new QListeningSession("session");
+        QListeningItem item = new QListeningItem("item");
+        QListeningDailySet dailySet = new QListeningDailySet("dailySet");
+
         return queryFactory
                 .selectFrom(listeningTaskEvaluation)
+                .join(listeningTaskEvaluation.taskResponse, taskResponse)
+                .join(taskResponse.attempt, attempt)
+                .join(attempt.session, session)
+                .join(attempt.item, item)
+                .join(item.dailySet, dailySet)
                 .where(
-                        listeningTaskEvaluation.taskResponse.attempt.session.user.id
-                                .eq(userId),
-                        listeningTaskEvaluation.taskResponse.attempt.item.dailySet
-                                .learningLanguage.eq(learningLanguage),
-                        listeningTaskEvaluation.taskResponse.attempt.official.isTrue(),
-                        listeningTaskEvaluation.taskResponse.attempt.answerRevealed
-                                .isFalse(),
+                        session.user.id.eq(userId),
+                        dailySet.learningLanguage.eq(learningLanguage),
+                        attempt.official.isTrue(),
+                        attempt.answerRevealed.isFalse(),
                         listeningTaskEvaluation.evaluable.isTrue(),
                         listeningTaskEvaluation.evaluatedAt.between(from, to)
                 )

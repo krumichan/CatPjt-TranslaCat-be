@@ -3,10 +3,15 @@ package jp.co.translacat.domain.languagelearning.listening.daily.model;
 public record ListeningGenerationCommand(
         Long replacementForItemId,
         Integer logicalItemIndex,
-        int replacementSequence
+        int replacementSequence,
+        int manualRetryAttempt
 ) {
     public static ListeningGenerationCommand initial() {
-        return new ListeningGenerationCommand(null, null, 0);
+        return new ListeningGenerationCommand(null, null, 0, 0);
+    }
+
+    public static ListeningGenerationCommand manualRetry(int attempt) {
+        return new ListeningGenerationCommand(null, null, 0, attempt);
     }
 
     public boolean replacement() {

@@ -221,35 +221,37 @@ public class ListeningEvaluationTransactionService {
         int manualLimit = policySettingService.get()
                 .getManualRetryLimit();
 
-        if (exhausted && response.getManualRetryCount() >= manualLimit) {
-            response.markNotEvaluable();
-            String version = "system-not-evaluable-" + response.getId()
-                    + "-" + response.getManualRetryCount();
+        if (exhausted) {
+            if (response.getManualRetryCount() >= manualLimit) {
+                response.markNotEvaluable();
+                String version = "system-not-evaluable-" + response.getId()
+                        + "-" + response.getManualRetryCount();
 
-            if (evaluationRepository
-                    .findByTaskResponseIdAndEvaluationVersion(
-                            response.getId(),
-                            version
-                    ).isEmpty()) {
-                evaluationRepository.save(ListeningTaskEvaluation.create(
-                        response,
-                        response.getTaskType(),
-                        null,
-                        null,
-                        false,
-                        "[]",
-                        "{}",
-                        "[]",
-                        "[]",
-                        "[]",
-                        "[]",
-                        "[]",
-                        "{}",
-                        version,
-                        ListeningProfilePolicy.VERSION,
-                        errorCode,
-                        LocalDateTime.now()
-                ));
+                if (evaluationRepository
+                        .findByTaskResponseIdAndEvaluationVersion(
+                                response.getId(),
+                                version
+                        ).isEmpty()) {
+                    evaluationRepository.save(ListeningTaskEvaluation.create(
+                            response,
+                            response.getTaskType(),
+                            null,
+                            null,
+                            false,
+                            "[]",
+                            "{}",
+                            "[]",
+                            "[]",
+                            "[]",
+                            "[]",
+                            "[]",
+                            "{}",
+                            version,
+                            ListeningProfilePolicy.VERSION,
+                            errorCode,
+                            LocalDateTime.now()
+                    ));
+                }
             }
 
             finalizationService.finalizeIfTerminal(attempt.getId());

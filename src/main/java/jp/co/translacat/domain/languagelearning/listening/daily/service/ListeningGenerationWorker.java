@@ -8,6 +8,7 @@ import jp.co.translacat.domain.languagelearning.listening.setting.service.Listen
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningAiException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
 
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ListeningGenerationWorker {
 
     private final ListeningGenerationTransactionService transactionService;
@@ -42,9 +44,29 @@ public class ListeningGenerationWorker {
             );
             transactionService.apply(work, response);
         } catch (ListeningAiException exception) {
+            log.warn(
+                    "Listening generation AI call failed. eventId={}, "
+                            + "dailySetId={}, attempt={}, errorCode={}, "
+                            + "failedStage={}, retryable={}",
+                    event.id(),
+                    event.aggregateId(),
+                    event.attemptCount(),
+                    exception.getErrorCode(),
+                    exception.getFailedStage(),
+                    exception.isRetryable(),
+                    exception
+            );
             fail(work, event, exception.getMessage(), exception.isRetryable(),
                     exception.getRetryAfter());
         } catch (RuntimeException exception) {
+            log.warn(
+                    "Listening generation failed before completion. "
+                            + "eventId={}, dailySetId={}, attempt={}",
+                    event.id(),
+                    event.aggregateId(),
+                    event.attemptCount(),
+                    exception
+            );
             fail(work, event, exception.getMessage(), false, Duration.ZERO);
         }
     }
@@ -66,8 +88,13 @@ public class ListeningGenerationWorker {
                 LocalDateTime.now()
         );
 
-        if (result.exhausted() && work != null) {
-            transactionService.failPermanently(work, reason);
+        if (!result.exhausted()) {
+            return;
         }
+        if (work != null) {
+            transactionService.failPermanently(work, reason);
+            return;
+        }
+        transactionService.failPermanently(event.aggregateId(), reason);
     }
 }

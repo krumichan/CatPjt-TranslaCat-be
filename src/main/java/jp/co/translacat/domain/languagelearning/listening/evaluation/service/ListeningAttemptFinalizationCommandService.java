@@ -29,6 +29,7 @@ public class ListeningAttemptFinalizationCommandService {
 
     private static final Set<ListeningTaskStatus> TERMINAL = Set.of(
             ListeningTaskStatus.EVALUATED,
+            ListeningTaskStatus.EVALUATION_FAILED,
             ListeningTaskStatus.NOT_EVALUABLE,
             ListeningTaskStatus.SKIPPED
     );

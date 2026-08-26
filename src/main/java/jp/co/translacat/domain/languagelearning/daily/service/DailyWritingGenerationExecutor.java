@@ -20,7 +20,7 @@ public class DailyWritingGenerationExecutor {
     private static final int FAILURE_MESSAGE_MAX_LENGTH = 1000;
 
     private final LanguageLearningAiClient aiClient;
-    private final DailyWritingItemCommandService itemCommandService;
+    private final DailyWritingGenerationStateCommandService stateCommandService;
     private final DailyWritingSnapshotService snapshotService;
     private final DailyWritingGenerationRequestFactory requestFactory;
     private final DailyWritingGenerationResponseValidator responseValidator;
@@ -29,7 +29,11 @@ public class DailyWritingGenerationExecutor {
             DailyWritingSet dailySet,
             DailyWritingSnapshot snapshot
     ) {
-        dailySet.restartGeneration(snapshotService.write(snapshot));
+        Long dailySetId = dailySet.getId();
+        stateCommandService.markGenerating(
+                dailySetId,
+                snapshotService.write(snapshot)
+        );
 
         try {
             AiDailyWritingGenerationResponseDto response =
@@ -43,18 +47,19 @@ public class DailyWritingGenerationExecutor {
                     snapshot.difficultyDistribution()
             );
 
-            itemCommandService.createAll(
-                    dailySet,
-                    response.items()
+            return stateCommandService.complete(
+                    dailySetId,
+                    response.items(),
+                    response.promptVersion()
             );
-            dailySet.ready(response.promptVersion());
-
-            return dailySet;
         } catch (BusinessException e) {
-            dailySet.fail(e.getMessage());
+            stateCommandService.fail(dailySetId, trimMessage(e.getMessage()));
             throw e;
         } catch (Exception e) {
-            dailySet.fail(trimMessage(e.getMessage()));
+            stateCommandService.fail(
+                    dailySetId,
+                    trimMessage(e.getMessage())
+            );
             throw new BusinessException(
                     "Daily Writing 문제 생성에 실패했습니다.",
                     LanguageLearningErrorCode.DAILY_SET_GENERATION_FAILED

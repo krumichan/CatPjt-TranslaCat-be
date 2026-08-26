@@ -35,7 +35,8 @@ public class Base {
                 this.createdBy = SecurityUtil.getUsername();
             } catch (Exception e) {
                 this.createdBy = "SYSTEM";
-                log.warn("Unable to get current username for createdBy. Falling back to 'SYSTEM'.", e);
+//                log.warn("Unable to get current username for createdBy. Falling back to 'SYSTEM'.", e);
+                log.warn("Unable to get current username for createdBy. Falling back to 'SYSTEM'.");
             }
         }
     }

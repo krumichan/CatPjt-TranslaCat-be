@@ -231,8 +231,15 @@ public class LanguageLearningDashboardQueryService {
             int evaluated,
             int total
     ) {
+        Double resolvedScore;
+        if (recentScore == null) {
+            resolvedScore = latestAverage(trend);
+        } else {
+            resolvedScore = round(recentScore);
+        }
+
         return new DashboardResponseDto.ActivityPerformanceItemView(
-                recentScore == null ? latestAverage(trend) : round(recentScore),
+                resolvedScore,
                 new DashboardResponseDto.CoverageView(evaluated, total),
                 new DashboardResponseDto.TodayProgressView(
                         completed,

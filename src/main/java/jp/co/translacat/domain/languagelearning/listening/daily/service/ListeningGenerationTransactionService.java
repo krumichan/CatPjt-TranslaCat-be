@@ -117,7 +117,7 @@ public class ListeningGenerationTransactionService {
                         ),
                         policy.getProfilePolicyVersion(),
                         policy.getModelConfigVersion(),
-                        0
+                        command.manualRetryAttempt()
                 );
 
         return new GenerationWork(
@@ -214,6 +214,16 @@ public class ListeningGenerationTransactionService {
         ).orElseThrow();
 
         if (!work.command().replacement()) {
+            set.fail(reason);
+        }
+    }
+
+    @Transactional
+    public void failPermanently(Long dailySetId, String reason) {
+        ListeningDailySet set = dailySetRepository.findById(dailySetId)
+                .orElseThrow();
+
+        if (set.getPhysicalItemCount() == 0 && !set.isUsable()) {
             set.fail(reason);
         }
     }

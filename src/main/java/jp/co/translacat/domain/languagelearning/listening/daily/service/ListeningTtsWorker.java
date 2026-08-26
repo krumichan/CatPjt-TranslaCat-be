@@ -11,6 +11,7 @@ import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCod
 import jp.co.translacat.global.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
 
@@ -19,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ListeningTtsWorker {
@@ -37,12 +39,46 @@ public class ListeningTtsWorker {
     public void process(ListeningOutboxTransactionService.ClaimedEvent event) {
         ListeningTtsTransactionService.TtsWork work = null;
 
+        log.info(
+                "Listening TTS worker started. eventId={} aggregateId={} attemptCount={}",
+                event.id(), event.aggregateId(), event.attemptCount()
+        );
+
         try {
             work = transactionService.prepare(event);
+            log.info(
+                    "Listening TTS request prepared. eventId={} itemId={} requestId={} "
+                            + "voice={} contentHash={}",
+                    event.id(),
+                    work.request().itemId(),
+                    work.request().requestId(),
+                    work.request().voice().voiceKey(),
+                    shortHash(work.request().contentHash())
+            );
             AiListeningContract.TtsResponse response =
                     aiClient.synthesize(work.request());
+            log.info(
+                    "Listening TTS synthesize completed. eventId={} itemId={} status={} "
+                            + "audioReference={}",
+                    event.id(),
+                    work.request().itemId(),
+                    response == null ? null : response.status(),
+                    response == null || response.audio() == null
+                            ? null : response.audio().audioReference()
+            );
             validate(work, response);
-            byte[] audio = aiClient.getAudio(response.audio().audioReference());
+            String audioReference = response.audio().audioReference();
+            log.info(
+                    "Listening TTS audio download started. eventId={} itemId={} "
+                            + "audioReference={}",
+                    event.id(), work.request().itemId(), audioReference
+            );
+            byte[] audio = aiClient.getAudio(audioReference);
+            log.info(
+                    "Listening TTS audio download completed. eventId={} itemId={} "
+                            + "audioReference={} bytes={}",
+                    event.id(), work.request().itemId(), audioReference, audio.length
+            );
             String contentType = contentType(response.audio().format());
             audioValidator.validate(
                     audio,
@@ -57,10 +93,32 @@ public class ListeningTtsWorker {
             );
             storagePort.store(work.objectKey(), audio, contentType);
             transactionService.apply(work, response, contentType);
+            log.info(
+                    "Listening TTS worker completed. eventId={} itemId={} objectKey={} "
+                            + "contentType={} bytes={}",
+                    event.id(), work.request().itemId(), work.objectKey(),
+                    contentType, audio.length
+            );
         } catch (ListeningAiException exception) {
+            log.warn(
+                    "Listening TTS AI call failed. eventId={} itemId={} code={} stage={} "
+                            + "retryable={} message={}",
+                    event.id(),
+                    work == null ? event.aggregateId() : work.request().itemId(),
+                    exception.getErrorCode(),
+                    exception.getFailedStage(),
+                    exception.isRetryable(),
+                    exception.getMessage()
+            );
             fail(work, event, exception.getMessage(), exception.isRetryable(),
                     exception.getRetryAfter());
         } catch (RuntimeException exception) {
+            log.error(
+                    "Listening TTS worker failed unexpectedly. eventId={} itemId={}",
+                    event.id(),
+                    work == null ? event.aggregateId() : work.request().itemId(),
+                    exception
+            );
             fail(work, event, exception.getMessage(), false, Duration.ZERO);
         }
     }
@@ -153,6 +211,13 @@ public class ListeningTtsWorker {
                     result.exhausted()
             );
         }
+    }
+
+    private String shortHash(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.length() <= 12 ? value : value.substring(0, 12);
     }
 
     private String contentType(String format) {

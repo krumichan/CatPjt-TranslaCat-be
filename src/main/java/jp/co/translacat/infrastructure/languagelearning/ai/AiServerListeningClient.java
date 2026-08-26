@@ -11,6 +11,7 @@ import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCod
 import jp.co.translacat.infrastructure.client.legacy.ExternalApiClient;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -25,6 +26,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AiServerListeningClient implements ListeningAiClient {
@@ -67,17 +69,32 @@ public class AiServerListeningClient implements ListeningAiClient {
     @Override
     public byte[] getAudio(String audioReference) {
         try {
+            log.info(
+                    "AI Listening audio GET started. audioReference={}",
+                    audioReference
+            );
             String reference = UriUtils.encodePathSegment(
                     audioReference,
                     StandardCharsets.UTF_8
             );
-            return apiClient.getBytesOnce(
+            byte[] audio = apiClient.getBytesOnce(
                     aiServerUrl
                             + "/api/v1/language-learning/listening/audio/"
                             + reference,
                     headers()
             );
+            log.info(
+                    "AI Listening audio GET completed. audioReference={} bytes={}",
+                    audioReference, audio.length
+            );
+            return audio;
         } catch (RuntimeException exception) {
+            log.warn(
+                    "AI Listening audio GET failed. audioReference={} exceptionType={} message={}",
+                    audioReference,
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage()
+            );
             throw map(exception, "TTS", null);
         }
     }
@@ -172,13 +189,31 @@ public class AiServerListeningClient implements ListeningAiClient {
             Long resourceId
     ) {
         try {
-            return apiClient.postOnce(
+            long startedAt = System.nanoTime();
+            log.info(
+                    "AI Listening POST started. stage={} resourceId={} path={}",
+                    stage, resourceId, path
+            );
+            R response = apiClient.postOnce(
                     aiServerUrl + path,
                     request,
                     headers(),
                     responseType
             );
+            log.info(
+                    "AI Listening POST completed. stage={} resourceId={} path={} latencyMs={}",
+                    stage, resourceId, path,
+                    Duration.ofNanos(System.nanoTime() - startedAt).toMillis()
+            );
+            return response;
         } catch (RuntimeException exception) {
+            log.warn(
+                    "AI Listening POST failed. stage={} resourceId={} path={} "
+                            + "exceptionType={} message={}",
+                    stage, resourceId, path,
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage()
+            );
             throw map(exception, stage, resourceId);
         }
     }
@@ -200,24 +235,20 @@ public class AiServerListeningClient implements ListeningAiClient {
             String stage,
             Long resourceId
     ) {
-        Throwable current = exception;
-        while (current.getCause() != null && current != current.getCause()) {
-            if (current instanceof WebClientResponseException
-                    || current instanceof TimeoutException
-                    || current instanceof java.net.SocketTimeoutException) {
-                break;
-            }
-            current = current.getCause();
-        }
+        Throwable current = resolveRelevantCause(exception);
 
-        boolean retryable = current instanceof TimeoutException
-                || current instanceof java.net.SocketTimeoutException;
+        boolean retryable = isRetryableTransportFailure(current);
         Duration retryAfter = Duration.ofSeconds(1);
         String resolvedCode = errorCode(stage);
         String resolvedStage = stage;
         String resolvedMessage = "AI Listening " + stage + " 호출에 실패했습니다.";
         if (current instanceof WebClientResponseException response) {
             int status = response.getStatusCode().value();
+            log.warn(
+                    "AI Listening downstream HTTP error. stage={} resourceId={} status={} body={}",
+                    stage, resourceId, status,
+                    truncate(response.getResponseBodyAsString(), 2000)
+            );
             retryable = status == 429 || status >= 500;
             if (status == 429) {
                 retryAfter = parseRetryAfter(
@@ -250,6 +281,39 @@ public class AiServerListeningClient implements ListeningAiClient {
         );
     }
 
+    private Throwable resolveRelevantCause(Throwable exception) {
+        Throwable current = exception;
+        Throwable retryableTransport = null;
+
+        while (current != null) {
+            if (current instanceof WebClientResponseException) {
+                return current;
+            }
+            if (isRetryableTransportFailure(current)) {
+                retryableTransport = current;
+            }
+            Throwable next = current.getCause();
+            if (next == null || next == current) {
+                break;
+            }
+            current = next;
+        }
+
+        return retryableTransport == null ? current : retryableTransport;
+    }
+
+    private boolean isRetryableTransportFailure(Throwable throwable) {
+        return throwable instanceof TimeoutException
+                || throwable instanceof java.net.SocketTimeoutException
+                || throwable instanceof java.net.ConnectException
+                || throwable instanceof java.net.UnknownHostException
+                || throwable instanceof java.net.NoRouteToHostException
+                || throwable instanceof
+                org.springframework.web.reactive.function.client.WebClientRequestException
+                || throwable instanceof
+                io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+    }
+
     private String text(JsonNode node, String field, String fallback) {
         JsonNode value = node == null ? null : node.get(field);
         return value == null || !value.isTextual() || value.asText().isBlank()
@@ -267,6 +331,13 @@ public class AiServerListeningClient implements ListeningAiClient {
                     LanguageLearningErrorCode.AI_EXPLANATION_FAILED;
             default -> LanguageLearningErrorCode.AI_EVALUATION_FAILED;
         };
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength) + "...<truncated>";
     }
 
     private Duration parseRetryAfter(String value) {

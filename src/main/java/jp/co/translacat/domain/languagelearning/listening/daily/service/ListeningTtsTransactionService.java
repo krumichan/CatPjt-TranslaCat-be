@@ -26,6 +26,8 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class ListeningTtsTransactionService {
 
+    private static final String DEFAULT_LISTENING_VOICE_ID = "Kore";
+
     private final ListeningItemRepository itemRepository;
     private final ListeningDailySetRepository dailySetRepository;
     private final ListeningPolicySettingQueryService policySettingService;
@@ -44,7 +46,7 @@ public class ListeningTtsTransactionService {
         String requestId = "be-listening-tts-" + event.id();
         AiListeningContract.Voice voice = new AiListeningContract.Voice(
                 item.getDailySet().getLearningLanguage(),
-                "default",
+                DEFAULT_LISTENING_VOICE_ID,
                 "v1",
                 "STANDARD"
         );
@@ -145,7 +147,8 @@ public class ListeningTtsTransactionService {
                     new ListeningGenerationCommand(
                             item.getId(),
                             item.getItemIndex(),
-                            next
+                            next,
+                            0
                     ),
                     "listening:set:" + set.getId()
                             + ":replace:" + item.getItemIndex() + ":" + next

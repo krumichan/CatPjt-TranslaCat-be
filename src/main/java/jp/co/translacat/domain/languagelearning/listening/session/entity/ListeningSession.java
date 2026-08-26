@@ -173,7 +173,7 @@ public class ListeningSession extends BaseAuditable {
             long durationMs,
             LocalDateTime now
     ) {
-        requireActive();
+        requireLearningRecordable();
         completedItemCount++;
         if (evaluated) {
             evaluatedItemCount++;
@@ -198,6 +198,15 @@ public class ListeningSession extends BaseAuditable {
         activeKey = null;
         completedAt = now;
         lastActivityAt = now;
+    }
+
+    private void requireLearningRecordable() {
+        if (status != ListeningSessionStatus.IN_PROGRESS
+                && status != ListeningSessionStatus.COMPLETED) {
+            throw new IllegalStateException(
+                    "학습 결과를 반영할 수 없는 Listening Session입니다."
+            );
+        }
     }
 
     private void requireActive() {

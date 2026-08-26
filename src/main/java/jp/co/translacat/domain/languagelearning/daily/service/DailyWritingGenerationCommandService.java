@@ -10,10 +10,9 @@ import jp.co.translacat.global.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 
@@ -27,10 +26,6 @@ public class DailyWritingGenerationCommandService {
     private final DailyWritingSnapshotService snapshotService;
     private final DailyWritingGenerationExecutor generationExecutor;
 
-    @Transactional(
-            isolation = Isolation.READ_COMMITTED,
-            noRollbackFor = BusinessException.class
-    )
     public DailyWritingSet getOrGenerateToday(Long userId) {
         DailyWritingGenerationContext context =
                 generationContextService.prepare(userId);
@@ -66,7 +61,6 @@ public class DailyWritingGenerationCommandService {
         return generationExecutor.execute(dailySet, snapshot);
     }
 
-    @Transactional(noRollbackFor = BusinessException.class)
     public DailyWritingSet retryFailedGeneration(Long dailySetId) {
         DailyWritingSet dailySet = getDailySet(dailySetId);
 
@@ -96,7 +90,7 @@ public class DailyWritingGenerationCommandService {
                     );
 
             return getDailySet(claim.dailySetId());
-        } catch (DataIntegrityViolationException e) {
+        } catch (DataIntegrityViolationException | PessimisticLockingFailureException e) {
             return dailyWritingSetRepository
                     .findByUserIdAndLearningDate(userId, learningDate)
                     .orElseThrow(() -> new BusinessException(

@@ -243,13 +243,14 @@ public class ListeningItemAttempt extends BaseAuditable {
                     "수동 평가 재시도 가능 횟수를 초과했습니다."
             );
         }
-        if (isFinalized()) {
+        if (progressApplied) {
             throw new IllegalStateException(
-                    "완료된 평가를 다시 시도할 수 없습니다."
+                    "이미 학습 진행도에 반영된 평가를 다시 시도할 수 없습니다."
             );
         }
         manualEvaluationRetryCount++;
         status = ListeningAttemptStatus.SUBMITTED;
+        evaluatedAt = null;
         errorCode = null;
     }
 

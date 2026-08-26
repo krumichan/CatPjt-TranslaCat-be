@@ -4,6 +4,8 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import jp.co.translacat.global.exception.ExternalApiInvocationException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
@@ -13,11 +15,15 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import reactor.core.publisher.Mono;
+
 import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class ExternalApiClient {
+
+    private static final int MAX_BINARY_RESPONSE_BYTES = 10 * 1024 * 1024;
 
     private final WebClient webClient;
 
@@ -206,8 +212,25 @@ public class ExternalApiClient {
         return webClient.get()
                 .uri(uri)
                 .headers(h -> headers.forEach(h::add))
-                .retrieve()
-                .bodyToMono(byte[].class)
+                .exchangeToMono(response -> {
+                    if (!response.statusCode().is2xxSuccessful()) {
+                        return response.createException().flatMap(Mono::error);
+                    }
+                    return DataBufferUtils.join(
+                                    response.bodyToFlux(DataBuffer.class),
+                                    MAX_BINARY_RESPONSE_BYTES
+                            )
+                            .map(buffer -> {
+                                try {
+                                    byte[] bytes = new byte[buffer.readableByteCount()];
+                                    buffer.read(bytes);
+                                    return bytes;
+                                } finally {
+                                    DataBufferUtils.release(buffer);
+                                }
+                            })
+                            .defaultIfEmpty(new byte[0]);
+                })
                 .block();
     }
 

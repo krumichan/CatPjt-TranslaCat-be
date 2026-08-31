@@ -58,7 +58,7 @@ public class ListeningMetricHistory extends BaseAuditable {
     private String learningLanguage;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "task_type", nullable = false, length = 40)
+    @Column(name = "task_type", length = 40)
     private ListeningTaskType taskType;
 
     @Enumerated(EnumType.STRING)

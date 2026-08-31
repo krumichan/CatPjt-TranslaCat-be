@@ -198,6 +198,18 @@ public class ListeningSessionController {
                 userId(principal), taskResponseId, request));
     }
 
+    @Operation(summary = "Listening 재생 이벤트 기록")
+    @PostMapping("/sessions/{sessionId}/items/{itemId}/playbacks")
+    public ResponseDto<Void> playback(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long sessionId,
+            @PathVariable Long itemId,
+            @RequestBody ListeningApiContract.PlaybackRequest request
+    ) {
+        facade.recordPlayback(userId(principal), sessionId, itemId, request);
+        return ResponseUtil.ok(null);
+    }
+
     @Operation(summary = "Listening Session 완료")
     @PostMapping("/sessions/{sessionId}/complete")
     public ResponseDto<ListeningApiContract.SessionResultView> complete(

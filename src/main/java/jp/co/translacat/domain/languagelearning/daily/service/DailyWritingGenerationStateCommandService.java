@@ -33,11 +33,12 @@ public class DailyWritingGenerationStateCommandService {
     @Transactional
     public DailyWritingSet complete(
             Long dailySetId,
+            String learningLanguage,
             List<DailyWritingGeneratedItemDto> generatedItems,
             String promptVersion
     ) {
         DailyWritingSet dailySet = getDailySet(dailySetId);
-        itemCommandService.createAll(dailySet, generatedItems);
+        itemCommandService.createAll(dailySet, learningLanguage, generatedItems);
         dailySet.ready(promptVersion);
         return dailySet;
     }

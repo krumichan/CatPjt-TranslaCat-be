@@ -60,7 +60,8 @@ public class LanguageLearningAdminSettingCommandService {
                 request.manualRetryLimitPerStage(),
                 request.sttTimeoutSeconds(),
                 request.ttsTimeoutSeconds(),
-                request.evaluationTimeoutSeconds()
+                request.evaluationTimeoutSeconds(),
+                request.levelTestQuestionPoolTargetSize()
         );
 
         auditCommandService.record(

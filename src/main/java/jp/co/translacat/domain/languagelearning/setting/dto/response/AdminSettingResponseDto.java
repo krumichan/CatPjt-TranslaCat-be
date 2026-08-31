@@ -28,6 +28,7 @@ public record AdminSettingResponseDto(
         int manualRetryLimitPerStage,
         int sttTimeoutSeconds,
         int ttsTimeoutSeconds,
-        int evaluationTimeoutSeconds
+        int evaluationTimeoutSeconds,
+        int levelTestQuestionPoolTargetSize
 ) {
 }

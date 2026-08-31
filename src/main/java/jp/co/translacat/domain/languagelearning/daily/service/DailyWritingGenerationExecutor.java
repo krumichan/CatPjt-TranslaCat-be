@@ -38,7 +38,7 @@ public class DailyWritingGenerationExecutor {
         try {
             AiDailyWritingGenerationResponseDto response =
                     aiClient.generateDaily(
-                            requestFactory.createInitial(snapshot)
+                            requestFactory.createInitial(dailySet.getUser().getId(), snapshot)
                     );
 
             responseValidator.validate(
@@ -49,6 +49,7 @@ public class DailyWritingGenerationExecutor {
 
             return stateCommandService.complete(
                     dailySetId,
+                    snapshot.learningLanguage(),
                     response.items(),
                     response.promptVersion()
             );

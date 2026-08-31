@@ -42,5 +42,9 @@ class LanguageLearningAdminSettingQueryServiceTest {
         assertThat(setting.getDefaultDailySentenceCount()).isEqualTo(5);
         assertThat(setting.getDailyKeywordMaxCount()).isEqualTo(5);
         assertThat(setting.getReviewAvailableDays()).isEqualTo(7);
+        assertThat(setting.resolvedLevelTestQuestionPoolTargetSize())
+                .isEqualTo(1000);
+        assertThat(queryService.getLevelTestQuestionPoolTargetSize())
+                .isEqualTo(1000);
     }
 }

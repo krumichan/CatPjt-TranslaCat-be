@@ -6,6 +6,7 @@ import jp.co.translacat.domain.languagelearning.listening.audio.model.ListeningA
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.report.service.ListeningEvaluationReportCommandService;
+import jp.co.translacat.domain.languagelearning.listening.playback.service.ListeningPlaybackCommandService;
 import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionCommandService;
 import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionQueryService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
@@ -27,6 +28,7 @@ public class ListeningSessionFacade {
     private final ListeningAttemptCommandService attemptCommandService;
     private final ListeningAttemptQueryService attemptQueryService;
     private final ListeningEvaluationReportCommandService reportCommandService;
+    private final ListeningPlaybackCommandService playbackCommandService;
 
     public ListeningApiContract.SessionView create(
             Long userId,
@@ -178,6 +180,24 @@ public class ListeningSessionFacade {
             ListeningApiContract.EvaluationReportRequest request
     ) {
         return reportCommandService.report(userId, taskResponseId, request);
+    }
+
+    public void recordPlayback(
+            Long userId,
+            Long sessionId,
+            Long itemId,
+            ListeningApiContract.PlaybackRequest request
+    ) {
+        if (request == null) {
+            throw new BusinessException(
+                    "Listening 재생 이벤트가 필요합니다.",
+                    LanguageLearningErrorCode.LISTENING_PLAYBACK_EVENT_INVALID
+            );
+        }
+        playbackCommandService.record(
+                userId, sessionId, itemId, request.attemptId(),
+                request.playbackType(), request.clientEventId()
+        );
     }
 
     public ListeningApiContract.SessionResultView complete(

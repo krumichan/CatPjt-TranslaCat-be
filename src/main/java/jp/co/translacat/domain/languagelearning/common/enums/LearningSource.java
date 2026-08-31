@@ -4,5 +4,6 @@ public enum LearningSource {
     WRITING,
     SPEAKING,
     LISTENING,
-    READING
+    READING,
+    LEVEL_TEST
 }

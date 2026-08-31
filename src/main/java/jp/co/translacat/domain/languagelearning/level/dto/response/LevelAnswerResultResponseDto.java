@@ -1,13 +1,13 @@
 package jp.co.translacat.domain.languagelearning.level.dto.response;
 
-import jp.co.translacat.domain.languagelearning.daily.dto.response.WritingEvaluationResponseDto;
-
 public record LevelAnswerResultResponseDto(
         Long sessionId,
+        Long itemId,
         int questionNumber,
-        WritingEvaluationResponseDto evaluation,
+        boolean evaluable,
+        Integer score,
+        String reasonCode,
         boolean completed,
-        Double baseLevelScore,
         LevelQuestionResponseDto nextQuestion
 ) {
 }

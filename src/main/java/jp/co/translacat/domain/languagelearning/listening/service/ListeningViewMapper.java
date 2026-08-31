@@ -108,7 +108,14 @@ public class ListeningViewMapper {
                 value.getEvaluationPurpose(),
                 value.getStatus(),
                 value.isAnswerRevealed(),
+                value.getContentOverallScore(),
+                value.getListeningIndependenceScore(),
                 value.getOverallScore(),
+                new ListeningApiContract.PlaybackSummary(
+                        value.getNormalPlaybackCount(),
+                        value.getSlowPlaybackCount(),
+                        value.getIndependencePolicyVersion()
+                ),
                 value.getEvaluatedTaskCount(),
                 value.getCoverage(),
                 value.getErrorCode(),

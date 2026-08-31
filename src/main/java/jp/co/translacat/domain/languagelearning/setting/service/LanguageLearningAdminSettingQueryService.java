@@ -26,6 +26,11 @@ public class LanguageLearningAdminSettingQueryService {
         return toResponse(getOrCreateEntity());
     }
 
+    @Transactional
+    public int getLevelTestQuestionPoolTargetSize() {
+        return getOrCreateEntity().resolvedLevelTestQuestionPoolTargetSize();
+    }
+
     public AdminSettingResponseDto toResponse(
             LanguageLearningAdminSetting setting
     ) {
@@ -57,7 +62,8 @@ public class LanguageLearningAdminSettingQueryService {
                 setting.getManualRetryLimitPerStage(),
                 setting.getSttTimeoutSeconds(),
                 setting.getTtsTimeoutSeconds(),
-                setting.getEvaluationTimeoutSeconds()
+                setting.getEvaluationTimeoutSeconds(),
+                setting.resolvedLevelTestQuestionPoolTargetSize()
         );
     }
 

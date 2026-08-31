@@ -5,6 +5,7 @@ import jp.co.translacat.domain.languagelearning.listening.attempt.service.Listen
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
+import jp.co.translacat.domain.languagelearning.listening.playback.service.ListeningPlaybackCommandService;
 import jp.co.translacat.domain.languagelearning.listening.report.service.ListeningEvaluationReportCommandService;
 import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionCommandService;
 import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionQueryService;
@@ -34,6 +35,8 @@ class ListeningSessionFacadeActiveTest {
     private ListeningAttemptQueryService attemptQueryService;
     @Mock
     private ListeningEvaluationReportCommandService reportCommandService;
+    @Mock
+    private ListeningPlaybackCommandService playbackCommandService;
 
     private ListeningSessionFacade facade;
 
@@ -44,7 +47,8 @@ class ListeningSessionFacadeActiveTest {
                 sessionQueryService,
                 attemptCommandService,
                 attemptQueryService,
-                reportCommandService
+                reportCommandService,
+                playbackCommandService
         );
     }
 

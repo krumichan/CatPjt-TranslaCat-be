@@ -16,6 +16,12 @@ import jp.co.translacat.domain.languagelearning.listening.outbox.service.Listeni
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxTransactionService;
 import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
 import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.quality.common.LanguageLearningContentSource;
+import jp.co.translacat.domain.languagelearning.quality.dto.LanguageComplexityContext;
+import jp.co.translacat.domain.languagelearning.quality.policy.LanguageComplexityPolicy;
+import jp.co.translacat.domain.languagelearning.quality.repository.LanguageLearningGenerationFingerprintRepository;
+import jp.co.translacat.domain.languagelearning.quality.service.GenerationDiversityContextService;
+import jp.co.translacat.domain.languagelearning.quality.service.GenerationFingerprintCommandService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -36,6 +42,10 @@ public class ListeningGenerationTransactionService {
     private final ListeningOutboxCommandService outboxCommandService;
     private final ListeningOutboxTransactionService outboxTransactionService;
     private final LanguageLearningJsonCodec jsonCodec;
+    private final GenerationDiversityContextService diversityContextService;
+    private final GenerationFingerprintCommandService fingerprintCommandService;
+    private final LanguageLearningGenerationFingerprintRepository fingerprintRepository;
+    private final LanguageComplexityPolicy complexityPolicy;
 
     @Transactional(readOnly = true)
     public GenerationWork prepare(
@@ -117,7 +127,14 @@ public class ListeningGenerationTransactionService {
                         ),
                         policy.getProfilePolicyVersion(),
                         policy.getModelConfigVersion(),
-                        command.manualRetryAttempt()
+                        command.manualRetryAttempt(),
+                        listeningComplexity(set),
+                        diversityContextService.context(
+                                set.getUser().getId(),
+                                set.getLearningLanguage(),
+                                LanguageLearningContentSource.LISTENING
+                        ),
+                        GenerationFingerprintCommandService.POLICY_VERSION
                 );
 
         return new GenerationWork(
@@ -156,14 +173,15 @@ public class ListeningGenerationTransactionService {
         }
 
         for (AiListeningContract.GeneratedItem generated : response.items()) {
-            if (itemRepository
-                    .existsByDailySetUserIdAndDailySetLearningLanguageAndContentHash(
+            if (fingerprintRepository
+                    .existsByUserIdAndLearningLanguageAndContentHashAndGeneratedAtGreaterThanEqual(
                             set.getUser().getId(),
                             set.getLearningLanguage(),
-                            generated.contentHash()
+                            generated.contentHash(),
+                            java.time.LocalDateTime.now().minusDays(90)
                     )) {
                 throw new BusinessException(
-                        "최근 Listening 문항과 중복된 생성 결과입니다.",
+                        "최근 90일 Listening 문항과 중복된 생성 결과입니다.",
                         LanguageLearningErrorCode.AI_SCHEMA_INVALID
                 );
             }
@@ -187,6 +205,14 @@ public class ListeningGenerationTransactionService {
                     work.command().replacementSequence()
             );
             item = itemRepository.saveAndFlush(item);
+            fingerprintCommandService.register(
+                    set.getUser().getId(),
+                    LanguageLearningContentSource.LISTENING,
+                    String.valueOf(item.getId()),
+                    set.getLearningLanguage(),
+                    generated.sourceText(),
+                    generated.diversityMetadata()
+            );
             set.recordPhysicalItem();
             outboxCommandService.enqueue(
                     ListeningOutboxType.GENERATE_TTS,
@@ -226,6 +252,23 @@ public class ListeningGenerationTransactionService {
         if (set.getPhysicalItemCount() == 0 && !set.isUsable()) {
             set.fail(reason);
         }
+    }
+
+    private LanguageComplexityContext listeningComplexity(ListeningDailySet set) {
+        LearningProfileSummaryDto profile = jsonCodec.read(
+                set.getProfileSnapshotJson(),
+                LearningProfileSummaryDto.class
+        );
+        Double baseScore = profile == null ? null : profile.baseLevelScore();
+        int baseBand = complexityPolicy.baseBand(baseScore);
+        int targetBand = switch (set.getDifficulty()) {
+            case EASY -> complexityPolicy.clamp(baseBand - 1);
+            case MY_LEVEL -> baseBand;
+            case CHALLENGE -> complexityPolicy.clamp(baseBand + 1);
+        };
+        return new LanguageComplexityContext(
+                baseScore, baseBand, targetBand, LanguageComplexityPolicy.VERSION
+        );
     }
 
     private List<String> profileFocus(String snapshotJson) {

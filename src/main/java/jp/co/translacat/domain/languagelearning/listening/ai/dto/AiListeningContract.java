@@ -6,6 +6,10 @@ import jp.co.translacat.domain.languagelearning.listening.common.enums.Listening
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDifficulty;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvaluationPurpose;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
+import jp.co.translacat.domain.languagelearning.quality.dto.DiversityContext;
+import jp.co.translacat.domain.languagelearning.quality.dto.DiversityMetadata;
+import jp.co.translacat.domain.languagelearning.quality.dto.DiversitySummary;
+import jp.co.translacat.domain.languagelearning.quality.dto.LanguageComplexityContext;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -62,8 +66,20 @@ public final class AiListeningContract {
             GenerationConstraints constraints,
             String policyVersion,
             String modelConfigVersion,
-            int manualRetryAttempt
+            int manualRetryAttempt,
+            LanguageComplexityContext languageComplexity,
+            DiversityContext diversityContext,
+            String contentDiversityPolicyVersion
     ) {
+        public GenerationRequest(
+                String requestId, String idempotencyKey, UserContext userContext,
+                SetContext setContext, GenerationConstraints constraints,
+                String policyVersion, String modelConfigVersion, int manualRetryAttempt
+        ) {
+            this(requestId, idempotencyKey, userContext, setContext, constraints,
+                    policyVersion, modelConfigVersion, manualRetryAttempt,
+                    null, DiversityContext.empty(), null);
+        }
     }
 
     public record Safety(boolean passed, List<String> categories) {
@@ -79,8 +95,20 @@ public final class AiListeningContract {
             double estimatedAudioSeconds,
             String contentHash,
             String similarityKey,
-            Safety safety
+            Safety safety,
+            Integer languageComplexityBand,
+            DiversityMetadata diversityMetadata
     ) {
+        public GeneratedItem(
+                int itemIndex, String sourceText, String normalizedSourceText,
+                List<String> referenceMeanings, List<String> keyMeaningUnits,
+                List<String> targetKeywords, double estimatedAudioSeconds,
+                String contentHash, String similarityKey, Safety safety
+        ) {
+            this(itemIndex, sourceText, normalizedSourceText, referenceMeanings,
+                    keyMeaningUnits, targetKeywords, estimatedAudioSeconds, contentHash,
+                    similarityKey, safety, null, null);
+        }
     }
 
     public record GenerationResponse(
@@ -89,8 +117,18 @@ public final class AiListeningContract {
             String policyVersion,
             String modelConfigVersion,
             List<GeneratedItem> items,
-            Map<String, Object> usage
+            Map<String, Object> usage,
+            String contentDiversityPolicyVersion,
+            String languageComplexityPolicyVersion,
+            DiversitySummary diversitySummary
     ) {
+        public GenerationResponse(
+                String requestId, String generationVersion, String policyVersion,
+                String modelConfigVersion, List<GeneratedItem> items, Map<String, Object> usage
+        ) {
+            this(requestId, generationVersion, policyVersion, modelConfigVersion,
+                    items, usage, null, null, null);
+        }
     }
 
     public record Voice(

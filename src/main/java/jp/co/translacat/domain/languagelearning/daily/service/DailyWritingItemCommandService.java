@@ -5,6 +5,8 @@ import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJson
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingItem;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
 import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingItemRepository;
+import jp.co.translacat.domain.languagelearning.quality.common.LanguageLearningContentSource;
+import jp.co.translacat.domain.languagelearning.quality.service.GenerationFingerprintCommandService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,19 +24,33 @@ public class DailyWritingItemCommandService {
 
     private final DailyWritingItemRepository itemRepository;
     private final LanguageLearningJsonCodec jsonCodec;
+    private final GenerationFingerprintCommandService fingerprintCommandService;
 
     public void createAll(
             DailyWritingSet dailySet,
+            String learningLanguage,
             List<DailyWritingGeneratedItemDto> generatedItems
     ) {
         List<DailyWritingItem> entities = generatedItems.stream()
                 .map(item -> createEntity(dailySet, item))
                 .toList();
 
-        itemRepository.saveAll(entities);
+        List<DailyWritingItem> saved = itemRepository.saveAll(entities);
+        for (int index = 0; index < saved.size(); index++) {
+            DailyWritingGeneratedItemDto generated = generatedItems.get(index);
+            fingerprintCommandService.register(
+                    dailySet.getUser().getId(),
+                    LanguageLearningContentSource.WRITING,
+                    String.valueOf(saved.get(index).getId()),
+                    learningLanguage,
+                    generated.originText(),
+                    generated.diversityMetadata()
+            );
+        }
     }
 
     public void replaceAll(
+            String learningLanguage,
             List<DailyWritingItem> currentItems,
             List<DailyWritingGeneratedItemDto> generatedItems
     ) {
@@ -50,9 +66,16 @@ public class DailyWritingItemCommandService {
         ));
 
         for (int index = 0; index < sortedCurrent.size(); index++) {
-            replaceEntity(
-                    sortedCurrent.get(index),
-                    sortedGenerated.get(index)
+            DailyWritingItem current = sortedCurrent.get(index);
+            DailyWritingGeneratedItemDto generated = sortedGenerated.get(index);
+            replaceEntity(current, generated);
+            fingerprintCommandService.register(
+                    current.getDailySet().getUser().getId(),
+                    LanguageLearningContentSource.WRITING,
+                    String.valueOf(current.getId()) + ":regen",
+                    learningLanguage,
+                    generated.originText(),
+                    generated.diversityMetadata()
             );
         }
     }

@@ -1,26 +1,14 @@
 package jp.co.translacat.domain.languagelearning.level.service;
 
-import jp.co.translacat.domain.languagelearning.ai.dto.model.LevelTestPreviousEvaluationDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.WritingEvaluationScoresDto;
-import jp.co.translacat.domain.languagelearning.common.enums.DailySetStatus;
-import jp.co.translacat.domain.languagelearning.common.enums.EvaluationStatus;
+import jp.co.translacat.domain.languagelearning.common.enums.LevelTestAssessmentVersion;
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionStatus;
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionType;
-import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
-import jp.co.translacat.domain.languagelearning.daily.entity.WritingEvaluation;
-import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingSetRepository;
-import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.level.dto.response.LevelStatusResponseDto;
-import jp.co.translacat.domain.languagelearning.level.entity.LevelTestItem;
 import jp.co.translacat.domain.languagelearning.level.entity.LevelTestSession;
-import jp.co.translacat.domain.languagelearning.level.repository.LevelTestItemRepository;
+import jp.co.translacat.domain.languagelearning.level.policy.LevelTestScoringPolicy;
 import jp.co.translacat.domain.languagelearning.level.repository.LevelTestSessionRepository;
 import jp.co.translacat.domain.languagelearning.profile.entity.LearningProfile;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileQueryService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -29,10 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -40,37 +26,43 @@ import java.util.Optional;
 public class LevelTestQueryService {
 
     private final LevelTestSessionRepository sessionRepository;
-    private final LevelTestItemRepository itemRepository;
-    private final WritingEvaluationRepository evaluationRepository;
-    private final DailyWritingSetRepository dailySetRepository;
     private final LearningProfileQueryService profileQueryService;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
-    private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
+    private final LevelTestScoringPolicy scoringPolicy;
 
     @Transactional
     public LevelStatusResponseDto getStatus(Long userId) {
         LearningProfile profile = profileQueryService.getOrCreate(userId);
         Optional<LevelTestSession> activeSession = getActiveSession(userId);
+        Double score = profile.getBaseLevelScore();
 
         return new LevelStatusResponseDto(
                 profile.getState(),
                 hasCompletedInitialTest(userId),
                 isRecheckRecommended(userId),
                 activeSession.map(LevelTestSession::getId).orElse(null),
-                activeSession.map(session -> nextQuestionNumber(
-                        session.getId()
-                )).orElse(null),
-                profile.getBaseLevelScore()
+                activeSession.map(LevelTestSession::currentQuestionNumber)
+                        .orElse(null),
+                score,
+                score == null ? null : scoringPolicy.band(
+                        (int) Math.round(score)
+                )
         );
     }
 
     @Transactional(readOnly = true)
     public Optional<LevelTestSession> getActiveSession(Long userId) {
         return sessionRepository
-                .findTopByUserIdAndStatusOrderByStartedAtDesc(
+                .findTopByUserIdAndAssessmentVersionAndStatusOrderByStartedAtDesc(
                         userId,
+                        LevelTestAssessmentVersion.MULTI_SKILL,
                         LevelTestSessionStatus.IN_PROGRESS
-                );
+                )
+                .or(() -> sessionRepository
+                        .findTopByUserIdAndAssessmentVersionAndStatusOrderByStartedAtDesc(
+                                userId,
+                                LevelTestAssessmentVersion.MULTI_SKILL,
+                                LevelTestSessionStatus.EVALUATING
+                        ));
     }
 
     @Transactional(readOnly = true)
@@ -78,76 +70,11 @@ public class LevelTestQueryService {
             Long userId,
             Long sessionId
     ) {
-        return sessionRepository.findById(sessionId)
-                .filter(session -> session.getUser().getId().equals(userId))
+        return sessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new BusinessException(
                         "Level Test Session을 찾을 수 없습니다.",
                         LanguageLearningErrorCode.LEVEL_TEST_NOT_FOUND
                 ));
-    }
-
-    @Transactional(readOnly = true)
-    public LevelTestItem getCurrentItemOrNull(Long sessionId) {
-        int questionNumber = nextQuestionNumber(sessionId);
-        return itemRepository
-                .findBySessionIdAndQuestionNumber(
-                        sessionId,
-                        questionNumber
-                )
-                .orElse(null);
-    }
-
-    @Transactional(readOnly = true)
-    public int nextQuestionNumber(Long sessionId) {
-        return previousEvaluations(sessionId).size() + 1;
-    }
-
-    @Transactional(readOnly = true)
-    public List<LevelTestPreviousEvaluationDto> previousEvaluations(
-            Long sessionId
-    ) {
-        List<LevelTestPreviousEvaluationDto> result = new ArrayList<>();
-
-        for (LevelTestItem item :
-                itemRepository.findAllBySessionIdOrderByQuestionNumberAsc(
-                        sessionId
-                )) {
-            WritingEvaluation evaluation = evaluationRepository
-                    .findByLevelTestItemId(item.getId())
-                    .orElse(null);
-
-            if (evaluation == null
-                    || evaluation.getStatus() != EvaluationStatus.SUCCESS) {
-                continue;
-            }
-
-            result.add(new LevelTestPreviousEvaluationDto(
-                    item.getQuestionNumber(),
-                    item.getDifficulty(),
-                    toScores(evaluation)
-            ));
-        }
-
-        return result;
-    }
-
-    @Transactional(readOnly = true)
-    public List<WritingEvaluation> getSuccessfulEvaluations(
-            Long sessionId
-    ) {
-        List<WritingEvaluation> result = new ArrayList<>();
-
-        for (LevelTestItem item :
-                itemRepository.findAllBySessionIdOrderByQuestionNumberAsc(
-                        sessionId
-                )) {
-            evaluationRepository.findByLevelTestItemId(item.getId())
-                    .filter(evaluation -> evaluation.getStatus()
-                            == EvaluationStatus.SUCCESS)
-                    .ifPresent(result::add);
-        }
-
-        return result;
     }
 
     @Transactional(readOnly = true)
@@ -161,43 +88,20 @@ public class LevelTestQueryService {
                 .isPresent();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public boolean isRecheckRecommended(Long userId) {
-        LanguageLearningUserSetting setting =
-                userSettingQueryService.getOrCreateEntity(userId);
-        LanguageLearningAdminSetting adminSetting =
-                adminSettingQueryService.getOrCreateEntity();
-        LocalDate today = userSettingQueryService.resolveToday(setting);
-
-        DailyWritingSet latestCompleted = dailySetRepository
-                .findTopByUserIdAndStatusOrderByLearningDateDesc(
+        LocalDateTime latest = sessionRepository
+                .findAllByUserIdAndStatusOrderByCompletedAtDesc(
                         userId,
-                        DailySetStatus.COMPLETED
+                        LevelTestSessionStatus.COMPLETED
                 )
+                .stream()
+                .map(LevelTestSession::getCompletedAt)
+                .filter(value -> value != null)
+                .findFirst()
                 .orElse(null);
 
-        if (latestCompleted == null) {
-            return false;
-        }
-
-        long inactiveDays = ChronoUnit.DAYS.between(
-                latestCompleted.getLearningDate(),
-                today
-        );
-        return inactiveDays
-                >= adminSetting.getLevelRecheckRecommendationDays();
-    }
-
-    private WritingEvaluationScoresDto toScores(
-            WritingEvaluation evaluation
-    ) {
-        return new WritingEvaluationScoresDto(
-                evaluation.getOverallScore(),
-                evaluation.getMeaningScore(),
-                evaluation.getGrammarScore(),
-                evaluation.getVocabularyScore(),
-                evaluation.getNaturalnessScore(),
-                evaluation.getExpressionScore()
-        );
+        return latest != null
+                && Duration.between(latest, LocalDateTime.now()).toDays() >= 30;
     }
 }

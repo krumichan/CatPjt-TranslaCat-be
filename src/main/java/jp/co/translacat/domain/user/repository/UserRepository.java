@@ -2,7 +2,11 @@ package jp.co.translacat.domain.user.repository;
 
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.enums.SocialType;
+
+import jakarta.persistence.LockModeType;
+
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -16,4 +20,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByPublicId(String publicId);
 
     Optional<User> findByPublicId(String publicId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<User> findLockedById(Long id);
 }

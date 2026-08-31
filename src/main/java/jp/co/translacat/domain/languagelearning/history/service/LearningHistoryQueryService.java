@@ -4,9 +4,14 @@ import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
 import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingSetRepository;
 import jp.co.translacat.domain.languagelearning.daily.service.DailyWritingQueryService;
+import jp.co.translacat.domain.languagelearning.daily.service.WritingEvaluationQueryService;
 import jp.co.translacat.domain.languagelearning.history.dto.response.LearningHistoryDetailResponseDto;
 import jp.co.translacat.domain.languagelearning.history.dto.response.LearningHistoryItemResponseDto;
 import jp.co.translacat.domain.languagelearning.history.dto.response.SpeakingHistoryDetailResponseDto;
+import jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionStatus;
+import jp.co.translacat.domain.languagelearning.level.entity.LevelTestSession;
+import jp.co.translacat.domain.languagelearning.level.repository.LevelTestSessionRepository;
+import jp.co.translacat.domain.languagelearning.level.service.LevelTestResultQueryService;
 import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
 import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvaluationPurpose;
@@ -44,6 +49,7 @@ public class LearningHistoryQueryService {
 
     private final DailyWritingSetRepository dailyWritingSetRepository;
     private final DailyWritingQueryService dailyWritingQueryService;
+    private final WritingEvaluationQueryService writingEvaluationQueryService;
     private final SpeakingSessionRepository speakingSessionRepository;
     private final SpeakingSessionQueryService speakingSessionQueryService;
     private final SpeakingTurnQueryService speakingTurnQueryService;
@@ -53,6 +59,8 @@ public class LearningHistoryQueryService {
     private final ListeningTaskResponseRepository listeningResponseRepository;
     private final ListeningViewMapper listeningViewMapper;
     private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final LevelTestSessionRepository levelTestSessionRepository;
+    private final LevelTestResultQueryService levelTestResultQueryService;
 
     public List<LearningHistoryItemResponseDto> getHistory(
             Long userId,
@@ -113,6 +121,22 @@ public class LearningHistoryQueryService {
                     .filter(item -> matchesStatus(item, status))
                     .forEach(result::add);
         }
+        if (source == null || source == LearningSource.LEVEL_TEST) {
+            levelTestSessionRepository
+                    .findAllByUserIdAndStatusOrderByCompletedAtDesc(
+                            userId,
+                            LevelTestSessionStatus.COMPLETED
+                    )
+                    .stream()
+                    .filter(session -> session.getCompletedAt() != null)
+                    .filter(session -> !session.getCompletedAt()
+                            .toLocalDate().isBefore(from)
+                            && !session.getCompletedAt()
+                            .toLocalDate().isAfter(to))
+                    .map(this::levelTestSummary)
+                    .filter(item -> matchesStatus(item, status))
+                    .forEach(result::add);
+        }
 
         return result.stream()
                 .sorted(Comparator
@@ -131,6 +155,7 @@ public class LearningHistoryQueryService {
             case WRITING -> writingDetail(userId, activityId, parsed.id);
             case SPEAKING -> speakingDetail(userId, activityId, parsed.id);
             case LISTENING -> listeningDetail(userId, activityId, parsed.id);
+            case LEVEL_TEST -> levelTestDetail(userId, activityId, parsed.id);
             default -> throw notFound();
         };
     }
@@ -145,7 +170,10 @@ public class LearningHistoryQueryService {
                 "Daily Writing",
                 null,
                 0,
-                null,
+                writingEvaluationQueryService.findDailyAverageOverallScore(
+                        set.getId(),
+                        set.getLearningDate()
+                ),
                 set.getStatus().name(),
                 set.getStatus().name()
         );
@@ -198,6 +226,28 @@ public class LearningHistoryQueryService {
                 score,
                 session.getStatus().name(),
                 evaluationStatus
+        );
+    }
+
+    private LearningHistoryItemResponseDto levelTestSummary(
+            LevelTestSession session
+    ) {
+        return new LearningHistoryItemResponseDto(
+                "LEVEL_TEST:" + session.getId(),
+                LearningSource.LEVEL_TEST,
+                session.getCompletedAt().toLocalDate(),
+                "Language Level Test",
+                session.getSessionType().name(),
+                Math.max(
+                        0,
+                        java.time.Duration.between(
+                                session.getStartedAt(),
+                                session.getCompletedAt()
+                        ).toSeconds()
+                ),
+                session.getBaseLevelScore(),
+                session.getStatus().name(),
+                session.getStatus().name()
         );
     }
 
@@ -268,6 +318,18 @@ public class LearningHistoryQueryService {
                 activityId,
                 LearningSource.LISTENING,
                 listeningViewMapper.history(session)
+        );
+    }
+
+    private LearningHistoryDetailResponseDto levelTestDetail(
+            Long userId,
+            String activityId,
+            Long id
+    ) {
+        return new LearningHistoryDetailResponseDto(
+                activityId,
+                LearningSource.LEVEL_TEST,
+                levelTestResultQueryService.historyDetailForActivity(userId, id)
         );
     }
 

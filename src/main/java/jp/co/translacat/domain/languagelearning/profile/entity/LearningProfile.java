@@ -79,9 +79,13 @@ public class LearningProfile extends BaseAuditable {
     }
 
     public void completeLevelTest(double baseLevelScore) {
+        completeLevelTest(baseLevelScore, null);
+    }
+
+    public void completeLevelTest(double baseLevelScore, LocalDate completedDate) {
         this.baseLevelScore = round(baseLevelScore);
         this.state = LearningProfileState.CALIBRATING;
-        this.calibrationStartedDate = null;
+        this.calibrationStartedDate = completedDate;
         this.calibrationCompletedDate = null;
     }
 

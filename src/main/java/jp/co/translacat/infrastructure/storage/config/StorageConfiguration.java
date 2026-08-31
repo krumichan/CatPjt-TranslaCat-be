@@ -9,6 +9,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.net.URI;
 
@@ -47,6 +48,41 @@ public class StorageConfiguration {
                         .build();
 
         return S3Client.builder()
+                .endpointOverride(URI.create(s3.getEndpoint()))
+                .credentialsProvider(
+                        StaticCredentialsProvider.create(credentials)
+                )
+                .region(Region.of(s3.getRegion()))
+                .serviceConfiguration(serviceConfiguration)
+                .build();
+    }
+
+    @Bean(destroyMethod = "close")
+    @ConditionalOnProperty(
+            prefix = "translacat.storage",
+            name = "type",
+            havingValue = "s3"
+    )
+    public S3Presigner s3Presigner(StorageProperties properties) {
+        StorageProperties.S3 s3 = properties.getS3();
+
+        requireText(s3.getEndpoint(), "STORAGE_S3_ENDPOINT");
+        requireText(s3.getRegion(), "STORAGE_S3_REGION");
+        requireText(s3.getBucket(), "STORAGE_S3_BUCKET");
+        requireText(s3.getAccessKey(), "STORAGE_S3_ACCESS_KEY");
+        requireText(s3.getSecretKey(), "STORAGE_S3_SECRET_KEY");
+
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(
+                s3.getAccessKey(),
+                s3.getSecretKey()
+        );
+        S3Configuration serviceConfiguration =
+                S3Configuration.builder()
+                        .pathStyleAccessEnabled(true)
+                        .chunkedEncodingEnabled(false)
+                        .build();
+
+        return S3Presigner.builder()
                 .endpointOverride(URI.create(s3.getEndpoint()))
                 .credentialsProvider(
                         StaticCredentialsProvider.create(credentials)

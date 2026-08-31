@@ -10,7 +10,14 @@ import jp.co.translacat.domain.languagelearning.listening.evaluation.entity.List
 import jp.co.translacat.domain.languagelearning.listening.evaluation.repository.ListeningTaskEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningProgressPolicy;
+import jp.co.translacat.domain.languagelearning.listening.policy.ListeningIndependencePolicy;
+import jp.co.translacat.domain.languagelearning.listening.playback.repository.ListeningPlaybackEventRepository;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningPlaybackType;
 import jp.co.translacat.domain.languagelearning.listening.profile.repository.ListeningMetricHistoryRepository;
+import jp.co.translacat.domain.languagelearning.listening.profile.entity.ListeningMetricHistory;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningProfileMetric;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceLevel;
+import jp.co.translacat.domain.languagelearning.listening.policy.ListeningProfilePolicy;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
 
@@ -40,6 +47,9 @@ public class ListeningAttemptFinalizationCommandService {
     private final ListeningMetricHistoryRepository historyRepository;
     private final ListeningOutboxCommandService outboxCommandService;
     private final ListeningProgressPolicy progressPolicy;
+    private final ListeningIndependencePolicy independencePolicy;
+    private final ListeningPlaybackEventRepository playbackEventRepository;
+    private final ListeningProfilePolicy profilePolicy;
     private final LearningActivityCommandService activityCommandService;
 
     @Transactional
@@ -97,13 +107,33 @@ public class ListeningAttemptFinalizationCommandService {
                 now
         );
 
-        if (progressPolicy.eligible(
+        if (average != null && attempt.getSubmittedAt() != null) {
+            long normalCount = playbackEventRepository
+                    .countByAttemptIdAndPlaybackTypeAndOccurredAtLessThanEqual(
+                            attemptId, ListeningPlaybackType.NORMAL, attempt.getSubmittedAt());
+            long slowCount = playbackEventRepository
+                    .countByAttemptIdAndPlaybackTypeAndOccurredAtLessThanEqual(
+                            attemptId, ListeningPlaybackType.SLOW, attempt.getSubmittedAt());
+            int independence = independencePolicy.score(normalCount, slowCount);
+            double adjusted = independencePolicy.adjustedOverall(average, independence);
+            attempt.applyListeningIndependence(
+                    average,
+                    (double) independence,
+                    adjusted,
+                    Math.toIntExact(Math.min(normalCount, Integer.MAX_VALUE)),
+                    Math.toIntExact(Math.min(slowCount, Integer.MAX_VALUE)),
+                    ListeningIndependencePolicy.VERSION
+            );
+        }
+
+        boolean progressEligible = progressPolicy.eligible(
                 attempt.isOfficial(),
                 attempt.isPractice(),
                 attempt.isAnswerRevealed(),
                 attempt.isProgressApplied(),
                 selected.stream().map(ListeningTaskResponse::getStatus).toList()
-        )) {
+        );
+        if (progressEligible) {
             attempt.getSession().recordLearning(
                     !evaluated.isEmpty(),
                     attempt.getActualDurationMs(),
@@ -123,7 +153,40 @@ public class ListeningAttemptFinalizationCommandService {
             attempt.markProgressApplied();
         }
 
-        if (profileApplied) {
+        boolean independenceProfileApplied = false;
+        if (progressEligible && attempt.getListeningIndependenceScore() != null) {
+            String referenceEvaluationId = "LISTENING_ATTEMPT:" + attempt.getId() + ":INDEPENDENCE";
+            if (!historyRepository.existsByReferenceEvaluationIdAndMetricType(
+                    referenceEvaluationId, ListeningProfileMetric.LISTENING_INDEPENDENCE)) {
+                int rank = Math.min(
+                        ListeningProfilePolicy.MAX_ACTIVITIES,
+                        historyRepository.findTop30ByUserIdAndLearningLanguageAndMetricTypeAndProfileAppliedTrueOrderByCreatedAtDesc(
+                                attempt.getSession().getUser().getId(),
+                                attempt.getItem().getDailySet().getLearningLanguage(),
+                                ListeningProfileMetric.LISTENING_INDEPENDENCE
+                        ).size() + 1
+                );
+                double recency = profilePolicy.recencyWeight(rank);
+                double finalWeight = profilePolicy.finalWeight(rank, 1.0, ListeningAssistanceLevel.INDEPENDENT, 1.0);
+                historyRepository.save(ListeningMetricHistory.create(
+                        attempt.getSession().getUser(),
+                        attempt.getItem().getDailySet().getLearningLanguage(),
+                        null,
+                        ListeningProfileMetric.LISTENING_INDEPENDENCE,
+                        attempt.getListeningIndependenceScore(),
+                        1.0, recency, 1.0, 1.0, finalWeight,
+                        ListeningAssistanceLevel.INDEPENDENT,
+                        "LISTENING_ATTEMPT:" + attempt.getId(),
+                        referenceEvaluationId,
+                        true, false, true,
+                        ListeningIndependencePolicy.VERSION,
+                        ListeningProfilePolicy.VERSION
+                ));
+            }
+            independenceProfileApplied = true;
+        }
+
+        if (profileApplied || independenceProfileApplied) {
             outboxCommandService.enqueue(
                     ListeningOutboxType.RECALCULATE_PROFILE,
                     attempt.getId(),

@@ -17,13 +17,26 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import reactor.core.publisher.Mono;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class ExternalApiClient {
 
     private static final int MAX_BINARY_RESPONSE_BYTES = 10 * 1024 * 1024;
+    private static final int MAX_ERROR_RESPONSE_BODY_CHARS = 1000;
+    private static final String REDACTED_VALUE = "[REDACTED]";
+    private static final Set<String> SENSITIVE_HEADER_NAMES = Set.of(
+            "authorization",
+            "proxy-authorization",
+            "x-api-key",
+            "api-key",
+            "apikey",
+            "cookie",
+            "set-cookie"
+    );
 
     private final WebClient webClient;
 
@@ -117,10 +130,9 @@ public class ExternalApiClient {
      * @return throw exception
      */
     public <T, R> R postFallback(String uri, T body, Class<R> responseType, Throwable throwable) {
-        String bodyInfo = (body != null) ? body.toString() : "empty body";
         String errorMessage = String.format(
                 "[External API POST Error] URI: %s | Body: %s | Cause: %s",
-                uri, bodyInfo, getErrorMessage(throwable)
+                uri, summarizeBody(body), getErrorMessage(throwable)
         );
         throw new ExternalApiInvocationException(errorMessage, throwable);
     }
@@ -135,19 +147,33 @@ public class ExternalApiClient {
      * @param throwable 발생한 예외 정보
      * @return throw exception
      */
-    public <T, R> R postFallback(String uri, T body, Map<String, String> headers, Class<R> responseType, Throwable throwable) {
-        String bodyInfo = (body != null) ? body.toString() : "empty body";
+    public <T, R> R postFallback(
+            String uri,
+            T body,
+            Map<String, String> headers,
+            Class<R> responseType,
+            Throwable throwable
+    ) {
         String errorMessage = String.format(
                 "[External API POST Error] URI: %s | Headers: %s | Body: %s | Cause: %s",
-                uri, bodyInfo, headers, getErrorMessage(throwable)
+                uri, sanitizeHeaders(headers), summarizeBody(body), getErrorMessage(throwable)
         );
         throw new ExternalApiInvocationException(errorMessage, throwable);
     }
 
-    public <R> R postMultipartFallback(String uri, MultiValueMap<String, HttpEntity<?>> multipartData, Map<String, String> headers, Class<R> responseType, Throwable throwable) {
+    public <R> R postMultipartFallback(
+            String uri,
+            MultiValueMap<String, HttpEntity<?>> multipartData,
+            Map<String, String> headers,
+            Class<R> responseType,
+            Throwable throwable
+    ) {
         String errorMessage = String.format(
                 "[External API Multipart Error] URI: %s | Headers: %s | Body: %s | Cause: %s",
-                uri, headers, multipartData, getErrorMessage(throwable)
+                uri,
+                sanitizeHeaders(headers),
+                summarizeMultipartBody(multipartData),
+                getErrorMessage(throwable)
         );
         throw new ExternalApiInvocationException(errorMessage, throwable);
     }
@@ -164,13 +190,43 @@ public class ExternalApiClient {
             Map<String, String> headers,
             Class<R> responseType
     ) {
-        return webClient.post()
-                .uri(uri)
-                .headers(h -> headers.forEach(h::add))
-                .bodyValue(body)
-                .retrieve()
-                .bodyToMono(responseType)
-                .block();
+        return executePostOnce(uri, body, headers, responseType);
+    }
+
+    /**
+     * Level Test 문제 풀 배치 전용 단발 POST.
+     * 사용자 요청과 별도 Circuit Breaker를 사용하여 배치 장애가 실시간 학습 요청으로 전파되지 않게 한다.
+     */
+    @CircuitBreaker(name = "levelTestPoolBatchAi", fallbackMethod = "postFallback")
+    public <T, R> R postOnceLevelTestPool(
+            String uri,
+            T body,
+            Map<String, String> headers,
+            Class<R> responseType
+    ) {
+        return executePostOnce(uri, body, headers, responseType);
+    }
+
+    private <T, R> R executePostOnce(
+            String uri,
+            T body,
+            Map<String, String> headers,
+            Class<R> responseType
+    ) {
+        try {
+            return webClient.post()
+                    .uri(uri)
+                    .headers(h -> headers.forEach(h::add))
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(responseType)
+                    .block();
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+            if (e.getStatusCode().is4xxClientError()) {
+                throw new ExternalApiClient4xxException(e);
+            }
+            throw e;
+        }
     }
 
 
@@ -247,15 +303,72 @@ public class ExternalApiClient {
         throw new ExternalApiInvocationException(errorMessage, throwable);
     }
 
+    private Map<String, String> sanitizeHeaders(Map<String, String> headers) {
+        if (headers == null || headers.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<String, String> sanitized = new LinkedHashMap<>();
+        headers.forEach((name, value) -> sanitized.put(
+                name,
+                isSensitiveHeader(name) ? REDACTED_VALUE : value
+        ));
+        return sanitized;
+    }
+
+    private boolean isSensitiveHeader(String name) {
+        return name != null
+                && SENSITIVE_HEADER_NAMES.contains(name.toLowerCase(java.util.Locale.ROOT));
+    }
+
+    private String summarizeBody(Object body) {
+        if (body == null) {
+            return "empty";
+        }
+        return body.getClass().getSimpleName();
+    }
+
+    private String summarizeMultipartBody(
+            MultiValueMap<String, HttpEntity<?>> multipartData
+    ) {
+        if (multipartData == null || multipartData.isEmpty()) {
+            return "empty multipart";
+        }
+        return "multipart(parts=" + multipartData.keySet() + ")";
+    }
+
     private String getErrorMessage(Throwable t) {
-        if (t instanceof io.github.resilience4j.circuitbreaker.CallNotPermittedException) {
+        if (t instanceof ExternalApiClient4xxException clientError) {
+            var e = clientError.getResponseException();
+            return String.format(
+                    "서버 응답 에러 (Status: %d, Body: %s)",
+                    e.getRawStatusCode(),
+                    summarizeErrorResponseBody(e.getResponseBodyAsString())
+            );
+        } else if (t instanceof io.github.resilience4j.circuitbreaker.CallNotPermittedException) {
             return "서킷 브레이커가 열려 있어 요청이 차단되었습니다 (Circuit Breaker Open)";
         } else if (t instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
             var e = (org.springframework.web.reactive.function.client.WebClientResponseException) t;
-            return String.format("서버 응답 에러 (Status: %d, Body: %s)", e.getRawStatusCode(), e.getResponseBodyAsString());
+            return String.format(
+                    "서버 응답 에러 (Status: %d, Body: %s)",
+                    e.getRawStatusCode(),
+                    summarizeErrorResponseBody(e.getResponseBodyAsString())
+            );
         } else if (t instanceof java.net.ConnectException || t instanceof java.util.concurrent.TimeoutException) {
             return "연결 실패 또는 타임아웃이 발생했습니다";
         }
         return t.getMessage();
+    }
+
+    private String summarizeErrorResponseBody(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return "empty";
+        }
+
+        String singleLine = responseBody.replace('\r', ' ').replace('\n', ' ').trim();
+        if (singleLine.length() <= MAX_ERROR_RESPONSE_BODY_CHARS) {
+            return singleLine;
+        }
+        return singleLine.substring(0, MAX_ERROR_RESPONSE_BODY_CHARS) + "...<truncated>";
     }
 }

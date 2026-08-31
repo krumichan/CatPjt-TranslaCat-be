@@ -1,24 +1,34 @@
 package jp.co.translacat.domain.languagelearning.level.facade;
 
-import jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionType;
-import jp.co.translacat.domain.languagelearning.daily.mapper.WritingEvaluationResponseMapper;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelAnswerRequestDto;
+import jp.co.translacat.domain.languagelearning.level.dto.request.LevelTestStartRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.LevelAnswerResultResponseDto;
+import jp.co.translacat.domain.languagelearning.level.dto.response.LevelAudioAnswerResultResponseDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.LevelQuestionResponseDto;
+import jp.co.translacat.domain.languagelearning.level.dto.response.LevelSessionResponseDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.LevelStatusResponseDto;
+import jp.co.translacat.domain.languagelearning.level.dto.response.LevelTestHistoryDetailResponseDto;
+import jp.co.translacat.domain.languagelearning.level.dto.response.LevelTestHistoryItemResponseDto;
+import jp.co.translacat.domain.languagelearning.level.dto.response.LevelTestResultResponseDto;
 import jp.co.translacat.domain.languagelearning.level.entity.LevelTestItem;
 import jp.co.translacat.domain.languagelearning.level.entity.LevelTestSession;
-import jp.co.translacat.domain.languagelearning.level.model.LevelAnswerCommandResult;
 import jp.co.translacat.domain.languagelearning.level.service.LevelTestAnswerCommandService;
+import jp.co.translacat.domain.languagelearning.level.service.LevelTestAudioService;
+import jp.co.translacat.domain.languagelearning.level.service.LevelTestEvaluationService;
+import jp.co.translacat.domain.languagelearning.level.service.LevelTestProgressCommandService;
 import jp.co.translacat.domain.languagelearning.level.service.LevelTestQueryService;
 import jp.co.translacat.domain.languagelearning.level.service.LevelTestQuestionService;
+import jp.co.translacat.domain.languagelearning.level.pool.service.LevelTestQuestionPrefetchPublisher;
+import jp.co.translacat.domain.languagelearning.level.service.LevelTestResultQueryService;
 import jp.co.translacat.domain.languagelearning.level.service.LevelTestSessionCommandService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.audio.model.ListeningAudioObject;
 
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -26,25 +36,36 @@ public class LanguageLearningLevelTestFacade {
 
     private final LevelTestQueryService levelTestQueryService;
     private final LevelTestSessionCommandService sessionCommandService;
-    private final LevelTestAnswerCommandService answerCommandService;
     private final LevelTestQuestionService questionService;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
-    private final WritingEvaluationResponseMapper evaluationResponseMapper;
+    private final LevelTestQuestionPrefetchPublisher prefetchPublisher;
+    private final LevelTestAnswerCommandService answerCommandService;
+    private final LevelTestEvaluationService evaluationService;
+    private final LevelTestAudioService audioService;
+    private final LevelTestResultQueryService resultQueryService;
 
     public LevelStatusResponseDto getStatus(Long userId) {
         return levelTestQueryService.getStatus(userId);
     }
 
-    public LevelQuestionResponseDto start(
+    public LevelSessionResponseDto start(
             Long userId,
-            LevelTestSessionType sessionType
+            LevelTestStartRequestDto request
     ) {
         LevelTestSession session = sessionCommandService.start(
                 userId,
-                sessionType
+                request == null ? null : request.type(),
+                request == null ? null : request.idempotencyKey()
         );
+        return toSessionResponse(session);
+    }
 
-        return getOrGenerateCurrent(userId, session);
+    public LevelSessionResponseDto getSession(
+            Long userId,
+            Long sessionId
+    ) {
+        return toSessionResponse(
+                levelTestQueryService.getOwnedSession(userId, sessionId)
+        );
     }
 
     public LevelQuestionResponseDto getCurrent(
@@ -55,45 +76,157 @@ public class LanguageLearningLevelTestFacade {
                 userId,
                 sessionId
         );
+        LevelTestItem item = questionService.getOrGenerateCurrent(session);
+        prefetchPublisher.publish(item);
+        return questionService.toResponse(item);
+    }
 
-        return getOrGenerateCurrent(userId, session);
+    public ListeningAudioObject getReferenceAudio(
+            Long userId,
+            Long itemId
+    ) {
+        return questionService.referenceAudio(userId, itemId);
     }
 
     public LevelAnswerResultResponseDto submit(
             Long userId,
             Long sessionId,
+            Long itemId,
             LevelAnswerRequestDto request
     ) {
-        LevelAnswerCommandResult result = answerCommandService.submit(
+        LevelTestAnswerCommandService.PreparedResponse prepared =
+                answerCommandService.prepareText(
+                        userId,
+                        sessionId,
+                        itemId,
+                        request
+                );
+        LevelTestProgressCommandService.ProgressResult progress =
+                prepared.idempotentReplay()
+                        ? evaluationService.replay(prepared.response())
+                        : evaluationService.evaluate(
+                                prepared.response(),
+                                null,
+                                null,
+                                null
+                        );
+        return toAnswerResult(
                 userId,
                 sessionId,
-                request
-        );
-        LevelQuestionResponseDto nextQuestion = result.completed()
-                ? null
-                : getCurrent(userId, sessionId);
-
-        return new LevelAnswerResultResponseDto(
-                result.sessionId(),
-                result.questionNumber(),
-                evaluationResponseMapper.toResponse(result.evaluation()),
-                result.completed(),
-                result.baseLevelScore(),
-                nextQuestion
+                itemId,
+                progress
         );
     }
 
-    private LevelQuestionResponseDto getOrGenerateCurrent(
+    public LevelAudioAnswerResultResponseDto submitAudio(
             Long userId,
-            LevelTestSession session
+            Long sessionId,
+            Long itemId,
+            MultipartFile audio,
+            Integer durationMs,
+            String idempotencyKey
     ) {
-        LanguageLearningUserSetting setting =
-                userSettingQueryService.getOrCreateEntity(userId);
-        LevelTestItem item = questionService.getOrGenerateCurrent(
-                session,
-                setting
+        LevelTestAudioService.StoredAudio stored = audioService.prepareAndStore(
+                userId,
+                sessionId,
+                itemId,
+                audio,
+                durationMs,
+                idempotencyKey
         );
+        LevelTestProgressCommandService.ProgressResult progress =
+                stored.idempotentReplay()
+                        ? evaluationService.replay(stored.response())
+                        : evaluationService.evaluate(
+                                stored.response(),
+                                stored.bytes(),
+                                stored.fileName(),
+                                stored.contentType()
+                        );
 
-        return questionService.toResponse(item);
+        return new LevelAudioAnswerResultResponseDto(
+                sessionId,
+                itemId,
+                progress.evaluable(),
+                progress.score(),
+                progress.reasonCode(),
+                progress.completed(),
+                null,
+                stored.retentionUntil()
+        );
+    }
+
+    public LevelAnswerResultResponseDto retryEvaluation(
+            Long userId,
+            Long sessionId,
+            Long itemId
+    ) {
+        LevelTestProgressCommandService.ProgressResult progress =
+                evaluationService.retry(userId, sessionId, itemId);
+        return toAnswerResult(
+                userId,
+                sessionId,
+                itemId,
+                progress
+        );
+    }
+
+    public LevelTestResultResponseDto getResult(
+            Long userId,
+            Long sessionId
+    ) {
+        return resultQueryService.getResult(userId, sessionId);
+    }
+
+    public List<LevelTestHistoryItemResponseDto> getHistory(Long userId) {
+        return resultQueryService.getHistory(userId);
+    }
+
+    public LevelTestHistoryDetailResponseDto getHistoryDetail(
+            Long userId,
+            Long sessionId
+    ) {
+        return resultQueryService.getHistoryDetail(userId, sessionId);
+    }
+
+    private LevelAnswerResultResponseDto toAnswerResult(
+            Long userId,
+            Long sessionId,
+            Long itemId,
+            LevelTestProgressCommandService.ProgressResult progress
+    ) {
+        LevelTestSession session = levelTestQueryService.getOwnedSession(
+                userId,
+                sessionId
+        );
+        return new LevelAnswerResultResponseDto(
+                sessionId,
+                itemId,
+                Math.min(
+                        session.currentQuestionNumber(),
+                        session.getTotalQuestions()
+                ),
+                progress.evaluable(),
+                progress.score(),
+                progress.reasonCode(),
+                progress.completed(),
+                null
+        );
+    }
+
+    private LevelSessionResponseDto toSessionResponse(LevelTestSession session) {
+        return new LevelSessionResponseDto(
+                session.getId(),
+                session.getSessionType(),
+                session.getAssessmentVersion(),
+                session.getStatus(),
+                session.getTotalQuestions(),
+                session.currentQuestionNumber(),
+                session.currentComplexityBand(),
+                session.getBaseLevelScore(),
+                session.getProficiencyBand(),
+                session.getStartedAt(),
+                session.getCompletedAt()
+        );
     }
 }

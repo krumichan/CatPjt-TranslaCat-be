@@ -4,8 +4,12 @@ import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningU
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface LanguageLearningUserSettingRepository extends JpaRepository<LanguageLearningUserSetting, Long> {
     Optional<LanguageLearningUserSetting> findByUserId(Long userId);
+
+    List<LanguageLearningUserSetting>
+    findAllByOriginLanguageIsNotNullAndLearningLanguageIsNotNull();
 }

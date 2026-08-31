@@ -95,6 +95,21 @@ public class ListeningItemAttempt extends BaseAuditable {
     @Column(name = "overall_score")
     private Double overallScore;
 
+    @Column(name = "content_overall_score")
+    private Double contentOverallScore;
+
+    @Column(name = "listening_independence_score")
+    private Double listeningIndependenceScore;
+
+    @Column(name = "normal_playback_count", nullable = false)
+    private int normalPlaybackCount;
+
+    @Column(name = "slow_playback_count", nullable = false)
+    private int slowPlaybackCount;
+
+    @Column(name = "independence_policy_version", length = 100)
+    private String independencePolicyVersion;
+
     @Column(name = "evaluated_task_count", nullable = false)
     private int evaluatedTaskCount;
 
@@ -220,6 +235,22 @@ public class ListeningItemAttempt extends BaseAuditable {
                 : ListeningAttemptStatus.EVALUATED;
         this.evaluatedAt = now;
         this.errorCode = null;
+    }
+
+    public void applyListeningIndependence(
+            Double contentOverallScore,
+            Double listeningIndependenceScore,
+            Double adjustedOverallScore,
+            int normalPlaybackCount,
+            int slowPlaybackCount,
+            String policyVersion
+    ) {
+        this.contentOverallScore = contentOverallScore;
+        this.listeningIndependenceScore = listeningIndependenceScore;
+        this.overallScore = adjustedOverallScore;
+        this.normalPlaybackCount = Math.max(0, normalPlaybackCount);
+        this.slowPlaybackCount = Math.max(0, slowPlaybackCount);
+        this.independencePolicyVersion = policyVersion;
     }
 
     public void skip(LocalDateTime now) {

@@ -8,6 +8,7 @@ import jp.co.translacat.domain.languagelearning.listening.common.enums.Listening
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvaluationPurpose;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningProfileMetric;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningPlaybackType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningRecommendationStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskStatus;
@@ -108,11 +109,28 @@ public final class ListeningApiContract {
             ListeningEvaluationPurpose evaluationPurpose,
             ListeningAttemptStatus status,
             boolean answerRevealed,
+            Double contentOverallScore,
+            Double listeningIndependenceScore,
             Double overallScore,
+            PlaybackSummary playbackSummary,
             int evaluatedTaskCount,
             double coverage,
             String errorCode,
             List<TaskView> tasks
+    ) {
+    }
+
+    public record PlaybackRequest(
+            Long attemptId,
+            ListeningPlaybackType playbackType,
+            String clientEventId
+    ) {
+    }
+
+    public record PlaybackSummary(
+            int normalPlaybackCount,
+            int slowPlaybackCount,
+            String policyVersion
     ) {
     }
 

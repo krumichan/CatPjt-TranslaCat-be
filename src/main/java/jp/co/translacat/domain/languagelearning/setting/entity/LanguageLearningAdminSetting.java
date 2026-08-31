@@ -46,6 +46,7 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
     public static final int DEFAULT_STT_TIMEOUT_SECONDS = 30;
     public static final int DEFAULT_TTS_TIMEOUT_SECONDS = 30;
     public static final int DEFAULT_EVALUATION_TIMEOUT_SECONDS = 60;
+    public static final int DEFAULT_LEVEL_TEST_QUESTION_POOL_TARGET_SIZE = 1000;
 
     @Id
     @Column(length = 30)
@@ -135,6 +136,9 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
     @Column(nullable = false)
     private int evaluationTimeoutSeconds;
 
+    @Column(name = "level_test_question_pool_target_size")
+    private Integer levelTestQuestionPoolTargetSize;
+
     private LanguageLearningAdminSetting(String id) {
         this.id = id;
         this.defaultDailySentenceCount = DEFAULT_DAILY_SENTENCE_COUNT;
@@ -176,6 +180,8 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
         this.sttTimeoutSeconds = DEFAULT_STT_TIMEOUT_SECONDS;
         this.ttsTimeoutSeconds = DEFAULT_TTS_TIMEOUT_SECONDS;
         this.evaluationTimeoutSeconds = DEFAULT_EVALUATION_TIMEOUT_SECONDS;
+        this.levelTestQuestionPoolTargetSize =
+                DEFAULT_LEVEL_TEST_QUESTION_POOL_TARGET_SIZE;
     }
 
     public static LanguageLearningAdminSetting createDefault() {
@@ -268,6 +274,52 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
             Integer ttsTimeoutSeconds,
             Integer evaluationTimeoutSeconds
     ) {
+        update(
+                defaultCount, minCount, maxCount, keywordMax, reviewDays,
+                recheckDays, adaptiveWritingEnabled, aiEvaluationEnabled,
+                speakingEnabled, speakingEvaluationEnabled,
+                defaultSpeakingGoal, minSpeakingGoal, maxSpeakingGoal,
+                speakingHardLimit, speakingSessionLimit, maxSessionMinutes,
+                maxTurnsPerSession, minValidAudioSeconds,
+                maxTurnAudioSeconds, maxAudioFileBytes, rawAudioRetentionDays,
+                reportedAudioRetentionDays, activeSessionResumeHours,
+                automaticRetryLimitPerStage, manualRetryLimitPerStage,
+                sttTimeoutSeconds, ttsTimeoutSeconds, evaluationTimeoutSeconds,
+                null
+        );
+    }
+
+    public void update(
+            Integer defaultCount,
+            Integer minCount,
+            Integer maxCount,
+            Integer keywordMax,
+            Integer reviewDays,
+            Integer recheckDays,
+            Boolean adaptiveWritingEnabled,
+            Boolean aiEvaluationEnabled,
+            Boolean speakingEnabled,
+            Boolean speakingEvaluationEnabled,
+            Integer defaultSpeakingGoal,
+            Integer minSpeakingGoal,
+            Integer maxSpeakingGoal,
+            Integer speakingHardLimit,
+            Integer speakingSessionLimit,
+            Integer maxSessionMinutes,
+            Integer maxTurnsPerSession,
+            Double minValidAudioSeconds,
+            Integer maxTurnAudioSeconds,
+            Long maxAudioFileBytes,
+            Integer rawAudioRetentionDays,
+            Integer reportedAudioRetentionDays,
+            Integer activeSessionResumeHours,
+            Integer automaticRetryLimitPerStage,
+            Integer manualRetryLimitPerStage,
+            Integer sttTimeoutSeconds,
+            Integer ttsTimeoutSeconds,
+            Integer evaluationTimeoutSeconds,
+            Integer levelTestQuestionPoolTargetSize
+    ) {
         int nextDefault = defaultCount == null
                 ? this.defaultDailySentenceCount
                 : defaultCount;
@@ -341,6 +393,10 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
         int nextEvaluationTimeout = evaluationTimeoutSeconds == null
                 ? this.evaluationTimeoutSeconds
                 : evaluationTimeoutSeconds;
+        int nextLevelTestQuestionPoolTargetSize =
+                levelTestQuestionPoolTargetSize == null
+                        ? resolvedLevelTestQuestionPoolTargetSize()
+                        : levelTestQuestionPoolTargetSize;
 
         validateWriting(
                 nextDefault,
@@ -370,6 +426,9 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
                 nextTtsTimeout,
                 nextEvaluationTimeout
         );
+        validateLevelTestQuestionPoolTargetSize(
+                nextLevelTestQuestionPoolTargetSize
+        );
 
         this.defaultDailySentenceCount = nextDefault;
         this.minDailySentenceCount = nextMin;
@@ -396,6 +455,8 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
         this.sttTimeoutSeconds = nextSttTimeout;
         this.ttsTimeoutSeconds = nextTtsTimeout;
         this.evaluationTimeoutSeconds = nextEvaluationTimeout;
+        this.levelTestQuestionPoolTargetSize =
+                nextLevelTestQuestionPoolTargetSize;
 
         if (adaptiveWritingEnabled != null) {
             this.adaptiveWritingEnabled = adaptiveWritingEnabled;
@@ -409,6 +470,13 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
         if (speakingEvaluationEnabled != null) {
             this.speakingEvaluationEnabled = speakingEvaluationEnabled;
         }
+    }
+
+
+    public int resolvedLevelTestQuestionPoolTargetSize() {
+        return levelTestQuestionPoolTargetSize == null
+                ? DEFAULT_LEVEL_TEST_QUESTION_POOL_TARGET_SIZE
+                : levelTestQuestionPoolTargetSize;
     }
 
     public int clampDailySentenceCount(int value) {
@@ -508,6 +576,13 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
                 || invalidRetention
                 || invalidRetry
                 || invalidTimeout) {
+            invalidSetting();
+        }
+    }
+
+
+    private static void validateLevelTestQuestionPoolTargetSize(int targetSize) {
+        if (targetSize < 100 || targetSize > 100_000) {
             invalidSetting();
         }
     }

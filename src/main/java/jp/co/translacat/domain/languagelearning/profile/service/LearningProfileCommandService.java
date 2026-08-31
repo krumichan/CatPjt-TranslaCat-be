@@ -61,6 +61,16 @@ public class LearningProfileCommandService {
     }
 
     @Transactional
+    public void completeLevelTest(
+            Long userId,
+            double baseLevelScore,
+            LocalDate completedDate
+    ) {
+        queryService.getOrCreate(userId)
+                .completeLevelTest(baseLevelScore, completedDate);
+    }
+
+    @Transactional
     public void resetForRecheck(Long userId) {
         queryService.getOrCreate(userId)
                 .resetForRecheck();

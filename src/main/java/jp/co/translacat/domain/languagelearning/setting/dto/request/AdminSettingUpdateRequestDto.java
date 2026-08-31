@@ -28,7 +28,8 @@ public record AdminSettingUpdateRequestDto(
         Integer manualRetryLimitPerStage,
         Integer sttTimeoutSeconds,
         Integer ttsTimeoutSeconds,
-        Integer evaluationTimeoutSeconds
+        Integer evaluationTimeoutSeconds,
+        Integer levelTestQuestionPoolTargetSize
 ) {
     public AdminSettingUpdateRequestDto(
             Integer defaultDailySentenceCount,
@@ -50,7 +51,8 @@ public record AdminSettingUpdateRequestDto(
                 adaptiveWritingEnabled,
                 aiEvaluationEnabled,
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null, null, null,
+                null
         );
     }
 }

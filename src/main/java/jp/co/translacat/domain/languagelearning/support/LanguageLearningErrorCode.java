@@ -118,6 +118,18 @@ public final class LanguageLearningErrorCode {
             "LISTENING_REPORT_ALREADY_SUBMITTED";
     public static final String LISTENING_REPLACEMENT_LIMIT_EXCEEDED =
             "LISTENING_REPLACEMENT_LIMIT_EXCEEDED";
+    public static final String LISTENING_PLAYBACK_EVENT_INVALID =
+            "LISTENING_PLAYBACK_EVENT_INVALID";
+    public static final String LEVEL_TEST_DAILY_LIMIT_REACHED =
+            "LEVEL_TEST_DAILY_LIMIT_REACHED";
+    public static final String LEVEL_TEST_ANSWER_MODE_MISMATCH =
+            "LEVEL_TEST_ANSWER_MODE_MISMATCH";
+    public static final String LEVEL_TEST_AUDIO_INVALID =
+            "LEVEL_TEST_AUDIO_INVALID";
+    public static final String LEVEL_TEST_EVALUATION_FAILED =
+            "LEVEL_TEST_EVALUATION_FAILED";
+    public static final String CONTENT_DIVERSITY_EXHAUSTED =
+            "CONTENT_DIVERSITY_EXHAUSTED";
     public static final String AI_GENERATION_FAILED =
             "AI_GENERATION_FAILED";
     public static final String AI_TTS_FAILED =

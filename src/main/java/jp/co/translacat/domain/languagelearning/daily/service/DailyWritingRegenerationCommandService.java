@@ -66,6 +66,7 @@ public class DailyWritingRegenerationCommandService {
         );
         AiDailyWritingGenerationResponseDto response = aiClient.generateDaily(
                 requestFactory.createRegeneration(
+                        userId,
                         dailySet,
                         snapshot,
                         unansweredItems.size(),
@@ -79,6 +80,7 @@ public class DailyWritingRegenerationCommandService {
                 distribution
         );
         itemCommandService.replaceAll(
+                snapshot.learningLanguage(),
                 unansweredItems,
                 response.items()
         );

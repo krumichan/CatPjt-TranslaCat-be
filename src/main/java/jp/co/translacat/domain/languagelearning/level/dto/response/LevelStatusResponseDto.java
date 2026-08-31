@@ -8,6 +8,7 @@ public record LevelStatusResponseDto(
         boolean recheckRecommended,
         Long activeSessionId,
         Integer currentQuestionNumber,
-        Double baseLevelScore
+        Double baseLevelScore,
+        String proficiencyBand
 ) {
 }

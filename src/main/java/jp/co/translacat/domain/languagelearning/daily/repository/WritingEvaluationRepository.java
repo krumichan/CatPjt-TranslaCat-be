@@ -6,6 +6,7 @@ import jp.co.translacat.domain.languagelearning.daily.entity.WritingEvaluation;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,6 +24,14 @@ public interface WritingEvaluationRepository extends JpaRepository<WritingEvalua
 
     List<WritingEvaluation> findAllByUserIdAndContextAndStatusOrderByEvaluatedAtDesc(
             Long userId,
+            WritingEvaluationContext context,
+            EvaluationStatus status
+    );
+
+    List<WritingEvaluation>
+    findAllByAnswerDailyItemDailySetIdAndAnswerAttemptDateAndContextAndStatus(
+            Long dailySetId,
+            LocalDate attemptDate,
             WritingEvaluationContext context,
             EvaluationStatus status
     );

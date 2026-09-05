@@ -14,6 +14,7 @@ import jp.co.translacat.domain.languagelearning.level.service.LevelTestProgressC
 import jp.co.translacat.domain.languagelearning.level.service.LevelTestQueryService;
 import jp.co.translacat.domain.languagelearning.level.service.LevelTestQuestionService;
 import jp.co.translacat.domain.languagelearning.level.service.LevelTestResultQueryService;
+import jp.co.translacat.domain.languagelearning.level.service.LevelTestReviewAudioService;
 import jp.co.translacat.domain.languagelearning.level.service.LevelTestSessionCommandService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +54,8 @@ class LanguageLearningLevelTestFacadeSubmissionTest {
     @Mock
     private LevelTestResultQueryService resultQueryService;
     @Mock
+    private LevelTestReviewAudioService reviewAudioService;
+    @Mock
     private LevelTestSession session;
     @Mock
     private LevelTestItem item;
@@ -73,7 +76,8 @@ class LanguageLearningLevelTestFacadeSubmissionTest {
                 answerCommandService,
                 evaluationService,
                 audioService,
-                resultQueryService
+                resultQueryService,
+                reviewAudioService
         );
     }
 

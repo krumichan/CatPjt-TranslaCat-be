@@ -99,6 +99,34 @@ public class LanguageLearningLevelTestController {
                 .body(audio.bytes());
     }
 
+    @GetMapping("/items/{itemId}/answer-audio")
+    public ResponseEntity<byte[]> getAnswerAudio(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long itemId
+    ) {
+        var audio = levelTestFacade.getAnswerAudio(
+                userId(userPrincipal),
+                itemId
+        );
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(audio.contentType()))
+                .body(audio.bytes());
+    }
+
+    @GetMapping("/items/{itemId}/model-answer-audio")
+    public ResponseEntity<byte[]> getModelAnswerAudio(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long itemId
+    ) {
+        var audio = levelTestFacade.getModelAnswerAudio(
+                userId(userPrincipal),
+                itemId
+        );
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(audio.contentType()))
+                .body(audio.bytes());
+    }
+
     @PostMapping("/sessions/{sessionId}/items/{itemId}/answers")
     public ResponseDto<LevelAnswerResultResponseDto> submitAnswer(
             @AuthenticationPrincipal UserPrincipal userPrincipal,

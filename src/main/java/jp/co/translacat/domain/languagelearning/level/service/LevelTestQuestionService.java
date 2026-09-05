@@ -190,6 +190,12 @@ public class LevelTestQuestionService {
                 emphasisText,
                 taskGuidance,
                 item.getReferenceAudioObjectKey() != null,
+                repeatReferenceTextForActiveResponse(
+                        item.getItemType(),
+                        item.getQuestionNumber(),
+                        stringValue(referencePayload.get("referenceText"))
+                ),
+                referencePlaybackLimit(item.getItemType(), item.getQuestionNumber()),
                 item.getMaxAnswerLength(),
                 item.getMaxAudioSeconds(),
                 item.getStatus(),
@@ -246,10 +252,31 @@ public class LevelTestQuestionService {
         }
         if (itemType == LevelTestItemType.SPEAKING_REPEAT) {
             // The reference audio is the actual task content. Avoid showing a second
-            // translated/restated instruction block beside the origin-language operation hint.
+            // translated/restated task block beside the concise operation instruction.
             return "";
         }
         return promptText;
+    }
+
+    static String repeatReferenceTextForActiveResponse(
+            LevelTestItemType itemType,
+            int questionNumber,
+            String referenceText
+    ) {
+        if (itemType != LevelTestItemType.SPEAKING_REPEAT || questionNumber != 18) {
+            return null;
+        }
+        return referenceText;
+    }
+
+    static Integer referencePlaybackLimit(
+            LevelTestItemType itemType,
+            int questionNumber
+    ) {
+        if (itemType != LevelTestItemType.SPEAKING_REPEAT) {
+            return null;
+        }
+        return questionNumber == 19 ? 3 : 2;
     }
 
     @Transactional(readOnly = true)
@@ -886,7 +913,7 @@ public class LevelTestQuestionService {
                 || response.domain() != expected.domain()
                 || response.itemType() != expected.itemType()
                 || response.complexityBand() != targetBand
-                || !Objects.equals(response.instructionLanguage(), originLanguage)
+                || !Objects.equals(response.instructionLanguage(), learningLanguage)
                 || blank(response.instruction())
                 || blank(response.promptText())
                 || response.answerMode() == null
@@ -1102,7 +1129,7 @@ public class LevelTestQuestionService {
                 || response.complexityBand() != targetBand
                 || !Objects.equals(
                         response.instructionLanguage(),
-                        session.getOriginLanguage()
+                        session.getLearningLanguage()
                 )
                 || blank(response.instruction())
                 || blank(response.promptText())

@@ -89,6 +89,9 @@ public class LevelTestProgressCommandService {
                     jsonCodec.write(payload.metrics()),
                     jsonCodec.write(payload.strengths()),
                     jsonCodec.write(payload.improvements()),
+                    payload.transcript(),
+                    jsonCodec.write(payload.recommendedAnswers()),
+                    jsonCodec.write(payload.detailedFeedback()),
                     jsonCodec.write(payload.assessmentSignals()),
                     payload.reasonCode(),
                     payload.evaluationVersion(),
@@ -103,6 +106,9 @@ public class LevelTestProgressCommandService {
                     jsonCodec.write(payload.metrics()),
                     jsonCodec.write(payload.strengths()),
                     jsonCodec.write(payload.improvements()),
+                    payload.transcript(),
+                    jsonCodec.write(payload.recommendedAnswers()),
+                    jsonCodec.write(payload.detailedFeedback()),
                     jsonCodec.write(payload.assessmentSignals()),
                     payload.reasonCode(),
                     payload.evaluationVersion(),
@@ -239,6 +245,9 @@ public class LevelTestProgressCommandService {
             List<Map<String, Object>> metrics,
             List<String> strengths,
             List<String> improvements,
+            String transcript,
+            List<String> recommendedAnswers,
+            List<Map<String, Object>> detailedFeedback,
             List<Map<String, Object>> assessmentSignals,
             String reasonCode,
             String evaluationVersion
@@ -249,6 +258,12 @@ public class LevelTestProgressCommandService {
             improvements = improvements == null
                     ? List.of()
                     : List.copyOf(improvements);
+            recommendedAnswers = recommendedAnswers == null
+                    ? List.of()
+                    : List.copyOf(recommendedAnswers);
+            detailedFeedback = detailedFeedback == null
+                    ? List.of()
+                    : List.copyOf(detailedFeedback);
             assessmentSignals = assessmentSignals == null
                     ? List.of()
                     : List.copyOf(assessmentSignals);

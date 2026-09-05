@@ -135,6 +135,12 @@ public class LevelTestItem extends BaseAuditable {
     @Column(name = "reference_audio_content_type", length = 100)
     private String referenceAudioContentType;
 
+    @Column(name = "model_answer_audio_object_key", length = 1000)
+    private String modelAnswerAudioObjectKey;
+
+    @Column(name = "model_answer_audio_content_type", length = 100)
+    private String modelAnswerAudioContentType;
+
     private LevelTestItem(
             LevelTestSession session,
             int questionNumber,
@@ -281,6 +287,14 @@ public class LevelTestItem extends BaseAuditable {
     ) {
         referenceAudioObjectKey = objectKey;
         referenceAudioContentType = contentType;
+    }
+
+    public void attachModelAnswerAudio(
+            String objectKey,
+            String contentType
+    ) {
+        modelAnswerAudioObjectKey = objectKey;
+        modelAnswerAudioContentType = contentType;
     }
 
     public int getComplexityBandValue() {

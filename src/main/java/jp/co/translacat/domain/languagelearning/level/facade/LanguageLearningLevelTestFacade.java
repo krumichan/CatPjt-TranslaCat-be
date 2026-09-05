@@ -20,6 +20,7 @@ import jp.co.translacat.domain.languagelearning.level.service.LevelTestQueryServ
 import jp.co.translacat.domain.languagelearning.level.service.LevelTestQuestionService;
 import jp.co.translacat.domain.languagelearning.level.pool.service.LevelTestQuestionPrefetchPublisher;
 import jp.co.translacat.domain.languagelearning.level.service.LevelTestResultQueryService;
+import jp.co.translacat.domain.languagelearning.level.service.LevelTestReviewAudioService;
 import jp.co.translacat.domain.languagelearning.level.service.LevelTestSessionCommandService;
 import jp.co.translacat.domain.languagelearning.listening.audio.model.ListeningAudioObject;
 
@@ -42,6 +43,7 @@ public class LanguageLearningLevelTestFacade {
     private final LevelTestEvaluationService evaluationService;
     private final LevelTestAudioService audioService;
     private final LevelTestResultQueryService resultQueryService;
+    private final LevelTestReviewAudioService reviewAudioService;
 
     public LevelStatusResponseDto getStatus(Long userId) {
         return levelTestQueryService.getStatus(userId);
@@ -86,6 +88,20 @@ public class LanguageLearningLevelTestFacade {
             Long itemId
     ) {
         return questionService.referenceAudio(userId, itemId);
+    }
+
+    public ListeningAudioObject getAnswerAudio(
+            Long userId,
+            Long itemId
+    ) {
+        return reviewAudioService.loadAnswerAudio(userId, itemId);
+    }
+
+    public ListeningAudioObject getModelAnswerAudio(
+            Long userId,
+            Long itemId
+    ) {
+        return reviewAudioService.loadModelAnswerAudio(userId, itemId);
     }
 
     public LevelAnswerResultResponseDto submit(

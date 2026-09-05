@@ -148,4 +148,16 @@ public class LevelTestQuestionPersistenceService {
                 .orElseThrow();
         item.attachReferenceAudio(objectKey, contentType);
     }
+
+    @Transactional
+    public void attachModelAnswerAudio(
+            Long itemId,
+            String objectKey,
+            String contentType
+    ) {
+        LevelTestItem item = itemRepository
+                .findLockedById(itemId)
+                .orElseThrow();
+        item.attachModelAnswerAudio(objectKey, contentType);
+    }
 }

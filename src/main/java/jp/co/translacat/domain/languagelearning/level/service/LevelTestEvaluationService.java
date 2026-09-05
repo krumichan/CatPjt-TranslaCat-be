@@ -193,6 +193,9 @@ public class LevelTestEvaluationService {
                 List.of(),
                 List.of(),
                 List.of(),
+                null,
+                List.of(),
+                List.of(),
                 List.of(),
                 null,
                 "LEVEL_TEST_OBJECTIVE_V1"
@@ -351,6 +354,9 @@ public class LevelTestEvaluationService {
                 response.metrics(),
                 response.strengths(),
                 response.improvements(),
+                response.transcript(),
+                response.recommendedAnswers(),
+                response.detailedFeedback(),
                 response.assessmentSignals(),
                 response.reasonCode(),
                 response.evaluationVersion()

@@ -2,6 +2,8 @@ package jp.co.translacat.domain.languagelearning.level.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 
+import jp.co.translacat.domain.languagelearning.ai.dto.model.LevelTestInternalAnswerKeyDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.LevelTestOptionDto;
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestDomain;
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionStatus;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
@@ -9,6 +11,8 @@ import jp.co.translacat.domain.languagelearning.level.dto.response.LevelTestDoma
 import jp.co.translacat.domain.languagelearning.level.dto.response.LevelTestHistoryDetailResponseDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.LevelTestHistoryItemResponseDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.LevelTestItemDetailResponseDto;
+import jp.co.translacat.domain.languagelearning.level.dto.response.LevelTestOptionResponseDto;
+import jp.co.translacat.domain.languagelearning.level.dto.response.LevelTestTaskGuidanceResponseDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.LevelTestResultResponseDto;
 import jp.co.translacat.domain.languagelearning.level.entity.LevelTestEvaluation;
 import jp.co.translacat.domain.languagelearning.level.entity.LevelTestItem;
@@ -27,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -132,6 +137,13 @@ public class LevelTestResultQueryService {
                 : evaluationRepository.findByResponseId(response.getId())
                         .orElse(null);
 
+        List<LevelTestOptionResponseDto> options = readOptions(item);
+        Map<String, Object> referencePayload = readReferencePayload(
+                item.getReferencePayloadJson()
+        );
+        LevelTestInternalAnswerKeyDto answerKey = readAnswerKey(
+                item.getInternalAnswerKeyJson()
+        );
         List<String> selectedOptionKeys = response == null
                 || response.getSelectedOptionKeysJson() == null
                 ? List.of()
@@ -162,16 +174,58 @@ public class LevelTestResultQueryService {
                         }
                 );
 
+        List<String> recommendedAnswers = evaluation == null
+                || evaluation.getRecommendedAnswersJson() == null
+                ? List.of()
+                : jsonCodec.read(
+                        evaluation.getRecommendedAnswersJson(),
+                        new TypeReference<List<String>>() {
+                        }
+                );
+        List<Map<String, Object>> detailedFeedback = evaluation == null
+                || evaluation.getDetailedFeedbackJson() == null
+                ? List.of()
+                : jsonCodec.read(
+                        evaluation.getDetailedFeedbackJson(),
+                        new TypeReference<List<Map<String, Object>>>() {
+                        }
+                );
+        boolean modelAnswerAudioAvailable = item.getItemType() != null
+                && item.getItemType().name().startsWith("SPEAKING_")
+                && (item.getItemType().name().equals("SPEAKING_REPEAT")
+                ? item.getReferenceAudioObjectKey() != null
+                : !recommendedAnswers.isEmpty());
+        boolean answerAudioAvailable = response != null
+                && response.getAudioObjectKey() != null
+                && response.getAudioDeletedAt() == null
+                && (response.getAudioRetentionUntil() == null
+                || !response.getAudioRetentionUntil().isBefore(LocalDateTime.now()));
+
         return new LevelTestItemDetailResponseDto(
+                item.getId(),
                 item.getQuestionNumber(),
                 item.getDomain(),
                 item.getItemType(),
                 item.getComplexityBandValue(),
+                item.getInstruction(),
                 item.getPromptText(),
+                options,
+                stringValue(referencePayload.get("emphasisText")),
+                taskGuidance(referencePayload),
                 response == null ? null : response.getSelectedOptionKey(),
                 selectedOptionKeys,
                 response == null ? null : response.getTextAnswer(),
                 response != null && response.getAudioObjectKey() != null,
+                answerAudioAvailable,
+                item.getReferenceAudioObjectKey() != null,
+                evaluation == null ? null : evaluation.getTranscript(),
+                recommendedAnswers,
+                detailedFeedback,
+                modelAnswerAudioAvailable,
+                answerKey == null ? null : answerKey.correctOptionKey(),
+                answerKey == null || answerKey.correctOrder() == null
+                        ? List.of()
+                        : answerKey.correctOrder(),
                 evaluation != null && evaluation.isEvaluable(),
                 evaluation == null ? null : evaluation.getScore(),
                 evaluation == null ? null : evaluation.getConfidence(),
@@ -180,6 +234,76 @@ public class LevelTestResultQueryService {
                 improvements,
                 evaluation == null ? null : evaluation.getReasonCode()
         );
+    }
+
+    private List<LevelTestOptionResponseDto> readOptions(LevelTestItem item) {
+        if (item.getOptionsJson() == null || item.getOptionsJson().isBlank()) {
+            return List.of();
+        }
+        List<LevelTestOptionDto> values = jsonCodec.read(
+                item.getOptionsJson(),
+                new TypeReference<List<LevelTestOptionDto>>() {
+                }
+        );
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        return values.stream()
+                .filter(value -> value != null)
+                .map(value -> new LevelTestOptionResponseDto(
+                        value.key(),
+                        value.text()
+                ))
+                .toList();
+    }
+
+    private LevelTestInternalAnswerKeyDto readAnswerKey(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        return jsonCodec.read(json, LevelTestInternalAnswerKeyDto.class);
+    }
+
+    private Map<String, Object> readReferencePayload(String json) {
+        if (json == null || json.isBlank()) {
+            return Map.of();
+        }
+        return jsonCodec.read(json, new TypeReference<Map<String, Object>>() {
+        });
+    }
+
+    private LevelTestTaskGuidanceResponseDto taskGuidance(
+            Map<String, Object> payload
+    ) {
+        List<String> facts = stringList(payload.get("providedFacts"));
+        List<String> intents = stringList(payload.get("requiredIntents"));
+        List<String> constraints = stringList(payload.get("responseConstraints"));
+        if (facts.isEmpty() && intents.isEmpty() && constraints.isEmpty()) {
+            return null;
+        }
+        return new LevelTestTaskGuidanceResponseDto(
+                facts,
+                intents,
+                constraints
+        );
+    }
+
+    private List<String> stringList(Object value) {
+        if (!(value instanceof List<?> values)) {
+            return List.of();
+        }
+        return values.stream()
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .filter(entry -> !entry.isBlank())
+                .toList();
+    }
+
+    private String stringValue(Object value) {
+        if (!(value instanceof String text) || text.isBlank()) {
+            return null;
+        }
+        return text;
     }
 
     private LevelTestSession getCompletedSession(

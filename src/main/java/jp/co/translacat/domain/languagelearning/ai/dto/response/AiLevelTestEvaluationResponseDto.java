@@ -20,6 +20,8 @@ public record AiLevelTestEvaluationResponseDto(
         List<Map<String, Object>> metrics,
         List<String> strengths,
         List<String> improvements,
+        List<String> recommendedAnswers,
+        List<Map<String, Object>> detailedFeedback,
         List<Map<String, Object>> assessmentSignals,
         String reasonCode,
         String evaluationVersion,

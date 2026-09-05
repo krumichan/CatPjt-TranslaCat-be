@@ -32,9 +32,12 @@ public class LevelTestRecipe {
             new Entry(15, LevelTestDomain.WRITING, LevelTestItemType.WRITING_TRANSLATION),
             new Entry(16, LevelTestDomain.WRITING, LevelTestItemType.WRITING_TRANSLATION),
             new Entry(17, LevelTestDomain.WRITING, LevelTestItemType.WRITING_SHORT_PARAGRAPH),
+            // Speaking separates pronunciation-focused repetition from productive speech:
+            // Q18 exposes the reference text, Q19 is audio-only with three plays,
+            // and Q20 is one guided open response.
             new Entry(18, LevelTestDomain.SPEAKING, LevelTestItemType.SPEAKING_REPEAT),
-            new Entry(19, LevelTestDomain.SPEAKING, LevelTestItemType.SPEAKING_GUIDED_RESPONSE),
-            new Entry(20, LevelTestDomain.SPEAKING, LevelTestItemType.SPEAKING_SHORT_RESPONSE)
+            new Entry(19, LevelTestDomain.SPEAKING, LevelTestItemType.SPEAKING_REPEAT),
+            new Entry(20, LevelTestDomain.SPEAKING, LevelTestItemType.SPEAKING_GUIDED_RESPONSE)
     );
 
     public Entry entry(int questionNumber) {

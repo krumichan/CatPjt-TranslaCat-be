@@ -32,6 +32,7 @@ public class LevelTestQuestionPoolReplenishmentScheduler {
             log.info("Level Test pool replenishment skipped because previous run is active.");
             return;
         }
+
         long startedAt = System.nanoTime();
         try {
             var result = replenishmentService.replenish();

@@ -42,4 +42,30 @@ class LevelTestQuestionServiceResponseTest {
 
         assertThat(exposed).isEmpty();
     }
+    @Test
+    void firstSpeakingRepeatExposesReferenceTextAndKeepsTwoPlays() {
+        assertThat(LevelTestQuestionService.repeatReferenceTextForActiveResponse(
+                LevelTestItemType.SPEAKING_REPEAT,
+                18,
+                "予定を変更する場合は、早めに連絡してください。"
+        )).isEqualTo("予定を変更する場合は、早めに連絡してください。");
+        assertThat(LevelTestQuestionService.referencePlaybackLimit(
+                LevelTestItemType.SPEAKING_REPEAT,
+                18
+        )).isEqualTo(2);
+    }
+
+    @Test
+    void secondSpeakingRepeatHidesReferenceTextAndAllowsThreePlays() {
+        assertThat(LevelTestQuestionService.repeatReferenceTextForActiveResponse(
+                LevelTestItemType.SPEAKING_REPEAT,
+                19,
+                "明日は少し早めに出発してください。"
+        )).isNull();
+        assertThat(LevelTestQuestionService.referencePlaybackLimit(
+                LevelTestItemType.SPEAKING_REPEAT,
+                19
+        )).isEqualTo(3);
+    }
+
 }

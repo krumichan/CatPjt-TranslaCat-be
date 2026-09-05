@@ -21,6 +21,20 @@ public class ListeningAudioKeyFactory {
         );
     }
 
+    public String levelTestModelAnswer(
+            Long userId,
+            Long sessionId,
+            Long itemId,
+            String extension
+    ) {
+        return build(
+                userId,
+                sessionId,
+                "model-answer-" + itemId,
+                extension
+        );
+    }
+
     public String response(
             Long userId,
             Long sessionId,

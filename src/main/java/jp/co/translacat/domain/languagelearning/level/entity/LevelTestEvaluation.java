@@ -50,6 +50,18 @@ public class LevelTestEvaluation extends BaseAuditable {
     private String improvementsJson;
 
     @Lob
+    @Column(name = "transcript", columnDefinition = "TEXT")
+    private String transcript;
+
+    @Lob
+    @Column(name = "recommended_answers_json", columnDefinition = "TEXT")
+    private String recommendedAnswersJson;
+
+    @Lob
+    @Column(name = "detailed_feedback_json", columnDefinition = "TEXT")
+    private String detailedFeedbackJson;
+
+    @Lob
     @Column(
             name = "assessment_signals_json",
             nullable = false,
@@ -77,6 +89,9 @@ public class LevelTestEvaluation extends BaseAuditable {
             String metricsJson,
             String strengthsJson,
             String improvementsJson,
+            String transcript,
+            String recommendedAnswersJson,
+            String detailedFeedbackJson,
             String assessmentSignalsJson,
             String reasonCode,
             String evaluationVersion,
@@ -91,6 +106,9 @@ public class LevelTestEvaluation extends BaseAuditable {
                 metricsJson,
                 strengthsJson,
                 improvementsJson,
+                transcript,
+                recommendedAnswersJson,
+                detailedFeedbackJson,
                 assessmentSignalsJson,
                 reasonCode,
                 evaluationVersion,
@@ -107,6 +125,9 @@ public class LevelTestEvaluation extends BaseAuditable {
             String metricsJson,
             String strengthsJson,
             String improvementsJson,
+            String transcript,
+            String recommendedAnswersJson,
+            String detailedFeedbackJson,
             String assessmentSignalsJson,
             String reasonCode,
             String evaluationVersion,
@@ -121,6 +142,9 @@ public class LevelTestEvaluation extends BaseAuditable {
                 metricsJson,
                 strengthsJson,
                 improvementsJson,
+                transcript,
+                recommendedAnswersJson,
+                detailedFeedbackJson,
                 assessmentSignalsJson,
                 reasonCode,
                 evaluationVersion,
@@ -136,6 +160,9 @@ public class LevelTestEvaluation extends BaseAuditable {
             String metricsJson,
             String strengthsJson,
             String improvementsJson,
+            String transcript,
+            String recommendedAnswersJson,
+            String detailedFeedbackJson,
             String assessmentSignalsJson,
             String reasonCode,
             String evaluationVersion,
@@ -148,6 +175,9 @@ public class LevelTestEvaluation extends BaseAuditable {
         this.metricsJson = metricsJson;
         this.strengthsJson = strengthsJson;
         this.improvementsJson = improvementsJson;
+        this.transcript = transcript;
+        this.recommendedAnswersJson = recommendedAnswersJson;
+        this.detailedFeedbackJson = detailedFeedbackJson;
         this.assessmentSignalsJson = assessmentSignalsJson;
         this.reasonCode = reasonCode;
         this.evaluationVersion = evaluationVersion;

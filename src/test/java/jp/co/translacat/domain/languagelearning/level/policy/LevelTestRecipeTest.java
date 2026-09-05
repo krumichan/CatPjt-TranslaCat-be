@@ -32,6 +32,9 @@ class LevelTestRecipeTest {
         assertThat(recipe.entry(15).itemType()).isEqualTo(LevelTestItemType.WRITING_TRANSLATION);
         assertThat(recipe.entry(16).itemType()).isEqualTo(LevelTestItemType.WRITING_TRANSLATION);
         assertThat(recipe.entry(17).itemType()).isEqualTo(LevelTestItemType.WRITING_SHORT_PARAGRAPH);
+        assertThat(recipe.entry(18).itemType()).isEqualTo(LevelTestItemType.SPEAKING_REPEAT);
+        assertThat(recipe.entry(19).itemType()).isEqualTo(LevelTestItemType.SPEAKING_REPEAT);
+        assertThat(recipe.entry(20).itemType()).isEqualTo(LevelTestItemType.SPEAKING_GUIDED_RESPONSE);
         assertThat(counts)
                 .containsEntry(LevelTestDomain.VOCABULARY, 3)
                 .containsEntry(LevelTestDomain.GRAMMAR, 3)

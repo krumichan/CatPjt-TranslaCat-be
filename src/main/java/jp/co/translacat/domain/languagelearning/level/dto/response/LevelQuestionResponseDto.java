@@ -26,6 +26,8 @@ public record LevelQuestionResponseDto(
         String emphasisText,
         LevelTestTaskGuidanceResponseDto taskGuidance,
         boolean referenceAudioAvailable,
+        String repeatReferenceText,
+        Integer referencePlaybackLimit,
         Integer maxAnswerLength,
         Integer maxAudioSeconds,
         LevelTestItemStatus status,

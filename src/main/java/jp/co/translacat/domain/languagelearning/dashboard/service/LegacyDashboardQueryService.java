@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -58,15 +57,15 @@ public class LegacyDashboardQueryService {
         LocalDate today = userSettingQueryService.resolveToday(setting);
         ProfileResponseDto profile = profileQueryService.getProfile(userId);
         List<WritingEvaluation> writingEvaluations = getDailyEvaluations(userId);
-        Optional<DailyWritingSet> todaySet = dailySetRepository
-                .findByUserIdAndLearningDate(userId, today);
+        List<DailyWritingSet> todaySets = dailySetRepository
+                .findAllByUserIdAndLearningDate(userId, today);
         LocalDate from = today.minusDays(resolveDays(period) - 1L);
         LearningSource source = parseSource(sourceValue);
         StreakResponseDto streak = streakQueryService.get(userId, today);
 
         return new LegacyDashboardResponseDto(
-                countTodayCompleted(todaySet),
-                todaySet.map(DailyWritingSet::getSentenceCount).orElse(0),
+                countTodayCompleted(todaySets),
+                todaySets.stream().mapToInt(DailyWritingSet::getSentenceCount).sum(),
                 streak.current(),
                 answerRepository.countDistinctAnsweredItems(userId),
                 scoreCalculator.averageOverall(scoreCalculator.filter(
@@ -116,13 +115,14 @@ public class LegacyDashboardQueryService {
                 );
     }
 
-    private int countTodayCompleted(Optional<DailyWritingSet> todaySet) {
-        return todaySet.map(dailySet -> (int) itemRepository
-                .findAllByDailySetIdOrderByOrderNoAsc(dailySet.getId())
-                .stream()
-                .filter(item -> answerRepository.existsByDailyItemId(item.getId()))
-                .count()
-        ).orElse(0);
+    private int countTodayCompleted(List<DailyWritingSet> todaySets) {
+        return todaySets.stream()
+                .mapToInt(dailySet -> (int) itemRepository
+                        .findAllByDailySetIdOrderByOrderNoAsc(dailySet.getId())
+                        .stream()
+                        .filter(item -> answerRepository.existsByDailyItemId(item.getId()))
+                        .count())
+                .sum();
     }
 
     private List<RecentLearningResponseDto> recentLearning(

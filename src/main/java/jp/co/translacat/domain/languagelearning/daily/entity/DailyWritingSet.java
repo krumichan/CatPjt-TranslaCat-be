@@ -3,6 +3,7 @@ package jp.co.translacat.domain.languagelearning.daily.entity;
 import jakarta.persistence.*;
 
 import jp.co.translacat.domain.languagelearning.common.enums.DailySetStatus;
+import jp.co.translacat.domain.languagelearning.common.enums.DailyWritingType;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.jpa.BaseAuditable;
 
@@ -18,12 +19,12 @@ import java.time.LocalDateTime;
 @Table(
         name = "language_learning_daily_set",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_ll_daily_set_user_date",
-                columnNames = {"user_id", "learning_date"}
+                name = "uk_ll_daily_set_user_date_type",
+                columnNames = {"user_id", "learning_date", "writing_type"}
         ),
         indexes = @Index(
-                name = "idx_ll_daily_set_user_date",
-                columnList = "user_id,learning_date"
+                name = "idx_ll_daily_set_user_date_type",
+                columnList = "user_id,learning_date,writing_type"
         )
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -39,6 +40,10 @@ public class DailyWritingSet extends BaseAuditable {
 
     @Column(name = "learning_date", nullable = false)
     private LocalDate learningDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "writing_type", nullable = false, length = 30)
+    private DailyWritingType writingType;
 
     @Column(name = "snapshot_id", nullable = false, unique = true, length = 100)
     private String snapshotId;
@@ -68,12 +73,14 @@ public class DailyWritingSet extends BaseAuditable {
     private DailyWritingSet(
             User user,
             LocalDate learningDate,
+            DailyWritingType writingType,
             String snapshotId,
             int sentenceCount,
             String snapshotJson
     ) {
         this.user = user;
         this.learningDate = learningDate;
+        this.writingType = writingType;
         this.snapshotId = snapshotId;
         this.sentenceCount = sentenceCount;
         this.snapshotJson = snapshotJson;
@@ -83,6 +90,7 @@ public class DailyWritingSet extends BaseAuditable {
     public static DailyWritingSet createGenerating(
             User user,
             LocalDate learningDate,
+            DailyWritingType writingType,
             String snapshotId,
             int sentenceCount,
             String snapshotJson
@@ -90,6 +98,7 @@ public class DailyWritingSet extends BaseAuditable {
         return new DailyWritingSet(
                 user,
                 learningDate,
+                writingType,
                 snapshotId,
                 sentenceCount,
                 snapshotJson

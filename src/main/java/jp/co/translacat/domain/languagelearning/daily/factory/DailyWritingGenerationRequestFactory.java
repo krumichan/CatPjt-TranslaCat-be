@@ -22,11 +22,13 @@ public class DailyWritingGenerationRequestFactory {
 
     public AiDailyWritingGenerationRequestDto createInitial(
             Long userId,
+            DailyWritingSet dailySet,
             DailyWritingSnapshot snapshot
     ) {
         return create(
                 userId,
                 "daily-generate-" + snapshot.snapshotId(),
+                dailySet,
                 snapshot,
                 snapshot.sentenceCount(),
                 snapshot.difficultyDistribution()
@@ -48,6 +50,7 @@ public class DailyWritingGenerationRequestFactory {
         return create(
                 userId,
                 requestId,
+                dailySet,
                 snapshot,
                 sentenceCount,
                 difficultyDistribution
@@ -57,6 +60,7 @@ public class DailyWritingGenerationRequestFactory {
     private AiDailyWritingGenerationRequestDto create(
             Long userId,
             String requestId,
+            DailyWritingSet dailySet,
             DailyWritingSnapshot snapshot,
             int sentenceCount,
             DifficultyDistributionDto difficultyDistribution
@@ -65,6 +69,7 @@ public class DailyWritingGenerationRequestFactory {
                 requestId,
                 snapshot.originLanguage(),
                 snapshot.learningLanguage(),
+                dailySet.getWritingType(),
                 sentenceCount,
                 difficultyDistribution,
                 snapshot.selectedKeywords(),

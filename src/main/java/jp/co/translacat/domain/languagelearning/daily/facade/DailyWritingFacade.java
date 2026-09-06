@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.languagelearning.daily.facade;
 
+import jp.co.translacat.domain.languagelearning.common.enums.DailyWritingType;
 import jp.co.translacat.domain.languagelearning.daily.dto.request.AnswerSubmitRequestDto;
 import jp.co.translacat.domain.languagelearning.daily.dto.response.AnswerResultResponseDto;
 import jp.co.translacat.domain.languagelearning.daily.dto.response.DailyWritingSetResponseDto;
@@ -25,18 +26,19 @@ public class DailyWritingFacade {
     private final WritingAnswerCommandService writingAnswerCommandService;
     private final DailyWritingQueryService dailyWritingQueryService;
 
-    public DailyWritingSetResponseDto getOrGenerateToday(Long userId) {
+    public DailyWritingSetResponseDto getOrGenerateToday(Long userId, DailyWritingType writingType) {
         DailyWritingSet dailySet =
-                dailyWritingGenerationCommandService.getOrGenerateToday(userId);
+                dailyWritingGenerationCommandService.getOrGenerateToday(userId, writingType);
 
         return dailyWritingQueryService.toResponse(userId, dailySet);
     }
 
     public DailyWritingSetResponseDto getHistory(
             Long userId,
-            LocalDate learningDate
+            LocalDate learningDate,
+            DailyWritingType writingType
     ) {
-        return dailyWritingQueryService.getByDate(userId, learningDate);
+        return dailyWritingQueryService.getByDate(userId, learningDate, writingType);
     }
 
     public DailyWritingSetResponseDto regenerateUnanswered(
@@ -50,6 +52,13 @@ public class DailyWritingFacade {
                 );
 
         return dailyWritingQueryService.toResponse(userId, dailySet);
+    }
+
+    public void resumeEvaluation(
+            Long userId,
+            Long itemId
+    ) {
+        writingAnswerCommandService.resumeEvaluation(userId, itemId);
     }
 
     public AnswerResultResponseDto submitAnswer(

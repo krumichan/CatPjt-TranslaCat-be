@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.languagelearning.daily.repository;
 
 import jp.co.translacat.domain.languagelearning.common.enums.DailySetStatus;
+import jp.co.translacat.domain.languagelearning.common.enums.DailyWritingType;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,7 +14,16 @@ public interface DailyWritingSetRepository extends JpaRepository<DailyWritingSet
 
     boolean existsByUserId(Long userId);
 
-    Optional<DailyWritingSet> findByUserIdAndLearningDate(Long userId, LocalDate date);
+    Optional<DailyWritingSet> findByUserIdAndLearningDateAndWritingType(
+            Long userId,
+            LocalDate date,
+            DailyWritingType writingType
+    );
+
+    List<DailyWritingSet> findAllByUserIdAndLearningDate(
+            Long userId,
+            LocalDate date
+    );
 
     List<DailyWritingSet> findAllByUserIdAndStatusOrderByLearningDateDesc(Long userId, DailySetStatus status);
 

@@ -35,4 +35,11 @@ public interface WritingEvaluationRepository extends JpaRepository<WritingEvalua
             WritingEvaluationContext context,
             EvaluationStatus status
     );
+
+    List<WritingEvaluation>
+    findAllByAnswerDailyItemDailySetIdAndAnswerAttemptDateAndContext(
+            Long dailySetId,
+            LocalDate attemptDate,
+            WritingEvaluationContext context
+    );
 }

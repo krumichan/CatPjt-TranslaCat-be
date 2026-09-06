@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.languagelearning.daily.controller;
 
+import jp.co.translacat.domain.languagelearning.common.enums.DailyWritingType;
 import jp.co.translacat.domain.languagelearning.daily.dto.request.AnswerSubmitRequestDto;
 import jp.co.translacat.domain.languagelearning.daily.dto.response.AnswerResultResponseDto;
 import jp.co.translacat.domain.languagelearning.daily.dto.response.DailyWritingSetResponseDto;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
@@ -30,11 +32,13 @@ public class DailyWritingController {
 
     @GetMapping
     public ResponseDto<DailyWritingSetResponseDto> getToday(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestParam(defaultValue = "FREE") DailyWritingType writingType
     ) {
         return ResponseUtil.ok(
                 dailyWritingFacade.getOrGenerateToday(
-                        SecurityUtil.getLoginUserId(userPrincipal)
+                        SecurityUtil.getLoginUserId(userPrincipal),
+                        writingType
                 )
         );
     }
@@ -42,12 +46,14 @@ public class DailyWritingController {
     @GetMapping("/history/{date}")
     public ResponseDto<DailyWritingSetResponseDto> getHistory(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable LocalDate date
+            @PathVariable LocalDate date,
+            @RequestParam(defaultValue = "FREE") DailyWritingType writingType
     ) {
         return ResponseUtil.ok(
                 dailyWritingFacade.getHistory(
                         SecurityUtil.getLoginUserId(userPrincipal),
-                        date
+                        date,
+                        writingType
                 )
         );
     }
@@ -63,6 +69,18 @@ public class DailyWritingController {
                         dailySetId
                 )
         );
+    }
+
+    @PostMapping("/items/{itemId}/evaluation/resume")
+    public ResponseDto<Void> resumeEvaluation(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long itemId
+    ) {
+        dailyWritingFacade.resumeEvaluation(
+                SecurityUtil.getLoginUserId(userPrincipal),
+                itemId
+        );
+        return ResponseUtil.<Void>ok(null);
     }
 
     @PostMapping("/items/{itemId}/answers")

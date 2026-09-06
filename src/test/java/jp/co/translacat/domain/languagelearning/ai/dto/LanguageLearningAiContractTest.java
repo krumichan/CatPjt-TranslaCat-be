@@ -50,6 +50,7 @@ class LanguageLearningAiContractTest {
 
         assertThat(json)
                 .contains("\"requestId\":\"req-1\"")
+                .contains("\"writingType\":\"FREE\"")
                 .contains("\"sentenceCount\":5")
                 .contains("\"difficultyDistribution\"")
                 .contains("\"selectedKeywords\"")

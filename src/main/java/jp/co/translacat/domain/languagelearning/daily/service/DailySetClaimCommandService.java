@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.languagelearning.daily.service;
 
+import jp.co.translacat.domain.languagelearning.common.enums.DailyWritingType;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
 import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingSetRepository;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
@@ -26,13 +27,15 @@ public class DailySetClaimCommandService {
     public ClaimResult claim(
             Long userId,
             LocalDate learningDate,
+            DailyWritingType writingType,
             String snapshotId,
             int sentenceCount,
             String snapshotJson
     ) {
-        var existing = dailySetRepository.findByUserIdAndLearningDate(
+        var existing = dailySetRepository.findByUserIdAndLearningDateAndWritingType(
                 userId,
-                learningDate
+                learningDate,
+                writingType
         );
         if (existing.isPresent()) {
             return new ClaimResult(
@@ -49,6 +52,7 @@ public class DailySetClaimCommandService {
         DailyWritingSet dailySet = DailyWritingSet.createGenerating(
                 user,
                 learningDate,
+                writingType,
                 snapshotId,
                 sentenceCount,
                 snapshotJson

@@ -179,6 +179,12 @@ public class WritingEvaluation extends BaseAuditable {
         this.failureMessage = null;
     }
 
+    public void retry() {
+        this.status = EvaluationStatus.PENDING;
+        this.failureMessage = null;
+        this.evaluatedAt = null;
+    }
+
     public void fail(String message) {
         this.status = EvaluationStatus.FAILED;
         this.failureMessage = message;

@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.languagelearning.daily.service;
 
 import jp.co.translacat.domain.languagelearning.common.enums.DailySetStatus;
+import jp.co.translacat.domain.languagelearning.common.enums.DailyWritingType;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
 import jp.co.translacat.domain.languagelearning.daily.model.DailyWritingGenerationContext;
 import jp.co.translacat.domain.languagelearning.daily.model.DailyWritingSnapshot;
@@ -26,14 +27,15 @@ public class DailyWritingGenerationCommandService {
     private final DailyWritingSnapshotService snapshotService;
     private final DailyWritingGenerationExecutor generationExecutor;
 
-    public DailyWritingSet getOrGenerateToday(Long userId) {
+    public DailyWritingSet getOrGenerateToday(Long userId, DailyWritingType writingType) {
         DailyWritingGenerationContext context =
                 generationContextService.prepare(userId);
 
         DailyWritingSet existing = dailyWritingSetRepository
-                .findByUserIdAndLearningDate(
+                .findByUserIdAndLearningDateAndWritingType(
                         userId,
-                        context.learningDate()
+                        context.learningDate(),
+                        writingType
                 )
                 .orElse(null);
         if (existing != null) {
@@ -51,6 +53,7 @@ public class DailyWritingGenerationCommandService {
         DailyWritingSet dailySet = claimDailySet(
                 userId,
                 context.learningDate(),
+                writingType,
                 snapshot
         );
 
@@ -77,6 +80,7 @@ public class DailyWritingGenerationCommandService {
     private DailyWritingSet claimDailySet(
             Long userId,
             LocalDate learningDate,
+            DailyWritingType writingType,
             DailyWritingSnapshot snapshot
     ) {
         try {
@@ -84,6 +88,7 @@ public class DailyWritingGenerationCommandService {
                     dailySetClaimCommandService.claim(
                             userId,
                             learningDate,
+                            writingType,
                             snapshot.snapshotId(),
                             snapshot.sentenceCount(),
                             snapshotService.write(snapshot)
@@ -92,7 +97,7 @@ public class DailyWritingGenerationCommandService {
             return getDailySet(claim.dailySetId());
         } catch (DataIntegrityViolationException | PessimisticLockingFailureException e) {
             return dailyWritingSetRepository
-                    .findByUserIdAndLearningDate(userId, learningDate)
+                    .findByUserIdAndLearningDateAndWritingType(userId, learningDate, writingType)
                     .orElseThrow(() -> new BusinessException(
                             "Daily Set 동시 생성 충돌이 발생했습니다.",
                             LanguageLearningErrorCode.DAILY_SET_GENERATING

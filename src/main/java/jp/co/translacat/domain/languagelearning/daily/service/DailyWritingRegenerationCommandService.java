@@ -77,7 +77,8 @@ public class DailyWritingRegenerationCommandService {
         responseValidator.validate(
                 response,
                 unansweredItems.size(),
-                distribution
+                distribution,
+                dailySet.getWritingType()
         );
         itemCommandService.replaceAll(
                 snapshot.learningLanguage(),

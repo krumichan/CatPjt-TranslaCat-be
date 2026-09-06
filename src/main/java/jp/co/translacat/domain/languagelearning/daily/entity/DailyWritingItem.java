@@ -56,6 +56,18 @@ public class DailyWritingItem extends BaseAuditable {
     @Column(name = "focus_reason", nullable = false, columnDefinition = "TEXT")
     private String focusReason;
 
+    @Lob
+    @Column(name = "provided_facts_json", columnDefinition = "TEXT")
+    private String providedFactsJson;
+
+    @Lob
+    @Column(name = "required_intents_json", columnDefinition = "TEXT")
+    private String requiredIntentsJson;
+
+    @Lob
+    @Column(name = "response_constraints_json", columnDefinition = "TEXT")
+    private String responseConstraintsJson;
+
     private DailyWritingItem(
             DailyWritingSet dailySet,
             int orderNo,
@@ -63,7 +75,10 @@ public class DailyWritingItem extends BaseAuditable {
             String originText,
             String keywordsJson,
             String focusMetricsJson,
-            String focusReason
+            String focusReason,
+            String providedFactsJson,
+            String requiredIntentsJson,
+            String responseConstraintsJson
     ) {
         this.dailySet = dailySet;
         this.orderNo = orderNo;
@@ -72,6 +87,9 @@ public class DailyWritingItem extends BaseAuditable {
         this.keywordsJson = keywordsJson;
         this.focusMetricsJson = focusMetricsJson;
         this.focusReason = focusReason;
+        this.providedFactsJson = providedFactsJson;
+        this.requiredIntentsJson = requiredIntentsJson;
+        this.responseConstraintsJson = responseConstraintsJson;
     }
 
     public static DailyWritingItem create(
@@ -81,7 +99,10 @@ public class DailyWritingItem extends BaseAuditable {
             String originText,
             String keywordsJson,
             String focusMetricsJson,
-            String focusReason
+            String focusReason,
+            String providedFactsJson,
+            String requiredIntentsJson,
+            String responseConstraintsJson
     ) {
         return new DailyWritingItem(
                 dailySet,
@@ -90,7 +111,10 @@ public class DailyWritingItem extends BaseAuditable {
                 originText,
                 keywordsJson,
                 focusMetricsJson,
-                focusReason
+                focusReason,
+                providedFactsJson,
+                requiredIntentsJson,
+                responseConstraintsJson
         );
     }
 
@@ -99,12 +123,18 @@ public class DailyWritingItem extends BaseAuditable {
             String originText,
             String keywordsJson,
             String focusMetricsJson,
-            String focusReason
+            String focusReason,
+            String providedFactsJson,
+            String requiredIntentsJson,
+            String responseConstraintsJson
     ) {
         this.difficulty = difficulty;
         this.originText = originText;
         this.keywordsJson = keywordsJson;
         this.focusMetricsJson = focusMetricsJson;
         this.focusReason = focusReason;
+        this.providedFactsJson = providedFactsJson;
+        this.requiredIntentsJson = requiredIntentsJson;
+        this.responseConstraintsJson = responseConstraintsJson;
     }
 }

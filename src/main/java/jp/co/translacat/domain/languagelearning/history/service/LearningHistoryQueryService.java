@@ -167,15 +167,18 @@ public class LearningHistoryQueryService {
                 "WRITING:" + set.getId(),
                 LearningSource.WRITING,
                 set.getLearningDate(),
-                "Daily Writing",
-                null,
+                "Daily Writing · " + set.getWritingType().name(),
+                set.getWritingType().name(),
                 0,
                 writingEvaluationQueryService.findDailyAverageOverallScore(
                         set.getId(),
                         set.getLearningDate()
                 ),
                 set.getStatus().name(),
-                set.getStatus().name()
+                writingEvaluationQueryService.resolveDailyEvaluationStatus(
+                        set.getId(),
+                        set.getLearningDate()
+                )
         );
     }
 
@@ -282,7 +285,7 @@ public class LearningHistoryQueryService {
         return new LearningHistoryDetailResponseDto(
                 activityId,
                 LearningSource.WRITING,
-                dailyWritingQueryService.getByDate(userId, set.getLearningDate())
+                dailyWritingQueryService.toResponse(userId, set)
         );
     }
 

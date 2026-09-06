@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -37,5 +38,33 @@ public class WritingEvaluationQueryService {
                 .average();
 
         return average.isPresent() ? average.getAsDouble() : null;
+    }
+
+    public String resolveDailyEvaluationStatus(
+            Long dailySetId,
+            LocalDate learningDate
+    ) {
+        List<WritingEvaluation> evaluations = evaluationRepository
+                .findAllByAnswerDailyItemDailySetIdAndAnswerAttemptDateAndContext(
+                        dailySetId,
+                        learningDate,
+                        WritingEvaluationContext.DAILY
+                );
+        if (evaluations.isEmpty()) {
+            return "NOT_STARTED";
+        }
+        if (evaluations.stream().anyMatch(value ->
+                value.getStatus() == EvaluationStatus.PENDING)) {
+            return EvaluationStatus.PENDING.name();
+        }
+        if (evaluations.stream().anyMatch(value ->
+                value.getStatus() == EvaluationStatus.FAILED)) {
+            return EvaluationStatus.FAILED.name();
+        }
+        if (evaluations.stream().allMatch(value ->
+                value.getStatus() == EvaluationStatus.SUCCESS)) {
+            return EvaluationStatus.SUCCESS.name();
+        }
+        return "IN_PROGRESS";
     }
 }

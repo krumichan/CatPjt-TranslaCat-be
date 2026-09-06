@@ -91,7 +91,10 @@ public class DailyWritingItemCommandService {
                 generatedItem.originText(),
                 jsonCodec.write(generatedItem.keywords()),
                 jsonCodec.write(generatedItem.focusMetrics()),
-                generatedItem.focusReason()
+                generatedItem.focusReason(),
+                jsonCodec.write(safe(generatedItem.providedFacts())),
+                jsonCodec.write(safe(generatedItem.requiredIntents())),
+                jsonCodec.write(safe(generatedItem.responseConstraints()))
         );
     }
 
@@ -104,7 +107,14 @@ public class DailyWritingItemCommandService {
                 generatedItem.originText(),
                 jsonCodec.write(generatedItem.keywords()),
                 jsonCodec.write(generatedItem.focusMetrics()),
-                generatedItem.focusReason()
+                generatedItem.focusReason(),
+                jsonCodec.write(safe(generatedItem.providedFacts())),
+                jsonCodec.write(safe(generatedItem.requiredIntents())),
+                jsonCodec.write(safe(generatedItem.responseConstraints()))
         );
+    }
+
+    private List<String> safe(List<String> values) {
+        return values == null ? List.of() : values;
     }
 }

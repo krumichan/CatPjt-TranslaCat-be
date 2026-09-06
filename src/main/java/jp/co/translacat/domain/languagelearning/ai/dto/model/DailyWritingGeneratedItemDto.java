@@ -13,6 +13,9 @@ public record DailyWritingGeneratedItemDto(
         List<String> keywords,
         List<WritingMetric> focusMetrics,
         String focusReason,
+        List<String> providedFacts,
+        List<String> requiredIntents,
+        List<String> responseConstraints,
         Integer languageComplexityBand,
         DiversityMetadata diversityMetadata
 ) {
@@ -32,6 +35,9 @@ public record DailyWritingGeneratedItemDto(
                 keywords,
                 focusMetrics,
                 focusReason,
+                List.of(),
+                List.of(),
+                List.of(),
                 null,
                 null
         );

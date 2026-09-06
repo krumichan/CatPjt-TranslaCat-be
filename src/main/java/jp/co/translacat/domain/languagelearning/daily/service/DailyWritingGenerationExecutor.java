@@ -38,13 +38,14 @@ public class DailyWritingGenerationExecutor {
         try {
             AiDailyWritingGenerationResponseDto response =
                     aiClient.generateDaily(
-                            requestFactory.createInitial(dailySet.getUser().getId(), snapshot)
+                            requestFactory.createInitial(dailySet.getUser().getId(), dailySet, snapshot)
                     );
 
             responseValidator.validate(
                     response,
                     snapshot.sentenceCount(),
-                    snapshot.difficultyDistribution()
+                    snapshot.difficultyDistribution(),
+                    dailySet.getWritingType()
             );
 
             return stateCommandService.complete(

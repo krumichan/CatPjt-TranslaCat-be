@@ -49,6 +49,7 @@ public class WritingEvaluationRequestFactory {
                 new AiWritingEvaluationRequestDto(
                         "daily-eval-" + answer.getId() + "-" + learningDate,
                         WritingEvaluationContext.DAILY,
+                        item.getDailySet().getWritingType(),
                         setting.getOriginLanguage(),
                         setting.getLearningLanguage(),
                         item.getOriginText(),
@@ -56,7 +57,10 @@ public class WritingEvaluationRequestFactory {
                         item.getDifficulty().name(),
                         relevantKeywords,
                         focusMetrics,
-                        snapshot.learningProfile()
+                        snapshot.learningProfile(),
+                        readGuidance(item.getProvidedFactsJson()),
+                        readGuidance(item.getRequiredIntentsJson()),
+                        readGuidance(item.getResponseConstraintsJson())
                 );
 
         return new WritingEvaluationRequestContext(
@@ -88,6 +92,17 @@ public class WritingEvaluationRequestFactory {
                         }
                 ),
                 profileAiContextService.buildSummary(userId)
+        );
+    }
+
+    private List<String> readGuidance(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        return jsonCodec.read(
+                json,
+                new TypeReference<>() {
+                }
         );
     }
 

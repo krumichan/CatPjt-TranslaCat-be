@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.languagelearning.daily.service;
 
+import jp.co.translacat.domain.languagelearning.common.enums.DailyWritingType;
 import jp.co.translacat.domain.languagelearning.daily.dto.response.AnswerResultResponseDto;
 import jp.co.translacat.domain.languagelearning.daily.dto.response.DailyWritingSetResponseDto;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
@@ -33,10 +34,15 @@ public class DailyWritingQueryService {
 
     public DailyWritingSet findByDateOrNull(
             Long userId,
-            LocalDate learningDate
+            LocalDate learningDate,
+            DailyWritingType writingType
     ) {
         return dailySetRepository
-                .findByUserIdAndLearningDate(userId, learningDate)
+                .findByUserIdAndLearningDateAndWritingType(
+                        userId,
+                        learningDate,
+                        writingType
+                )
                 .orElse(null);
     }
 
@@ -56,10 +62,15 @@ public class DailyWritingQueryService {
 
     public DailyWritingSetResponseDto getByDate(
             Long userId,
-            LocalDate learningDate
+            LocalDate learningDate,
+            DailyWritingType writingType
     ) {
         DailyWritingSet dailySet = dailySetRepository
-                .findByUserIdAndLearningDate(userId, learningDate)
+                .findByUserIdAndLearningDateAndWritingType(
+                        userId,
+                        learningDate,
+                        writingType
+                )
                 .orElseThrow(() -> new BusinessException(
                         "Daily Set을 찾을 수 없습니다.",
                         LanguageLearningErrorCode.DAILY_SET_NOT_FOUND

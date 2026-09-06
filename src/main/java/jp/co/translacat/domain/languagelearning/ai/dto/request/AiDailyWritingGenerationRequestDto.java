@@ -4,6 +4,7 @@ import jp.co.translacat.domain.languagelearning.ai.dto.model.DifficultyDistribut
 import jp.co.translacat.domain.languagelearning.ai.dto.model.LearningProfileSummaryDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.RecentEvaluationSummaryDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.SelectedKeywordDto;
+import jp.co.translacat.domain.languagelearning.common.enums.DailyWritingType;
 import jp.co.translacat.domain.languagelearning.quality.dto.DiversityContext;
 import jp.co.translacat.domain.languagelearning.quality.dto.LanguageComplexityContext;
 
@@ -14,6 +15,7 @@ public record AiDailyWritingGenerationRequestDto(
         String requestId,
         String originLanguage,
         String learningLanguage,
+        DailyWritingType writingType,
         int sentenceCount,
         DifficultyDistributionDto difficultyDistribution,
         List<SelectedKeywordDto> selectedKeywords,
@@ -46,6 +48,7 @@ public record AiDailyWritingGenerationRequestDto(
                 requestId,
                 originLanguage,
                 learningLanguage,
+                DailyWritingType.FREE,
                 sentenceCount,
                 difficultyDistribution,
                 selectedKeywords,

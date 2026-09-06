@@ -33,6 +33,11 @@ public class LevelTestQuestionPoolReplenishmentScheduler {
             return;
         }
 
+        int a= 10;
+        if (a==10) {
+            return;
+        }
+
         long startedAt = System.nanoTime();
         try {
             var result = replenishmentService.replenish();

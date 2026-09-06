@@ -72,4 +72,45 @@ class WritingEvaluationQueryServiceTest {
         assertThat(service.findDailyAverageOverallScore(100L, learningDate))
                 .isNull();
     }
+
+    @Test
+    void dailyEvaluationStatusIsPendingWhenAnyEvaluationIsPending() {
+        LocalDate learningDate = LocalDate.of(2026, 9, 6);
+        when(evaluationRepository
+                .findAllByAnswerDailyItemDailySetIdAndAnswerAttemptDateAndContext(
+                        100L,
+                        learningDate,
+                        WritingEvaluationContext.DAILY
+                ))
+                .thenReturn(List.of(firstEvaluation, secondEvaluation));
+        when(firstEvaluation.getStatus()).thenReturn(EvaluationStatus.SUCCESS);
+        when(secondEvaluation.getStatus()).thenReturn(EvaluationStatus.PENDING);
+
+        WritingEvaluationQueryService service =
+                new WritingEvaluationQueryService(evaluationRepository);
+
+        assertThat(service.resolveDailyEvaluationStatus(100L, learningDate))
+                .isEqualTo("PENDING");
+    }
+
+    @Test
+    void dailyEvaluationStatusIsFailedWhenNoPendingAndAnyEvaluationFailed() {
+        LocalDate learningDate = LocalDate.of(2026, 9, 6);
+        when(evaluationRepository
+                .findAllByAnswerDailyItemDailySetIdAndAnswerAttemptDateAndContext(
+                        100L,
+                        learningDate,
+                        WritingEvaluationContext.DAILY
+                ))
+                .thenReturn(List.of(firstEvaluation, secondEvaluation));
+        when(firstEvaluation.getStatus()).thenReturn(EvaluationStatus.SUCCESS);
+        when(secondEvaluation.getStatus()).thenReturn(EvaluationStatus.FAILED);
+
+        WritingEvaluationQueryService service =
+                new WritingEvaluationQueryService(evaluationRepository);
+
+        assertThat(service.resolveDailyEvaluationStatus(100L, learningDate))
+                .isEqualTo("FAILED");
+    }
+
 }

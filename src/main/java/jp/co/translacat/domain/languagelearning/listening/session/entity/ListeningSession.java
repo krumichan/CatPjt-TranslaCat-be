@@ -182,8 +182,27 @@ public class ListeningSession extends BaseAuditable {
         lastActivityAt = now;
     }
 
-    public void complete(LocalDateTime now) {
+    public void startEvaluating(LocalDateTime now) {
+        if (status == ListeningSessionStatus.EVALUATING
+                || status == ListeningSessionStatus.COMPLETED) {
+            return;
+        }
         requireActive();
+        status = ListeningSessionStatus.EVALUATING;
+        activeKey = null;
+        lastActivityAt = now;
+    }
+
+    public void complete(LocalDateTime now) {
+        if (status != ListeningSessionStatus.IN_PROGRESS
+                && status != ListeningSessionStatus.EVALUATING) {
+            if (status == ListeningSessionStatus.COMPLETED) {
+                return;
+            }
+            throw new IllegalStateException(
+                    "완료할 수 없는 Listening Session입니다."
+            );
+        }
         status = ListeningSessionStatus.COMPLETED;
         activeKey = null;
         completedAt = now;
@@ -202,6 +221,7 @@ public class ListeningSession extends BaseAuditable {
 
     private void requireLearningRecordable() {
         if (status != ListeningSessionStatus.IN_PROGRESS
+                && status != ListeningSessionStatus.EVALUATING
                 && status != ListeningSessionStatus.COMPLETED) {
             throw new IllegalStateException(
                     "학습 결과를 반영할 수 없는 Listening Session입니다."

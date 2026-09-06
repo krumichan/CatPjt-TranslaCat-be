@@ -107,6 +107,12 @@ public class ListeningEvaluationWorker {
             case INTERPRETATION -> aiClient.evaluateInterpretation(
                     (AiListeningContract.InterpretationRequest) work.request()
             );
+            case COMPREHENSION -> aiClient.evaluateComprehension(
+                    (AiListeningContract.ComprehensionRequest) work.request()
+            );
+            case SUMMARY -> aiClient.evaluateSummary(
+                    (AiListeningContract.SummaryRequest) work.request()
+            );
             case REPEAT_AFTER_AUDIO -> {
                 var audio = storagePort.load(
                         work.userAudioObjectKey(),

@@ -8,6 +8,7 @@ import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeaking
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingAssistantEvaluationTurnDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingAudioQualitySignalsDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingEvaluationTurnDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingConversationResultDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingSttAnalysisMetadataDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingSttSegmentDto;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.AssistanceType;
@@ -42,6 +43,7 @@ public class SpeakingEvaluationRequestFactory {
                         + ":" + EVALUATION_POLICY_VERSION,
                 String.valueOf(session.getId()),
                 session.getTopicTitle(),
+                session.getPracticeMode(),
                 session.getGoal(),
                 session.getTopic() == null
                         ? null
@@ -49,19 +51,67 @@ public class SpeakingEvaluationRequestFactory {
                 session.getOriginLanguage(),
                 session.getLearningLanguage(),
                 turns.stream().map(this::toUserTurn).toList(),
-                turns.stream()
-                        .filter(turn -> turn.getAssistantText() != null)
-                        .map(turn -> new AiSpeakingAssistantEvaluationTurnDto(
-                                String.valueOf(turn.getId()),
-                                turn.getTurnIndex(),
-                                turn.getAssistantText()
-                        ))
-                        .toList(),
+                assistantTurns(session, turns),
                 session.getSessionSummary(),
                 readProfile(session.getProfileSnapshotJson()),
                 EVALUATION_POLICY_VERSION,
                 manualRetryAttempt
         );
+    }
+
+    private List<AiSpeakingAssistantEvaluationTurnDto> assistantTurns(
+            SpeakingSession session,
+            List<SpeakingTurn> turns
+    ) {
+        java.util.ArrayList<AiSpeakingAssistantEvaluationTurnDto> result = new java.util.ArrayList<>();
+        if (session.getOpeningAssistantText() != null
+                && !session.getOpeningAssistantText().isBlank()) {
+            result.add(toAssistantTurn(
+                    "opening",
+                    0,
+                    session.getOpeningAssistantText(),
+                    session.getOpeningConversationJson()
+            ));
+        }
+        turns.stream()
+                .filter(turn -> turn.getAssistantText() != null
+                        && !turn.getAssistantText().isBlank())
+                .map(turn -> toAssistantTurn(
+                        String.valueOf(turn.getId()),
+                        turn.getTurnIndex(),
+                        turn.getAssistantText(),
+                        turn.getConversationJson()
+                ))
+                .forEach(result::add);
+        return List.copyOf(result);
+    }
+
+    private AiSpeakingAssistantEvaluationTurnDto toAssistantTurn(
+            String turnId,
+            int turnIndex,
+            String text,
+            String conversationJson
+    ) {
+        AiSpeakingConversationResultDto conversation = readConversation(conversationJson);
+        return new AiSpeakingAssistantEvaluationTurnDto(
+                turnId,
+                turnIndex,
+                text,
+                conversation == null ? null : conversation.scriptText(),
+                conversation == null || conversation.providedFacts() == null
+                        ? List.of() : conversation.providedFacts(),
+                conversation == null || conversation.requiredIntents() == null
+                        ? List.of() : conversation.requiredIntents(),
+                conversation == null || conversation.responseConstraints() == null
+                        ? List.of() : conversation.responseConstraints()
+        );
+    }
+
+    private AiSpeakingConversationResultDto readConversation(String json) {
+        if (json == null || json.isBlank() || json.equals("{}") || json.equals("null")) {
+            return null;
+        }
+        return jsonCodec.read(json, AiSpeakingConversationResultDto.class);
     }
 
     private AiSpeakingEvaluationTurnDto toUserTurn(SpeakingTurn turn) {

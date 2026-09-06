@@ -4,6 +4,7 @@ import jp.co.translacat.domain.languagelearning.speaking.common.enums.Conversati
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.CorrectionMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ public record SpeakingSessionResponseDto(
         String learningLanguage,
         SpeakingSessionStatus status,
         SpeakingEvaluationStatus evaluationStatus,
+        SpeakingPracticeMode practiceMode,
         ConversationStartMode conversationStartMode,
         ConversationStartMode resolvedStartMode,
         CorrectionMode correctionMode,
@@ -32,6 +34,7 @@ public record SpeakingSessionResponseDto(
         String voiceId,
         String playbackSpeed,
         String openingAssistantText,
+        SpeakingPromptGuideResponseDto openingPromptGuide,
         String openingAssistantAudioUrl,
         String sessionSummary,
         LocalDateTime startedAt,

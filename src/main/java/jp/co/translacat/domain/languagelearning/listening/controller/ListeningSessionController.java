@@ -2,6 +2,7 @@ package jp.co.translacat.domain.languagelearning.listening.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.session.facade.ListeningSessionFacade;
@@ -103,6 +104,17 @@ public class ListeningSessionController {
     ) {
         return ResponseUtil.ok(facade.applyAssistance(
                 userId(principal), attemptId, taskType, usage));
+    }
+
+    @Operation(summary = "문항 전체 도움 사용 1회 기록")
+    @PostMapping("/attempts/{attemptId}/assistance/{assistanceType}")
+    public ResponseDto<ListeningApiContract.AttemptView> attemptAssistance(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long attemptId,
+            @PathVariable ListeningAssistanceType assistanceType
+    ) {
+        return ResponseUtil.ok(facade.useAssistance(
+                userId(principal), attemptId, assistanceType));
     }
 
     @Operation(summary = "Repeat Task Audio 업로드 또는 재녹음")

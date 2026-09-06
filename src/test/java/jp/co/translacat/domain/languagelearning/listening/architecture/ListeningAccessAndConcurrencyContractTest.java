@@ -35,6 +35,19 @@ class ListeningAccessAndConcurrencyContractTest {
     }
 
     @Test
+    void attemptMutationAlsoLocksParentSession() throws Exception {
+        Method method = ListeningSessionRepository.class.getMethod(
+                "findLockedById",
+                Long.class
+        );
+
+        assertThat(method.getAnnotation(Lock.class))
+                .isNotNull()
+                .extracting(Lock::value)
+                .isEqualTo(LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Test
     void attemptMutationUsesPessimisticWriteLock() throws Exception {
         Method method = ListeningItemAttemptRepository.class.getMethod(
                 "findLockedById",

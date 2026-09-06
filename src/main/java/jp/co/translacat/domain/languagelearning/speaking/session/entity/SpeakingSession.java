@@ -6,6 +6,7 @@ import jp.co.translacat.domain.languagelearning.speaking.common.enums.Conversati
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.CorrectionMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.topic.entity.SpeakingTopic;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.jpa.BaseAuditable;
@@ -33,6 +34,10 @@ import java.time.LocalDateTime;
                 @Index(
                         name = "idx_ll_speaking_session_user_date",
                         columnList = "user_id,learning_date"
+                ),
+                @Index(
+                        name = "idx_ll_speaking_session_user_date_mode",
+                        columnList = "user_id,learning_date,practice_mode"
                 )
         }
 )
@@ -94,6 +99,10 @@ public class SpeakingSession extends BaseAuditable {
     private SpeakingEvaluationStatus evaluationStatus;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "practice_mode", nullable = false, length = 40)
+    private SpeakingPracticeMode practiceMode;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "conversation_start_mode", nullable = false, length = 40)
     private ConversationStartMode conversationStartMode;
 
@@ -148,6 +157,10 @@ public class SpeakingSession extends BaseAuditable {
     @Column(name = "opening_assistant_audio_retention_until")
     private LocalDateTime openingAssistantAudioRetentionUntil;
 
+    @Lob
+    @Column(name = "opening_conversation_json", columnDefinition = "TEXT")
+    private String openingConversationJson = "{}";
+
     @Column(name = "evaluation_version", length = 100)
     private String evaluationVersion;
 
@@ -173,6 +186,7 @@ public class SpeakingSession extends BaseAuditable {
             String selectedKeywordsJson,
             String originLanguage,
             String learningLanguage,
+            SpeakingPracticeMode practiceMode,
             ConversationStartMode requestedStartMode,
             ConversationStartMode resolvedStartMode,
             CorrectionMode correctionMode,
@@ -196,6 +210,7 @@ public class SpeakingSession extends BaseAuditable {
         this.selectedKeywordsJson = selectedKeywordsJson == null ? "[]" : selectedKeywordsJson;
         this.originLanguage = originLanguage;
         this.learningLanguage = learningLanguage;
+        this.practiceMode = practiceMode == null ? SpeakingPracticeMode.FREE : practiceMode;
         this.status = SpeakingSessionStatus.IN_PROGRESS;
         this.evaluationStatus = SpeakingEvaluationStatus.NOT_REQUESTED;
         this.conversationStartMode = requestedStartMode;
@@ -211,6 +226,10 @@ public class SpeakingSession extends BaseAuditable {
         this.lastActivityAt = this.startedAt;
     }
 
+    /**
+     * Backward-compatible factory for legacy callers/tests. Existing speaking sessions
+     * are treated as FREE practice when no explicit practice mode is supplied.
+     */
     public static SpeakingSession create(
             User user,
             SpeakingTopic topic,
@@ -235,6 +254,58 @@ public class SpeakingSession extends BaseAuditable {
             String policySnapshotJson,
             String profileSnapshotJson
     ) {
+        return create(
+                user,
+                topic,
+                createIdempotencyKey,
+                learningDate,
+                topicTitle,
+                topicCategory,
+                topicVersion,
+                customTopic,
+                goal,
+                persona,
+                selectedKeywordsJson,
+                originLanguage,
+                learningLanguage,
+                SpeakingPracticeMode.FREE,
+                requestedStartMode,
+                resolvedStartMode,
+                correctionMode,
+                targetMinutes,
+                maxTurns,
+                voiceId,
+                playbackSpeed,
+                policySnapshotJson,
+                profileSnapshotJson
+        );
+    }
+
+    public static SpeakingSession create(
+            User user,
+            SpeakingTopic topic,
+            String createIdempotencyKey,
+            LocalDate learningDate,
+            String topicTitle,
+            String topicCategory,
+            Integer topicVersion,
+            String customTopic,
+            String goal,
+            String persona,
+            String selectedKeywordsJson,
+            String originLanguage,
+            String learningLanguage,
+            SpeakingPracticeMode practiceMode,
+            ConversationStartMode requestedStartMode,
+            ConversationStartMode resolvedStartMode,
+            CorrectionMode correctionMode,
+            int targetMinutes,
+            int maxTurns,
+            String voiceId,
+            String playbackSpeed,
+            String policySnapshotJson,
+            String profileSnapshotJson
+    ) {
         return new SpeakingSession(
                 user,
                 topic,
@@ -249,6 +320,7 @@ public class SpeakingSession extends BaseAuditable {
                 selectedKeywordsJson,
                 originLanguage,
                 learningLanguage,
+                practiceMode,
                 requestedStartMode,
                 resolvedStartMode,
                 correctionMode,
@@ -288,12 +360,14 @@ public class SpeakingSession extends BaseAuditable {
             String text,
             String audioObjectKey,
             LocalDateTime audioRetentionUntil,
+            String conversationJson,
             String sessionSummary,
             String usageSummaryJson
     ) {
         this.openingAssistantText = text;
         this.openingAssistantAudioObjectKey = audioObjectKey;
         this.openingAssistantAudioRetentionUntil = audioRetentionUntil;
+        this.openingConversationJson = conversationJson == null ? "{}" : conversationJson;
         this.sessionSummary = sessionSummary;
         this.usageSummaryJson = usageSummaryJson == null
                 ? "{}"

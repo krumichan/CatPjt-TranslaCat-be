@@ -3,6 +3,7 @@ package jp.co.translacat.domain.languagelearning.listening.session.facade;
 import jp.co.translacat.domain.languagelearning.listening.attempt.service.ListeningAttemptCommandService;
 import jp.co.translacat.domain.languagelearning.listening.attempt.service.ListeningAttemptQueryService;
 import jp.co.translacat.domain.languagelearning.listening.audio.model.ListeningAudioObject;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.report.service.ListeningEvaluationReportCommandService;
@@ -101,6 +102,18 @@ public class ListeningSessionFacade {
                 attemptId,
                 taskType,
                 usage
+        );
+    }
+
+    public ListeningApiContract.AttemptView useAssistance(
+            Long userId,
+            Long attemptId,
+            ListeningAssistanceType assistanceType
+    ) {
+        return attemptCommandService.useAssistance(
+                userId,
+                attemptId,
+                assistanceType
         );
     }
 

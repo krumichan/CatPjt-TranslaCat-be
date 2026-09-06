@@ -7,6 +7,7 @@ import jp.co.translacat.domain.languagelearning.listening.common.enums.Listening
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDifficulty;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvaluationPurpose;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningLearningMode;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningProfileMetric;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningPlaybackType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningRecommendationStatus;
@@ -28,6 +29,7 @@ public final class ListeningApiContract {
     public record DailySetCreateRequest(
             Integer itemCount,
             ListeningDifficulty difficulty,
+            ListeningLearningMode learningMode,
             String idempotencyKey
     ) {
     }
@@ -37,6 +39,7 @@ public final class ListeningApiContract {
             LocalDate learningDate,
             String originLanguage,
             String learningLanguage,
+            ListeningLearningMode learningMode,
             ListeningDifficulty difficulty,
             ListeningDailySetStatus status,
             int targetItemCount,
@@ -96,9 +99,35 @@ public final class ListeningApiContract {
             Integer audioDurationMs,
             String topicHint,
             List<String> keywordHints,
+            String question,
+            List<ChoiceOptionView> options,
+            String comprehensionFocus,
+            String correctOptionKey,
+            List<String> summaryKeyPoints,
             String sourceText,
             List<String> referenceMeanings,
             AttemptView attempt
+    ) {
+    }
+
+    public record ChoiceOptionView(String key, String text) {
+    }
+
+    public record DailyModeStatusView(
+            ListeningLearningMode learningMode,
+            Long dailySetId,
+            Long latestSessionId,
+            ListeningDailySetStatus status,
+            ListeningSessionStatus latestSessionStatus,
+            int completedItemCount,
+            int evaluatedItemCount,
+            int submittedItemCount,
+            int terminalItemCount,
+            int answerRevealedItemCount,
+            int physicalItemCount,
+            int readyItemCount,
+            int targetItemCount,
+            boolean completed
     ) {
     }
 

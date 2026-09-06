@@ -5,6 +5,7 @@ import jp.co.translacat.domain.languagelearning.common.enums.KeywordType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDifficulty;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvaluationPurpose;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningLearningMode;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.domain.languagelearning.quality.dto.DiversityContext;
 import jp.co.translacat.domain.languagelearning.quality.dto.DiversityMetadata;
@@ -43,6 +44,7 @@ public final class AiListeningContract {
 
     public record SetContext(
             LocalDate learningDate,
+            ListeningLearningMode learningMode,
             Topic topic,
             List<Keyword> selectedKeywords,
             int itemCount,
@@ -85,6 +87,9 @@ public final class AiListeningContract {
     public record Safety(boolean passed, List<String> categories) {
     }
 
+    public record ChoiceOption(String key, String text) {
+    }
+
     public record GeneratedItem(
             int itemIndex,
             String sourceText,
@@ -97,7 +102,12 @@ public final class AiListeningContract {
             String similarityKey,
             Safety safety,
             Integer languageComplexityBand,
-            DiversityMetadata diversityMetadata
+            DiversityMetadata diversityMetadata,
+            String question,
+            List<ChoiceOption> options,
+            String correctOptionKey,
+            String comprehensionFocus,
+            List<String> summaryKeyPoints
     ) {
         public GeneratedItem(
                 int itemIndex, String sourceText, String normalizedSourceText,
@@ -107,7 +117,7 @@ public final class AiListeningContract {
         ) {
             this(itemIndex, sourceText, normalizedSourceText, referenceMeanings,
                     keyMeaningUnits, targetKeywords, estimatedAudioSeconds, contentHash,
-                    similarityKey, safety, null, null);
+                    similarityKey, safety, null, null, null, List.of(), null, null, List.of());
         }
     }
 
@@ -230,6 +240,46 @@ public final class AiListeningContract {
             String sourceText,
             List<String> referenceMeanings,
             List<String> keyMeaningUnits,
+            String answer,
+            String originLanguage,
+            String learningLanguage
+    ) {
+    }
+
+    public record ComprehensionRequest(
+            String requestId,
+            String idempotencyKey,
+            Long itemId,
+            Long attemptId,
+            ListeningEvaluationPurpose evaluationPurpose,
+            boolean answerRevealed,
+            List<AssistanceUsage> assistanceUsage,
+            String policyVersion,
+            String modelConfigVersion,
+            int manualRetryAttempt,
+            String question,
+            List<ChoiceOption> options,
+            String selectedOptionKey,
+            String correctOptionKey,
+            String comprehensionFocus,
+            String originLanguage,
+            String learningLanguage
+    ) {
+    }
+
+    public record SummaryRequest(
+            String requestId,
+            String idempotencyKey,
+            Long itemId,
+            Long attemptId,
+            ListeningEvaluationPurpose evaluationPurpose,
+            boolean answerRevealed,
+            List<AssistanceUsage> assistanceUsage,
+            String policyVersion,
+            String modelConfigVersion,
+            int manualRetryAttempt,
+            String sourceText,
+            List<String> summaryKeyPoints,
             String answer,
             String originLanguage,
             String learningLanguage

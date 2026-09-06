@@ -1,12 +1,18 @@
 package jp.co.translacat.domain.languagelearning.listening.daily.service;
 
+import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
+import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAttemptStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningLearningMode;
+import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -15,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -29,6 +36,8 @@ public class ListeningDailySetQueryService {
     private final ListeningDailySetRepository dailySetRepository;
     private final ListeningItemRepository itemRepository;
     private final ListeningPolicySettingQueryService policySettingService;
+    private final ListeningSessionRepository sessionRepository;
+    private final ListeningItemAttemptRepository attemptRepository;
 
     public ListeningDailySet owned(Long userId, Long dailySetId) {
         return dailySetRepository.findById(dailySetId)
@@ -58,6 +67,7 @@ public class ListeningDailySetQueryService {
                 dailySet.getLearningDate(),
                 dailySet.getOriginLanguage(),
                 dailySet.getLearningLanguage(),
+                dailySet.getLearningMode(),
                 dailySet.getDifficulty(),
                 dailySet.getStatus(),
                 dailySet.getTargetItemCount(),
@@ -76,6 +86,77 @@ public class ListeningDailySetQueryService {
                         item.getAudioDurationMs()
                 )).toList()
         );
+    }
+
+    public List<ListeningApiContract.DailyModeStatusView> todayStatuses(
+            Long userId,
+            LocalDate learningDate,
+            String learningLanguage
+    ) {
+        Map<ListeningLearningMode, ListeningDailySet> byMode = dailySetRepository
+                .findAllByUserIdAndLearningDateAndLearningLanguageOrderByIdAsc(
+                        userId, learningDate, learningLanguage
+                ).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        ListeningDailySet::getLearningMode,
+                        value -> value,
+                        (left, right) -> right
+                ));
+        return java.util.Arrays.stream(ListeningLearningMode.values())
+                .map(mode -> {
+                    ListeningDailySet set = byMode.get(mode);
+                    if (set == null) {
+                        return new ListeningApiContract.DailyModeStatusView(
+                                mode, null, null, null, null,
+                                0, 0, 0, 0, 0, 0, 0, 0, false
+                        );
+                    }
+                    ListeningSession latestSession = sessionRepository
+                            .findFirstByDailySetIdOrderByStartedAtDesc(set.getId())
+                            .orElse(null);
+                    var latestAttempts = latestSession == null
+                            ? java.util.List.<ListeningItemAttempt>of()
+                            : attemptRepository
+                                    .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
+                                            latestSession.getId()
+                                    );
+                    int submittedItemCount = (int) latestAttempts.stream()
+                            .filter(value -> value.isOfficial()
+                                    && value.getStatus() != ListeningAttemptStatus.READY
+                                    && value.getStatus() != ListeningAttemptStatus.IN_PROGRESS)
+                            .count();
+                    int terminalItemCount = (int) latestAttempts.stream()
+                            .filter(value -> value.isOfficial() && value.isFinalized())
+                            .count();
+                    int answerRevealedItemCount = (int) latestAttempts.stream()
+                            .filter(value -> value.isOfficial() && value.isAnswerRevealed())
+                            .count();
+                    int readyItemCount = (int) activeItems(set.getId()).stream()
+                            .filter(value -> value.getStatus() == ListeningItemStatus.READY)
+                            .count();
+                    boolean completed = set.getStatus()
+                            == jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDailySetStatus.COMPLETED
+                            || (latestSession != null
+                            && latestSession.getStatus()
+                            == jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus.COMPLETED);
+                    return new ListeningApiContract.DailyModeStatusView(
+                            mode,
+                            set.getId(),
+                            latestSession == null ? null : latestSession.getId(),
+                            set.getStatus(),
+                            latestSession == null ? null : latestSession.getStatus(),
+                            set.getCompletedItemCount(),
+                            latestSession == null ? 0 : latestSession.getEvaluatedItemCount(),
+                            submittedItemCount,
+                            terminalItemCount,
+                            answerRevealedItemCount,
+                            set.getPhysicalItemCount(),
+                            readyItemCount,
+                            set.getTargetItemCount(),
+                            completed
+                    );
+                })
+                .toList();
     }
 
     public List<ListeningItem> activeItems(Long dailySetId) {

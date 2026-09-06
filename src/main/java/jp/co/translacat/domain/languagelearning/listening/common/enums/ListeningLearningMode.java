@@ -1,9 +1,7 @@
 package jp.co.translacat.domain.languagelearning.listening.common.enums;
 
-public enum ListeningTaskType {
+public enum ListeningLearningMode {
     DICTATION,
-    INTERPRETATION,
-    REPEAT_AFTER_AUDIO,
     COMPREHENSION,
     SUMMARY
 }

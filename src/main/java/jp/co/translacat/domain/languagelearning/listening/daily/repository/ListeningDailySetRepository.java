@@ -2,6 +2,7 @@ package jp.co.translacat.domain.languagelearning.listening.daily.repository;
 
 import jakarta.persistence.LockModeType;
 
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningLearningMode;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,7 +18,14 @@ public interface ListeningDailySetRepository
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<ListeningDailySet> findLockedById(Long id);
 
-    Optional<ListeningDailySet> findByUserIdAndLearningDateAndLearningLanguage(
+    Optional<ListeningDailySet> findByUserIdAndLearningDateAndLearningLanguageAndLearningMode(
+            Long userId,
+            LocalDate learningDate,
+            String learningLanguage,
+            ListeningLearningMode learningMode
+    );
+
+    List<ListeningDailySet> findAllByUserIdAndLearningDateAndLearningLanguageOrderByIdAsc(
             Long userId,
             LocalDate learningDate,
             String learningLanguage

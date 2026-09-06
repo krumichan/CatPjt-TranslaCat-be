@@ -5,6 +5,7 @@ import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.Spe
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingEvaluationEligibilityResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingSessionDetailResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingSessionResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingPracticeModeStatusResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvaluationEligibilityPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionCommandService;
@@ -70,6 +71,10 @@ public class SpeakingSessionFacade {
                 ),
                 lifecycleService.isResumable(session)
         );
+    }
+
+    public java.util.List<SpeakingPracticeModeStatusResponseDto> todayModeStatuses(Long userId) {
+        return sessionQueryService.todayModeStatuses(userId);
     }
 
     public SpeakingSessionDetailResponseDto getActive(Long userId) {

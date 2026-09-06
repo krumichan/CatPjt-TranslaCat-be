@@ -7,6 +7,7 @@ import jp.co.translacat.domain.languagelearning.common.enums.KeywordType;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
 import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
+import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
 import jp.co.translacat.domain.languagelearning.listening.audio.model.ListeningAudioObject;
 import jp.co.translacat.domain.languagelearning.listening.audio.port.ListeningAudioStoragePort;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
@@ -51,6 +52,7 @@ public class ListeningAttemptQueryService {
                 .orElseThrow(() -> notFound("Listening 문항을 찾을 수 없습니다."));
         ListeningItem item = attempt.getItem();
         boolean reveal = attempt.isAnswerRevealed() || attempt.isFinalized();
+        AiListeningContract.GeneratedItem generated = generated(item);
 
         return new ListeningApiContract.ItemView(
                 sessionId,
@@ -63,6 +65,18 @@ public class ListeningAttemptQueryService {
                 item.getAudioDurationMs(),
                 topicHint(item),
                 keywordHints(item),
+                generated == null ? null : generated.question(),
+                generated == null || generated.options() == null
+                        ? List.of()
+                        : generated.options().stream()
+                        .map(option -> new ListeningApiContract.ChoiceOptionView(
+                                option.key(), option.text()
+                        )).toList(),
+                generated == null ? null : generated.comprehensionFocus(),
+                reveal && generated != null ? generated.correctOptionKey() : null,
+                reveal && generated != null && generated.summaryKeyPoints() != null
+                        ? generated.summaryKeyPoints()
+                        : List.of(),
                 reveal ? item.getSourceText() : null,
                 reveal
                         ? jsonCodec.read(
@@ -123,6 +137,21 @@ public class ListeningAttemptQueryService {
                 response.getUserAudioObjectKey(),
                 contentType
         );
+    }
+
+    private AiListeningContract.GeneratedItem generated(ListeningItem item) {
+        if (item.getGenerationMetadataJson() == null
+                || item.getGenerationMetadataJson().isBlank()) {
+            return null;
+        }
+        try {
+            return jsonCodec.read(
+                    item.getGenerationMetadataJson(),
+                    AiListeningContract.GeneratedItem.class
+            );
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     private String topicHint(ListeningItem item) {

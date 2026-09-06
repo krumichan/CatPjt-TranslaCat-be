@@ -18,6 +18,7 @@ import jakarta.persistence.Version;
 
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDailySetStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDifficulty;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningLearningMode;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.jpa.BaseAuditable;
 
@@ -33,8 +34,8 @@ import java.time.LocalDateTime;
 @Table(
         name = "language_learning_listening_daily_set",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_ll_listening_set_user_date_language",
-                columnNames = {"user_id", "learning_date", "learning_language"}
+                name = "uk_ll_listening_set_user_date_language_mode",
+                columnNames = {"user_id", "learning_date", "learning_language", "learning_mode"}
         ),
         indexes = {
                 @Index(
@@ -66,6 +67,10 @@ public class ListeningDailySet extends BaseAuditable {
 
     @Column(name = "learning_language", nullable = false, length = 20)
     private String learningLanguage;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "learning_mode", nullable = false, length = 30)
+    private ListeningLearningMode learningMode;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -116,6 +121,7 @@ public class ListeningDailySet extends BaseAuditable {
             LocalDate learningDate,
             String originLanguage,
             String learningLanguage,
+            ListeningLearningMode learningMode,
             ListeningDifficulty difficulty,
             String topicSnapshotJson,
             String keywordSnapshotJson,
@@ -127,6 +133,7 @@ public class ListeningDailySet extends BaseAuditable {
         this.learningDate = learningDate;
         this.originLanguage = originLanguage;
         this.learningLanguage = learningLanguage;
+        this.learningMode = learningMode == null ? ListeningLearningMode.DICTATION : learningMode;
         this.difficulty = difficulty;
         this.topicSnapshotJson = json(topicSnapshotJson, "{}");
         this.keywordSnapshotJson = json(keywordSnapshotJson, "[]");
@@ -141,6 +148,7 @@ public class ListeningDailySet extends BaseAuditable {
             LocalDate learningDate,
             String originLanguage,
             String learningLanguage,
+            ListeningLearningMode learningMode,
             ListeningDifficulty difficulty,
             String topicSnapshotJson,
             String keywordSnapshotJson,
@@ -158,6 +166,7 @@ public class ListeningDailySet extends BaseAuditable {
                 learningDate,
                 originLanguage,
                 learningLanguage,
+                learningMode,
                 difficulty,
                 topicSnapshotJson,
                 keywordSnapshotJson,

@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.languagelearning.listening.daily.validator;
 
 import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningLearningMode;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -18,6 +19,7 @@ public class ListeningGenerationResponseValidator {
             String policyVersion,
             String modelConfigVersion,
             int expectedCount,
+            ListeningLearningMode learningMode,
             double minAudioSeconds,
             double maxAudioSeconds
     ) {
@@ -50,10 +52,46 @@ public class ListeningGenerationResponseValidator {
                     || item.estimatedAudioSeconds() < minAudioSeconds
                     || item.estimatedAudioSeconds() > maxAudioSeconds
                     || item.safety() == null
-                    || !item.safety().passed()) {
+                    || !item.safety().passed()
+                    || !validModePayload(item, learningMode)) {
                 throw invalid("Listening 생성 문항 계약이 올바르지 않습니다.");
             }
         }
+    }
+
+    private boolean validModePayload(
+            AiListeningContract.GeneratedItem item,
+            ListeningLearningMode mode
+    ) {
+        if (mode == null) {
+            return false;
+        }
+        return switch (mode) {
+            case DICTATION -> blank(item.question())
+                    && (item.options() == null || item.options().isEmpty())
+                    && blank(item.correctOptionKey())
+                    && blank(item.comprehensionFocus())
+                    && (item.summaryKeyPoints() == null || item.summaryKeyPoints().isEmpty());
+            case COMPREHENSION -> !blank(item.question())
+                    && item.options() != null
+                    && item.options().size() == 4
+                    && item.options().stream().allMatch(option -> option != null
+                            && !blank(option.key()) && !blank(option.text()))
+                    && item.options().stream()
+                    .map(AiListeningContract.ChoiceOption::key)
+                    .collect(java.util.stream.Collectors.toSet())
+                    .equals(Set.of("A", "B", "C", "D"))
+                    && !blank(item.correctOptionKey())
+                    && item.options().stream().anyMatch(option -> option.key().equals(item.correctOptionKey()))
+                    && Set.of("GIST", "DETAIL", "INTENT", "INFERENCE", "NEXT_ACTION")
+                    .contains(item.comprehensionFocus())
+                    && (item.summaryKeyPoints() == null || item.summaryKeyPoints().isEmpty());
+            case SUMMARY -> sized(item.summaryKeyPoints(), 2, 6)
+                    && blank(item.question())
+                    && (item.options() == null || item.options().isEmpty())
+                    && blank(item.correctOptionKey())
+                    && blank(item.comprehensionFocus());
+        };
     }
 
     private BusinessException invalid(String message) {

@@ -36,6 +36,7 @@ public class SpeakingSessionFactory {
                 jsonCodec.write(context.selectedKeywords()),
                 setting.getOriginLanguage(),
                 setting.getLearningLanguage(),
+                request.practiceMode(),
                 request.conversationStartMode(),
                 context.resolvedStartMode(),
                 request.correctionMode(),

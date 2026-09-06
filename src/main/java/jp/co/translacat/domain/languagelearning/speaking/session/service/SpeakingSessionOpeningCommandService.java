@@ -64,6 +64,7 @@ public class SpeakingSessionOpeningCommandService {
                         : LocalDateTime.now().plusDays(
                                 context.policySnapshot().rawAudioRetentionDays()
                         ),
+                response.conversation() == null ? null : jsonCodec.write(response.conversation()),
                 response.conversation() == null
                         ? null
                         : response.conversation().sessionSummary(),

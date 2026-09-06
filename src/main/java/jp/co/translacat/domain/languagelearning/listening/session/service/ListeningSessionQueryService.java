@@ -41,6 +41,7 @@ public class ListeningSessionQueryService {
                 .toList();
         Double average = official.stream()
                 .filter(value -> value.getOverallScore() != null)
+                .filter(value -> value.getCoverage() >= 1.0)
                 .mapToDouble(ListeningItemAttempt::getOverallScore)
                 .average()
                 .stream().boxed().findFirst().orElse(null);

@@ -139,6 +139,20 @@ public class ListeningEvaluationContractPolicy {
                 )
         );
         values.put(
+                ListeningTaskType.COMPREHENSION,
+                Map.of(
+                        ListeningMetricType.ANSWER_ACCURACY, 1.00
+                )
+        );
+        values.put(
+                ListeningTaskType.SUMMARY,
+                Map.of(
+                        ListeningMetricType.GIST_COVERAGE, 0.55,
+                        ListeningMetricType.KEY_POINT_COVERAGE, 0.30,
+                        ListeningMetricType.LANGUAGE_CLARITY, 0.15
+                )
+        );
+        values.put(
                 ListeningTaskType.REPEAT_AFTER_AUDIO,
                 Map.of(
                         ListeningMetricType.PRONUNCIATION, 0.40,
@@ -168,6 +182,14 @@ public class ListeningEvaluationContractPolicy {
                         ListeningProfileMetric.MEANING, 1.00,
                         ListeningProfileMetric.ORIGIN_NATURALNESS, 0.30
                 )
+        );
+        values.put(
+                ListeningTaskType.COMPREHENSION,
+                Map.of(ListeningProfileMetric.MEANING, 1.00)
+        );
+        values.put(
+                ListeningTaskType.SUMMARY,
+                Map.of(ListeningProfileMetric.MEANING, 1.00)
         );
         values.put(
                 ListeningTaskType.REPEAT_AFTER_AUDIO,

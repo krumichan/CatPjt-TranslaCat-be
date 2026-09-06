@@ -103,6 +103,7 @@ public class ListeningGenerationTransactionService {
                         ),
                         new AiListeningContract.SetContext(
                                 set.getLearningDate(),
+                                set.getLearningMode(),
                                 new AiListeningContract.Topic(
                                         "daily",
                                         "Daily Listening"

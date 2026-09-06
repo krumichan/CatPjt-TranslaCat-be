@@ -32,6 +32,7 @@ public class SpeakingSessionAiRequestFactory {
                 session.getOriginLanguage(),
                 session.getLearningLanguage(),
                 session.getTopicTitle(),
+                session.getPracticeMode(),
                 session.getTopicCategory(),
                 clean(request.goal()),
                 clean(request.persona()),

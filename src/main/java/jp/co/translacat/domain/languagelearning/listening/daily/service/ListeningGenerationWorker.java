@@ -39,6 +39,7 @@ public class ListeningGenerationWorker {
                     work.request().policyVersion(),
                     work.request().modelConfigVersion(),
                     work.expectedCount(),
+                    work.request().setContext().learningMode(),
                     1.0,
                     work.maxAudioSeconds()
             );

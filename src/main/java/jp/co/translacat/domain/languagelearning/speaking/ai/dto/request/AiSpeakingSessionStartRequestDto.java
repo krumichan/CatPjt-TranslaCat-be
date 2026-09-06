@@ -7,6 +7,7 @@ import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeaking
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingSessionPolicySnapshotDto;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.ConversationStartMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.CorrectionMode;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 
 import java.util.List;
 
@@ -18,6 +19,7 @@ public record AiSpeakingSessionStartRequestDto(
         String originLanguage,
         String learningLanguage,
         String topic,
+        SpeakingPracticeMode practiceMode,
         String category,
         String goal,
         String persona,

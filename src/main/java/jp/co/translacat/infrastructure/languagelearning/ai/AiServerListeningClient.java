@@ -126,6 +126,32 @@ public class AiServerListeningClient implements ListeningAiClient {
     }
 
     @Override
+    public AiListeningContract.EvaluationResponse evaluateComprehension(
+            AiListeningContract.ComprehensionRequest request
+    ) {
+        return post(
+                "/api/v1/language-learning/listening/evaluate/comprehension",
+                request,
+                AiListeningContract.EvaluationResponse.class,
+                "COMPREHENSION",
+                request == null ? null : request.itemId()
+        );
+    }
+
+    @Override
+    public AiListeningContract.EvaluationResponse evaluateSummary(
+            AiListeningContract.SummaryRequest request
+    ) {
+        return post(
+                "/api/v1/language-learning/listening/evaluate/summary",
+                request,
+                AiListeningContract.EvaluationResponse.class,
+                "SUMMARY",
+                request == null ? null : request.itemId()
+        );
+    }
+
+    @Override
     public AiListeningContract.EvaluationResponse evaluateRepeat(
             AiListeningContract.RepeatRequest request,
             byte[] audioBytes,

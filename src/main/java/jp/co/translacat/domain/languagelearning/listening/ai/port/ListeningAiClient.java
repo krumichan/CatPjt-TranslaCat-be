@@ -22,6 +22,14 @@ public interface ListeningAiClient {
             AiListeningContract.InterpretationRequest request
     );
 
+    AiListeningContract.EvaluationResponse evaluateComprehension(
+            AiListeningContract.ComprehensionRequest request
+    );
+
+    AiListeningContract.EvaluationResponse evaluateSummary(
+            AiListeningContract.SummaryRequest request
+    );
+
     AiListeningContract.EvaluationResponse evaluateRepeat(
             AiListeningContract.RepeatRequest request,
             byte[] audioBytes,

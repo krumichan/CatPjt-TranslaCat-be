@@ -4,6 +4,7 @@ import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.Spe
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCreateRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingSessionDetailResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingSessionResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingPracticeModeStatusResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.facade.SpeakingSessionFacade;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
@@ -26,6 +27,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class SpeakingSessionController {
 
     private final SpeakingSessionFacade sessionFacade;
+
+    @GetMapping("/today/status")
+    public ResponseDto<java.util.List<SpeakingPracticeModeStatusResponseDto>> todayStatus(
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        return ResponseUtil.ok(sessionFacade.todayModeStatuses(
+                SecurityUtil.getLoginUserId(principal)
+        ));
+    }
 
     @PostMapping
     public ResponseDto<SpeakingSessionResponseDto> create(

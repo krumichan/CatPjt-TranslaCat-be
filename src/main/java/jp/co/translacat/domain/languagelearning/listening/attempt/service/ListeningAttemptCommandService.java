@@ -10,6 +10,7 @@ import jp.co.translacat.domain.languagelearning.listening.audio.service.Listenin
 import jp.co.translacat.domain.languagelearning.listening.audio.validator.ListeningAudioValidator;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceLevel;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceType;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAttemptStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvaluationPurpose;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus;
@@ -22,6 +23,7 @@ import jp.co.translacat.domain.languagelearning.listening.policy.ListeningIdempo
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningTaskSelectionPolicy;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
+import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
 import jp.co.translacat.domain.languagelearning.listening.service.ListeningViewMapper;
 import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
 import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
@@ -50,6 +52,7 @@ public class ListeningAttemptCommandService {
 
     private final ListeningItemAttemptRepository attemptRepository;
     private final ListeningTaskResponseRepository responseRepository;
+    private final ListeningSessionRepository sessionRepository;
     private final ListeningPolicySettingQueryService policySettingService;
     private final ListeningTaskSelectionPolicy taskSelectionPolicy;
     private final ListeningIdempotencyPolicy idempotencyPolicy;
@@ -105,6 +108,30 @@ public class ListeningAttemptCommandService {
         touchSessionIfActive(attempt, LocalDateTime.now());
 
         return viewMapper.task(response);
+    }
+
+    @Transactional
+    public ListeningApiContract.AttemptView useAssistance(
+            Long userId,
+            Long attemptId,
+            ListeningAssistanceType assistanceType
+    ) {
+        ListeningItemAttempt attempt = mutableAttempt(userId, attemptId);
+        if (assistanceType == null
+                || assistanceType == ListeningAssistanceType.SHOW_ANSWER) {
+            throw invalid("Listening 도움 유형이 올바르지 않습니다.");
+        }
+
+        for (ListeningTaskResponse response : selectedResponses(attemptId)) {
+            applyAssistanceInternal(
+                    attempt,
+                    response,
+                    incrementAssistance(response, assistanceType)
+            );
+        }
+        touchSessionIfActive(attempt, LocalDateTime.now());
+
+        return viewMapper.attempt(attempt);
     }
 
     @Transactional
@@ -226,6 +253,7 @@ public class ListeningAttemptCommandService {
         }
 
         touchSessionIfActive(attempt, now);
+        updateOfficialSessionPhase(attempt, now);
 
         if (attempt.isAnswerRevealed()) {
             finalizationService.finalizeIfTerminal(attemptId);
@@ -438,6 +466,7 @@ public class ListeningAttemptCommandService {
         selectedResponses(attemptId).forEach(ListeningTaskResponse::skip);
         attempt.skip(now);
         touchSessionIfActive(attempt, now);
+        updateOfficialSessionPhase(attempt, now);
 
         return viewMapper.attempt(attempt);
     }
@@ -487,10 +516,14 @@ public class ListeningAttemptCommandService {
     }
 
     private ListeningItemAttempt ownedAttempt(Long userId, Long attemptId) {
-        return attemptRepository.findLockedById(attemptId)
-                .filter(value -> value.getSession().getUser().getId()
-                        .equals(userId))
+        ListeningItemAttempt attempt = attemptRepository.findLockedById(attemptId)
                 .orElseThrow(() -> notFound("Listening Attempt를 찾을 수 없습니다."));
+        var session = sessionRepository.findLockedById(attempt.getSession().getId())
+                .orElseThrow(() -> notFound("Listening Session을 찾을 수 없습니다."));
+        if (!session.getUser().getId().equals(userId)) {
+            throw notFound("Listening Attempt를 찾을 수 없습니다.");
+        }
+        return attempt;
     }
 
     private void requireMutableSession(ListeningItemAttempt attempt) {
@@ -546,11 +579,47 @@ public class ListeningAttemptCommandService {
     ) {
         ListeningSessionStatus status = attempt.getSession().getStatus();
 
-        if (status == ListeningSessionStatus.COMPLETED) {
+        if (status == ListeningSessionStatus.COMPLETED
+                || status == ListeningSessionStatus.EVALUATING) {
             return;
         }
 
         requireActive(attempt);
+    }
+
+    private void updateOfficialSessionPhase(
+            ListeningItemAttempt changedAttempt,
+            LocalDateTime now
+    ) {
+        if (!changedAttempt.isOfficial()) {
+            return;
+        }
+
+        List<ListeningItemAttempt> official = attemptRepository
+                .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
+                        changedAttempt.getSession().getId()
+                ).stream()
+                .filter(ListeningItemAttempt::isOfficial)
+                .toList();
+        if (official.isEmpty()) {
+            return;
+        }
+
+        boolean allTerminal = official.stream()
+                .allMatch(ListeningItemAttempt::isFinalized);
+        if (allTerminal) {
+            changedAttempt.getSession().complete(now);
+            return;
+        }
+
+        boolean allSubmitted = official.stream().allMatch(value ->
+                value.isFinalized()
+                        || value.getStatus() == ListeningAttemptStatus.SUBMITTED
+                        || value.getStatus() == ListeningAttemptStatus.EVALUATING
+        );
+        if (allSubmitted) {
+            changedAttempt.getSession().startEvaluating(now);
+        }
     }
 
     private ListeningTaskResponse selected(
@@ -579,6 +648,27 @@ public class ListeningAttemptCommandService {
                 new TypeReference<List<ListeningApiContract.AssistanceUsage>>() {
                 }
         );
+    }
+
+    private List<ListeningApiContract.AssistanceUsage> incrementAssistance(
+            ListeningTaskResponse response,
+            ListeningAssistanceType type
+    ) {
+        List<ListeningApiContract.AssistanceUsage> next = new ArrayList<>(
+                assistance(response)
+        );
+        for (int index = 0; index < next.size(); index++) {
+            ListeningApiContract.AssistanceUsage current = next.get(index);
+            if (current.type() == type) {
+                next.set(index, new ListeningApiContract.AssistanceUsage(
+                        type,
+                        Math.min(100, current.count() + 1)
+                ));
+                return next;
+            }
+        }
+        next.add(new ListeningApiContract.AssistanceUsage(type, 1));
+        return next;
     }
 
     private String evaluationKey(ListeningTaskResponse response) {

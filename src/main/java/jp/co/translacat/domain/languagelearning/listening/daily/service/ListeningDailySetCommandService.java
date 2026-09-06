@@ -4,6 +4,7 @@ import jp.co.translacat.domain.languagelearning.ai.dto.model.SelectedKeywordDto;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.keyword.facade.KeywordSelectionFacade;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDifficulty;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningLearningMode;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
 import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningGenerationCommand;
@@ -54,11 +55,16 @@ public class ListeningDailySetCommandService {
                 userSettingService.getOrCreateEntity(userId);
         userSettingService.requireConfigured(userSetting);
         LocalDate today = userSettingService.resolveToday(userSetting);
+        ListeningLearningMode learningMode = request == null
+                || request.learningMode() == null
+                ? ListeningLearningMode.DICTATION
+                : request.learningMode();
         var existing = dailySetRepository
-                .findByUserIdAndLearningDateAndLearningLanguage(
+                .findByUserIdAndLearningDateAndLearningLanguageAndLearningMode(
                         userId,
                         today,
-                        userSetting.getLearningLanguage()
+                        userSetting.getLearningLanguage(),
+                        learningMode
                 );
 
         if (existing.isPresent()) {
@@ -106,6 +112,7 @@ public class ListeningDailySetCommandService {
                 today,
                 userSetting.getOriginLanguage(),
                 userSetting.getLearningLanguage(),
+                learningMode,
                 difficulty,
                 jsonCodec.write(new TopicSnapshot("daily", "Daily Listening")),
                 jsonCodec.write(keywords),
@@ -118,10 +125,11 @@ public class ListeningDailySetCommandService {
             dailySet = dailySetRepository.saveAndFlush(dailySet);
         } catch (DataIntegrityViolationException exception) {
             return dailySetRepository
-                    .findByUserIdAndLearningDateAndLearningLanguage(
+                    .findByUserIdAndLearningDateAndLearningLanguageAndLearningMode(
                             userId,
                             today,
-                            userSetting.getLearningLanguage()
+                            userSetting.getLearningLanguage(),
+                            learningMode
                     ).orElseThrow(() -> exception);
         }
 

@@ -64,6 +64,7 @@ public class SpeakingTurnAiRequestFactory {
                 session.getOriginLanguage(),
                 session.getLearningLanguage(),
                 session.getTopicTitle(),
+                session.getPracticeMode(),
                 session.getTopicCategory(),
                 session.getGoal(),
                 session.getPersona(),

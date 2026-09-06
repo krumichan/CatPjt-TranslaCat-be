@@ -170,12 +170,18 @@ public class LanguageLearningDashboardQueryService {
         SourceSkillTrendResponseDto reading = sourceSkillTrendQueryService.get(
                 userId, LearningSource.READING, from, to
         );
-        var todayListening = listeningDailySetRepository
-                .findByUserIdAndLearningDateAndLearningLanguage(
+        var todayListeningSets = listeningDailySetRepository
+                .findAllByUserIdAndLearningDateAndLearningLanguageOrderByIdAsc(
                         userId,
                         today,
                         learningLanguage
                 );
+        double todayListeningCompleted = todayListeningSets.stream()
+                .mapToInt(value -> value.getCompletedItemCount())
+                .sum();
+        double todayListeningTarget = todayListeningSets.stream()
+                .mapToInt(value -> value.getTargetItemCount())
+                .sum();
 
         int listeningMeasured = (int) listening.metrics().stream()
                 .filter(value -> value.score() != null)
@@ -201,10 +207,8 @@ public class LanguageLearningDashboardQueryService {
                 ),
                 performance(
                         averageListening(listening.metrics()),
-                        todayListening.map(value -> (double) value.getCompletedItemCount())
-                                .orElse(0.0),
-                        todayListening.map(value -> (double) value.getTargetItemCount())
-                                .orElse(0.0),
+                        todayListeningCompleted,
+                        todayListeningTarget,
                         "ITEM",
                         listeningTrend,
                         listeningMeasured,

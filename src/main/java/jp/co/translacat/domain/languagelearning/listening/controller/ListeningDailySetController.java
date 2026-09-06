@@ -29,6 +29,16 @@ public class ListeningDailySetController {
 
     private final ListeningDailySetFacade facade;
 
+    @Operation(summary = "오늘의 Listening 유형별 상태 조회 (생성하지 않음)")
+    @GetMapping("/today/status")
+    public ResponseDto<java.util.List<ListeningApiContract.DailyModeStatusView>> todayStatus(
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        return ResponseUtil.ok(facade.todayStatuses(
+                SecurityUtil.getLoginUserId(principal)
+        ));
+    }
+
     @Operation(summary = "오늘의 Listening Daily Set 조회 또는 비동기 생성")
     @GetMapping("/today")
     public ResponseDto<ListeningApiContract.DailySetView> today(

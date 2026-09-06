@@ -2,6 +2,7 @@ package jp.co.translacat.domain.languagelearning.speaking.session.policy;
 
 import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.ConversationStartMode;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCreateRequestDto;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
@@ -46,6 +47,9 @@ public class SpeakingSessionPolicy {
             );
         }
 
+        if (request.practiceMode() == null) {
+            throw invalid("Speaking Practice Mode가 필요합니다.");
+        }
         if (request.conversationStartMode() == null) {
             throw invalid("Conversation Start Mode가 필요합니다.");
         }
@@ -61,6 +65,22 @@ public class SpeakingSessionPolicy {
         validateVoice(request.voiceId());
         validatePlaybackSpeed(request.playbackSpeed());
         validateCustomTopic(request.customTopic());
+    }
+
+
+    public void validateResolvedStartMode(
+            SpeakingPracticeMode practiceMode,
+            ConversationStartMode resolvedStartMode
+    ) {
+        if (practiceMode == null || resolvedStartMode == null) {
+            throw invalid("Speaking Practice Mode와 시작 방식이 필요합니다.");
+        }
+        if (practiceMode != SpeakingPracticeMode.FREE
+                && resolvedStartMode != ConversationStartMode.AI_FIRST) {
+            throw invalid(
+                    "따라 말하기와 가이드 말하기는 AI Prompt부터 시작해야 합니다."
+            );
+        }
     }
 
     public ConversationStartMode resolveStartMode(

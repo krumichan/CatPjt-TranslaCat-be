@@ -3,8 +3,10 @@ package jp.co.translacat.domain.languagelearning.speaking.turn.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingConversationResultDto;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.AssistanceType;
 import jp.co.translacat.domain.languagelearning.speaking.turn.dto.response.SpeakingTurnResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingPromptGuideResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import jp.co.translacat.domain.languagelearning.speaking.turn.repository.SpeakingTurnRepository;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
@@ -85,6 +87,7 @@ public class SpeakingTurnQueryService {
                         + turn.getSession().getId()
                         + "/turns/" + turn.getId() + "/audio/user",
                 turn.getAssistantText(),
+                promptGuide(turn.getConversationJson()),
                 turn.getAssistantAudioObjectKey() == null
                         ? null
                         : "/api/v1/language-learning/speaking/sessions/"
@@ -98,6 +101,28 @@ public class SpeakingTurnQueryService {
                 turn.getManualRetryCount(),
                 turn.getCompletedAt()
         );
+    }
+
+    private SpeakingPromptGuideResponseDto promptGuide(String json) {
+        if (json == null || json.isBlank() || json.equals("{}") || json.equals("null")) {
+            return SpeakingPromptGuideResponseDto.empty();
+        }
+        try {
+            AiSpeakingConversationResultDto value = jsonCodec.read(
+                    json, AiSpeakingConversationResultDto.class
+            );
+            if (value == null) {
+                return SpeakingPromptGuideResponseDto.empty();
+            }
+            return new SpeakingPromptGuideResponseDto(
+                    value.scriptText(),
+                    value.providedFacts() == null ? List.of() : value.providedFacts(),
+                    value.requiredIntents() == null ? List.of() : value.requiredIntents(),
+                    value.responseConstraints() == null ? List.of() : value.responseConstraints()
+            );
+        } catch (RuntimeException ignored) {
+            return SpeakingPromptGuideResponseDto.empty();
+        }
     }
 
     private List<AssistanceType> assistanceUsage(SpeakingTurn turn) {

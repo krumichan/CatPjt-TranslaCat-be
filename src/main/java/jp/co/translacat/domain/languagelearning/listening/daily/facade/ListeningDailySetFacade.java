@@ -13,6 +13,10 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
 
+import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ListeningDailySetFacade {
@@ -22,6 +26,7 @@ public class ListeningDailySetFacade {
     private final ListeningGenerationRetryCommandService generationRetryCommandService;
     private final ListeningTtsRetryCommandService ttsRetryCommandService;
     private final ListeningAttemptQueryService attemptQueryService;
+    private final LanguageLearningUserSettingQueryService userSettingService;
 
     public ListeningApiContract.DailySetView getOrCreate(
             Long userId,
@@ -30,6 +35,16 @@ public class ListeningDailySetFacade {
         ListeningDailySet dailySet = commandService.getOrCreate(userId, request);
 
         return queryService.view(userId, dailySet);
+    }
+
+    public List<ListeningApiContract.DailyModeStatusView> todayStatuses(Long userId) {
+        var setting = userSettingService.getOrCreateEntity(userId);
+        userSettingService.requireConfigured(setting);
+        return queryService.todayStatuses(
+                userId,
+                userSettingService.resolveToday(setting),
+                setting.getLearningLanguage()
+        );
     }
 
     public ListeningApiContract.DailySetView retryGeneration(

@@ -7,6 +7,7 @@ import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningA
 import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
 import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
 import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.ConversationStartMode;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCreateRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionCreationContext;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionPolicySnapshot;
@@ -66,6 +67,15 @@ public class SpeakingSessionCreationContextService {
                 : topicQueryService.getActiveEntity(request.topicId());
         validateTopicLanguage(topic, setting.getLearningLanguage());
 
+        ConversationStartMode resolvedStartMode = sessionPolicy.resolveStartMode(
+                request.conversationStartMode(),
+                topic == null ? null : topic.getRecommendedStartMode()
+        );
+        sessionPolicy.validateResolvedStartMode(
+                request.practiceMode(),
+                resolvedStartMode
+        );
+
         LearningProfileSummaryDto profile =
                 speakingProfileContextService.build(userId);
         List<SelectedKeywordDto> keywords = keywordSelectionFacade.selectForDailySet(
@@ -85,10 +95,7 @@ public class SpeakingSessionCreationContextService {
                 setting,
                 learningDate,
                 topic,
-                sessionPolicy.resolveStartMode(
-                        request.conversationStartMode(),
-                        topic == null ? null : topic.getRecommendedStartMode()
-                ),
+                resolvedStartMode,
                 snapshot,
                 profile,
                 keywords

@@ -61,6 +61,10 @@ public class ListeningEvaluationTransactionService {
                 }
         );
         String requestId = "be-listening-evaluation-" + event.id();
+        AiListeningContract.GeneratedItem generated = jsonCodec.read(
+                item.getGenerationMetadataJson(),
+                AiListeningContract.GeneratedItem.class
+        );
         Object request = switch (response.getTaskType()) {
             case DICTATION -> new AiListeningContract.DictationRequest(
                     requestId,
@@ -105,6 +109,42 @@ public class ListeningEvaluationTransactionService {
                             set.getOriginLanguage(),
                             set.getLearningLanguage()
                     );
+            case COMPREHENSION -> new AiListeningContract.ComprehensionRequest(
+                    requestId,
+                    event.idempotencyKey(),
+                    item.getId(),
+                    attempt.getId(),
+                    attempt.getEvaluationPurpose(),
+                    attempt.isAnswerRevealed(),
+                    assistance,
+                    policy.getProfilePolicyVersion(),
+                    policy.getModelConfigVersion(),
+                    response.getManualRetryCount(),
+                    generated.question(),
+                    generated.options(),
+                    response.getAnswerText(),
+                    generated.correctOptionKey(),
+                    generated.comprehensionFocus(),
+                    set.getOriginLanguage(),
+                    set.getLearningLanguage()
+            );
+            case SUMMARY -> new AiListeningContract.SummaryRequest(
+                    requestId,
+                    event.idempotencyKey(),
+                    item.getId(),
+                    attempt.getId(),
+                    attempt.getEvaluationPurpose(),
+                    attempt.isAnswerRevealed(),
+                    assistance,
+                    policy.getProfilePolicyVersion(),
+                    policy.getModelConfigVersion(),
+                    response.getManualRetryCount(),
+                    item.getSourceText(),
+                    generated.summaryKeyPoints(),
+                    response.getAnswerText(),
+                    set.getOriginLanguage(),
+                    set.getLearningLanguage()
+            );
             case REPEAT_AFTER_AUDIO -> new AiListeningContract.RepeatRequest(
                     requestId,
                     event.idempotencyKey(),

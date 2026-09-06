@@ -4,9 +4,14 @@ import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningA
 import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
 import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
 import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingConversationResultDto;
+import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingDailyUsageResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingSessionResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingPromptGuideResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingPracticeModeStatusResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.repository.SpeakingSessionRepository;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
@@ -28,6 +33,7 @@ public class SpeakingSessionQueryService {
     private final SpeakingSessionUsageQueryService usageQueryService;
     private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
     private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final LanguageLearningJsonCodec jsonCodec;
 
     public SpeakingSession getOwnedEntity(Long userId, Long sessionId) {
         return sessionRepository.findByIdAndUserId(sessionId, userId)
@@ -77,6 +83,7 @@ public class SpeakingSessionQueryService {
                 session.getLearningLanguage(),
                 session.getStatus(),
                 session.getEvaluationStatus(),
+                session.getPracticeMode(),
                 session.getConversationStartMode(),
                 session.getResolvedStartMode(),
                 session.getCorrectionMode(),
@@ -87,6 +94,7 @@ public class SpeakingSessionQueryService {
                 session.getVoiceId(),
                 session.getPlaybackSpeed(),
                 session.getOpeningAssistantText(),
+                promptGuide(session.getOpeningConversationJson()),
                 audioAvailable
                         ? "/api/v1/language-learning/speaking/sessions/"
                         + session.getId() + "/audio/opening"
@@ -96,6 +104,53 @@ public class SpeakingSessionQueryService {
                 session.getCompletedAt(),
                 session.getLastActivityAt()
         );
+    }
+
+    public SpeakingPromptGuideResponseDto promptGuide(String json) {
+        if (json == null || json.isBlank() || json.equals("{}") || json.equals("null")) {
+            return SpeakingPromptGuideResponseDto.empty();
+        }
+        try {
+            AiSpeakingConversationResultDto value = jsonCodec.read(
+                    json, AiSpeakingConversationResultDto.class
+            );
+            if (value == null) {
+                return SpeakingPromptGuideResponseDto.empty();
+            }
+            return new SpeakingPromptGuideResponseDto(
+                    value.scriptText(),
+                    value.providedFacts() == null ? java.util.List.of() : value.providedFacts(),
+                    value.requiredIntents() == null ? java.util.List.of() : value.requiredIntents(),
+                    value.responseConstraints() == null ? java.util.List.of() : value.responseConstraints()
+            );
+        } catch (RuntimeException ignored) {
+            return SpeakingPromptGuideResponseDto.empty();
+        }
+    }
+
+    public java.util.List<SpeakingPracticeModeStatusResponseDto> todayModeStatuses(Long userId) {
+        LanguageLearningUserSetting setting = userSettingQueryService.getOrCreateEntity(userId);
+        userSettingQueryService.requireConfigured(setting);
+        java.time.LocalDate today = userSettingQueryService.resolveToday(setting);
+        return java.util.Arrays.stream(SpeakingPracticeMode.values())
+                .map(mode -> sessionRepository
+                        .findFirstByUserIdAndLearningDateAndPracticeModeOrderByStartedAtDesc(
+                                userId, today, mode
+                        )
+                        .map(session -> new SpeakingPracticeModeStatusResponseDto(
+                                mode,
+                                session.getId(),
+                                session.getStatus(),
+                                session.getEvaluationStatus(),
+                                session.getCompletedTurns(),
+                                session.getMaxTurns(),
+                                session.getEvaluationStatus() == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus.EVALUATED
+                                        || session.getEvaluationStatus() == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus.INSUFFICIENT_EVIDENCE
+                        ))
+                        .orElseGet(() -> new SpeakingPracticeModeStatusResponseDto(
+                                mode, null, null, null, 0, 0, false
+                        )))
+                .toList();
     }
 
     public SpeakingDailyUsageResponseDto getDailyUsage(Long userId) {

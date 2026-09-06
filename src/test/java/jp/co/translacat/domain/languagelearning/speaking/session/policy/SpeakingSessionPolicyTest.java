@@ -3,6 +3,7 @@ package jp.co.translacat.domain.languagelearning.speaking.session.policy;
 import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.ConversationStartMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.CorrectionMode;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCreateRequestDto;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -56,6 +57,37 @@ class SpeakingSessionPolicyTest {
                 ));
     }
 
+
+    @Test
+    void readAloudAndGuidedRequireAiFirstAfterResolution() {
+        policy.validateResolvedStartMode(
+                SpeakingPracticeMode.READ_ALOUD,
+                ConversationStartMode.AI_FIRST
+        );
+        policy.validateResolvedStartMode(
+                SpeakingPracticeMode.GUIDED,
+                ConversationStartMode.AI_FIRST
+        );
+
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> policy.validateResolvedStartMode(
+                        SpeakingPracticeMode.READ_ALOUD,
+                        ConversationStartMode.USER_FIRST
+                ));
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> policy.validateResolvedStartMode(
+                        SpeakingPracticeMode.GUIDED,
+                        ConversationStartMode.USER_FIRST
+                ));
+    }
+
+    @Test
+    void freeSpeakingKeepsExistingStartModeChoices() {
+        for (ConversationStartMode mode : ConversationStartMode.values()) {
+            policy.validateResolvedStartMode(SpeakingPracticeMode.FREE, mode);
+        }
+    }
+
     private SpeakingSessionCreateRequestDto request(
             ConversationStartMode mode,
             int minutes
@@ -65,6 +97,7 @@ class SpeakingSessionPolicyTest {
                 "Free conversation",
                 null,
                 null,
+                SpeakingPracticeMode.FREE,
                 mode,
                 CorrectionMode.CONVERSATION,
                 minutes,

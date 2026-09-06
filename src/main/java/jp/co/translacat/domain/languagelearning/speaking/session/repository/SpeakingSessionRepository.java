@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.repository;
 
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 
 import jakarta.persistence.LockModeType;
@@ -39,6 +40,12 @@ public interface SpeakingSessionRepository
     List<SpeakingSession> findAllByUserIdAndLearningDate(
             Long userId,
             LocalDate learningDate
+    );
+
+    Optional<SpeakingSession> findFirstByUserIdAndLearningDateAndPracticeModeOrderByStartedAtDesc(
+            Long userId,
+            LocalDate learningDate,
+            SpeakingPracticeMode practiceMode
     );
 
     long countByUserIdAndLearningDate(

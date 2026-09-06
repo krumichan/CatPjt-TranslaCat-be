@@ -58,8 +58,17 @@ public class ListeningSessionCommandService {
             throw invalid("Listening Daily Set이 필요합니다.");
         }
 
-        Set<ListeningTaskType> selected = taskSelectionPolicy.validate(
-                request.selectedTaskTypes()
+        ListeningDailySet dailySet = dailySetQueryService.owned(
+                userId,
+                request.dailySetId()
+        );
+        List<ListeningTaskType> requestedTasks = request.selectedTaskTypes() == null
+                || request.selectedTaskTypes().isEmpty()
+                ? taskSelectionPolicy.tasksForMode(dailySet.getLearningMode())
+                : request.selectedTaskTypes();
+        Set<ListeningTaskType> selected = taskSelectionPolicy.validateForMode(
+                dailySet.getLearningMode(),
+                requestedTasks
         );
         List<ListeningTaskType> ordered = selected.stream()
                 .sorted(Comparator.comparingInt(ListeningTaskType::ordinal))
@@ -78,10 +87,6 @@ public class ListeningSessionCommandService {
 
         ListeningPolicySetting policy = policySettingService.get();
         expireOrRejectActive(userId, policy);
-        ListeningDailySet dailySet = dailySetQueryService.owned(
-                userId,
-                request.dailySetId()
-        );
 
         if (!dailySet.isUsable()) {
             throw invalid("준비되지 않은 Listening Daily Set입니다.");
@@ -200,7 +205,8 @@ public class ListeningSessionCommandService {
             throw invalid("완료되지 않은 Listening 문항이 있습니다.");
         }
 
-        if (session.isActive()) {
+        if (session.getStatus() == jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus.IN_PROGRESS
+                || session.getStatus() == jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus.EVALUATING) {
             session.complete(LocalDateTime.now());
         }
 

@@ -20,6 +20,8 @@ import jp.co.translacat.domain.languagelearning.listening.common.enums.Listening
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningProfilePolicy;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
+import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
+import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -43,6 +45,7 @@ public class ListeningAttemptFinalizationCommandService {
 
     private final ListeningItemAttemptRepository attemptRepository;
     private final ListeningTaskResponseRepository responseRepository;
+    private final ListeningSessionRepository sessionRepository;
     private final ListeningTaskEvaluationRepository evaluationRepository;
     private final ListeningMetricHistoryRepository historyRepository;
     private final ListeningOutboxCommandService outboxCommandService;
@@ -55,6 +58,9 @@ public class ListeningAttemptFinalizationCommandService {
     @Transactional
     public boolean finalizeIfTerminal(Long attemptId) {
         ListeningItemAttempt attempt = attemptRepository.findLockedById(attemptId)
+                .orElseThrow();
+        ListeningSession session = sessionRepository
+                .findLockedById(attempt.getSession().getId())
                 .orElseThrow();
 
         if (attempt.isFinalized()) {
@@ -134,8 +140,8 @@ public class ListeningAttemptFinalizationCommandService {
                 selected.stream().map(ListeningTaskResponse::getStatus).toList()
         );
         if (progressEligible) {
-            attempt.getSession().recordLearning(
-                    !evaluated.isEmpty(),
+            session.recordLearning(
+                    evaluated.size() == selected.size(),
                     attempt.getActualDurationMs(),
                     now
             );
@@ -193,6 +199,18 @@ public class ListeningAttemptFinalizationCommandService {
                     null,
                     "listening:attempt:" + attempt.getId() + ":profile"
             );
+        }
+
+        if (attempt.isOfficial()) {
+            boolean allOfficialTerminal = attemptRepository
+                    .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
+                            session.getId()
+                    ).stream()
+                    .filter(ListeningItemAttempt::isOfficial)
+                    .allMatch(ListeningItemAttempt::isFinalized);
+            if (allOfficialTerminal) {
+                session.complete(now);
+            }
         }
 
         return true;

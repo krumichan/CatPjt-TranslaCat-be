@@ -29,4 +29,24 @@ class ListeningOutboxEventTest {
         assertThat(event.getAvailableAt()).isEqualTo(now);
         assertThat(event.getAttemptCount()).isEqualTo(1);
     }
+    @Test
+    void releaseReturnsOnlyProcessingEventToPendingImmediately() {
+        LocalDateTime now = LocalDateTime.now();
+        ListeningOutboxEvent event = ListeningOutboxEvent.create(
+                ListeningOutboxType.GENERATE_TTS,
+                2L,
+                "{}",
+                "release-key",
+                now.minusSeconds(30)
+        );
+        event.claim();
+
+        event.release(now, "server restart");
+
+        assertThat(event.getStatus()).isEqualTo(ListeningOutboxStatus.PENDING);
+        assertThat(event.getAvailableAt()).isEqualTo(now);
+        assertThat(event.getAttemptCount()).isEqualTo(1);
+        assertThat(event.getLastError()).isEqualTo("server restart");
+    }
+
 }

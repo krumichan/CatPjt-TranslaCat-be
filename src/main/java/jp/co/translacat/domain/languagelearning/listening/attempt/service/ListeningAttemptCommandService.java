@@ -330,6 +330,7 @@ public class ListeningAttemptCommandService {
         attempt.registerManualEvaluationRetry(limit);
         attempt.markEvaluating();
         response.markEvaluating();
+        attempt.getSession().resumeEvaluationForRetry(LocalDateTime.now());
         outboxCommandService.enqueue(
                 ListeningOutboxType.EVALUATE_TASK,
                 response.getId(),

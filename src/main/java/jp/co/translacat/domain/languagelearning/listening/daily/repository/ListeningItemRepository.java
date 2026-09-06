@@ -55,6 +55,12 @@ public interface ListeningItemRepository
     );
 
     List<ListeningItem>
+    findTop50ByStatusAndUpdatedAtBeforeOrderByUpdatedAtAsc(
+            ListeningItemStatus status,
+            LocalDateTime updatedAt
+    );
+
+    List<ListeningItem>
     findTop100ByAudioObjectKeyIsNotNullAndAudioDeletedAtIsNullAndAudioRetentionUntilBeforeOrderByAudioRetentionUntilAsc(
             LocalDateTime now
     );

@@ -40,4 +40,37 @@ class ListeningSessionEvaluationLifecycleTest {
         session.complete(startedAt.plusMinutes(7));
         assertThat(session.getStatus()).isEqualTo(ListeningSessionStatus.COMPLETED);
     }
+
+    @Test
+    void completedSessionCanReenterEvaluationForManualRetry() {
+        LocalDateTime startedAt = LocalDateTime.of(2026, 9, 6, 18, 0);
+        ListeningSession session = ListeningSession.create(
+                null,
+                null,
+                "[]",
+                "{}",
+                "{}",
+                "listening-retry",
+                startedAt
+        );
+
+        session.complete(startedAt.plusMinutes(5));
+        assertThat(session.getStatus()).isEqualTo(ListeningSessionStatus.COMPLETED);
+        assertThat(session.getCompletedAt()).isNotNull();
+
+        session.resumeEvaluationForRetry(startedAt.plusMinutes(6));
+
+        assertThat(session.isActive()).isFalse();
+        assertThat(session.getStatus()).isEqualTo(ListeningSessionStatus.EVALUATING);
+        assertThat(session.getActiveKey()).isNull();
+        assertThat(session.getCompletedAt()).isNull();
+
+        session.recordLearning(true, 1_000, startedAt.plusMinutes(7));
+        session.complete(startedAt.plusMinutes(8));
+
+        assertThat(session.getStatus()).isEqualTo(ListeningSessionStatus.COMPLETED);
+        assertThat(session.getCompletedItemCount()).isEqualTo(1);
+        assertThat(session.getEvaluatedItemCount()).isEqualTo(1);
+        assertThat(session.getCompletedAt()).isEqualTo(startedAt.plusMinutes(8));
+    }
 }

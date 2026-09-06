@@ -135,6 +135,25 @@ public class ListeningTtsTransactionService {
             return;
         }
 
+        markNotEvaluableAndScheduleReplacement(item, reason);
+    }
+
+    @Transactional
+    public void abandonOrphan(Long itemId, String reason) {
+        ListeningItem item = itemRepository.findLockedById(itemId)
+                .orElseThrow();
+
+        if (item.getStatus() != ListeningItemStatus.TTS_PENDING) {
+            return;
+        }
+
+        markNotEvaluableAndScheduleReplacement(item, reason);
+    }
+
+    private void markNotEvaluableAndScheduleReplacement(
+            ListeningItem item,
+            String reason
+    ) {
         item.markNotEvaluable(reason);
         ListeningDailySet set = item.getDailySet();
         ListeningPolicySetting policy = policySettingService.get();

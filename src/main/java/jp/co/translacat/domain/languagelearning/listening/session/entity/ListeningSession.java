@@ -193,6 +193,35 @@ public class ListeningSession extends BaseAuditable {
         lastActivityAt = now;
     }
 
+    /**
+     * Re-enters the background evaluation phase when a failed Task is manually
+     * retried after the Session has already reached COMPLETED.
+     *
+     * <p>The active slot must stay released: a manual evaluation retry is a
+     * background recovery operation and must not block the user from starting
+     * another Listening mode.</p>
+     */
+    public void resumeEvaluationForRetry(LocalDateTime now) {
+        if (status == ListeningSessionStatus.IN_PROGRESS) {
+            lastActivityAt = now;
+            return;
+        }
+        if (status == ListeningSessionStatus.EVALUATING) {
+            lastActivityAt = now;
+            return;
+        }
+        if (status == ListeningSessionStatus.COMPLETED) {
+            status = ListeningSessionStatus.EVALUATING;
+            activeKey = null;
+            completedAt = null;
+            lastActivityAt = now;
+            return;
+        }
+        throw new IllegalStateException(
+                "평가 재시도를 시작할 수 없는 Listening Session입니다."
+        );
+    }
+
     public void complete(LocalDateTime now) {
         if (status != ListeningSessionStatus.IN_PROGRESS
                 && status != ListeningSessionStatus.EVALUATING) {

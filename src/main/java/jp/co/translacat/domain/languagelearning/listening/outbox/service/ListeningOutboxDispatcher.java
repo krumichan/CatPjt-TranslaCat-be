@@ -6,14 +6,21 @@ import jp.co.translacat.domain.languagelearning.listening.evaluation.service.Lis
 import jp.co.translacat.domain.languagelearning.listening.profile.service.ListeningProfileRecalculationCommandService;
 import jp.co.translacat.domain.languagelearning.listening.recommendation.service.ListeningRecommendationExplanationWorker;
 
+import jakarta.annotation.PreDestroy;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ListeningOutboxDispatcher {
@@ -25,6 +32,8 @@ public class ListeningOutboxDispatcher {
     private final ListeningProfileRecalculationCommandService profileRecalculationService;
     private final ListeningRecommendationExplanationWorker explanationWorker;
 
+    private final Set<Long> locallyClaimedEventIds = ConcurrentHashMap.newKeySet();
+
     @Scheduled(
             fixedDelayString = "${language-learning.listening.outbox-delay-ms:1000}"
     )
@@ -33,7 +42,42 @@ public class ListeningOutboxDispatcher {
         transactionService.reclaimStale(now, Duration.ofMinutes(5));
 
         for (Long eventId : transactionService.pendingIds(now)) {
-            transactionService.claim(eventId, now).ifPresent(this::route);
+            transactionService.claim(eventId, now).ifPresent(event -> {
+                locallyClaimedEventIds.add(event.id());
+                try {
+                    route(event);
+                } finally {
+                    locallyClaimedEventIds.remove(event.id());
+                }
+            });
+        }
+    }
+
+    @PreDestroy
+    public void releaseLocallyClaimedEvents() {
+        if (locallyClaimedEventIds.isEmpty()) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (Long eventId : List.copyOf(locallyClaimedEventIds)) {
+            try {
+                transactionService.releaseClaimed(
+                        eventId,
+                        now,
+                        "Listening BE 종료/재기동으로 처리 중 작업을 즉시 재개 대기로 전환합니다."
+                );
+                log.info(
+                        "Listening Outbox released on shutdown. eventId={}",
+                        eventId
+                );
+            } catch (RuntimeException exception) {
+                log.warn(
+                        "Listening Outbox shutdown release failed. eventId={}",
+                        eventId,
+                        exception
+                );
+            }
         }
     }
 

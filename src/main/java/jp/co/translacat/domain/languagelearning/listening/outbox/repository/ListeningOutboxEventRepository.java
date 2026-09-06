@@ -3,6 +3,7 @@ package jp.co.translacat.domain.languagelearning.listening.outbox.repository;
 import jakarta.persistence.LockModeType;
 
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxStatus;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
 import jp.co.translacat.domain.languagelearning.listening.outbox.entity.ListeningOutboxEvent;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -28,6 +29,12 @@ public interface ListeningOutboxEventRepository
     );
 
     Optional<ListeningOutboxEvent> findByIdempotencyKey(String idempotencyKey);
+
+    Optional<ListeningOutboxEvent>
+    findFirstByEventTypeAndAggregateIdOrderByIdDesc(
+            ListeningOutboxType eventType,
+            Long aggregateId
+    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<ListeningOutboxEvent> findLockedById(Long id);

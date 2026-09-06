@@ -68,6 +68,12 @@ public class ListeningOutboxTransactionService {
     }
 
     @Transactional
+    public void releaseClaimed(Long eventId, LocalDateTime now, String reason) {
+        repository.findLockedById(eventId)
+                .ifPresent(value -> value.release(now, reason));
+    }
+
+    @Transactional
     public FailureResult fail(
             Long eventId,
             String reason,

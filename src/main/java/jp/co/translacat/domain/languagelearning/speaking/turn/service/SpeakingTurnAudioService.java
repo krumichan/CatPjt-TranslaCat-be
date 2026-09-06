@@ -75,16 +75,43 @@ public class SpeakingTurnAudioService {
             List<AssistanceType> assistanceUsage,
             SpeakingSessionPolicySnapshot snapshot
     ) {
-        if (turn.getUserAudioObjectKey() != null) {
+        storeUserAudio(
+                userId,
+                session,
+                turn,
+                audio,
+                bytes,
+                durationSeconds,
+                assistanceUsage,
+                snapshot,
+                false
+        );
+    }
+
+    public void storeUserAudio(
+            Long userId,
+            SpeakingSession session,
+            SpeakingTurn turn,
+            MultipartFile audio,
+            byte[] bytes,
+            double durationSeconds,
+            List<AssistanceType> assistanceUsage,
+            SpeakingSessionPolicySnapshot snapshot,
+            boolean replaceExisting
+    ) {
+        if (turn.getUserAudioObjectKey() != null && !replaceExisting) {
             return;
         }
 
-        String objectKey = audioKeyFactory.userTurn(
-                userId,
-                session.getId(),
-                turn.getId(),
-                extension(audio.getOriginalFilename())
-        );
+        String objectKey = turn.getUserAudioObjectKey();
+        if (objectKey == null) {
+            objectKey = audioKeyFactory.userTurn(
+                    userId,
+                    session.getId(),
+                    turn.getId(),
+                    extension(audio.getOriginalFilename())
+            );
+        }
         audioStoragePort.store(objectKey, bytes, contentType(audio));
         turn.markUploaded(
                 objectKey,

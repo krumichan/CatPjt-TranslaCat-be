@@ -326,19 +326,61 @@ public class ListeningAttemptCommandService {
             throw invalid("수동 평가 재시도 가능 횟수를 초과했습니다.");
         }
 
-        response.prepareManualRetry(limit);
-        attempt.registerManualEvaluationRetry(limit);
-        attempt.markEvaluating();
-        response.markEvaluating();
-        attempt.getSession().resumeEvaluationForRetry(LocalDateTime.now());
-        outboxCommandService.enqueue(
-                ListeningOutboxType.EVALUATE_TASK,
-                response.getId(),
-                null,
-                evaluationKey(response)
+        prepareEvaluationRetry(
+                attempt,
+                response,
+                limit,
+                LocalDateTime.now()
         );
 
         return viewMapper.attempt(attempt);
+    }
+
+    @Transactional
+    public ListeningApiContract.BulkRetryView retryFailedEvaluations(
+            Long userId,
+            Long sessionId
+    ) {
+        var session = sessionRepository.findByIdAndUserId(sessionId, userId)
+                .orElseThrow(() -> notFound("Listening Session을 찾을 수 없습니다."));
+        if (session.getStatus() != ListeningSessionStatus.COMPLETED
+                && session.getStatus() != ListeningSessionStatus.EVALUATING) {
+            throw invalid("완료 또는 평가 중인 Listening Session만 재시도할 수 있습니다.");
+        }
+
+        List<Long> officialAttemptIds = attemptRepository
+                .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(sessionId)
+                .stream()
+                .filter(ListeningItemAttempt::isOfficial)
+                .map(ListeningItemAttempt::getId)
+                .toList();
+        int limit = policySettingService.get().getManualRetryLimit();
+        int failedTaskCount = 0;
+        int retriedTaskCount = 0;
+        int exhaustedTaskCount = 0;
+        LocalDateTime now = LocalDateTime.now();
+
+        for (Long attemptId : officialAttemptIds) {
+            ListeningItemAttempt attempt = ownedAttempt(userId, attemptId);
+            for (ListeningTaskResponse response : selectedResponses(attemptId)) {
+                if (response.getStatus() != ListeningTaskStatus.EVALUATION_FAILED) {
+                    continue;
+                }
+                failedTaskCount++;
+                if (response.getManualRetryCount() >= limit) {
+                    exhaustedTaskCount++;
+                    continue;
+                }
+                prepareEvaluationRetry(attempt, response, limit, now);
+                retriedTaskCount++;
+            }
+        }
+
+        return new ListeningApiContract.BulkRetryView(
+                failedTaskCount,
+                retriedTaskCount,
+                exhaustedTaskCount
+        );
     }
 
     @Transactional
@@ -670,6 +712,25 @@ public class ListeningAttemptCommandService {
         }
         next.add(new ListeningApiContract.AssistanceUsage(type, 1));
         return next;
+    }
+
+    private void prepareEvaluationRetry(
+            ListeningItemAttempt attempt,
+            ListeningTaskResponse response,
+            int limit,
+            LocalDateTime now
+    ) {
+        response.prepareManualRetry(limit);
+        attempt.registerManualEvaluationRetry(limit);
+        attempt.markEvaluating();
+        response.markEvaluating();
+        attempt.getSession().resumeEvaluationForRetry(now);
+        outboxCommandService.enqueue(
+                ListeningOutboxType.EVALUATE_TASK,
+                response.getId(),
+                null,
+                evaluationKey(response)
+        );
     }
 
     private String evaluationKey(ListeningTaskResponse response) {

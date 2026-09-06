@@ -38,6 +38,19 @@ public interface SpeakingTurnRepository
             String idempotencyKey
     );
 
+    Optional<SpeakingTurn> findBySessionIdAndProblemIndexAndAttemptIndex(
+            Long sessionId,
+            Integer problemIndex,
+            Integer attemptIndex
+    );
+
+    List<SpeakingTurn> findAllBySessionIdAndProblemIndexOrderByAttemptIndexAsc(
+            Long sessionId,
+            Integer problemIndex
+    );
+
+    Optional<SpeakingTurn> findFirstBySessionIdOrderByTurnIndexDesc(Long sessionId);
+
     List<SpeakingTurn> findAllBySessionIdOrderByTurnIndexAsc(Long sessionId);
 
     long countBySessionIdAndStatusIn(

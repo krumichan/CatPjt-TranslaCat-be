@@ -2,6 +2,7 @@ package jp.co.translacat.domain.languagelearning.speaking.evaluation.policy;
 
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.ConversationStartMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.CorrectionMode;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import jp.co.translacat.domain.user.entity.User;
@@ -25,21 +26,53 @@ class SpeakingEvaluationEligibilityPolicyTest {
     void requiresFiveTurnsSixtySecondsAndEightyPercentStt() {
         List<SpeakingTurn> turns = validTurns(5, 12.0);
 
-        var result = policy.evaluate(turns);
+        var result = policy.evaluate(SpeakingPracticeMode.FREE, turns);
 
         assertThat(result.eligibleBeforeAi()).isTrue();
         assertThat(result.validUserTurns()).isEqualTo(5);
-        assertThat(result.validUserSpeechSeconds()).isEqualTo(60.0);
+        assertThat(result.validUserSpeechSeconds()).isEqualTo(30.0);
         assertThat(result.validSttTurnRatio()).isEqualTo(1.0);
     }
 
     @Test
     void rejectsInsufficientSpeechSeconds() {
-        var result = policy.evaluate(validTurns(5, 10.0));
+        var result = policy.evaluate(
+                SpeakingPracticeMode.GUIDED,
+                validTurns(5, 10.0)
+        );
 
         assertThat(result.eligibleBeforeAi()).isFalse();
         assertThat(result.missingRequirements())
                 .contains("VALID_USER_SPEECH_SECONDS");
+    }
+
+    @Test
+    void readAloudNeedsTenValidAttemptsButNotSixtySeconds() {
+        var result = policy.evaluate(
+                SpeakingPracticeMode.READ_ALOUD,
+                validTurns(10, 3.0)
+        );
+
+        assertThat(result.eligibleBeforeAi()).isTrue();
+        assertThat(result.validUserTurns()).isEqualTo(10);
+        assertThat(result.validUserSpeechSeconds()).isEqualTo(30.0);
+        assertThat(result.requiredUserTurns()).isEqualTo(10);
+        assertThat(result.requiredSpeechSeconds()).isEqualTo(0.0);
+        assertThat(result.missingRequirements())
+                .doesNotContain("VALID_USER_SPEECH_SECONDS");
+    }
+
+    @Test
+    void readAloudRejectsOnlyFiveAttemptsEvenWhenSpeechIsLongEnough() {
+        var result = policy.evaluate(
+                SpeakingPracticeMode.READ_ALOUD,
+                validTurns(5, 20.0)
+        );
+
+        assertThat(result.eligibleBeforeAi()).isFalse();
+        assertThat(result.missingRequirements()).contains("VALID_USER_TURNS");
+        assertThat(result.missingRequirements())
+                .doesNotContain("VALID_USER_SPEECH_SECONDS");
     }
 
     @Test
@@ -49,7 +82,7 @@ class SpeakingEvaluationEligibilityPolicyTest {
         excluded.exclude();
         turns.add(excluded);
 
-        var result = policy.evaluate(turns);
+        var result = policy.evaluate(SpeakingPracticeMode.FREE, turns);
 
         assertThat(result.validSttTurnRatio()).isEqualTo(1.0);
     }

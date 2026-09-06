@@ -78,10 +78,11 @@ public class SpeakingSessionCreationContextService {
 
         LearningProfileSummaryDto profile =
                 speakingProfileContextService.build(userId);
-        List<SelectedKeywordDto> keywords = keywordSelectionFacade.selectForDailySet(
+        List<SelectedKeywordDto> keywords = resolveKeywords(
                 userId,
                 learningDate,
-                admin
+                admin,
+                request
         );
         SpeakingSessionPolicySnapshot snapshot = snapshotService.create(admin);
         User user = userRepository.findById(userId)
@@ -100,6 +101,33 @@ public class SpeakingSessionCreationContextService {
                 profile,
                 keywords
         );
+    }
+
+
+    private List<SelectedKeywordDto> resolveKeywords(
+            Long userId,
+            LocalDate learningDate,
+            LanguageLearningAdminSetting admin,
+            SpeakingSessionCreateRequestDto request
+    ) {
+        // Catalog Topic은 기존 동작을 유지하고, 자유 Topic은 사용자가 지정한
+        // 주제를 그대로 존중하기 위해 학습 키워드 제약을 섞지 않는다.
+        if (!request.keywordBasedTopic() && request.topicId() == null) {
+            return List.of();
+        }
+
+        List<SelectedKeywordDto> keywords = keywordSelectionFacade.selectForDailySet(
+                userId,
+                learningDate,
+                admin
+        );
+        if (request.keywordBasedTopic() && keywords.isEmpty()) {
+            throw new BusinessException(
+                    "Keyword 기반 Speaking에 사용할 학습 키워드가 없습니다.",
+                    LanguageLearningErrorCode.SETTING_INVALID
+            );
+        }
+        return keywords;
     }
 
     private void validateActiveSession(Long userId) {

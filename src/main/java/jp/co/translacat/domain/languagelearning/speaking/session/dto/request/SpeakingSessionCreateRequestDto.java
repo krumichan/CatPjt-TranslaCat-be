@@ -6,6 +6,7 @@ import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPr
 
 public record SpeakingSessionCreateRequestDto(
         Long topicId,
+        boolean keywordBasedTopic,
         String customTopic,
         String goal,
         String persona,

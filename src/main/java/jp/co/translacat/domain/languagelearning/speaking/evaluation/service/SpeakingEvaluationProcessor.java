@@ -65,7 +65,10 @@ public class SpeakingEvaluationProcessor {
 
         List<SpeakingTurn> turns = turnRepository
                 .findAllBySessionIdOrderByTurnIndexAsc(sessionId);
-        var eligibility = eligibilityPolicy.evaluate(turns);
+        var eligibility = eligibilityPolicy.evaluate(
+                session.getPracticeMode(),
+                turns
+        );
         LearningActivity activity = activityRepository
                 .findBySourceAndReferenceId(
                         LearningSource.SPEAKING,

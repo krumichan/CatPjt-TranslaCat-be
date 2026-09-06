@@ -1,19 +1,26 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.factory;
 
+import jp.co.translacat.domain.languagelearning.ai.dto.model.SelectedKeywordDto;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCreateRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionCreationContext;
+import jp.co.translacat.domain.languagelearning.speaking.session.policy.SpeakingSessionPolicy;
 
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 public class SpeakingSessionFactory {
 
     private final LanguageLearningJsonCodec jsonCodec;
+    private final SpeakingSessionPolicy sessionPolicy;
 
     public SpeakingSession create(
             SpeakingSessionCreateRequestDto request,
@@ -21,18 +28,26 @@ public class SpeakingSessionFactory {
     ) {
         var setting = context.userSetting();
         var topic = context.topic();
+        boolean freeSpeaking = request.practiceMode() == SpeakingPracticeMode.FREE;
+        boolean keywordBasedTopic = request.keywordBasedTopic();
+        String topicTitle = keywordBasedTopic
+                ? keywordTopicSeed(context.selectedKeywords())
+                : topic == null ? clean(request.customTopic()) : topic.getTitle();
+        String topicCategory = keywordBasedTopic
+                ? "KEYWORDS"
+                : topic == null ? "FREE_TALK" : topic.getCategory().name();
 
         return SpeakingSession.create(
                 context.user(),
                 topic,
                 request.idempotencyKey(),
                 context.learningDate(),
-                topic == null ? clean(request.customTopic()) : topic.getTitle(),
-                topic == null ? "FREE_TALK" : topic.getCategory().name(),
+                topicTitle,
+                topicCategory,
                 topic == null ? null : topic.getVersion(),
-                clean(request.customTopic()),
-                clean(request.goal()),
-                clean(request.persona()),
+                keywordBasedTopic ? null : clean(request.customTopic()),
+                freeSpeaking ? clean(request.goal()) : null,
+                freeSpeaking ? clean(request.persona()) : null,
                 jsonCodec.write(context.selectedKeywords()),
                 setting.getOriginLanguage(),
                 setting.getLearningLanguage(),
@@ -41,7 +56,10 @@ public class SpeakingSessionFactory {
                 context.resolvedStartMode(),
                 request.correctionMode(),
                 request.targetMinutes(),
-                context.policySnapshot().maxTurns(),
+                sessionPolicy.resolveMaxTurns(
+                        request.practiceMode(),
+                        context.policySnapshot().maxTurns()
+                ),
                 request.voiceId() == null
                         ? setting.getSpeakingVoiceId()
                         : request.voiceId(),
@@ -51,6 +69,18 @@ public class SpeakingSessionFactory {
                 jsonCodec.write(context.policySnapshot()),
                 jsonCodec.write(context.learningProfile())
         );
+    }
+
+    private String keywordTopicSeed(List<SelectedKeywordDto> keywords) {
+        String seed = keywords.stream()
+                .map(SelectedKeywordDto::text)
+                .filter(value -> value != null && !value.isBlank())
+                .limit(5)
+                .collect(Collectors.joining(" · "));
+        if (seed.isBlank()) {
+            return "Keyword-based Speaking";
+        }
+        return seed.length() <= 500 ? seed : seed.substring(0, 500);
     }
 
     private String clean(String value) {

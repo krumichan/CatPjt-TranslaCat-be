@@ -4,6 +4,7 @@ import java.util.List;
 
 public record AiSpeakingConversationResultDto(
         String intent,
+        String resolvedTopic,
         String scriptText,
         List<String> providedFacts,
         List<String> requiredIntents,

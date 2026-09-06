@@ -13,6 +13,8 @@ import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeaking
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingTranscriptDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingTurnProcessRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.AssistanceType;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
+import jp.co.translacat.domain.languagelearning.speaking.session.policy.SpeakingSessionPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.factory.SpeakingSessionAiRequestFactory;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionPolicySnapshot;
@@ -40,6 +42,24 @@ public class SpeakingTurnAiRequestFactory {
             List<SpeakingTurn> history,
             List<AssistanceType> assistanceTypes
     ) {
+        return create(
+                session,
+                turn,
+                history,
+                assistanceTypes,
+                false,
+                null
+        );
+    }
+
+    public AiSpeakingTurnProcessRequestDto create(
+            SpeakingSession session,
+            SpeakingTurn turn,
+            List<SpeakingTurn> history,
+            List<AssistanceType> assistanceTypes,
+            boolean forceStt,
+            Double durationSecondsOverride
+    ) {
         SpeakingSessionPolicySnapshot policy = jsonCodec.read(
                 session.getPolicySnapshotJson(),
                 SpeakingSessionPolicySnapshot.class
@@ -56,11 +76,16 @@ public class SpeakingTurnAiRequestFactory {
 
         return new AiSpeakingTurnProcessRequestDto(
                 "speaking-turn-" + turn.getId()
+                        + "-recording-" + turn.getRecordingRevision()
                         + "-retry-" + turn.getManualRetryCount(),
-                turn.getIdempotencyKey() + ":process:"
-                        + turn.getManualRetryCount(),
+                turn.getIdempotencyKey() + ":recording:"
+                        + turn.getRecordingRevision()
+                        + ":process:" + turn.getManualRetryCount(),
                 String.valueOf(session.getId()),
                 turn.getTurnIndex(),
+                turn.getProblemIndex(),
+                turn.getAttemptIndex(),
+                shouldGenerateNextReadAloudProblem(session, turn),
                 session.getOriginLanguage(),
                 session.getLearningLanguage(),
                 session.getTopicTitle(),
@@ -85,16 +110,32 @@ public class SpeakingTurnAiRequestFactory {
                 assistanceUsage(assistanceTypes),
                 session.getSessionSummary(),
                 session.getTotalDurationSeconds(),
-                sessionAiRequestFactory.toAiPolicy(policy),
+                sessionAiRequestFactory.toAiPolicy(
+                        policy,
+                        session.getMaxTurns()
+                ),
                 turn.getUserAudioObjectKey(),
                 turn.getUserAudioContentType(),
-                turn.getDurationSeconds(),
+                durationSecondsOverride == null
+                        ? turn.getDurationSeconds()
+                        : durationSecondsOverride,
                 session.getVoiceId(),
                 session.getPlaybackSpeed(),
                 turn.getManualRetryCount(),
-                existingTranscript(turn),
+                forceStt ? null : existingTranscript(turn),
                 turn.getTurnIndex() == 1
         );
+    }
+
+    private boolean shouldGenerateNextReadAloudProblem(
+            SpeakingSession session,
+            SpeakingTurn turn
+    ) {
+        return session.getPracticeMode() == SpeakingPracticeMode.READ_ALOUD
+                && turn.getProblemIndex() != null
+                && turn.getAttemptIndex() != null
+                && turn.getAttemptIndex() == SpeakingSessionPolicy.READ_ALOUD_REQUIRED_ATTEMPTS_PER_ITEM
+                && turn.getProblemIndex() < SpeakingSessionPolicy.READ_ALOUD_DAILY_ITEM_COUNT;
     }
 
     private List<AiSpeakingConversationMessageDto> conversationHistory(

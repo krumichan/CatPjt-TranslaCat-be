@@ -8,6 +8,7 @@ import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.Sp
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingPracticeModeStatusResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvaluationEligibilityPolicy;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.service.SpeakingReadAloudProblemEvaluationService;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionCommandService;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionCompletionCommandService;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionLifecycleService;
@@ -28,6 +29,7 @@ public class SpeakingSessionFacade {
     private final SpeakingSessionLifecycleService lifecycleService;
     private final SpeakingTurnQueryService turnQueryService;
     private final SpeakingEvaluationEligibilityPolicy eligibilityPolicy;
+    private final SpeakingReadAloudProblemEvaluationService readAloudProblemEvaluationService;
 
     public SpeakingSessionResponseDto create(
             Long userId,
@@ -66,8 +68,12 @@ public class SpeakingSessionFacade {
                 sessionQueryService.toResponse(userId, session),
                 sessionQueryService.getDailyUsage(userId),
                 turnQueryService.getResponses(userId, sessionId),
+                readAloudProblemEvaluationService.list(userId, sessionId),
                 SpeakingEvaluationEligibilityResponseDto.from(
-                        eligibilityPolicy.evaluate(turns)
+                        eligibilityPolicy.evaluate(
+                                session.getPracticeMode(),
+                                turns
+                        )
                 ),
                 lifecycleService.isResumable(session)
         );

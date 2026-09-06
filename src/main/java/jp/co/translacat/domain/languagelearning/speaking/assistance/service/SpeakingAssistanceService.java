@@ -6,6 +6,7 @@ import jp.co.translacat.domain.languagelearning.speaking.assistance.dto.request.
 import jp.co.translacat.domain.languagelearning.speaking.assistance.dto.response.SpeakingAssistanceResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.assistance.factory.SpeakingAssistanceAiRequestFactory;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.AssistanceType;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionLifecycleService;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionQueryService;
@@ -24,7 +25,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
 public class SpeakingAssistanceService {
 
     private final SpeakingSessionQueryService sessionQueryService;
@@ -49,6 +50,11 @@ public class SpeakingAssistanceService {
         );
         lifecycleService.expireIfNeeded(session);
         lifecycleService.requireActive(session);
+        if (session.getPracticeMode() == SpeakingPracticeMode.READ_ALOUD) {
+            throw invalid(
+                    "듣고 리피트에서는 힌트/번역/답변 예시 Assistance를 제공하지 않습니다."
+            );
+        }
 
         List<SpeakingTurn> turns = turnQueryService.getEntities(sessionId);
         SpeakingTurn targetTurn = resolveTargetTurn(

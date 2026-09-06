@@ -212,6 +212,13 @@ public final class ListeningApiContract {
     ) {
     }
 
+    public record BulkRetryView(
+            int failedTaskCount,
+            int retriedTaskCount,
+            int exhaustedTaskCount
+    ) {
+    }
+
     public record PracticeAttemptRequest(
             String idempotencyKey,
             List<ListeningTaskType> selectedTaskTypes

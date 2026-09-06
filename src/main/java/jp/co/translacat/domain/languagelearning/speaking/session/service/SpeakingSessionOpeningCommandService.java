@@ -53,6 +53,12 @@ public class SpeakingSessionOpeningCommandService {
         }
 
         usageCommandService.record(session, null, response.usage(), 0);
+        if (response.conversation() != null
+                && response.conversation().resolvedTopic() != null) {
+            session.resolveKeywordBasedTopic(
+                    response.conversation().resolvedTopic()
+            );
+        }
         String audioObjectKey = storeOpeningAudio(session, response);
         session.storeOpeningAssistant(
                 response.assistant() == null

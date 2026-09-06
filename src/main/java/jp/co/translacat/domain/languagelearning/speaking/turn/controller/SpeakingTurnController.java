@@ -43,6 +43,21 @@ public class SpeakingTurnController {
         );
     }
 
+    @PostMapping("/turns/{turnId}/rerecord/upload-url")
+    public ResponseDto<SpeakingTurnUploadGrantResponseDto> createRerecordUploadGrant(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long sessionId,
+            @PathVariable Long turnId
+    ) {
+        return ResponseUtil.ok(
+                turnFacade.createRerecordUploadGrant(
+                        SecurityUtil.getLoginUserId(principal),
+                        sessionId,
+                        turnId
+                )
+        );
+    }
+
     @PostMapping(value = "/turns", consumes = "multipart/form-data")
     public ResponseDto<SpeakingTurnResponseDto> process(
             @AuthenticationPrincipal UserPrincipal principal,

@@ -33,6 +33,17 @@ public class SpeakingTurnAiResponseService {
             AiSpeakingTurnProcessResponseDto response,
             SpeakingSessionPolicySnapshot snapshot
     ) {
+        apply(session, turn, response, snapshot, false, 0.0);
+    }
+
+    public void apply(
+            SpeakingSession session,
+            SpeakingTurn turn,
+            AiSpeakingTurnProcessResponseDto response,
+            SpeakingSessionPolicySnapshot snapshot,
+            boolean replacingCompletedTurn,
+            double previousDurationSeconds
+    ) {
         if (response == null) {
             turn.markFailed(
                     SpeakingStage.CONVERSATION,
@@ -53,13 +64,23 @@ public class SpeakingTurnAiResponseService {
 
         if ("READY".equalsIgnoreCase(response.status())) {
             turn.markReady(jsonCodec.write(response.usage()));
-            session.registerCompletedTurn(
-                    turn.getDurationSeconds(),
-                    response.conversation() == null
-                            ? session.getSessionSummary()
-                            : response.conversation().sessionSummary(),
-                    jsonCodec.write(response.usage())
-            );
+            String summary = response.conversation() == null
+                    ? session.getSessionSummary()
+                    : response.conversation().sessionSummary();
+            if (replacingCompletedTurn) {
+                session.replaceCompletedTurn(
+                        previousDurationSeconds,
+                        turn.getDurationSeconds(),
+                        summary,
+                        jsonCodec.write(response.usage())
+                );
+            } else {
+                session.registerCompletedTurn(
+                        turn.getDurationSeconds(),
+                        summary,
+                        jsonCodec.write(response.usage())
+                );
+            }
             return;
         }
 
@@ -76,6 +97,22 @@ public class SpeakingTurnAiResponseService {
                         1000
                 ),
                 jsonCodec.write(response.usage())
+        );
+    }
+
+    public void recordUsageOnly(
+            SpeakingSession session,
+            SpeakingTurn turn,
+            AiSpeakingTurnProcessResponseDto response
+    ) {
+        if (response == null) {
+            return;
+        }
+        usageCommandService.record(
+                session,
+                turn.getId(),
+                response.usage(),
+                turn.getManualRetryCount()
         );
     }
 

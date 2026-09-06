@@ -11,6 +11,9 @@ import java.util.List;
 public record SpeakingTurnResponseDto(
         Long id,
         int turnIndex,
+        Integer problemIndex,
+        Integer attemptIndex,
+        int recordingRevision,
         SpeakingTurnStatus status,
         double durationSeconds,
         String transcript,

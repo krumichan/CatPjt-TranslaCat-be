@@ -30,6 +30,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -82,7 +83,10 @@ class SpeakingSessionCompletionCommandServiceTest {
 
     @Test
     void insufficientSessionCanCompleteWithoutEvaluation() {
-        when(eligibilityPolicy.evaluate(List.of())).thenReturn(eligibility(false));
+        when(eligibilityPolicy.evaluate(
+                any(),
+                eq(List.of())
+        )).thenReturn(eligibility(false));
         when(activityCommandService.getOrCreate(
                 anyLong(),
                 any(),
@@ -107,7 +111,10 @@ class SpeakingSessionCompletionCommandServiceTest {
 
     @Test
     void eligibleSessionCannotSkipEvaluation() {
-        when(eligibilityPolicy.evaluate(List.of())).thenReturn(eligibility(true));
+        when(eligibilityPolicy.evaluate(
+                any(),
+                eq(List.of())
+        )).thenReturn(eligibility(true));
 
         assertThatThrownBy(() -> service.complete(7L, 301L, true))
                 .isInstanceOf(BusinessException.class);

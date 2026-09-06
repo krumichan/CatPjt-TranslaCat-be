@@ -12,6 +12,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class SpeakingSessionPolicy {
 
+    public static final int READ_ALOUD_DAILY_ITEM_COUNT = 5;
+    public static final int READ_ALOUD_REQUIRED_ATTEMPTS_PER_ITEM = 2;
+    public static final int READ_ALOUD_MAX_ATTEMPTS_PER_ITEM = 3;
+
     public void validateCreate(
             SpeakingSessionCreateRequestDto request,
             LanguageLearningAdminSetting admin
@@ -27,16 +31,22 @@ public class SpeakingSessionPolicy {
             throw invalid("Speaking Session 요청이 필요합니다.");
         }
 
-        boolean topicMissing = request.topicId() == null
-                && (request.customTopic() == null
-                || request.customTopic().isBlank());
-        boolean topicDuplicated = request.topicId() != null
-                && request.customTopic() != null
+        boolean catalogTopic = request.topicId() != null;
+        boolean customTopic = request.customTopic() != null
                 && !request.customTopic().isBlank();
+        int topicSourceCount = (catalogTopic ? 1 : 0)
+                + (request.keywordBasedTopic() ? 1 : 0)
+                + (customTopic ? 1 : 0);
 
-        if (topicMissing || topicDuplicated) {
+        if (topicSourceCount != 1) {
             throw invalid(
-                    "Topic 또는 Custom Topic 중 하나만 선택해야 합니다."
+                    "Catalog Topic, Keyword 기반 Topic, Custom Topic 중 하나만 선택해야 합니다."
+            );
+        }
+        if (request.keywordBasedTopic()
+                && request.conversationStartMode() != ConversationStartMode.AI_FIRST) {
+            throw invalid(
+                    "Keyword 기반 Topic은 AI가 Topic과 첫 문제를 생성한 뒤 시작해야 합니다."
             );
         }
 
@@ -67,6 +77,18 @@ public class SpeakingSessionPolicy {
         validateCustomTopic(request.customTopic());
     }
 
+
+
+    public int resolveMaxTurns(
+            SpeakingPracticeMode practiceMode,
+            int configuredMaxTurns
+    ) {
+        if (practiceMode == SpeakingPracticeMode.READ_ALOUD) {
+            return READ_ALOUD_DAILY_ITEM_COUNT
+                    * READ_ALOUD_MAX_ATTEMPTS_PER_ITEM;
+        }
+        return configuredMaxTurns;
+    }
 
     public void validateResolvedStartMode(
             SpeakingPracticeMode practiceMode,

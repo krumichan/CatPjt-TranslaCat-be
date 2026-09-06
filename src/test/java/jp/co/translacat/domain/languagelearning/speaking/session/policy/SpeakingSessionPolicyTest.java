@@ -88,12 +88,88 @@ class SpeakingSessionPolicyTest {
         }
     }
 
+
+    @Test
+    void readAloudReservesFiveProblemsAndUpToThreeAttemptsEach() {
+        assertThat(policy.resolveMaxTurns(
+                SpeakingPracticeMode.READ_ALOUD,
+                20
+        )).isEqualTo(15);
+        assertThat(policy.resolveMaxTurns(
+                SpeakingPracticeMode.GUIDED,
+                20
+        )).isEqualTo(20);
+    }
+
+
+    @Test
+    void keywordBasedTopicRequiresAiFirstAndNoOtherTopicSource() {
+        LanguageLearningAdminSetting admin = LanguageLearningAdminSetting.createDefault();
+
+        policy.validateCreate(
+                new SpeakingSessionCreateRequestDto(
+                        null,
+                        true,
+                        null,
+                        null,
+                        null,
+                        SpeakingPracticeMode.FREE,
+                        ConversationStartMode.AI_FIRST,
+                        CorrectionMode.CONVERSATION,
+                        5,
+                        null,
+                        null,
+                        "keyword-topic-ok"
+                ),
+                admin
+        );
+
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> policy.validateCreate(
+                        new SpeakingSessionCreateRequestDto(
+                                null,
+                                true,
+                                null,
+                                null,
+                                null,
+                                SpeakingPracticeMode.FREE,
+                                ConversationStartMode.USER_FIRST,
+                                CorrectionMode.CONVERSATION,
+                                5,
+                                null,
+                                null,
+                                "keyword-topic-user-first"
+                        ),
+                        admin
+                ));
+
+        assertThatExceptionOfType(BusinessException.class)
+                .isThrownBy(() -> policy.validateCreate(
+                        new SpeakingSessionCreateRequestDto(
+                                1L,
+                                true,
+                                null,
+                                null,
+                                null,
+                                SpeakingPracticeMode.FREE,
+                                ConversationStartMode.AI_FIRST,
+                                CorrectionMode.CONVERSATION,
+                                5,
+                                null,
+                                null,
+                                "keyword-topic-duplicated"
+                        ),
+                        admin
+                ));
+    }
+
     private SpeakingSessionCreateRequestDto request(
             ConversationStartMode mode,
             int minutes
     ) {
         return new SpeakingSessionCreateRequestDto(
                 null,
+                false,
                 "Free conversation",
                 null,
                 null,

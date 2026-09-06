@@ -6,6 +6,7 @@ import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJson
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingTurnProcessResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.port.SpeakingAiClient;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.AssistanceType;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingStage;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingTurnStatus;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
@@ -67,8 +68,18 @@ public class SpeakingTurnProcessCommandService {
                 sessionId,
                 request.turnId()
         );
-        if (shouldReturnExisting(turn)) {
+        boolean rerecord = request.rerecord();
+        boolean replacingCompletedTurn = rerecord
+                && (turn.getStatus() == SpeakingTurnStatus.READY
+                || turn.getStatus() == SpeakingTurnStatus.EXCLUDED);
+        double previousDurationSeconds = replacingCompletedTurn
+                ? turn.getDurationSeconds()
+                : 0.0;
+        if (!rerecord && shouldReturnExisting(turn)) {
             return turn;
+        }
+        if (rerecord) {
+            validateRerecord(session, turn);
         }
         if (!turn.isUploadTokenValid(request.uploadToken(), LocalDateTime.now())) {
             throw new BusinessException(
@@ -92,27 +103,67 @@ public class SpeakingTurnProcessCommandService {
             );
         }
         List<AssistanceType> assistance = safe(request.assistanceUsage());
-        audioService.storeUserAudio(
-                userId,
-                session,
-                turn,
-                audio,
-                audioBytes,
-                request.durationSeconds(),
-                assistance,
-                snapshot
-        );
+        if (session.getPracticeMode() == SpeakingPracticeMode.READ_ALOUD
+                && !assistance.isEmpty()) {
+            throw invalid("듣고 리피트에는 힌트/번역/답변 예시를 사용할 수 없습니다.");
+        }
+        if (!rerecord) {
+            audioService.storeUserAudio(
+                    userId,
+                    session,
+                    turn,
+                    audio,
+                    audioBytes,
+                    request.durationSeconds(),
+                    assistance,
+                    snapshot,
+                    false
+            );
+            turn.markProcessing();
+        }
 
-        turn.markProcessing();
         AiSpeakingTurnProcessResponseDto response = callTurnAi(
                 session,
                 turn,
                 audioBytes,
                 audio.getOriginalFilename(),
                 audioService.contentType(audio),
-                assistance
+                assistance,
+                rerecord,
+                request.durationSeconds()
         );
-        responseService.apply(session, turn, response, snapshot);
+
+        if (rerecord) {
+            if (response == null || !"READY".equalsIgnoreCase(response.status())) {
+                responseService.recordUsageOnly(session, turn, response);
+                throw rerecordFailed(response);
+            }
+            if (turn.isExcludedFromEvaluation()) {
+                turn.restoreReadyAfterExcludeToggle();
+            }
+            turn.prepareRerecord();
+            audioService.storeUserAudio(
+                    userId,
+                    session,
+                    turn,
+                    audio,
+                    audioBytes,
+                    request.durationSeconds(),
+                    assistance,
+                    snapshot,
+                    true
+            );
+            turn.markProcessing();
+        }
+
+        responseService.apply(
+                session,
+                turn,
+                response,
+                snapshot,
+                replacingCompletedTurn,
+                previousDurationSeconds
+        );
         completeIfNeeded(userId, session, response, snapshot);
         return turn;
     }
@@ -169,11 +220,66 @@ public class SpeakingTurnProcessCommandService {
                 audioBytes,
                 turn.getUserAudioFileName(),
                 turn.getUserAudioContentType(),
-                assistanceFrom(turn)
+                assistanceFrom(turn),
+                false,
+                turn.getDurationSeconds()
         );
         responseService.apply(session, turn, response, snapshot);
         completeIfNeeded(userId, session, response, snapshot);
         return turn;
+    }
+
+    private BusinessException rerecordFailed(
+            AiSpeakingTurnProcessResponseDto response
+    ) {
+        if (response == null) {
+            return new BusinessException(
+                    "재녹음 처리 결과를 확인할 수 없습니다. 기존 발화는 유지됩니다.",
+                    LanguageLearningErrorCode.STT_FAILED
+            );
+        }
+        SpeakingStage stage = response.failedStage() == null
+                ? SpeakingStage.STT
+                : parseStage(response.failedStage());
+        String actualCode = response.error() == null
+                ? null
+                : response.error().code();
+        String message = response.error() == null
+                ? "재녹음 처리에 실패했습니다. 기존 발화는 유지됩니다."
+                : truncate(response.error().message(), 1000);
+        return new BusinessException(
+                message,
+                errorCode(stage, actualCode)
+        );
+    }
+
+    private SpeakingStage parseStage(String value) {
+        if (value == null || value.isBlank()) {
+            return SpeakingStage.STT;
+        }
+        try {
+            return SpeakingStage.valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return SpeakingStage.CONVERSATION;
+        }
+    }
+
+    private void validateRerecord(
+            SpeakingSession session,
+            SpeakingTurn turn
+    ) {
+        if (session.getPracticeMode() != SpeakingPracticeMode.READ_ALOUD
+                || turn.getProblemIndex() == null
+                || turn.getAttemptIndex() == null) {
+            throw invalid("재녹음 Slot 교체는 듣고 리피트 문제에서만 사용할 수 있습니다.");
+        }
+        if (turn.getStatus() == SpeakingTurnStatus.PROCESSING
+                || turn.getStatus() == SpeakingTurnStatus.AWAITING_UPLOAD) {
+            throw new BusinessException(
+                    "현재 처리 중인 발화는 재녹음할 수 없습니다.",
+                    LanguageLearningErrorCode.TURN_PROCESSING
+            );
+        }
     }
 
     private SpeakingSession activeSession(Long userId, Long sessionId) {
@@ -192,7 +298,9 @@ public class SpeakingTurnProcessCommandService {
             byte[] audioBytes,
             String fileName,
             String contentType,
-            List<AssistanceType> assistance
+            List<AssistanceType> assistance,
+            boolean preserveExistingOnFailure,
+            double audioDurationSeconds
     ) {
         try {
             return speakingAiClient.processTurn(
@@ -203,26 +311,32 @@ public class SpeakingTurnProcessCommandService {
                                     session.getId(),
                                     turn.getTurnIndex()
                             ),
-                            assistance
+                            assistance,
+                            preserveExistingOnFailure,
+                            audioDurationSeconds
                     ),
                     audioBytes,
                     fileName,
                     contentType
             );
         } catch (BusinessException e) {
-            SpeakingStage stage = stageFromErrorCode(e.getErrorCode());
-            turn.markFailed(
-                    stage,
-                    errorCode(stage, e.getErrorCode()),
-                    truncate(e.getMessage(), 1000)
-            );
+            if (!preserveExistingOnFailure) {
+                SpeakingStage stage = stageFromErrorCode(e.getErrorCode());
+                turn.markFailed(
+                        stage,
+                        errorCode(stage, e.getErrorCode()),
+                        truncate(e.getMessage(), 1000)
+                );
+            }
             throw e;
         } catch (RuntimeException e) {
-            turn.markFailed(
-                    SpeakingStage.STT,
-                    LanguageLearningErrorCode.STT_FAILED,
-                    truncate(e.getMessage(), 1000)
-            );
+            if (!preserveExistingOnFailure) {
+                turn.markFailed(
+                        SpeakingStage.STT,
+                        LanguageLearningErrorCode.STT_FAILED,
+                        truncate(e.getMessage(), 1000)
+                );
+            }
             throw new BusinessException(
                     "Speaking Turn 처리에 실패했습니다.",
                     LanguageLearningErrorCode.STT_FAILED

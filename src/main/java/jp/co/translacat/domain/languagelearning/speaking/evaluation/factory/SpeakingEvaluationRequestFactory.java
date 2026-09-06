@@ -12,6 +12,7 @@ import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeaking
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingSttAnalysisMetadataDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingSttSegmentDto;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.AssistanceType;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationScope;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
@@ -20,7 +21,12 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -44,6 +50,7 @@ public class SpeakingEvaluationRequestFactory {
                 String.valueOf(session.getId()),
                 session.getTopicTitle(),
                 session.getPracticeMode(),
+                SpeakingEvaluationScope.SESSION,
                 session.getGoal(),
                 session.getTopic() == null
                         ? null
@@ -57,6 +64,62 @@ public class SpeakingEvaluationRequestFactory {
                 EVALUATION_POLICY_VERSION,
                 manualRetryAttempt
         );
+    }
+
+    public AiSpeakingEvaluationRequestDto createReadAloudProblem(
+            SpeakingSession session,
+            int problemIndex,
+            List<SpeakingTurn> attempts,
+            String referenceScript
+    ) {
+        String evidenceFingerprint = readAloudEvidenceFingerprint(attempts);
+        String scopedVersion = EVALUATION_POLICY_VERSION
+                + ":read-aloud-problem:" + problemIndex
+                + ":evidence:" + evidenceFingerprint;
+        return new AiSpeakingEvaluationRequestDto(
+                "speaking-read-aloud-evaluation-" + session.getId()
+                        + "-" + problemIndex + "-" + evidenceFingerprint,
+                "speaking-read-aloud-evaluation:" + session.getId()
+                        + ":" + problemIndex + ":" + evidenceFingerprint,
+                session.getId() + ":read-aloud:" + problemIndex,
+                session.getTopicTitle() + " / Problem " + problemIndex,
+                session.getPracticeMode(),
+                SpeakingEvaluationScope.READ_ALOUD_PROBLEM,
+                null,
+                session.getTopic() == null
+                        ? null
+                        : session.getTopic().getRecommendedLevel(),
+                session.getOriginLanguage(),
+                session.getLearningLanguage(),
+                attempts.stream().map(this::toUserTurn).toList(),
+                List.of(new AiSpeakingAssistantEvaluationTurnDto(
+                        "read-aloud-problem-" + problemIndex,
+                        Math.max(0, problemIndex - 1),
+                        referenceScript,
+                        referenceScript,
+                        List.of(),
+                        List.of(),
+                        List.of()
+                )),
+                null,
+                readProfile(session.getProfileSnapshotJson()),
+                scopedVersion,
+                0
+        );
+    }
+
+    private String readAloudEvidenceFingerprint(List<SpeakingTurn> attempts) {
+        String material = attempts.stream()
+                .map(turn -> turn.getId() + ":" + turn.getRecordingRevision())
+                .collect(Collectors.joining("|"));
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(
+                    material.getBytes(StandardCharsets.UTF_8)
+            );
+            return HexFormat.of().formatHex(digest, 0, 8);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
+        }
     }
 
     private List<AiSpeakingAssistantEvaluationTurnDto> assistantTurns(

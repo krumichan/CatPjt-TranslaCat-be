@@ -42,6 +42,45 @@ class SpeakingTurnTest {
     }
 
     @Test
+    void rerecordRenewsSameProblemAttemptSlotAndClearsDerivedResult() {
+        SpeakingTurn turn = SpeakingTurn.createUploadGrant(
+                session(),
+                3,
+                2,
+                1,
+                "turn-key-rerecord",
+                "upload-token",
+                LocalDateTime.now().plusMinutes(10)
+        );
+        turn.markUploaded(
+                "user-audio",
+                "audio/webm",
+                "user.webm",
+                8.0,
+                "[]",
+                LocalDateTime.now().plusDays(7)
+        );
+        turn.markProcessing();
+        turn.applyTranscript("old transcript", 0.65, "[]", "{}");
+        turn.applyAssistant("next problem", "assistant-audio", "audio/wav", "{}");
+        turn.markReady("{}");
+
+        turn.renewUploadGrant(
+                "replacement-token",
+                LocalDateTime.now().plusMinutes(10)
+        );
+        turn.prepareRerecord();
+
+        assertThat(turn.getTurnIndex()).isEqualTo(3);
+        assertThat(turn.getProblemIndex()).isEqualTo(2);
+        assertThat(turn.getAttemptIndex()).isEqualTo(1);
+        assertThat(turn.getRecordingRevision()).isEqualTo(1);
+        assertThat(turn.getTranscript()).isNull();
+        assertThat(turn.getAssistantText()).isNull();
+        assertThat(turn.getCompletedAt()).isNull();
+    }
+
+    @Test
     void exclusionCanBeRestoredWithoutLosingTurn() {
         SpeakingTurn turn = turn();
         turn.markUploaded(

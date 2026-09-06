@@ -77,6 +77,9 @@ public class SpeakingTurnQueryService {
         return new SpeakingTurnResponseDto(
                 turn.getId(),
                 turn.getTurnIndex(),
+                turn.getProblemIndex(),
+                turn.getAttemptIndex(),
+                turn.getRecordingRevision(),
                 turn.getStatus(),
                 turn.getDurationSeconds(),
                 turn.getTranscript(),

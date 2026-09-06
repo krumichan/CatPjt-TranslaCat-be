@@ -152,6 +152,16 @@ public class ListeningSessionController {
                 userId(principal), attemptId, request));
     }
 
+    @Operation(summary = "Session 내 실패한 Listening 평가 전체 수동 재시도")
+    @PostMapping("/sessions/{sessionId}/retry-failed-evaluations")
+    public ResponseDto<ListeningApiContract.BulkRetryView> retryFailed(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long sessionId
+    ) {
+        return ResponseUtil.ok(facade.retryFailedEvaluations(
+                userId(principal), sessionId));
+    }
+
     @Operation(summary = "정답 공개: 문항 전체 GUIDED 및 평가/진척 제외")
     @PostMapping("/attempts/{attemptId}/answer")
     public ResponseDto<ListeningApiContract.RevealAnswerView> answer(

@@ -8,6 +8,7 @@ public record SpeakingTurnProcessRequestDto(
         Long turnId,
         String uploadToken,
         Double durationSeconds,
-        List<AssistanceType> assistanceUsage
+        List<AssistanceType> assistanceUsage,
+        boolean rerecord
 ) {
 }

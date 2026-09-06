@@ -25,6 +25,10 @@ import java.time.LocalDateTime;
                 @UniqueConstraint(
                         name = "uk_ll_speaking_turn_session_idempotency",
                         columnNames = {"session_id", "idempotency_key"}
+                ),
+                @UniqueConstraint(
+                        name = "uk_ll_speaking_turn_read_aloud_slot",
+                        columnNames = {"session_id", "problem_index", "attempt_index"}
                 )
         },
         indexes = {
@@ -39,6 +43,10 @@ import java.time.LocalDateTime;
                 @Index(
                         name = "idx_ll_speaking_turn_assistant_audio_retention",
                         columnList = "assistant_audio_retention_until"
+                ),
+                @Index(
+                        name = "idx_ll_speaking_turn_read_aloud_problem",
+                        columnList = "session_id,problem_index,attempt_index"
                 )
         }
 )
@@ -58,6 +66,15 @@ public class SpeakingTurn extends BaseAuditable {
 
     @Column(name = "idempotency_key", nullable = false, length = 200)
     private String idempotencyKey;
+
+    @Column(name = "problem_index")
+    private Integer problemIndex;
+
+    @Column(name = "attempt_index")
+    private Integer attemptIndex;
+
+    @Column(name = "recording_revision", nullable = false)
+    private int recordingRevision;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 40)
@@ -142,12 +159,16 @@ public class SpeakingTurn extends BaseAuditable {
     private SpeakingTurn(
             SpeakingSession session,
             int turnIndex,
+            Integer problemIndex,
+            Integer attemptIndex,
             String idempotencyKey,
             String uploadToken,
             LocalDateTime uploadExpiresAt
     ) {
         this.session = session;
         this.turnIndex = turnIndex;
+        this.problemIndex = problemIndex;
+        this.attemptIndex = attemptIndex;
         this.idempotencyKey = idempotencyKey;
         this.uploadToken = uploadToken;
         this.uploadExpiresAt = uploadExpiresAt;
@@ -157,6 +178,8 @@ public class SpeakingTurn extends BaseAuditable {
     public static SpeakingTurn createUploadGrant(
             SpeakingSession session,
             int turnIndex,
+            Integer problemIndex,
+            Integer attemptIndex,
             String idempotencyKey,
             String uploadToken,
             LocalDateTime uploadExpiresAt
@@ -164,10 +187,57 @@ public class SpeakingTurn extends BaseAuditable {
         return new SpeakingTurn(
                 session,
                 turnIndex,
+                problemIndex,
+                attemptIndex,
                 idempotencyKey,
                 uploadToken,
                 uploadExpiresAt
         );
+    }
+
+    public static SpeakingTurn createUploadGrant(
+            SpeakingSession session,
+            int turnIndex,
+            String idempotencyKey,
+            String uploadToken,
+            LocalDateTime uploadExpiresAt
+    ) {
+        return createUploadGrant(
+                session,
+                turnIndex,
+                null,
+                null,
+                idempotencyKey,
+                uploadToken,
+                uploadExpiresAt
+        );
+    }
+
+
+    public void renewUploadGrant(
+            String uploadToken,
+            LocalDateTime uploadExpiresAt
+    ) {
+        this.uploadToken = uploadToken;
+        this.uploadExpiresAt = uploadExpiresAt;
+        this.recordingRevision++;
+    }
+
+    public void prepareRerecord() {
+        this.transcript = null;
+        this.sttConfidence = null;
+        this.sttSegmentsJson = "[]";
+        this.sttMetadataJson = "{}";
+        this.assistantText = null;
+        this.assistantAudioObjectKey = null;
+        this.assistantAudioContentType = null;
+        this.conversationJson = "{}";
+        this.usageJson = "{}";
+        this.failedStage = null;
+        this.errorCode = null;
+        this.errorMessage = null;
+        this.manualRetryCount = 0;
+        this.completedAt = null;
     }
 
     public boolean isUploadTokenValid(

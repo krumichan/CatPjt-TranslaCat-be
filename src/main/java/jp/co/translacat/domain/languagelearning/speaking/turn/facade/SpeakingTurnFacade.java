@@ -32,6 +32,18 @@ public class SpeakingTurnFacade {
         return uploadGrantCommandService.create(userId, sessionId, request);
     }
 
+    public SpeakingTurnUploadGrantResponseDto createRerecordUploadGrant(
+            Long userId,
+            Long sessionId,
+            Long turnId
+    ) {
+        return uploadGrantCommandService.createRerecord(
+                userId,
+                sessionId,
+                turnId
+        );
+    }
+
     public SpeakingTurnResponseDto process(
             Long userId,
             Long sessionId,

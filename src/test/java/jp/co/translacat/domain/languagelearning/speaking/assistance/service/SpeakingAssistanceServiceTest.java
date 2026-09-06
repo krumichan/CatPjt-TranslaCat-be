@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -70,6 +72,17 @@ class SpeakingAssistanceServiceTest {
         when(turnQueryService.getEntities(301L)).thenReturn(List.of(turn));
         when(turn.getId()).thenReturn(401L);
         when(turn.getAssistantText()).thenReturn("次は何をしたいですか？");
+    }
+
+    @Test
+    void assistanceServiceUsesWritableTransactionBecauseItRecordsAiUsage() {
+        Transactional transactional = AnnotationUtils.findAnnotation(
+                SpeakingAssistanceService.class,
+                Transactional.class
+        );
+
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.readOnly()).isFalse();
     }
 
     @Test

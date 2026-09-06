@@ -52,6 +52,7 @@ public class SpeakingSessionCompletionCommandService {
         lifecycleService.requireActive(session);
         SpeakingSessionPolicySnapshot snapshot = snapshotService.read(session);
         var eligibility = eligibilityPolicy.evaluate(
+                session.getPracticeMode(),
                 turnQueryService.getEntities(sessionId)
         );
         if (skipEvaluation

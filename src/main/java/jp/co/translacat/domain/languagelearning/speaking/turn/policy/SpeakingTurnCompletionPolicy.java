@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.languagelearning.speaking.turn.policy;
 
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingTurnProcessResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionPolicySnapshot;
 
@@ -21,8 +22,9 @@ public class SpeakingTurnCompletionPolicy {
         boolean aiRequestedEnd = response != null
                 && response.conversation() != null
                 && response.conversation().shouldEnd();
-        boolean maxTurnsReached =
-                session.getCompletedTurns() >= session.getMaxTurns();
+        boolean maxTurnsReached = session.getPracticeMode()
+                != SpeakingPracticeMode.READ_ALOUD
+                && session.getCompletedTurns() >= session.getMaxTurns();
         boolean maxTimeReached =
                 session.getTotalDurationSeconds() >= snapshot.maxSessionSeconds();
 

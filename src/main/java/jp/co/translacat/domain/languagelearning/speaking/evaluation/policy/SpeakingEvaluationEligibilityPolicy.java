@@ -1,8 +1,10 @@
 package jp.co.translacat.domain.languagelearning.speaking.evaluation.policy;
 
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingEvaluationEligibilityDto;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingTurnStatus;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
+import jp.co.translacat.domain.languagelearning.speaking.session.policy.SpeakingSessionPolicy;
 
 import org.springframework.stereotype.Component;
 
@@ -18,8 +20,17 @@ public class SpeakingEvaluationEligibilityPolicy {
     public static final double REQUIRED_EVALUATION_CONFIDENCE = 0.70;
 
     public AiSpeakingEvaluationEligibilityDto evaluate(
+            SpeakingPracticeMode practiceMode,
             List<SpeakingTurn> turns
     ) {
+        boolean readAloud = practiceMode == SpeakingPracticeMode.READ_ALOUD;
+        int requiredUserTurns = readAloud
+                ? SpeakingSessionPolicy.READ_ALOUD_DAILY_ITEM_COUNT
+                * SpeakingSessionPolicy.READ_ALOUD_REQUIRED_ATTEMPTS_PER_ITEM
+                : REQUIRED_USER_TURNS;
+        double requiredSpeechSeconds = readAloud
+                ? 0.0
+                : REQUIRED_SPEECH_SECONDS;
         List<SpeakingTurn> included = turns.stream()
                 .filter(turn -> !turn.isExcludedFromEvaluation())
                 .filter(turn -> turn.getStatus()
@@ -38,10 +49,10 @@ public class SpeakingEvaluationEligibilityPolicy {
                 ? 0
                 : (double) validSttTurns.size() / included.size();
         List<String> missing = new ArrayList<>();
-        if (validTurns < REQUIRED_USER_TURNS) {
+        if (validTurns < requiredUserTurns) {
             missing.add("VALID_USER_TURNS");
         }
-        if (speechSeconds < REQUIRED_SPEECH_SECONDS) {
+        if (speechSeconds < requiredSpeechSeconds) {
             missing.add("VALID_USER_SPEECH_SECONDS");
         }
         if (sttRatio < REQUIRED_STT_RATIO) {
@@ -52,13 +63,19 @@ public class SpeakingEvaluationEligibilityPolicy {
                 validTurns,
                 round(speechSeconds),
                 round(sttRatio),
-                REQUIRED_USER_TURNS,
-                REQUIRED_SPEECH_SECONDS,
+                requiredUserTurns,
+                requiredSpeechSeconds,
                 REQUIRED_STT_RATIO,
                 REQUIRED_EVALUATION_CONFIDENCE,
                 missing.isEmpty(),
                 List.copyOf(missing)
         );
+    }
+
+    public AiSpeakingEvaluationEligibilityDto evaluate(
+            List<SpeakingTurn> turns
+    ) {
+        return evaluate(SpeakingPracticeMode.FREE, turns);
     }
 
     public boolean hasFormalEvaluationConfidence(Double confidence) {

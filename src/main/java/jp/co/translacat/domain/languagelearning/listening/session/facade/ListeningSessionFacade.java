@@ -158,6 +158,13 @@ public class ListeningSessionFacade {
         );
     }
 
+    public ListeningApiContract.BulkRetryView retryFailedEvaluations(
+            Long userId,
+            Long sessionId
+    ) {
+        return attemptCommandService.retryFailedEvaluations(userId, sessionId);
+    }
+
     public ListeningApiContract.RevealAnswerView revealAnswer(
             Long userId,
             Long attemptId

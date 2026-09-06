@@ -226,6 +226,19 @@ public class SpeakingSession extends BaseAuditable {
         this.lastActivityAt = this.startedAt;
     }
 
+    public void resolveKeywordBasedTopic(String resolvedTopic) {
+        if (!"KEYWORDS".equals(topicCategory) || resolvedTopic == null) {
+            return;
+        }
+        String cleaned = resolvedTopic.trim();
+        if (cleaned.isBlank()) {
+            return;
+        }
+        this.topicTitle = cleaned.length() <= 500
+                ? cleaned
+                : cleaned.substring(0, 500);
+    }
+
     /**
      * Backward-compatible factory for legacy callers/tests. Existing speaking sessions
      * are treated as FREE practice when no explicit practice mode is supplied.
@@ -346,6 +359,27 @@ public class SpeakingSession extends BaseAuditable {
         this.totalDurationSeconds += Math.max(
                 0L,
                 Math.round(durationSeconds)
+        );
+        if (sessionSummary != null) {
+            this.sessionSummary = sessionSummary;
+        }
+        if (usageSummaryJson != null) {
+            this.usageSummaryJson = usageSummaryJson;
+        }
+        this.lastActivityAt = LocalDateTime.now();
+    }
+
+    public void replaceCompletedTurn(
+            double previousDurationSeconds,
+            double newDurationSeconds,
+            String sessionSummary,
+            String usageSummaryJson
+    ) {
+        long previous = Math.max(0L, Math.round(previousDurationSeconds));
+        long replacement = Math.max(0L, Math.round(newDurationSeconds));
+        this.totalDurationSeconds = Math.max(
+                0L,
+                this.totalDurationSeconds - previous + replacement
         );
         if (sessionSummary != null) {
             this.sessionSummary = sessionSummary;

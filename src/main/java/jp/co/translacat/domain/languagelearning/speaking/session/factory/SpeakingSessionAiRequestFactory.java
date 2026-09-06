@@ -34,8 +34,8 @@ public class SpeakingSessionAiRequestFactory {
                 session.getTopicTitle(),
                 session.getPracticeMode(),
                 session.getTopicCategory(),
-                clean(request.goal()),
-                clean(request.persona()),
+                session.getGoal(),
+                session.getPersona(),
                 session.getConversationStartMode(),
                 topic == null ? null : topic.getRecommendedStartMode(),
                 session.getCorrectionMode(),
@@ -49,7 +49,7 @@ public class SpeakingSessionAiRequestFactory {
                 List.of(),
                 null,
                 0,
-                toAiPolicy(policy),
+                toAiPolicy(policy, session.getMaxTurns()),
                 null,
                 null,
                 null,
@@ -60,11 +60,12 @@ public class SpeakingSessionAiRequestFactory {
     }
 
     public AiSpeakingSessionPolicySnapshotDto toAiPolicy(
-            SpeakingSessionPolicySnapshot policy
+            SpeakingSessionPolicySnapshot policy,
+            int maxTurns
     ) {
         return new AiSpeakingSessionPolicySnapshotDto(
                 policy.maxSessionMinutes(),
-                policy.maxTurns(),
+                maxTurns,
                 policy.minValidAudioSeconds(),
                 policy.maxTurnAudioSeconds(),
                 policy.maxAudioFileBytes(),
@@ -73,7 +74,4 @@ public class SpeakingSessionAiRequestFactory {
         );
     }
 
-    private String clean(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
-    }
 }

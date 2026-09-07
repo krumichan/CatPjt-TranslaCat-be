@@ -24,7 +24,7 @@ class LanguageLearningAdminSettingTest {
     }
 
     @Test
-    void phase2SpeakingDefaultsAreStable() {
+    void speakingDefaultsAreStable() {
         LanguageLearningAdminSetting setting = LanguageLearningAdminSetting.createDefault();
 
         assertThat(setting.isSpeakingEnabled()).isTrue();

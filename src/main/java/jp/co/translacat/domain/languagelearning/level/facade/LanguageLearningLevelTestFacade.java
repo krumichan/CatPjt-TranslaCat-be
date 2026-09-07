@@ -234,7 +234,6 @@ public class LanguageLearningLevelTestFacade {
         return new LevelSessionResponseDto(
                 session.getId(),
                 session.getSessionType(),
-                session.getAssessmentVersion(),
                 session.getStatus(),
                 session.getTotalQuestions(),
                 session.currentQuestionNumber(),

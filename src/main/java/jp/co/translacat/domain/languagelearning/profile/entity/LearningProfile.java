@@ -36,7 +36,7 @@ public class LearningProfile extends BaseAuditable {
     private User user;
 
     @Column(nullable = false, length = 30)
-    private String profileVersion = "PROFILE_V1";
+    private String profileVersion = "PROFILE";
 
     private Double baseLevelScore;
 

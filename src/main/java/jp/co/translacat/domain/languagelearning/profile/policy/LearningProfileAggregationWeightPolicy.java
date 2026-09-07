@@ -10,7 +10,7 @@ import java.util.List;
 @Component
 public class LearningProfileAggregationWeightPolicy {
 
-    public static final String POLICY_VERSION = "learning-profile-aggregation-v1";
+    public static final String POLICY_VERSION = "learning-profile-aggregation";
     public static final int MAX_EVALUATED_ACTIVITIES = 30;
     public static final int MIN_SOURCE_EVIDENCE = 2;
     public static final int MIN_UNIFIED_EVIDENCE = 3;

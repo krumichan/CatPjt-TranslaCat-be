@@ -140,7 +140,7 @@ public class LearningProfileQueryService {
 
     private ProfileResponseDto emptyProfile() {
         return new ProfileResponseDto(
-                "PROFILE_V1",
+                "PROFILE",
                 LearningProfileState.LEVEL_TEST_REQUIRED,
                 null,
                 null,

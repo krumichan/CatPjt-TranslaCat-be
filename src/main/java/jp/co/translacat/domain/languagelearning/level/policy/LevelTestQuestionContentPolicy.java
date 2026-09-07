@@ -31,9 +31,6 @@ public class LevelTestQuestionContentPolicy {
 
     private static final int READING_MIN_PASSAGE_LENGTH = 24;
     private static final int READING_MIN_QUESTION_LENGTH = 6;
-    private static final int VOCAB_CONTEXT_MIN_PROMPT_VERSION = 6;
-    private static final int LISTENING_MIN_PROMPT_VERSION = 7;
-    private static final int CONTENT_INTEGRITY_MIN_PROMPT_VERSION = 9;
 
     private static final Pattern UNDERLINE_MARKER = Pattern.compile("(?i)</?u>");
     private static final Pattern ANY_TAG = Pattern.compile("<[^>]+>");
@@ -41,7 +38,6 @@ public class LevelTestQuestionContentPolicy {
     private static final Pattern KANA = Pattern.compile("[\\u3040-\\u30FF]");
     private static final Pattern ASCII_LETTER = Pattern.compile("[A-Za-z]");
     private static final Pattern GRAMMAR_BLANK = Pattern.compile("(?:_{2,}|＿{2,})");
-    private static final Pattern PROMPT_VERSION = Pattern.compile("^level-test-multiskill-prompt-v(\\d+)$");
 
     private final LanguageLearningJsonCodec jsonCodec;
 
@@ -92,15 +88,6 @@ public class LevelTestQuestionContentPolicy {
         if (pool == null) {
             return invalid("NULL_POOL_QUESTION");
         }
-        if (isStaleVocabContextPrompt(pool.getItemType(), pool.getPromptVersion())) {
-            return invalid("VOCAB_CONTEXT_PROMPT_VERSION_STALE");
-        }
-        if (isStaleListeningPrompt(pool.getItemType(), pool.getPromptVersion())) {
-            return invalid("LISTENING_PROMPT_VERSION_STALE");
-        }
-        if (isStaleContentIntegrityPrompt(pool.getPromptVersion())) {
-            return invalid("CONTENT_INTEGRITY_PROMPT_VERSION_STALE");
-        }
         try {
             Health content = inspectValues(
                     pool.getDomain(),
@@ -133,15 +120,6 @@ public class LevelTestQuestionContentPolicy {
     public Health inspect(LevelTestItem item) {
         if (item == null) {
             return invalid("NULL_ITEM");
-        }
-        if (isStaleVocabContextPrompt(item.getItemType(), item.getPromptVersion())) {
-            return invalid("VOCAB_CONTEXT_PROMPT_VERSION_STALE");
-        }
-        if (isStaleListeningPrompt(item.getItemType(), item.getPromptVersion())) {
-            return invalid("LISTENING_PROMPT_VERSION_STALE");
-        }
-        if (isStaleContentIntegrityPrompt(item.getPromptVersion())) {
-            return invalid("CONTENT_INTEGRITY_PROMPT_VERSION_STALE");
         }
         try {
             Health content = inspectValues(
@@ -656,48 +634,6 @@ public class LevelTestQuestionContentPolicy {
 
     private boolean hasSafeInlineMarkup(String value) {
         return !ANY_TAG.matcher(value).find();
-    }
-
-    private boolean isStaleVocabContextPrompt(
-            LevelTestItemType itemType,
-            String promptVersion
-    ) {
-        if (itemType != LevelTestItemType.VOCAB_CONTEXT_CHOICE || blank(promptVersion)) {
-            return itemType == LevelTestItemType.VOCAB_CONTEXT_CHOICE;
-        }
-        Matcher matcher = PROMPT_VERSION.matcher(promptVersion.trim());
-        if (!matcher.matches()) {
-            return true;
-        }
-        return Integer.parseInt(matcher.group(1)) < VOCAB_CONTEXT_MIN_PROMPT_VERSION;
-    }
-
-    private boolean isStaleListeningPrompt(
-            LevelTestItemType itemType,
-            String promptVersion
-    ) {
-        if (itemType == null || !itemType.name().startsWith("LISTENING_")) {
-            return false;
-        }
-        if (blank(promptVersion)) {
-            return true;
-        }
-        Matcher matcher = PROMPT_VERSION.matcher(promptVersion.trim());
-        if (!matcher.matches()) {
-            return true;
-        }
-        return Integer.parseInt(matcher.group(1)) < LISTENING_MIN_PROMPT_VERSION;
-    }
-
-    private boolean isStaleContentIntegrityPrompt(String promptVersion) {
-        if (blank(promptVersion)) {
-            return true;
-        }
-        Matcher matcher = PROMPT_VERSION.matcher(promptVersion.trim());
-        if (!matcher.matches()) {
-            return true;
-        }
-        return Integer.parseInt(matcher.group(1)) < CONTENT_INTEGRITY_MIN_PROMPT_VERSION;
     }
 
     private boolean isInstructionCompatible(String languageCode, String instruction) {

@@ -46,7 +46,7 @@ class DailyWritingGenerationResponseValidatorTest {
         AiDailyWritingGenerationResponseDto response =
                 new AiDailyWritingGenerationResponseDto(
                         "request-1",
-                        "prompt-v1",
+                        "current-prompt",
                         List.of(guidedItem(1, DailyWritingDifficulty.NORMAL))
                 );
 
@@ -78,7 +78,7 @@ class DailyWritingGenerationResponseValidatorTest {
         AiDailyWritingGenerationResponseDto response =
                 new AiDailyWritingGenerationResponseDto(
                         "request-1",
-                        "prompt-v1",
+                        "current-prompt",
                         List.of(invalid)
                 );
 
@@ -97,7 +97,7 @@ class DailyWritingGenerationResponseValidatorTest {
         AiDailyWritingGenerationResponseDto response =
                 new AiDailyWritingGenerationResponseDto(
                         "request-1",
-                        "prompt-v1",
+                        "current-prompt",
                         List.of(guidedItem(1, DailyWritingDifficulty.NORMAL))
                 );
 
@@ -123,7 +123,7 @@ class DailyWritingGenerationResponseValidatorTest {
         AiDailyWritingGenerationResponseDto response =
                 new AiDailyWritingGenerationResponseDto(
                         "request-1",
-                        "prompt-v1",
+                        "current-prompt",
                         List.of(
                                 item(1, DailyWritingDifficulty.REVIEW),
                                 item(1, DailyWritingDifficulty.NORMAL)
@@ -171,7 +171,7 @@ class DailyWritingGenerationResponseValidatorTest {
 
         return new AiDailyWritingGenerationResponseDto(
                 "request-1",
-                "prompt-v1",
+                "current-prompt",
                 items
         );
     }

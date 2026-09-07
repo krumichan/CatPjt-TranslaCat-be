@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 public class SpeakingEvaluationRequestFactory {
 
     public static final String EVALUATION_POLICY_VERSION =
-            "speaking-evaluation-policy-v1";
+            "speaking-evaluation-policy";
 
     private final LanguageLearningJsonCodec jsonCodec;
 

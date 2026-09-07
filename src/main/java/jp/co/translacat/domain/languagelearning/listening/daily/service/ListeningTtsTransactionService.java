@@ -47,7 +47,7 @@ public class ListeningTtsTransactionService {
         AiListeningContract.Voice voice = new AiListeningContract.Voice(
                 item.getDailySet().getLearningLanguage(),
                 DEFAULT_LISTENING_VOICE_ID,
-                "v1",
+                "current",
                 "STANDARD"
         );
         AiListeningContract.TtsRequest request =

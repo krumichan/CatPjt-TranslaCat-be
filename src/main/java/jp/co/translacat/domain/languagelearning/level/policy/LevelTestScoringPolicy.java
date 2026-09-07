@@ -13,7 +13,7 @@ import java.util.Map;
 @Component
 public class LevelTestScoringPolicy {
 
-    public static final String VERSION = "LEVEL_TEST_SCORING_V1";
+    public static final String VERSION = "LEVEL_TEST_SCORING";
 
     private static final Map<LevelTestDomain, BigDecimal> WEIGHTS = Map.of(
             LevelTestDomain.VOCABULARY, new BigDecimal("0.10"),

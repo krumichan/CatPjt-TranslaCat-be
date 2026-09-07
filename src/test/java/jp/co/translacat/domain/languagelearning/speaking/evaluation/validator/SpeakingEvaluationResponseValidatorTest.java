@@ -86,9 +86,9 @@ class SpeakingEvaluationResponseValidatorTest {
                 List.of(),
                 List.of(),
                 null,
-                "speaking-evaluation-policy-v1",
-                "speaking-scoring-policy-v1",
-                "prompt-v1",
+                "speaking-evaluation-policy",
+                "speaking-scoring-policy",
+                "current-prompt",
                 null
         );
     }

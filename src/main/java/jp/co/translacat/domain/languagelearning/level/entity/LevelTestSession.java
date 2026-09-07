@@ -2,7 +2,6 @@ package jp.co.translacat.domain.languagelearning.level.entity;
 
 import jakarta.persistence.*;
 
-import jp.co.translacat.domain.languagelearning.common.enums.LevelTestAssessmentVersion;
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionStatus;
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionType;
 import jp.co.translacat.domain.user.entity.User;
@@ -38,9 +37,9 @@ public class LevelTestSession extends BaseAuditable {
 
     public static final int DEFAULT_TOTAL_QUESTIONS = 20;
     public static final String DEFAULT_GENERATION_POLICY_VERSION =
-            "LEVEL_TEST_MULTI_SKILL_V1";
+            "LEVEL_TEST_MULTI_SKILL";
     public static final String DEFAULT_SCORING_POLICY_VERSION =
-            "LEVEL_TEST_SCORING_V1";
+            "LEVEL_TEST_SCORING";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -53,10 +52,6 @@ public class LevelTestSession extends BaseAuditable {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private LevelTestSessionType sessionType;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "assessment_version", length = 50)
-    private LevelTestAssessmentVersion assessmentVersion;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -110,7 +105,6 @@ public class LevelTestSession extends BaseAuditable {
     ) {
         this.user = user;
         this.sessionType = sessionType;
-        this.assessmentVersion = LevelTestAssessmentVersion.MULTI_SKILL;
         this.status = LevelTestSessionStatus.IN_PROGRESS;
         this.originLanguage = originLanguage;
         this.learningLanguage = learningLanguage;
@@ -188,16 +182,6 @@ public class LevelTestSession extends BaseAuditable {
 
     public void fail() {
         this.status = LevelTestSessionStatus.FAILED;
-    }
-
-    public boolean isMultiSkill() {
-        return assessmentVersion == LevelTestAssessmentVersion.MULTI_SKILL;
-    }
-
-    public LevelTestAssessmentVersion effectiveAssessmentVersion() {
-        return assessmentVersion == null
-                ? LevelTestAssessmentVersion.WRITING_ONLY
-                : assessmentVersion;
     }
 
     public int currentQuestionNumber() {

@@ -21,8 +21,8 @@ class ListeningGenerationResponseValidatorTest {
         validator.validate(
                 response(List.of(item(1, "hash-1"), item(2, "hash-2"))),
                 "request-1",
-                "policy-v1",
-                "model-v1",
+                "listening",
+                "listening-model-config",
                 2,
                 ListeningLearningMode.DICTATION,
                 1,
@@ -35,8 +35,8 @@ class ListeningGenerationResponseValidatorTest {
         assertThatThrownBy(() -> validator.validate(
                 response(List.of(item(1, "same"), item(2, "same"))),
                 "request-1",
-                "policy-v1",
-                "model-v1",
+                "listening",
+                "listening-model-config",
                 2,
                 ListeningLearningMode.DICTATION,
                 1,
@@ -51,8 +51,8 @@ class ListeningGenerationResponseValidatorTest {
         assertThatThrownBy(() -> validator.validate(
                 response(List.of(unsafe)),
                 "request-1",
-                "policy-v1",
-                "model-v1",
+                "listening",
+                "listening-model-config",
                 1,
                 ListeningLearningMode.DICTATION,
                 1,
@@ -75,7 +75,7 @@ class ListeningGenerationResponseValidatorTest {
         );
         validator.validate(
                 response(List.of(comprehension)),
-                "request-1", "policy-v1", "model-v1", 1,
+                "request-1", "listening", "listening-model-config", 1,
                 ListeningLearningMode.COMPREHENSION, 1, 30
         );
 
@@ -85,13 +85,13 @@ class ListeningGenerationResponseValidatorTest {
         );
         validator.validate(
                 response(List.of(summary)),
-                "request-1", "policy-v1", "model-v1", 1,
+                "request-1", "listening", "listening-model-config", 1,
                 ListeningLearningMode.SUMMARY, 1, 30
         );
 
         assertThatThrownBy(() -> validator.validate(
                 response(List.of(comprehension)),
-                "request-1", "policy-v1", "model-v1", 1,
+                "request-1", "listening", "listening-model-config", 1,
                 ListeningLearningMode.DICTATION, 1, 30
         )).isInstanceOf(BusinessException.class);
     }
@@ -110,7 +110,7 @@ class ListeningGenerationResponseValidatorTest {
         );
         assertThatThrownBy(() -> validator.validate(
                 response(List.of(invalid)),
-                "request-1", "policy-v1", "model-v1", 1,
+                "request-1", "listening", "listening-model-config", 1,
                 ListeningLearningMode.COMPREHENSION, 1, 30
         )).isInstanceOf(BusinessException.class);
     }
@@ -120,9 +120,9 @@ class ListeningGenerationResponseValidatorTest {
     ) {
         return new AiListeningContract.GenerationResponse(
                 "request-1",
-                "generation-v1",
-                "policy-v1",
-                "model-v1",
+                "listening-generation",
+                "listening",
+                "listening-model-config",
                 items,
                 Map.of()
         );

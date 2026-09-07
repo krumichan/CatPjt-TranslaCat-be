@@ -7,7 +7,7 @@ import jp.co.translacat.domain.languagelearning.profile.dto.response.SkillScores
 
 import java.util.List;
 
-public record LegacyDashboardResponseDto(
+public record DashboardBaseResponseDto(
         int todayCompleted,
         int todayTotal,
         int currentStreak,

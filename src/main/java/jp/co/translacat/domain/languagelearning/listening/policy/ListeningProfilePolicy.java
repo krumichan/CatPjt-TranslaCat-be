@@ -16,7 +16,7 @@ import java.util.Map;
 @Component
 public class ListeningProfilePolicy {
 
-    public static final String VERSION = "listening-profile-v1";
+    public static final String VERSION = "listening-profile";
     public static final double MIN_CONFIDENCE = 0.70;
     public static final int MAX_ACTIVITIES = 30;
 

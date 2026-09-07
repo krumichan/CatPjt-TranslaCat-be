@@ -198,7 +198,7 @@ public class LevelTestEvaluationService {
                 List.of(),
                 List.of(),
                 null,
-                "LEVEL_TEST_OBJECTIVE_V1"
+                "LEVEL_TEST_OBJECTIVE"
         );
     }
 

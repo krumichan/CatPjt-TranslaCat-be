@@ -9,7 +9,7 @@ import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingIte
 import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingSetRepository;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingAnswerRepository;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
-import jp.co.translacat.domain.languagelearning.dashboard.dto.response.LegacyDashboardResponseDto;
+import jp.co.translacat.domain.languagelearning.dashboard.dto.response.DashboardBaseResponseDto;
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.RecentLearningResponseDto;
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.StreakResponseDto;
 import jp.co.translacat.domain.languagelearning.profile.dto.response.ProfileResponseDto;
@@ -29,7 +29,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class LegacyDashboardQueryService {
+public class DashboardBaseQueryService {
 
     private final DailyWritingSetRepository dailySetRepository;
     private final DailyWritingItemRepository itemRepository;
@@ -43,11 +43,11 @@ public class LegacyDashboardQueryService {
     private final SourceSkillTrendQueryService sourceSkillTrendQueryService;
     private final DashboardInsightQueryService insightQueryService;
 
-    public LegacyDashboardResponseDto get(Long userId) {
+    public DashboardBaseResponseDto get(Long userId) {
         return get(userId, "7d", "ALL");
     }
 
-    public LegacyDashboardResponseDto get(
+    public DashboardBaseResponseDto get(
             Long userId,
             String period,
             String sourceValue
@@ -63,7 +63,7 @@ public class LegacyDashboardQueryService {
         LearningSource source = parseSource(sourceValue);
         StreakResponseDto streak = streakQueryService.get(userId, today);
 
-        return new LegacyDashboardResponseDto(
+        return new DashboardBaseResponseDto(
                 countTodayCompleted(todaySets),
                 todaySets.stream().mapToInt(DailyWritingSet::getSentenceCount).sum(),
                 streak.current(),

@@ -23,7 +23,7 @@ import java.util.List;
 public class GenerationFingerprintCommandService {
 
     public static final String POLICY_VERSION =
-            "language-learning-diversity-v1";
+            "language-learning-diversity";
 
     private final LanguageLearningGenerationFingerprintRepository repository;
     private final UserRepository userRepository;

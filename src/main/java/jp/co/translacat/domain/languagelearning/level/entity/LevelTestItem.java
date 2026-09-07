@@ -163,7 +163,7 @@ public class LevelTestItem extends BaseAuditable {
     ) {
         this.session = session;
         this.questionNumber = questionNumber;
-        this.difficulty = toLegacyDifficulty(complexityBand);
+        this.difficulty = mapDifficulty(complexityBand);
         this.originText = promptText;
         this.focusMetricsJson = "[]";
         this.focusReason = instruction;
@@ -301,7 +301,7 @@ public class LevelTestItem extends BaseAuditable {
         return complexityBand == null ? 2 : complexityBand;
     }
 
-    private static LevelTestDifficulty toLegacyDifficulty(int complexityBand) {
+    private static LevelTestDifficulty mapDifficulty(int complexityBand) {
         if (complexityBand <= 2) {
             return LevelTestDifficulty.EASY;
         }

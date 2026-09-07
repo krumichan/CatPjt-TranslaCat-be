@@ -240,8 +240,8 @@ public class SpeakingSession extends BaseAuditable {
     }
 
     /**
-     * Backward-compatible factory for legacy callers/tests. Existing speaking sessions
-     * are treated as FREE practice when no explicit practice mode is supplied.
+     * Convenience factory that defaults to FREE practice when no explicit practice mode
+     * is supplied.
      */
     public static SpeakingSession create(
             User user,

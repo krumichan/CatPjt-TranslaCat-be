@@ -17,11 +17,11 @@ public class SpeakingProfileContextService {
 
     private static final int MAX_RECOMMENDED_FOCUS = 10;
 
-    private final LearningProfileAiContextService phase1ContextService;
+    private final LearningProfileAiContextService profileContextService;
     private final RecentLearningProfileInsightQueryService recentInsightQueryService;
 
     public LearningProfileSummaryDto build(Long userId) {
-        LearningProfileSummaryDto base = phase1ContextService.buildSummary(userId);
+        LearningProfileSummaryDto base = profileContextService.buildSummary(userId);
         List<String> speakingFocus = recentInsightQueryService
                 .getSpeakingRecommendedFocus(userId, MAX_RECOMMENDED_FOCUS);
         if (base == null) {

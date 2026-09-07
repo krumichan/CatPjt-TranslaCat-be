@@ -189,7 +189,7 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
     }
 
     /**
-     * Phase 1 호환용 update.
+     * Writing-only setting update convenience method.
      */
     public void update(
             Integer defaultCount,

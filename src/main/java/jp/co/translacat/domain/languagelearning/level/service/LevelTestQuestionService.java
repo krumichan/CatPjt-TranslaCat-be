@@ -61,7 +61,7 @@ import java.util.concurrent.TimeUnit;
 public class LevelTestQuestionService {
 
     public static final String MODEL_CONFIG_VERSION =
-            "level-test-model-config-v1";
+            "level-test-model-config";
 
     private final LevelTestItemRepository itemRepository;
     private final LevelTestResponseRepository responseRepository;
@@ -925,8 +925,7 @@ public class LevelTestQuestionService {
                 )
                 || blank(response.diversityMetadata().contentHash())
                 || blank(response.diversityMetadata().similarityKey())
-                || blank(response.generationVersion())
-                || !promptVersionAtLeast(response.promptVersion(), 9)) {
+                || blank(response.generationVersion())) {
             throw invalidContract();
         }
         validateBatchAnswerContract(
@@ -1143,8 +1142,7 @@ public class LevelTestQuestionService {
                 )
                 || blank(response.diversityMetadata().contentHash())
                 || blank(response.diversityMetadata().similarityKey())
-                || blank(response.generationVersion())
-                || !promptVersionAtLeast(response.promptVersion(), 9)) {
+                || blank(response.generationVersion())) {
             throw invalidContract();
         }
 
@@ -1235,8 +1233,7 @@ public class LevelTestQuestionService {
             String listeningQuestion = asString(payload.get("listeningQuestion"));
             if (blank(sourceText)
                     || blank(listeningQuestion)
-                    || !response.promptText().trim().equals(listeningQuestion.trim())
-                    || !promptVersionAtLeast(response.promptVersion(), 7)) {
+                    || !response.promptText().trim().equals(listeningQuestion.trim())) {
                 throw invalidContract();
             }
             if (response.itemType()
@@ -1255,18 +1252,6 @@ public class LevelTestQuestionService {
         if (response.itemType() == LevelTestItemType.SPEAKING_REPEAT
                 && blank(asString(payload.get("referenceText")))) {
             throw invalidContract();
-        }
-    }
-
-    private boolean promptVersionAtLeast(String promptVersion, int minimum) {
-        String prefix = "level-test-multiskill-prompt-v";
-        if (blank(promptVersion) || !promptVersion.startsWith(prefix)) {
-            return false;
-        }
-        try {
-            return Integer.parseInt(promptVersion.substring(prefix.length())) >= minimum;
-        } catch (NumberFormatException exception) {
-            return false;
         }
     }
 

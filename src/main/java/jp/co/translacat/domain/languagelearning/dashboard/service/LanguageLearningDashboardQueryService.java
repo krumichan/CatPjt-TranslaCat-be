@@ -3,7 +3,7 @@ package jp.co.translacat.domain.languagelearning.dashboard.service;
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.DashboardInsightsResponseDto;
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.DashboardResponseDto;
-import jp.co.translacat.domain.languagelearning.dashboard.dto.response.LegacyDashboardResponseDto;
+import jp.co.translacat.domain.languagelearning.dashboard.dto.response.DashboardBaseResponseDto;
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.SourceSkillTrendResponseDto;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningWeaknessState;
@@ -37,7 +37,7 @@ import java.util.Set;
 public class LanguageLearningDashboardQueryService {
 
     private final LanguageLearningUserSettingQueryService userSettingQueryService;
-    private final LegacyDashboardQueryService legacyDashboardQueryService;
+    private final DashboardBaseQueryService dashboardBaseQueryService;
     private final SourceSkillTrendQueryService sourceSkillTrendQueryService;
     private final DashboardInsightQueryService insightQueryService;
     private final DashboardProjectionPolicy projectionPolicy;
@@ -81,7 +81,7 @@ public class LanguageLearningDashboardQueryService {
                 1,
                 Math.min(365, ChronoUnit.DAYS.between(resolvedFrom, resolvedTo) + 1)
         ) + "d";
-        LegacyDashboardResponseDto legacy = legacyDashboardQueryService.get(
+        DashboardBaseResponseDto base = dashboardBaseQueryService.get(
                 userId,
                 period,
                 "ALL"
@@ -138,7 +138,7 @@ public class LanguageLearningDashboardQueryService {
                         resolvedFrom,
                         resolvedTo,
                         today,
-                        legacy,
+                        base,
                         listening
                 ),
                 growth,
@@ -160,7 +160,7 @@ public class LanguageLearningDashboardQueryService {
             LocalDate from,
             LocalDate to,
             LocalDate today,
-            LegacyDashboardResponseDto legacy,
+            DashboardBaseResponseDto base,
             ListeningApiContract.DashboardView listening
     ) {
         SourceSkillTrendResponseDto writing = sourceSkillTrendQueryService.get(
@@ -206,18 +206,18 @@ public class LanguageLearningDashboardQueryService {
                 .count();
         return new DashboardResponseDto.ActivityPerformanceView(
                 performance(
-                        legacy.weeklyAverageScore(),
-                        legacy.todayCompleted(),
-                        legacy.todayTotal(),
+                        base.weeklyAverageScore(),
+                        base.todayCompleted(),
+                        base.todayTotal(),
                         "ITEM",
                         writing,
                         writing.metrics().size(),
                         5
                 ),
                 performance(
-                        legacy.speakingSummary().overallAverage(),
-                        legacy.speakingToday().completedMinutes(),
-                        legacy.speakingToday().goalMinutes(),
+                        base.speakingSummary().overallAverage(),
+                        base.speakingToday().completedMinutes(),
+                        base.speakingToday().goalMinutes(),
                         "MINUTE",
                         speaking,
                         speaking.metrics().size(),

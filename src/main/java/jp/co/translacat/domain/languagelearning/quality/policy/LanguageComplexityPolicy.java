@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class LanguageComplexityPolicy {
 
-    public static final String VERSION = "language-complexity-v1";
+    public static final String VERSION = "language-complexity";
 
     public int baseBand(Double score) {
         if (score == null) {

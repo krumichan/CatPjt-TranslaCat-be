@@ -19,9 +19,9 @@ public class ListeningPolicySetting extends BaseAuditable {
 
     public static final String DEFAULT_ID = "DEFAULT";
     public static final String PROFILE_POLICY_VERSION =
-            "listening-profile-v1";
+            "listening-profile";
     public static final String MODEL_CONFIG_VERSION =
-            "listening-model-config-v1";
+            "listening-model-config";
 
     @Id
     @Column(length = 30)

@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ListeningIndependencePolicy {
 
-    public static final String VERSION = "listening-independence-v1";
+    public static final String VERSION = "listening-independence";
 
     public int score(
             long normalPlaybackCount,

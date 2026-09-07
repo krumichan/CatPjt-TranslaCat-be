@@ -2,7 +2,6 @@ package jp.co.translacat.domain.languagelearning.level.repository;
 
 import jakarta.persistence.LockModeType;
 
-import jp.co.translacat.domain.languagelearning.common.enums.LevelTestAssessmentVersion;
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionStatus;
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionType;
 import jp.co.translacat.domain.languagelearning.level.entity.LevelTestSession;
@@ -22,11 +21,6 @@ public interface LevelTestSessionRepository
             LevelTestSessionStatus status
     );
 
-    Optional<LevelTestSession> findTopByUserIdAndAssessmentVersionAndStatusOrderByStartedAtDesc(
-            Long userId,
-            LevelTestAssessmentVersion assessmentVersion,
-            LevelTestSessionStatus status
-    );
 
     Optional<LevelTestSession> findTopByUserIdAndSessionTypeAndStatusOrderByCompletedAtDesc(
             Long userId,

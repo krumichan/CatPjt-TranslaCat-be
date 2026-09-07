@@ -30,7 +30,7 @@ class ListeningEvaluationResponseValidatorTest {
         assertThat(validator.validate(
                 response,
                 "request-1",
-                "listening-profile-v1",
+                "listening-profile",
                 11L,
                 22L,
                 ListeningTaskType.DICTATION
@@ -38,7 +38,7 @@ class ListeningEvaluationResponseValidatorTest {
     }
 
     @Test
-    void rejectsLegacySingleTaskPayload() {
+    void rejectsSingleTaskPayload() {
         var response = response(List.of(
                 notEvaluable(ListeningTaskType.DICTATION)
         ));
@@ -46,7 +46,7 @@ class ListeningEvaluationResponseValidatorTest {
         assertThatThrownBy(() -> validator.validate(
                 response,
                 "request-1",
-                "listening-profile-v1",
+                "listening-profile",
                 11L,
                 22L,
                 ListeningTaskType.DICTATION
@@ -90,7 +90,7 @@ class ListeningEvaluationResponseValidatorTest {
         assertThatThrownBy(() -> validator.validate(
                 response,
                 "request-1",
-                "listening-profile-v1",
+                "listening-profile",
                 11L,
                 22L,
                 ListeningTaskType.DICTATION
@@ -104,9 +104,9 @@ class ListeningEvaluationResponseValidatorTest {
                 "request-1",
                 11L,
                 22L,
-                "listening-evaluation-v1",
-                "listening-scoring-v1",
-                "listening-profile-v1",
+                "listening-evaluation",
+                "listening-scoring-half-up",
+                "listening-profile",
                 tasks,
                 new AiListeningContract.Overall(null, 0, 3),
                 Map.of()

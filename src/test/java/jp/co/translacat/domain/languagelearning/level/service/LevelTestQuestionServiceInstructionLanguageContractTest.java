@@ -115,8 +115,8 @@ class LevelTestQuestionServiceInstructionLanguageContractTest {
                 ),
                 null,
                 null,
-                "level-test-generation-v2",
-                "level-test-multiskill-prompt-v9",
+                "level-test-generation",
+                "level-test-multiskill-prompt",
                 null,
                 null,
                 null

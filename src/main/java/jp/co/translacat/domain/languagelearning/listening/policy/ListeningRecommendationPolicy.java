@@ -9,7 +9,7 @@ import java.util.Map;
 @Component
 public class ListeningRecommendationPolicy {
 
-    public static final String VERSION = "listening-recommendation-v1";
+    public static final String VERSION = "listening-recommendation";
 
     private static final Map<ListeningProfileMetric, Target> RULES = Map.of(
             ListeningProfileMetric.LISTENING_RECOGNITION,

@@ -66,7 +66,7 @@ public class LevelTestReferenceAudioService {
                         new AiListeningContract.Voice(
                                 item.getSession().getLearningLanguage(),
                                 DEFAULT_VOICE,
-                                "v1",
+                                "current",
                                 "STANDARD"
                         ),
                         "NORMAL",

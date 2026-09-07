@@ -235,53 +235,6 @@ class LevelTestQuestionContentPolicyTest {
     }
 
     @Test
-    void previousV6ListeningPoolPromptIsQuarantinedAfterScriptLeakGuardUpgrade() {
-        LevelTestQuestionPool pool = mock(LevelTestQuestionPool.class);
-        when(pool.getItemType()).thenReturn(LevelTestItemType.LISTENING_GIST_CHOICE);
-        when(pool.getPromptVersion()).thenReturn("level-test-multiskill-prompt-v6");
-
-        LevelTestQuestionContentPolicy.Health health = policy.inspect(pool);
-
-        assertThat(health.valid()).isFalse();
-        assertThat(health.reason()).isEqualTo("LISTENING_PROMPT_VERSION_STALE");
-    }
-
-    @Test
-    void staleVocabContextPoolPromptIsQuarantinedBeforeJsonParsing() {
-        LevelTestQuestionPool pool = mock(LevelTestQuestionPool.class);
-        when(pool.getItemType()).thenReturn(LevelTestItemType.VOCAB_CONTEXT_CHOICE);
-        when(pool.getPromptVersion()).thenReturn("level-test-multiskill-prompt-v4");
-
-        LevelTestQuestionContentPolicy.Health health = policy.inspect(pool);
-
-        assertThat(health.valid()).isFalse();
-        assertThat(health.reason()).isEqualTo("VOCAB_CONTEXT_PROMPT_VERSION_STALE");
-    }
-
-    @Test
-    void previousV5VocabContextPoolPromptIsQuarantinedAfterSemanticVerifierUpgrade() {
-        LevelTestQuestionPool pool = mock(LevelTestQuestionPool.class);
-        when(pool.getItemType()).thenReturn(LevelTestItemType.VOCAB_CONTEXT_CHOICE);
-        when(pool.getPromptVersion()).thenReturn("level-test-multiskill-prompt-v5");
-
-        LevelTestQuestionContentPolicy.Health health = policy.inspect(pool);
-
-        assertThat(health.valid()).isFalse();
-        assertThat(health.reason()).isEqualTo("VOCAB_CONTEXT_PROMPT_VERSION_STALE");
-    }
-
-    @Test
-    void staleVocabContextSessionItemIsRejectedBeforeJsonParsing() {
-        LevelTestItem item = mock(LevelTestItem.class);
-        when(item.getItemType()).thenReturn(LevelTestItemType.VOCAB_CONTEXT_CHOICE);
-        when(item.getPromptVersion()).thenReturn("level-test-multiskill-prompt-v4");
-
-        LevelTestQuestionContentPolicy.Health health = policy.inspect(item);
-
-        assertThat(health.valid()).isFalse();
-        assertThat(health.reason()).isEqualTo("VOCAB_CONTEXT_PROMPT_VERSION_STALE");
-    }
-    @Test
     void vocabParaphraseUsesStructuredEmphasisWithoutRawUnderlineMarkup() {
         String prompt = "予定を見合わせることになりました。";
         var response = question(
@@ -309,7 +262,7 @@ class LevelTestQuestionContentPolicyTest {
     }
 
     @Test
-    void vocabParaphraseRejectsLegacyUnderlineMarkupEvenWithEmphasisMetadata() {
+    void vocabParaphraseRejectsRawUnderlineMarkupEvenWithEmphasisMetadata() {
         var response = question(
                 LevelTestDomain.VOCABULARY,
                 LevelTestItemType.VOCAB_PARAPHRASE_CHOICE,
@@ -363,18 +316,6 @@ class LevelTestQuestionContentPolicyTest {
                 .isEqualTo("LEARNER_TEXT_LANGUAGE_MISMATCH");
     }
 
-    @Test
-    void v8PoolQuestionIsQuarantinedByContentIntegrityV9Contract() {
-        LevelTestQuestionPool pool = mock(LevelTestQuestionPool.class);
-        when(pool.getItemType()).thenReturn(LevelTestItemType.READING_GIST);
-        when(pool.getPromptVersion()).thenReturn("level-test-multiskill-prompt-v8");
-
-        LevelTestQuestionContentPolicy.Health health = policy.inspect(pool);
-
-        assertThat(health.valid()).isFalse();
-        assertThat(health.reason()).isEqualTo("CONTENT_INTEGRITY_PROMPT_VERSION_STALE");
-    }
-
     private AiLevelTestQuestionResponseDto question(
             LevelTestDomain domain,
             LevelTestItemType itemType,
@@ -404,8 +345,8 @@ class LevelTestQuestionContentPolicyTest {
                 null,
                 answerMode == LevelTestAnswerMode.TEXT ? 500 : null,
                 answerMode == LevelTestAnswerMode.AUDIO ? 30 : null,
-                "level-test-generation-v2",
-                "level-test-multiskill-prompt-v9",
+                "level-test-generation",
+                "level-test-multiskill-prompt",
                 null,
                 null,
                 (domain == LevelTestDomain.LISTENING

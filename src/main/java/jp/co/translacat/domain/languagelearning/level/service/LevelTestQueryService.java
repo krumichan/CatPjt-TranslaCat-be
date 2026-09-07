@@ -1,6 +1,5 @@
 package jp.co.translacat.domain.languagelearning.level.service;
 
-import jp.co.translacat.domain.languagelearning.common.enums.LevelTestAssessmentVersion;
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionStatus;
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionType;
 import jp.co.translacat.domain.languagelearning.level.dto.response.LevelStatusResponseDto;
@@ -52,15 +51,13 @@ public class LevelTestQueryService {
     @Transactional(readOnly = true)
     public Optional<LevelTestSession> getActiveSession(Long userId) {
         return sessionRepository
-                .findTopByUserIdAndAssessmentVersionAndStatusOrderByStartedAtDesc(
+                .findTopByUserIdAndStatusOrderByStartedAtDesc(
                         userId,
-                        LevelTestAssessmentVersion.MULTI_SKILL,
                         LevelTestSessionStatus.IN_PROGRESS
                 )
                 .or(() -> sessionRepository
-                        .findTopByUserIdAndAssessmentVersionAndStatusOrderByStartedAtDesc(
+                        .findTopByUserIdAndStatusOrderByStartedAtDesc(
                                 userId,
-                                LevelTestAssessmentVersion.MULTI_SKILL,
                                 LevelTestSessionStatus.EVALUATING
                         ));
     }

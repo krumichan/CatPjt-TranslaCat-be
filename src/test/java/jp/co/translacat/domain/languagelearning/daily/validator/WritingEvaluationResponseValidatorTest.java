@@ -19,8 +19,8 @@ class WritingEvaluationResponseValidatorTest {
     void acceptsTwoRecommendedAnswersAndPolicyVersions() {
         AiWritingEvaluationResponseDto response = response(
                 List.of("answer-1", "answer-2"),
-                "rubric-v1",
-                "scoring-v1"
+                "writing-evaluation-rubric",
+                "writing-scoring-policy"
         );
 
         assertThatCode(() -> validator.validate(response))
@@ -31,8 +31,8 @@ class WritingEvaluationResponseValidatorTest {
     void rejectsSingleRecommendedAnswer() {
         AiWritingEvaluationResponseDto response = response(
                 List.of("answer-1"),
-                "rubric-v1",
-                "scoring-v1"
+                "writing-evaluation-rubric",
+                "writing-scoring-policy"
         );
 
         assertThatThrownBy(() -> validator.validate(response))
@@ -44,7 +44,7 @@ class WritingEvaluationResponseValidatorTest {
         AiWritingEvaluationResponseDto response = response(
                 List.of("answer-1", "answer-2"),
                 null,
-                "scoring-v1"
+                "writing-scoring-policy"
         );
 
         assertThatThrownBy(() -> validator.validate(response))
@@ -74,7 +74,7 @@ class WritingEvaluationResponseValidatorTest {
                 null,
                 rubricVersion,
                 scoringPolicyVersion,
-                "prompt-v1"
+                "current-prompt"
         );
     }
 }

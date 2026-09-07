@@ -52,13 +52,11 @@ public class LevelTestResultQueryService {
             Long sessionId
     ) {
         LevelTestSession session = getCompletedSession(userId, sessionId);
-        Map<LevelTestDomain, Integer> scores = session.isMultiSkill()
-                ? progressCommandService.calculateDomainScores(sessionId)
-                : null;
+        Map<LevelTestDomain, Integer> scores =
+                progressCommandService.calculateDomainScores(sessionId);
 
         return new LevelTestResultResponseDto(
                 session.getId(),
-                session.effectiveAssessmentVersion(),
                 session.getSessionType(),
                 session.getBaseLevelScore() == null
                         ? null
@@ -92,13 +90,11 @@ public class LevelTestResultQueryService {
         LevelTestSession session = getCompletedSession(userId, sessionId);
         return new LevelTestHistoryDetailResponseDto(
                 toHistoryItem(session),
-                session.isMultiSkill()
-                        ? itemRepository
-                                .findAllBySessionIdOrderByQuestionNumberAsc(sessionId)
-                                .stream()
-                                .map(this::toItemDetail)
-                                .toList()
-                        : List.of()
+                itemRepository
+                        .findAllBySessionIdOrderByQuestionNumberAsc(sessionId)
+                        .stream()
+                        .map(this::toItemDetail)
+                        .toList()
         );
     }
 
@@ -112,12 +108,10 @@ public class LevelTestResultQueryService {
     private LevelTestHistoryItemResponseDto toHistoryItem(
             LevelTestSession session
     ) {
-        Map<LevelTestDomain, Integer> scores = session.isMultiSkill()
-                ? progressCommandService.calculateDomainScores(session.getId())
-                : null;
+        Map<LevelTestDomain, Integer> scores =
+                progressCommandService.calculateDomainScores(session.getId());
         return new LevelTestHistoryItemResponseDto(
                 session.getId(),
-                session.effectiveAssessmentVersion(),
                 session.getSessionType(),
                 session.getBaseLevelScore() == null
                         ? null

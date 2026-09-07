@@ -163,7 +163,7 @@ public class SpeakingEvaluationProcessor {
                         null,
                         null,
                         SpeakingEvaluationRequestFactory.EVALUATION_POLICY_VERSION,
-                        "speaking-scoring-policy-v1",
+                        "speaking-scoring-policy",
                         "not-called",
                         "INSUFFICIENT_EVIDENCE",
                         "[]",
@@ -189,7 +189,7 @@ public class SpeakingEvaluationProcessor {
                             null,
                             null,
                             SpeakingEvaluationRequestFactory.EVALUATION_POLICY_VERSION,
-                            "speaking-scoring-policy-v1",
+                            "speaking-scoring-policy",
                             "unknown",
                             "INSUFFICIENT_EVIDENCE",
                             "[]", "[]", "[]", "[]", "[]", "{}", "{}"
@@ -205,7 +205,7 @@ public class SpeakingEvaluationProcessor {
                                 ? SpeakingEvaluationRequestFactory.EVALUATION_POLICY_VERSION
                                 : response.evaluationVersion(),
                         response.scoringPolicyVersion() == null
-                                ? "speaking-scoring-policy-v1"
+                                ? "speaking-scoring-policy"
                                 : response.scoringPolicyVersion(),
                         response.promptVersion() == null
                                 ? "unknown"

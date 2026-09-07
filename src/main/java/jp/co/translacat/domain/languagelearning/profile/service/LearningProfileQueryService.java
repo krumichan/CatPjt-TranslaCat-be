@@ -9,6 +9,7 @@ import jp.co.translacat.domain.languagelearning.profile.dto.response.ProfileResp
 import jp.co.translacat.domain.languagelearning.profile.dto.response.SkillScoresResponseDto;
 import jp.co.translacat.domain.languagelearning.profile.entity.LearningProfile;
 import jp.co.translacat.domain.languagelearning.profile.repository.LearningProfileRepository;
+import jp.co.translacat.domain.languagelearning.practice.service.VocabularyMasteryQueryService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.repository.UserRepository;
@@ -32,6 +33,7 @@ public class LearningProfileQueryService {
     private final KeywordMasteryRepository masteryRepository;
     private final LearningProfileSignalService signalService;
     private final UserRepository userRepository;
+    private final VocabularyMasteryQueryService vocabularyMasteryQueryService;
 
     @Transactional
     public LearningProfile getOrCreate(Long userId) {
@@ -93,7 +95,8 @@ public class LearningProfileQueryService {
                         userId,
                         ProfileSignalType.RECOMMENDED_FOCUS,
                         PROFILE_SIGNAL_LIMIT
-                )
+                ),
+                vocabularyMasteryQueryService.get(userId)
         );
     }
 
@@ -161,7 +164,10 @@ public class LearningProfileQueryService {
                 List.of(),
                 List.of(),
                 List.of(),
-                List.of()
+                List.of(),
+                new jp.co.translacat.domain.languagelearning.practice.dto.response.VocabularyMasterySummaryResponseDto(
+                        0, 0, 0, 0, 0, 0, 0, List.of()
+                )
         );
     }
 

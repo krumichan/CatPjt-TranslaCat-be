@@ -21,6 +21,10 @@ import jp.co.translacat.domain.languagelearning.listening.response.repository.Li
 import jp.co.translacat.domain.languagelearning.listening.service.ListeningViewMapper;
 import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
 import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
+import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
+import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
+import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
+import jp.co.translacat.domain.languagelearning.practice.service.PracticeQueryService;
 import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
 import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.entity.SpeakingEvaluation;
@@ -61,6 +65,8 @@ public class LearningHistoryQueryService {
     private final LanguageLearningUserSettingQueryService userSettingQueryService;
     private final LevelTestSessionRepository levelTestSessionRepository;
     private final LevelTestResultQueryService levelTestResultQueryService;
+    private final PracticeSetRepository practiceSetRepository;
+    private final PracticeQueryService practiceQueryService;
 
     public List<LearningHistoryItemResponseDto> getHistory(
             Long userId,
@@ -121,6 +127,26 @@ public class LearningHistoryQueryService {
                     .filter(item -> matchesStatus(item, status))
                     .forEach(result::add);
         }
+        if (source == null || source == LearningSource.READING) {
+            practiceSetRepository
+                    .findAllByUserIdAndDomainAndLearningDateBetweenOrderByLearningDateDescIdDesc(
+                            userId, PracticeDomain.READING, from, to
+                    )
+                    .stream()
+                    .map(this::practiceSummary)
+                    .filter(item -> matchesStatus(item, status))
+                    .forEach(result::add);
+        }
+        if (source == null || source == LearningSource.VOCABULARY) {
+            practiceSetRepository
+                    .findAllByUserIdAndDomainAndLearningDateBetweenOrderByLearningDateDescIdDesc(
+                            userId, PracticeDomain.VOCABULARY, from, to
+                    )
+                    .stream()
+                    .map(this::practiceSummary)
+                    .filter(item -> matchesStatus(item, status))
+                    .forEach(result::add);
+        }
         if (source == null || source == LearningSource.LEVEL_TEST) {
             levelTestSessionRepository
                     .findAllByUserIdAndStatusOrderByCompletedAtDesc(
@@ -155,6 +181,7 @@ public class LearningHistoryQueryService {
             case WRITING -> writingDetail(userId, activityId, parsed.id);
             case SPEAKING -> speakingDetail(userId, activityId, parsed.id);
             case LISTENING -> listeningDetail(userId, activityId, parsed.id);
+            case READING, VOCABULARY -> practiceDetail(userId, activityId, parsed.id);
             case LEVEL_TEST -> levelTestDetail(userId, activityId, parsed.id);
             default -> throw notFound();
         };
@@ -229,6 +256,30 @@ public class LearningHistoryQueryService {
                 score,
                 session.getStatus().name(),
                 evaluationStatus
+        );
+    }
+
+
+    private LearningHistoryItemResponseDto practiceSummary(PracticeSet set) {
+        LearningSource source = set.getDomain() == PracticeDomain.READING
+                ? LearningSource.READING
+                : LearningSource.VOCABULARY;
+        long duration = set.getCompletedAt() == null
+                ? 0
+                : Math.max(0, java.time.Duration.between(
+                        set.getStartedAt(), set.getCompletedAt()
+                ).toSeconds());
+        String prefix = source == LearningSource.READING ? "Reading" : "Vocabulary";
+        return new LearningHistoryItemResponseDto(
+                source.name() + ":" + set.getId(),
+                source,
+                set.getLearningDate(),
+                prefix + " · " + set.getMode(),
+                set.getMode(),
+                duration,
+                set.getOfficialScore(),
+                set.getStatus().name(),
+                set.getStatus().name()
         );
     }
 
@@ -321,6 +372,19 @@ public class LearningHistoryQueryService {
                 activityId,
                 LearningSource.LISTENING,
                 listeningViewMapper.history(session)
+        );
+    }
+
+
+    private LearningHistoryDetailResponseDto practiceDetail(
+            Long userId,
+            String activityId,
+            Long id
+    ) {
+        return new LearningHistoryDetailResponseDto(
+                activityId,
+                parseActivityId(activityId).source(),
+                practiceQueryService.get(userId, id)
         );
     }
 

@@ -20,6 +20,12 @@ import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningCont
 import jp.co.translacat.domain.languagelearning.listening.evaluation.entity.ListeningTaskEvaluation;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.repository.ListeningTaskEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.profile.policy.LearningProfileAggregationWeightPolicy;
+import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
+import jp.co.translacat.domain.languagelearning.common.enums.PracticeSetStatus;
+import jp.co.translacat.domain.languagelearning.practice.entity.PracticeMetricScore;
+import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
+import jp.co.translacat.domain.languagelearning.practice.repository.PracticeMetricScoreRepository;
+import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
 import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
 
 import lombok.RequiredArgsConstructor;
@@ -47,6 +53,8 @@ public class SourceSkillTrendQueryService {
     private final ListeningTaskEvaluationRepository listeningEvaluationRepository;
     private final LanguageLearningUserSettingQueryService userSettingQueryService;
     private final LanguageLearningJsonCodec jsonCodec;
+    private final PracticeSetRepository practiceSetRepository;
+    private final PracticeMetricScoreRepository practiceMetricScoreRepository;
 
     public SourceSkillTrendResponseDto get(
             Long userId,
@@ -120,6 +128,22 @@ public class SourceSkillTrendQueryService {
                 }
                 addListening(scores, listening);
             }
+        }
+
+        if (source == null || source == LearningSource.READING) {
+            List<PracticeSet> reading = completedPracticeSets(
+                    userId, PracticeDomain.READING, from, to
+            );
+            samples += reading.size();
+            addPractice(scores, reading);
+        }
+
+        if (source == LearningSource.VOCABULARY) {
+            List<PracticeSet> vocabulary = completedPracticeSets(
+                    userId, PracticeDomain.VOCABULARY, from, to
+            );
+            samples += vocabulary.size();
+            addPractice(scores, vocabulary);
         }
 
         return new SourceSkillTrendResponseDto(
@@ -231,6 +255,42 @@ public class SourceSkillTrendQueryService {
                         evaluation.getEvaluatedAt().toLocalDate(),
                         metric.score(),
                         weight
+                );
+            }
+        }
+    }
+
+
+    private List<PracticeSet> completedPracticeSets(
+            Long userId,
+            PracticeDomain domain,
+            LocalDate from,
+            LocalDate to
+    ) {
+        return practiceSetRepository
+                .findAllByUserIdAndDomainAndLearningDateBetweenOrderByLearningDateDescIdDesc(
+                        userId, domain, from, to
+                )
+                .stream()
+                .filter(value -> value.getStatus() == PracticeSetStatus.COMPLETED)
+                .toList();
+    }
+
+    private void addPractice(
+            Map<String, Map<LocalDate, List<WeightedScore>>> target,
+            List<PracticeSet> sets
+    ) {
+        for (int index = 0; index < sets.size(); index++) {
+            PracticeSet set = sets.get(index);
+            double recency = weightPolicy.recencyWeight(index, sets.size());
+            for (PracticeMetricScore metric : practiceMetricScoreRepository
+                    .findAllByPracticeSetIdOrderBySkillTagAsc(set.getId())) {
+                add(
+                        target,
+                        metric.getSkillTag(),
+                        set.getLearningDate(),
+                        metric.getScore(),
+                        recency * Math.max(1, metric.getSampleCount())
                 );
             }
         }

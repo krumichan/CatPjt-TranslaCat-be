@@ -5,10 +5,12 @@ import jp.co.translacat.domain.languagelearning.ai.dto.request.AiLevelTestQuesti
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiLevelTestSpeakingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiLevelTestTextEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiWritingEvaluationRequestDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiDailyWritingGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiLevelTestEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiLevelTestQuestionResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiWritingEvaluationResponseDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.port.LanguageLearningAiClient;
 import jp.co.translacat.infrastructure.client.ai.server.AiServerClient;
 
@@ -22,6 +24,13 @@ public class AiServerLanguageLearningClient
         implements LanguageLearningAiClient {
 
     private final AiServerClient aiServerClient;
+
+    @Override
+    public AiPracticeGenerationResponseDto generatePractice(
+            AiPracticeGenerationRequestDto request
+    ) {
+        return aiServerClient.callLanguageLearningPracticeGeneration(request);
+    }
 
     @Override
     public AiDailyWritingGenerationResponseDto generateDaily(

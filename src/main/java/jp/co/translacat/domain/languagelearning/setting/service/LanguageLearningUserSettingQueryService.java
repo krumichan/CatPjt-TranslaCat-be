@@ -76,6 +76,13 @@ public class LanguageLearningUserSettingQueryService {
         return LocalDate.now(resolveZoneId(setting.getTimezone()));
     }
 
+    @Transactional(readOnly = true)
+    public LocalDate resolveToday(Long userId) {
+        return repository.findByUserId(userId)
+                .map(this::resolveToday)
+                .orElseGet(() -> LocalDate.now(ZoneId.of(DEFAULT_TIMEZONE)));
+    }
+
     public void requireConfigured(LanguageLearningUserSetting setting) {
         if (setting.getOriginLanguage() == null
                 || setting.getLearningLanguage() == null) {

@@ -5,12 +5,18 @@ import jp.co.translacat.domain.languagelearning.ai.dto.request.AiLevelTestQuesti
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiLevelTestSpeakingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiLevelTestTextEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiWritingEvaluationRequestDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiDailyWritingGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiLevelTestEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiLevelTestQuestionResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiWritingEvaluationResponseDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
 
 public interface LanguageLearningAiClient {
+
+    AiPracticeGenerationResponseDto generatePractice(
+            AiPracticeGenerationRequestDto request
+    );
 
     AiDailyWritingGenerationResponseDto generateDaily(
             AiDailyWritingGenerationRequestDto request

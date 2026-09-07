@@ -5,5 +5,6 @@ public enum ProfileSignalType {
     ERROR_PATTERN,
     STRENGTH,
     WEAKNESS,
-    RECOMMENDED_FOCUS
+    RECOMMENDED_FOCUS,
+    VOCABULARY_CANDIDATE
 }

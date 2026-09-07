@@ -10,10 +10,12 @@ import jp.co.translacat.domain.languagelearning.ai.dto.request.AiLevelTestQuesti
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiLevelTestSpeakingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiLevelTestTextEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiWritingEvaluationRequestDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiDailyWritingGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiLevelTestEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiLevelTestQuestionResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiWritingEvaluationResponseDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.level.pool.support.LevelTestPoolGenerationRejectedException;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingAssistanceRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
@@ -193,6 +195,26 @@ public class AiServerClient {
             throw new AiServerCommunicationException(
                     "AI Server Chat Reply Error",
                     e
+            );
+        }
+    }
+
+    public AiPracticeGenerationResponseDto callLanguageLearningPracticeGeneration(
+            AiPracticeGenerationRequestDto request
+    ) {
+        String url = aiServerUrl + "/api/v1/language-learning/practice/generate";
+        try {
+            return this.apiClient.postOnce(
+                    url, request, this.basicHeader(), AiPracticeGenerationResponseDto.class
+            );
+        } catch (Exception e) {
+            log.error(
+                    "AI Server Reading/Vocabulary generation failed. requestId={}, cause={}",
+                    request == null ? null : request.requestId(),
+                    e.getMessage()
+            );
+            throw new AiServerCommunicationException(
+                    "AI Server Reading/Vocabulary Generation Error", e
             );
         }
     }

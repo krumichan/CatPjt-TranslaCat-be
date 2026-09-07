@@ -10,6 +10,9 @@ import jp.co.translacat.domain.languagelearning.listening.common.enums.Listening
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
 import jp.co.translacat.domain.languagelearning.listening.dashboard.facade.ListeningDashboardFacade;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
+import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
+import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAttemptRepository;
+import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
 import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
@@ -40,6 +43,8 @@ public class LanguageLearningDashboardQueryService {
     private final DashboardProjectionPolicy projectionPolicy;
     private final ListeningDashboardFacade listeningDashboardFacade;
     private final ListeningDailySetRepository listeningDailySetRepository;
+    private final PracticeSetRepository practiceSetRepository;
+    private final PracticeAttemptRepository practiceAttemptRepository;
 
     public DashboardResponseDto get(
             Long userId,
@@ -183,6 +188,19 @@ public class LanguageLearningDashboardQueryService {
                 .mapToInt(value -> value.getTargetItemCount())
                 .sum();
 
+        var todayReadingSets = practiceSetRepository
+                .findAllByUserIdAndLearningDate(userId, today)
+                .stream()
+                .filter(value -> value.getDomain() == PracticeDomain.READING)
+                .toList();
+        double todayReadingCompleted = todayReadingSets.stream()
+                .mapToLong(value -> practiceAttemptRepository
+                        .countByQuestionPracticeSetIdAndAttemptNo(value.getId(), 1))
+                .sum();
+        double todayReadingTarget = todayReadingSets.stream()
+                .mapToInt(value -> value.getQuestionCount())
+                .sum();
+
         int listeningMeasured = (int) listening.metrics().stream()
                 .filter(value -> value.score() != null)
                 .count();
@@ -216,8 +234,8 @@ public class LanguageLearningDashboardQueryService {
                 ),
                 performance(
                         latestAverage(reading),
-                        0,
-                        0,
+                        todayReadingCompleted,
+                        todayReadingTarget,
                         "ITEM",
                         reading,
                         reading.metrics().size(),

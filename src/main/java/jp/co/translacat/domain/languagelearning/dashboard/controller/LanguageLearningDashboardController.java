@@ -42,7 +42,7 @@ public class LanguageLearningDashboardController {
             @Parameter(description = "조회 종료일. 기본값은 사용자 Timezone의 오늘")
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @Parameter(description = "ALL, WRITING, SPEAKING, LISTENING, READING")
+            @Parameter(description = "ALL, WRITING, SPEAKING, LISTENING, READING, VOCABULARY")
             @RequestParam(defaultValue = "ALL") String source,
             @Parameter(description = "Listening Trend를 Task 단위로 제한할 때 사용")
             @RequestParam(required = false) ListeningTaskType taskType

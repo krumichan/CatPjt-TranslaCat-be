@@ -1,6 +1,5 @@
 package jp.co.translacat.domain.languagelearning.speaking.turn.repository;
 
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingTurnStatus;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 
 import jakarta.persistence.LockModeType;
@@ -53,10 +52,6 @@ public interface SpeakingTurnRepository
 
     List<SpeakingTurn> findAllBySessionIdOrderByTurnIndexAsc(Long sessionId);
 
-    long countBySessionIdAndStatusIn(
-            Long sessionId,
-            List<SpeakingTurnStatus> statuses
-    );
 
     List<SpeakingTurn> findAllByUserAudioRetentionUntilBeforeAndUserAudioObjectKeyIsNotNull(
             LocalDateTime before

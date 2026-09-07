@@ -1,6 +1,5 @@
 package jp.co.translacat.domain.languagelearning.keyword.repository;
 
-import jp.co.translacat.domain.languagelearning.common.enums.KeywordType;
 import jp.co.translacat.domain.languagelearning.keyword.entity.CustomKeyword;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,18 +15,6 @@ public interface CustomKeywordRepository extends JpaRepository<CustomKeyword, Lo
 
     Optional<CustomKeyword> findByIdAndUserId(Long id, Long userId);
 
-    boolean existsByUserIdAndNormalizedTextAndType(
-            Long userId,
-            String normalizedText,
-            KeywordType type
-    );
-
-    boolean existsByUserIdAndNormalizedTextAndTypeAndIdNot(
-            Long userId,
-            String normalizedText,
-            KeywordType type,
-            Long id
-    );
 
     boolean existsByParentSystemKeywordId(Long parentSystemKeywordId);
 

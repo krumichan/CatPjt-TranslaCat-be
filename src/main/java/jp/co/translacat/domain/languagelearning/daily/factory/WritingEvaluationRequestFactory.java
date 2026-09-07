@@ -11,7 +11,6 @@ import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingItem;
 import jp.co.translacat.domain.languagelearning.daily.entity.WritingAnswer;
 import jp.co.translacat.domain.languagelearning.daily.model.DailyWritingSnapshot;
 import jp.co.translacat.domain.languagelearning.daily.model.WritingEvaluationRequestContext;
-import jp.co.translacat.domain.languagelearning.level.entity.LevelTestItem;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileAiContextService;
 import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
 
@@ -69,31 +68,6 @@ public class WritingEvaluationRequestFactory {
         );
     }
 
-    public AiWritingEvaluationRequestDto createLevel(
-            Long userId,
-            LevelTestItem item,
-            LanguageLearningUserSetting setting
-    ) {
-        return new AiWritingEvaluationRequestDto(
-                "level-eval-"
-                        + item.getSession().getId()
-                        + "-"
-                        + item.getQuestionNumber(),
-                WritingEvaluationContext.LEVEL_TEST,
-                setting.getOriginLanguage(),
-                setting.getLearningLanguage(),
-                item.getOriginText(),
-                item.getAnswerText(),
-                item.getDifficulty().name(),
-                List.of(),
-                jsonCodec.read(
-                        item.getFocusMetricsJson(),
-                        new TypeReference<>() {
-                        }
-                ),
-                profileAiContextService.buildSummary(userId)
-        );
-    }
 
     private List<String> readGuidance(String json) {
         if (json == null || json.isBlank()) {

@@ -27,7 +27,6 @@ public interface LevelTestItemRepository
             Long userId
     );
 
-    long countBySessionId(Long sessionId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<LevelTestItem> findLockedById(Long itemId);

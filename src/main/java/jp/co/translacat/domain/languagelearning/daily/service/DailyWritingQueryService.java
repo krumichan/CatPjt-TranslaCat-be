@@ -32,19 +32,6 @@ public class DailyWritingQueryService {
     private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
     private final DailyWritingResponseQueryService responseQueryService;
 
-    public DailyWritingSet findByDateOrNull(
-            Long userId,
-            LocalDate learningDate,
-            DailyWritingType writingType
-    ) {
-        return dailySetRepository
-                .findByUserIdAndLearningDateAndWritingType(
-                        userId,
-                        learningDate,
-                        writingType
-                )
-                .orElse(null);
-    }
 
     public DailyWritingSet getOwnedSet(
             Long userId,

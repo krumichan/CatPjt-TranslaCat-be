@@ -27,8 +27,4 @@ public interface ChatRoomAiMemberRepository extends JpaRepository<ChatRoomAiMemb
 
     long countByChatRoomIdAndActiveTrueAndDeletedAtIsNull(Long chatRoomId);
 
-    boolean existsByChatRoomIdAndAiAgentIdAndActiveTrueAndDeletedAtIsNull(
-            Long chatRoomId,
-            Long aiAgentId
-    );
 }

@@ -13,9 +13,6 @@ public interface PracticeSetRepository extends JpaRepository<PracticeSet, Long> 
             Long userId, LocalDate learningDate, PracticeDomain domain, String mode
     );
     Optional<PracticeSet> findByIdAndUserId(Long id, Long userId);
-    List<PracticeSet> findAllByUserIdAndLearningDateBetweenOrderByLearningDateDescIdDesc(
-            Long userId, LocalDate from, LocalDate to
-    );
     List<PracticeSet> findTop5ByUserIdAndDomainAndModeAndStatusOrderByLearningDateDescIdDesc(
             Long userId, PracticeDomain domain, String mode,
             jp.co.translacat.domain.languagelearning.common.enums.PracticeSetStatus status

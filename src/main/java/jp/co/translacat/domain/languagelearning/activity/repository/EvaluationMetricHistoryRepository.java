@@ -9,11 +9,6 @@ import java.util.List;
 public interface EvaluationMetricHistoryRepository
         extends JpaRepository<EvaluationMetricHistory, Long> {
 
-    List<EvaluationMetricHistory> findAllByActivityIdOrderByMetricTypeAsc(
-            Long activityId
-    );
-
-    void deleteAllByActivityId(Long activityId);
 
     List<EvaluationMetricHistory> findAllByActivityUserIdAndActivityLearningDateBetween(
             Long userId,

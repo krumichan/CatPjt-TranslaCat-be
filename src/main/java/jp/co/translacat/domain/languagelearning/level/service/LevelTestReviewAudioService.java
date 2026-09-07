@@ -48,10 +48,6 @@ public class LevelTestReviewAudioService {
     private final LevelTestQuestionPersistenceService persistenceService;
     private final LanguageLearningJsonCodec jsonCodec;
 
-    public ListeningAudioObject loadReferenceAudio(Long userId, Long itemId) {
-        LevelTestItem item = completedOwnedItem(userId, itemId);
-        return referenceAudioService.load(item);
-    }
 
     public ListeningAudioObject loadAnswerAudio(Long userId, Long itemId) {
         LevelTestItem item = completedOwnedItem(userId, itemId);

@@ -48,10 +48,6 @@ public interface SpeakingSessionRepository
             SpeakingPracticeMode practiceMode
     );
 
-    long countByUserIdAndLearningDate(
-            Long userId,
-            LocalDate learningDate
-    );
 
     List<SpeakingSession> findAllByUserIdAndLearningDateBetweenOrderByLearningDateDescStartedAtDesc(
             Long userId,
@@ -63,10 +59,6 @@ public interface SpeakingSessionRepository
             SpeakingSessionStatus status
     );
 
-    List<SpeakingSession> findAllByStatusAndLastActivityAtBefore(
-            SpeakingSessionStatus status,
-            LocalDateTime before
-    );
 
     List<SpeakingSession> findAllByOpeningAssistantAudioRetentionUntilBeforeAndOpeningAssistantAudioObjectKeyIsNotNull(
             LocalDateTime before

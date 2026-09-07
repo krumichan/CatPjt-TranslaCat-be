@@ -1,6 +1,5 @@
 package jp.co.translacat.domain.chat.translation.repository;
 
-import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.translation.entity.ChatMessageTranslation;
 import jp.co.translacat.domain.chat.translation.enums.ChatMessageTranslationStatus;
 import org.springframework.data.domain.Pageable;
@@ -14,31 +13,17 @@ public interface ChatMessageTranslationRepository extends JpaRepository<ChatMess
 
     Optional<ChatMessageTranslation> findByIdAndDeletedAtIsNull(Long id);
 
-    Optional<ChatMessageTranslation> findByChatMessageAndLanguageCodeAndDeletedAtIsNull(
-            ChatMessage chatMessage,
-            String languageCode
-    );
 
     Optional<ChatMessageTranslation> findByChatMessageIdAndLanguageCodeAndDeletedAtIsNull(
             Long chatMessageId,
             String languageCode
     );
 
-    List<ChatMessageTranslation> findByChatMessageIdAndDeletedAtIsNull(
-            Long chatMessageId
-    );
 
     List<ChatMessageTranslation> findByChatMessageIdInAndDeletedAtIsNull(
             Collection<Long> chatMessageIds
     );
 
-    List<ChatMessageTranslation> findByStatusAndDeletedAtIsNull(
-            ChatMessageTranslationStatus status
-    );
-
-    List<ChatMessageTranslation> findTop100ByStatusAndDeletedAtIsNullOrderByIdAsc(
-            ChatMessageTranslationStatus status
-    );
 
     List<ChatMessageTranslation> findByStatusAndDeletedAtIsNullOrderByIdAsc(
             ChatMessageTranslationStatus status,
@@ -50,8 +35,4 @@ public interface ChatMessageTranslationRepository extends JpaRepository<ChatMess
             ChatMessageTranslationStatus status
     );
 
-    boolean existsByChatMessageIdAndLanguageCodeAndDeletedAtIsNull(
-            Long chatMessageId,
-            String languageCode
-    );
 }

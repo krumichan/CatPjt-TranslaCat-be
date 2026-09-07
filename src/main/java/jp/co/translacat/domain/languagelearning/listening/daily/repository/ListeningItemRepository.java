@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.Lock;
 import jakarta.persistence.LockModeType;
 
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,17 +19,6 @@ public interface ListeningItemRepository
     List<ListeningItem>
     findAllByDailySetIdOrderByItemIndexAscReplacementSequenceAsc(Long dailySetId);
 
-    List<ListeningItem>
-    findAllByDailySetIdAndStatusInOrderByItemIndexAscReplacementSequenceDesc(
-            Long dailySetId,
-            Collection<ListeningItemStatus> statuses
-    );
-
-    Optional<ListeningItem>
-    findFirstByDailySetIdAndItemIndexOrderByReplacementSequenceDesc(
-            Long dailySetId,
-            int itemIndex
-    );
 
     Optional<ListeningItem> findByIdAndDailySetUserId(
             Long itemId,
@@ -42,11 +30,6 @@ public interface ListeningItemRepository
 
     long countByDailySetId(Long dailySetId);
 
-    boolean existsByDailySetUserIdAndDailySetLearningLanguageAndContentHash(
-            Long userId,
-            String learningLanguage,
-            String contentHash
-    );
 
     List<ListeningItem>
     findTop200ByDailySetUserIdAndDailySetLearningLanguageOrderByCreatedAtDesc(

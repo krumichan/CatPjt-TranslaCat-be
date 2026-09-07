@@ -64,18 +64,6 @@ public class DailyWritingGenerationCommandService {
         return generationExecutor.execute(dailySet, snapshot);
     }
 
-    public DailyWritingSet retryFailedGeneration(Long dailySetId) {
-        DailyWritingSet dailySet = getDailySet(dailySetId);
-
-        if (dailySet.getStatus() != DailySetStatus.FAILED) {
-            return dailySet;
-        }
-
-        return generationExecutor.execute(
-                dailySet,
-                snapshotService.read(dailySet)
-        );
-    }
 
     private DailyWritingSet claimDailySet(
             Long userId,

@@ -162,28 +162,6 @@ public class ChatRoomQueryService {
         );
     }
 
-    public ChatRoom getAccessibleChatRoom(
-            Long loginUserId,
-            Long chatRoomId
-    ) {
-        ChatRoom chatRoom = chatRoomRepository
-                .findByIdAndActiveTrueAndDeletedAtIsNull(chatRoomId)
-                .orElseThrow(() -> new BusinessException(
-                        "채팅방을 찾을 수 없습니다."
-                ));
-
-        boolean accessible = chatRoomMemberRepository
-                .existsByChatRoomIdAndUserIdAndActiveTrueAndDeletedAtIsNull(
-                        chatRoomId,
-                        loginUserId
-                );
-        if (!accessible) {
-            throw new BusinessException(
-                    "채팅방에 접근할 권한이 없습니다."
-            );
-        }
-        return chatRoom;
-    }
 
     private Map<Long, List<ChatRoomMember>> findMembersByRoomId(
             List<Long> chatRoomIds

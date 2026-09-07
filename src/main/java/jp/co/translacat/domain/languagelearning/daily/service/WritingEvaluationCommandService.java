@@ -10,7 +10,6 @@ import jp.co.translacat.domain.languagelearning.daily.model.DailyWritingSnapshot
 import jp.co.translacat.domain.languagelearning.daily.model.WritingEvaluationRequestContext;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.daily.validator.WritingEvaluationResponseValidator;
-import jp.co.translacat.domain.languagelearning.level.entity.LevelTestItem;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileCommandService;
 import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
@@ -77,34 +76,6 @@ public class WritingEvaluationCommandService {
         }
     }
 
-    @Transactional(noRollbackFor = BusinessException.class)
-    public WritingEvaluation evaluateLevel(
-            User user,
-            LevelTestItem item,
-            LanguageLearningUserSetting setting
-    ) {
-        WritingEvaluation evaluation = getOrCreateLevelEvaluation(
-                user,
-                item
-        );
-
-        try {
-            AiWritingEvaluationResponseDto response = aiClient.evaluate(
-                    requestFactory.createLevel(
-                            user.getId(),
-                            item,
-                            setting
-                    )
-            );
-            responseValidator.validate(response);
-            persistSuccess(evaluation, response);
-
-            return evaluation;
-        } catch (Exception e) {
-            persistFailure(evaluation, e);
-            throw evaluationFailure("AI Level Test 평가에 실패했습니다.");
-        }
-    }
 
     private WritingEvaluation getOrCreateDailyEvaluation(
             User user,
@@ -116,15 +87,6 @@ public class WritingEvaluationCommandService {
                 ));
     }
 
-    private WritingEvaluation getOrCreateLevelEvaluation(
-            User user,
-            LevelTestItem item
-    ) {
-        return evaluationRepository.findByLevelTestItemId(item.getId())
-                .orElseGet(() -> evaluationRepository.save(
-                        WritingEvaluation.pendingLevel(user, item)
-                ));
-    }
 
     private void persistSuccess(
             WritingEvaluation evaluation,

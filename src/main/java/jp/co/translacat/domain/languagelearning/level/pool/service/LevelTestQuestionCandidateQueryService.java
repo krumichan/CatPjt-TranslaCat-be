@@ -17,20 +17,6 @@ public class LevelTestQuestionCandidateQueryService {
 
     private final LevelTestQuestionCandidateRepository repository;
 
-    @Transactional(readOnly = true)
-    public Optional<LevelTestQuestionCandidate> findAvailable(
-            Long sessionId,
-            int questionNumber,
-            int complexityBand
-    ) {
-        return repository
-                .findBySessionIdAndQuestionNumberAndComplexityBandAndStatus(
-                        sessionId,
-                        questionNumber,
-                        complexityBand,
-                        LevelTestQuestionCandidateStatus.AVAILABLE
-                );
-    }
 
     @Transactional(readOnly = true)
     public Optional<LevelTestQuestionCandidate> findAny(

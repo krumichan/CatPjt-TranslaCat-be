@@ -25,10 +25,6 @@ public class CurrencyService {
                 .orElseThrow(() -> new IllegalArgumentException("사용할 수 없는 통화입니다."));
     }
 
-    public boolean existsEnabledCurrency(String currencyCode) {
-        String normalizedCode = normalizeCode(currencyCode);
-        return currencyRepository.existsByCodeAndEnabledTrue(normalizedCode);
-    }
 
     public List<CurrencyResponseDto> listEnabledCurrencies() {
         return currencyRepository.findAllByEnabledTrueOrderByCodeAsc()

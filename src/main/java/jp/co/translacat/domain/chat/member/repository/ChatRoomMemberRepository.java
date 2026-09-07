@@ -1,8 +1,6 @@
 package jp.co.translacat.domain.chat.member.repository;
 
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
-import jp.co.translacat.domain.chat.room.entity.ChatRoom;
-import jp.co.translacat.domain.user.entity.User;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -14,10 +12,6 @@ public interface ChatRoomMemberRepository
         extends JpaRepository<ChatRoomMember, Long>,
         ChatRoomMemberRepositoryCustom {
 
-    Optional<ChatRoomMember> findByChatRoomAndUser(
-            ChatRoom chatRoom,
-            User user
-    );
 
     Optional<ChatRoomMember> findByChatRoomIdAndUserId(
             Long chatRoomId,

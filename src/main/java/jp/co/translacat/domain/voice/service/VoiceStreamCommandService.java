@@ -90,13 +90,6 @@ public class VoiceStreamCommandService {
         recomputeSession(session);
     }
 
-    @Transactional
-    public void markResumed(VoiceStreamContext context) {
-        VoiceSession session = requireSession(context);
-        VoiceSessionChannel channel = requireChannel(context);
-        channel.resumed(context.connectionId());
-        recomputeSession(session);
-    }
 
     @Transactional
     public void markError(VoiceStreamContext context) {

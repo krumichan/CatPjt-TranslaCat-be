@@ -5,7 +5,6 @@ import jp.co.translacat.domain.languagelearning.profile.entity.LearningProfileEv
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
 import java.util.Optional;
 
 public interface LearningProfileEvidenceRepository
@@ -18,12 +17,5 @@ public interface LearningProfileEvidenceRepository
             String direction
     );
 
-    List<LearningProfileEvidence> findAllByUserIdOrderByWeightedEvidenceDesc(
-            Long userId
-    );
 
-    List<LearningProfileEvidence> findAllByUserIdAndSourceOrderByWeightedEvidenceDesc(
-            Long userId,
-            LearningSource source
-    );
 }

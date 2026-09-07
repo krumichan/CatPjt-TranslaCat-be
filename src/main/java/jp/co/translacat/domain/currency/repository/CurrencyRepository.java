@@ -12,7 +12,6 @@ public interface CurrencyRepository extends JpaRepository<Currency, Long> {
 
     boolean existsByCode(String code);
 
-    boolean existsByCodeAndEnabledTrue(String code);
 
     List<Currency> findAllByEnabledTrueOrderByCodeAsc();
 

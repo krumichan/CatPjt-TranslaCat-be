@@ -13,7 +13,6 @@ import jp.co.translacat.domain.currency.entity.Currency;
 import jp.co.translacat.domain.currency.service.CurrencyService;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.service.UserService;
-import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,18 +78,6 @@ public class AccountBookService {
         return accountBookRepository.search(userId, searchDto);
     }
 
-    public AccountBookResponseDto findOne(
-            Long userId,
-            Long accountBookId
-    ) {
-        AccountBook accountBook = accountBookAccessService
-                .getAccessibleAccountBook(accountBookId, userId);
-
-        return AccountBookResponseDto.from(
-                accountBook,
-                getMyRole(accountBookId, userId)
-        );
-    }
 
     @Transactional
     public AccountBookResponseDto updateAccountBook(

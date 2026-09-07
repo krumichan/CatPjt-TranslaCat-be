@@ -7,10 +7,4 @@ import java.util.List;
 
 public interface PracticeMetricScoreRepository extends JpaRepository<PracticeMetricScore, Long> {
     List<PracticeMetricScore> findAllByPracticeSetIdOrderBySkillTagAsc(Long practiceSetId);
-    List<PracticeMetricScore> findAllByPracticeSetUserIdAndPracticeSetDomainAndPracticeSetLearningDateBetweenOrderByPracticeSetLearningDateAsc(
-            Long userId,
-            jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain domain,
-            java.time.LocalDate from,
-            java.time.LocalDate to
-    );
 }

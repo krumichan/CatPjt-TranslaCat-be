@@ -3,7 +3,6 @@ package jp.co.translacat.domain.chat.message.repository;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageSenderType;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
-import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -52,12 +51,6 @@ public interface ChatMessageRepository
             ChatMessageStatus status
     );
 
-    List<ChatMessage>
-    findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullAndIdLessThanOrderByIdDesc(
-            Long chatRoomId,
-            ChatMessageStatus status,
-            Long cursorId
-    );
 
     List<ChatMessage>
     findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullAndCreatedAtGreaterThanEqualOrderByIdDesc(
@@ -74,16 +67,6 @@ public interface ChatMessageRepository
             Long cursorId
     );
 
-    List<ChatMessage>
-    findByChatRoomAndStatusAndDeletedAtIsNullOrderByIdAsc(
-            ChatRoom chatRoom,
-            ChatMessageStatus status
-    );
-
-    long countByChatRoomIdAndStatusAndDeletedAtIsNull(
-            Long chatRoomId,
-            ChatMessageStatus status
-    );
 
     @EntityGraph(attributePaths = {
             "chatRoom",

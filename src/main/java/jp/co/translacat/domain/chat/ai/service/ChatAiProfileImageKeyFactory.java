@@ -24,10 +24,4 @@ public class ChatAiProfileImageKeyFactory {
         );
     }
 
-    public boolean belongsToMember(Long aiMemberId, String objectKey) {
-        if (aiMemberId == null || objectKey == null) {
-            return false;
-        }
-        return objectKey.startsWith("chat-ai/%d/".formatted(aiMemberId));
-    }
 }

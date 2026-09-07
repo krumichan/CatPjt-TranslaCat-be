@@ -18,13 +18,6 @@ public interface LevelTestQuestionCandidateRepository
             int complexityBand
     );
 
-    Optional<LevelTestQuestionCandidate>
-    findBySessionIdAndQuestionNumberAndComplexityBandAndStatus(
-            Long sessionId,
-            int questionNumber,
-            int complexityBand,
-            LevelTestQuestionCandidateStatus status
-    );
 
     Optional<CandidateSnapshotProjection>
     findSnapshotBySessionIdAndQuestionNumberAndComplexityBand(

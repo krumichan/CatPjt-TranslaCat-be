@@ -1,7 +1,6 @@
 package jp.co.translacat.domain.languagelearning.activity.repository;
 
 import jp.co.translacat.domain.languagelearning.activity.entity.LearningActivity;
-import jp.co.translacat.domain.languagelearning.common.enums.LearningActivityStatus;
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -24,10 +23,6 @@ public interface LearningActivityRepository
             LocalDate to
     );
 
-    List<LearningActivity> findTop30ByUserIdAndStatusOrderByCompletedAtDesc(
-            Long userId,
-            LearningActivityStatus status
-    );
 
     List<LearningActivity> findAllByUserIdAndSourceAndLearningDateBetweenOrderByLearningDateDesc(
             Long userId,

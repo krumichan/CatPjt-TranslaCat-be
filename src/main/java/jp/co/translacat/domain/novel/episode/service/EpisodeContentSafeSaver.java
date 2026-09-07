@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.regex.Pattern;
 
 @Service
@@ -37,16 +36,6 @@ public class EpisodeContentSafeSaver {
         this.episodeContentRepository.batchInsertAll(contents);
     }
 
-    @Transactional
-    public void updateEpisodeContents(List<EpisodeContent> contents) {
-        if (contents.isEmpty()) return;
-
-        // 1. 벌크 업데이트 실행
-        this.episodeContentRepository.batchUpdateAll(contents);
-
-        // 2. 중요: 영속성 컨텍스트와 DB의 상태를 맞추기 위해 flush & clear
-        this.episodeContentRepository.flush();
-    }
 
     @Async
     @Transactional

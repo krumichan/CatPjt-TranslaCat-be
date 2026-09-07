@@ -23,5 +23,4 @@ public interface UserProfileRepository
             Collection<Long> userIds
     );
 
-    boolean existsByUserAndDeletedFalse(User user);
 }

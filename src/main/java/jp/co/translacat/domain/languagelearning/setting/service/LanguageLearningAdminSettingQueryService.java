@@ -31,6 +31,12 @@ public class LanguageLearningAdminSettingQueryService {
         return getOrCreateEntity().resolvedLevelTestQuestionPoolTargetSize();
     }
 
+    @Transactional
+    public boolean isLevelTestQuestionPoolReplenishmentEnabled() {
+        return getOrCreateEntity()
+                .resolvedLevelTestQuestionPoolReplenishmentEnabled();
+    }
+
     public AdminSettingResponseDto toResponse(
             LanguageLearningAdminSetting setting
     ) {
@@ -63,7 +69,8 @@ public class LanguageLearningAdminSettingQueryService {
                 setting.getSttTimeoutSeconds(),
                 setting.getTtsTimeoutSeconds(),
                 setting.getEvaluationTimeoutSeconds(),
-                setting.resolvedLevelTestQuestionPoolTargetSize()
+                setting.resolvedLevelTestQuestionPoolTargetSize(),
+                setting.resolvedLevelTestQuestionPoolReplenishmentEnabled()
         );
     }
 

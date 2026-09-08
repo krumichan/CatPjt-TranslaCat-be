@@ -9,7 +9,6 @@ import jp.co.translacat.domain.languagelearning.speaking.turn.repository.Speakin
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +23,6 @@ public class SpeakingAudioRetentionService {
     private final SpeakingSessionRepository sessionRepository;
     private final SpeakingAudioStoragePort audioStoragePort;
 
-    @Scheduled(cron = "${language-learning.speaking.audio-cleanup-cron:0 20 4 * * *}")
     @Transactional
     public void deleteExpiredAudio() {
         LocalDateTime now = LocalDateTime.now();

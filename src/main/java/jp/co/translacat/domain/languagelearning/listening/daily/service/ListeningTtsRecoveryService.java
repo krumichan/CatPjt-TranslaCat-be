@@ -13,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,9 +34,6 @@ public class ListeningTtsRecoveryService {
     @Value("${language-learning.listening.tts-recovery-grace-seconds:15}")
     private long recoveryGraceSeconds;
 
-    @Scheduled(
-            fixedDelayString = "${language-learning.listening.tts-recovery-delay-ms:5000}"
-    )
     @Transactional
     public void recoverOrphans() {
         LocalDateTime now = LocalDateTime.now();

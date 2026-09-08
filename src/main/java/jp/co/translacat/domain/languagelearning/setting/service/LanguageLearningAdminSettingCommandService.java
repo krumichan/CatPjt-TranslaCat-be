@@ -61,7 +61,8 @@ public class LanguageLearningAdminSettingCommandService {
                 request.sttTimeoutSeconds(),
                 request.ttsTimeoutSeconds(),
                 request.evaluationTimeoutSeconds(),
-                request.levelTestQuestionPoolTargetSize()
+                request.levelTestQuestionPoolTargetSize(),
+                request.levelTestQuestionPoolReplenishmentEnabled()
         );
 
         auditCommandService.record(

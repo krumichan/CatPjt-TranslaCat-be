@@ -47,6 +47,7 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
     public static final int DEFAULT_TTS_TIMEOUT_SECONDS = 30;
     public static final int DEFAULT_EVALUATION_TIMEOUT_SECONDS = 60;
     public static final int DEFAULT_LEVEL_TEST_QUESTION_POOL_TARGET_SIZE = 1000;
+    public static final boolean DEFAULT_LEVEL_TEST_QUESTION_POOL_REPLENISHMENT_ENABLED = false;
 
     @Id
     @Column(length = 30)
@@ -139,6 +140,9 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
     @Column(name = "level_test_question_pool_target_size")
     private Integer levelTestQuestionPoolTargetSize;
 
+    @Column(name = "level_test_question_pool_replenishment_enabled")
+    private Boolean levelTestQuestionPoolReplenishmentEnabled;
+
     private LanguageLearningAdminSetting(String id) {
         this.id = id;
         this.defaultDailySentenceCount = DEFAULT_DAILY_SENTENCE_COUNT;
@@ -182,6 +186,8 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
         this.evaluationTimeoutSeconds = DEFAULT_EVALUATION_TIMEOUT_SECONDS;
         this.levelTestQuestionPoolTargetSize =
                 DEFAULT_LEVEL_TEST_QUESTION_POOL_TARGET_SIZE;
+        this.levelTestQuestionPoolReplenishmentEnabled =
+                DEFAULT_LEVEL_TEST_QUESTION_POOL_REPLENISHMENT_ENABLED;
     }
 
     public static LanguageLearningAdminSetting createDefault() {
@@ -285,7 +291,7 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
                 reportedAudioRetentionDays, activeSessionResumeHours,
                 automaticRetryLimitPerStage, manualRetryLimitPerStage,
                 sttTimeoutSeconds, ttsTimeoutSeconds, evaluationTimeoutSeconds,
-                null
+                null, null
         );
     }
 
@@ -318,7 +324,8 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
             Integer sttTimeoutSeconds,
             Integer ttsTimeoutSeconds,
             Integer evaluationTimeoutSeconds,
-            Integer levelTestQuestionPoolTargetSize
+            Integer levelTestQuestionPoolTargetSize,
+            Boolean levelTestQuestionPoolReplenishmentEnabled
     ) {
         int nextDefault = defaultCount == null
                 ? this.defaultDailySentenceCount
@@ -458,6 +465,11 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
         this.levelTestQuestionPoolTargetSize =
                 nextLevelTestQuestionPoolTargetSize;
 
+        if (levelTestQuestionPoolReplenishmentEnabled != null) {
+            this.levelTestQuestionPoolReplenishmentEnabled =
+                    levelTestQuestionPoolReplenishmentEnabled;
+        }
+
         if (adaptiveWritingEnabled != null) {
             this.adaptiveWritingEnabled = adaptiveWritingEnabled;
         }
@@ -477,6 +489,12 @@ public class LanguageLearningAdminSetting extends BaseAuditable {
         return levelTestQuestionPoolTargetSize == null
                 ? DEFAULT_LEVEL_TEST_QUESTION_POOL_TARGET_SIZE
                 : levelTestQuestionPoolTargetSize;
+    }
+
+    public boolean resolvedLevelTestQuestionPoolReplenishmentEnabled() {
+        return levelTestQuestionPoolReplenishmentEnabled == null
+                ? DEFAULT_LEVEL_TEST_QUESTION_POOL_REPLENISHMENT_ENABLED
+                : levelTestQuestionPoolReplenishmentEnabled;
     }
 
     public int clampDailySentenceCount(int value) {

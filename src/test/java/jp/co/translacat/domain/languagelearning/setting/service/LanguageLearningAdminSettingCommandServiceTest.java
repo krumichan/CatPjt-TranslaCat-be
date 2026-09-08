@@ -93,4 +93,25 @@ class LanguageLearningAdminSettingCommandServiceTest {
         );
     }
 
+    @Test
+    void updatesLevelTestQuestionPoolBatchToggle() {
+        LanguageLearningAdminSetting setting =
+                LanguageLearningAdminSetting.createDefault();
+        when(repository.findById(LanguageLearningAdminSetting.DEFAULT_ID))
+                .thenReturn(Optional.of(setting));
+
+        LanguageLearningAdminSetting updated = commandService.update(
+                new AdminSettingUpdateRequestDto(
+                        null, null, null, null, null, null, null, null,
+                        null, null, null, null, null, null, null, null,
+                        null, null, null, null, null, null, null, null,
+                        null, null, null, null, null, true
+                )
+        );
+
+        assertThat(
+                updated.resolvedLevelTestQuestionPoolReplenishmentEnabled()
+        ).isTrue();
+    }
+
 }

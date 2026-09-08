@@ -1,4 +1,4 @@
-package jp.co.translacat.domain.chat.presence.scheduler;
+package jp.co.translacat.batch.chat.presence;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import jakarta.annotation.PreDestroy;
@@ -20,7 +20,7 @@ import java.util.concurrent.ScheduledFuture;
         havingValue = "true"
 )
 @Component
-public class ChatPresenceRefreshScheduler {
+public class ChatPresenceRefreshBatch {
 
     private final TaskScheduler taskScheduler;
     private final ChatPresenceProperties properties;
@@ -28,7 +28,7 @@ public class ChatPresenceRefreshScheduler {
 
     private ScheduledFuture<?> scheduledFuture;
 
-    public ChatPresenceRefreshScheduler(
+    public ChatPresenceRefreshBatch(
             @Qualifier("chatPresenceTaskScheduler") TaskScheduler taskScheduler,
             ChatPresenceProperties properties,
             ChatPresenceSessionLifecycleService lifecycleService
@@ -51,7 +51,7 @@ public class ChatPresenceRefreshScheduler {
         );
 
         log.info(
-                "Chat presence refresh scheduler started. interval={}ms",
+                "Chat presence refresh batch started. interval={}ms",
                 properties.getRefreshInterval().toMillis()
         );
     }
@@ -66,7 +66,7 @@ public class ChatPresenceRefreshScheduler {
         } catch (RuntimeException e) {
             // Individual Redis operations are already isolated, but keep the scheduler alive
             // even if an unexpected programming/runtime error escapes the lifecycle service.
-            log.error("Unexpected chat presence refresh scheduler failure.", e);
+            log.error("Unexpected chat presence refresh batch failure.", e);
         }
     }
 

@@ -21,6 +21,9 @@ class LanguageLearningAdminSettingTest {
         assertThat(setting.getLevelRecheckRecommendationDays()).isEqualTo(30);
         assertThat(setting.isAdaptiveWritingEnabled()).isTrue();
         assertThat(setting.isAiEvaluationEnabled()).isTrue();
+        assertThat(
+                setting.resolvedLevelTestQuestionPoolReplenishmentEnabled()
+        ).isFalse();
     }
 
     @Test

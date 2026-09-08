@@ -6,7 +6,6 @@ import jp.co.translacat.domain.languagelearning.speaking.session.repository.Spea
 
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,9 +16,6 @@ public class SpeakingSessionExpirationService {
     private final SpeakingSessionRepository sessionRepository;
     private final SpeakingSessionLifecycleService lifecycleService;
 
-    @Scheduled(
-            cron = "${language-learning.speaking.session-expire-cron:0 */10 * * * *}"
-    )
     @Transactional
     public void expireInactiveSessions() {
         for (SpeakingSession session : sessionRepository.findAllByStatus(

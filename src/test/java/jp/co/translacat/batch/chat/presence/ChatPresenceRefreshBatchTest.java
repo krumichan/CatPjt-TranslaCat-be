@@ -1,4 +1,4 @@
-package jp.co.translacat.domain.chat.presence.scheduler;
+package jp.co.translacat.batch.chat.presence;
 
 import jp.co.translacat.domain.chat.presence.config.ChatPresenceProperties;
 import jp.co.translacat.domain.chat.presence.service.ChatPresenceSessionLifecycleService;
@@ -18,7 +18,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
-class ChatPresenceRefreshSchedulerTest {
+class ChatPresenceRefreshBatchTest {
 
     @Mock private TaskScheduler taskScheduler;
     @Mock private ChatPresenceSessionLifecycleService lifecycleService;
@@ -32,7 +32,7 @@ class ChatPresenceRefreshSchedulerTest {
                 .when(taskScheduler)
                 .scheduleWithFixedDelay(any(Runnable.class), eq(Duration.ofSeconds(20)));
 
-        ChatPresenceRefreshScheduler scheduler = new ChatPresenceRefreshScheduler(
+        ChatPresenceRefreshBatch scheduler = new ChatPresenceRefreshBatch(
                 taskScheduler,
                 properties,
                 lifecycleService

@@ -29,7 +29,8 @@ public record AdminSettingUpdateRequestDto(
         Integer sttTimeoutSeconds,
         Integer ttsTimeoutSeconds,
         Integer evaluationTimeoutSeconds,
-        Integer levelTestQuestionPoolTargetSize
+        Integer levelTestQuestionPoolTargetSize,
+        Boolean levelTestQuestionPoolReplenishmentEnabled
 ) {
     public AdminSettingUpdateRequestDto(
             Integer defaultDailySentenceCount,
@@ -52,7 +53,7 @@ public record AdminSettingUpdateRequestDto(
                 aiEvaluationEnabled,
                 null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null,
-                null
+                null, null
         );
     }
 }

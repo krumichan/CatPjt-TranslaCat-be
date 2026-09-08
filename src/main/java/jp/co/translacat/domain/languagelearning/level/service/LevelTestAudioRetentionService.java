@@ -7,7 +7,6 @@ import jp.co.translacat.domain.languagelearning.speaking.audio.port.SpeakingAudi
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,9 +20,6 @@ public class LevelTestAudioRetentionService {
     private final LevelTestResponseRepository responseRepository;
     private final SpeakingAudioStoragePort storagePort;
 
-    @Scheduled(
-            cron = "${language-learning.level-test.audio-cleanup-cron:0 35 4 * * *}"
-    )
     @Transactional
     public void deleteExpired() {
         LocalDateTime now = LocalDateTime.now();

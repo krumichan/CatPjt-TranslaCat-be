@@ -11,7 +11,6 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -34,9 +33,6 @@ public class ListeningOutboxDispatcher {
 
     private final Set<Long> locallyClaimedEventIds = ConcurrentHashMap.newKeySet();
 
-    @Scheduled(
-            fixedDelayString = "${language-learning.listening.outbox-delay-ms:1000}"
-    )
     public void dispatch() {
         LocalDateTime now = LocalDateTime.now();
         transactionService.reclaimStale(now, Duration.ofMinutes(5));

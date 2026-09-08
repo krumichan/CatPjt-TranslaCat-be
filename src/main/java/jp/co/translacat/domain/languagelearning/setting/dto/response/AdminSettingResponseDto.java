@@ -29,6 +29,7 @@ public record AdminSettingResponseDto(
         int sttTimeoutSeconds,
         int ttsTimeoutSeconds,
         int evaluationTimeoutSeconds,
-        int levelTestQuestionPoolTargetSize
+        int levelTestQuestionPoolTargetSize,
+        boolean levelTestQuestionPoolReplenishmentEnabled
 ) {
 }

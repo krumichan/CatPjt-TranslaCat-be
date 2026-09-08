@@ -6,7 +6,6 @@ import jp.co.translacat.domain.voice.websocket.service.VoiceConnectionRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,10 +22,6 @@ public class VoiceHistoryCleanupService {
     private final VoiceSessionCommandService sessionCommandService;
     private final VoiceConnectionRegistry connectionRegistry;
 
-    @Scheduled(
-            fixedDelayString = "${translacat.voice.cleanup-fixed-delay-ms:60000}",
-            initialDelayString = "${translacat.voice.cleanup-initial-delay-ms:60000}"
-    )
     public void cleanupStaleSessions() {
         List<StaleSession> staleSessions =
                 staleSessionQueryService.findStale();

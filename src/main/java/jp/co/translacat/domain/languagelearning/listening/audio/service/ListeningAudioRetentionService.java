@@ -4,7 +4,6 @@ import jp.co.translacat.domain.languagelearning.listening.audio.port.ListeningAu
 
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -15,10 +14,6 @@ public class ListeningAudioRetentionService {
 
     private final ListeningAudioRetentionTransactionService transactionService;
     private final ListeningAudioStoragePort storagePort;
-
-    @Scheduled(
-            cron = "${language-learning.listening.audio-cleanup-cron:0 35 4 * * *}"
-    )
     public void deleteExpired() {
         LocalDateTime now = LocalDateTime.now();
 

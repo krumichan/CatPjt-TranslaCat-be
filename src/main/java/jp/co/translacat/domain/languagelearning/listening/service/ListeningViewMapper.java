@@ -6,6 +6,8 @@ import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJson
 import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
 import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
+import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningDailySetQueryService;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.entity.ListeningTaskEvaluation;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.repository.ListeningTaskEvaluationRepository;
@@ -32,9 +34,12 @@ public class ListeningViewMapper {
     private final ListeningTaskEvaluationRepository evaluationRepository;
     private final ListeningPolicySettingQueryService policySettingService;
     private final LanguageLearningJsonCodec jsonCodec;
+    private final ListeningDailySetQueryService dailySetQueryService;
 
     public ListeningApiContract.SessionView session(ListeningSession value) {
         int resumeHours = policySettingService.get().getResumeHours();
+        List<ListeningItemAttempt> attempts = attemptRepository
+                .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(value.getId());
 
         return new ListeningApiContract.SessionView(
                 value.getId(),
@@ -51,12 +56,15 @@ public class ListeningViewMapper {
                 value.getStartedAt(),
                 value.getLastActivityAt(),
                 value.getLastActivityAt().plus(Duration.ofHours(resumeHours)),
-                attemptRepository
-                        .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
-                                value.getId()
-                        ).stream()
-                        .map(this::attempt)
-                        .toList()
+                attempts.stream().map(this::attempt).toList(),
+                value.getDailySet().getStatus(),
+                value.getDailySet().getTargetItemCount(),
+                (int) attempts.stream().filter(ListeningItemAttempt::isOfficial)
+                        .map(attempt -> attempt.getItem().getItemIndex()).distinct().count(),
+                value.getDailySet().getFailureReason(),
+                (int) dailySetQueryService.activeItems(value.getDailySet().getId()).stream()
+                        .filter(item -> item.getStatus() == ListeningItemStatus.TTS_PENDING).count(),
+                dailySetQueryService.generationInProgress(value.getDailySet().getId())
         );
     }
 
@@ -121,7 +129,8 @@ public class ListeningViewMapper {
                 value.getErrorCode(),
                 responseRepository.findAllByAttemptIdOrderByTaskTypeAsc(
                         value.getId()
-                ).stream().map(this::task).toList()
+                ).stream().map(this::task).toList(),
+                value.getItem().getItemIndex()
         );
     }
 

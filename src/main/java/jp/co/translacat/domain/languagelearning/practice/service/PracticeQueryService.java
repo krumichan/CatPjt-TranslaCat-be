@@ -57,7 +57,10 @@ public class PracticeQueryService {
                                 set.getId(), 1
                         )),
                         set.getQuestionCount(),
-                        set.getOfficialScore()
+                        set.getOfficialScore(),
+                        set.getGenerationStatus(),
+                        Math.toIntExact(questionRepository.countByPracticeSetId(set.getId())),
+                        set.getGenerationFailureMessage()
                 ))
                 .toList();
     }
@@ -93,7 +96,10 @@ public class PracticeQueryService {
                 set.getComplexityBand(),
                 set.getPromptVersion(),
                 metrics,
-                questions
+                questions,
+                set.getGenerationStatus(),
+                questions.size(),
+                set.getGenerationFailureMessage()
         );
     }
 

@@ -37,23 +37,22 @@ public class ListeningSessionFacade {
     ) {
         Long sessionId = sessionCommandService.create(userId, request);
 
-        return sessionQueryService.view(userId, sessionId);
+        return sessionCommandService.synchronizeAndView(userId, sessionId);
     }
 
     public ListeningApiContract.ActiveSessionView active(Long userId) {
         Long sessionId = sessionCommandService.activeSessionId(userId);
-        return sessionId == null
-                ? new ListeningApiContract.ActiveSessionView(false, null)
-                : new ListeningApiContract.ActiveSessionView(
-                        true,
-                        sessionQueryService.view(userId, sessionId)
-                );
+        if (sessionId == null) {
+            return new ListeningApiContract.ActiveSessionView(false, null);
+        }
+        var session = sessionCommandService.synchronizeAndView(userId, sessionId);
+        boolean active = session.status()
+                == jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus.IN_PROGRESS;
+        return new ListeningApiContract.ActiveSessionView(active, active ? session : null);
     }
 
     public ListeningApiContract.SessionView get(Long userId, Long sessionId) {
-        sessionCommandService.expireIfNeeded(userId, sessionId);
-
-        return sessionQueryService.view(userId, sessionId);
+        return sessionCommandService.synchronizeAndView(userId, sessionId);
     }
 
     public ListeningApiContract.SessionView resume(
@@ -66,7 +65,7 @@ public class ListeningSessionFacade {
             throw sessionExpired("Listening Session 재개 시간이 만료되었습니다.");
         }
 
-        return sessionQueryService.view(userId, result.sessionId());
+        return sessionCommandService.synchronizeAndView(userId, result.sessionId());
     }
 
     public ListeningApiContract.ItemView item(

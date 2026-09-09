@@ -5,6 +5,9 @@ import jp.co.translacat.domain.languagelearning.listening.common.enums.Listening
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
+import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
 import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
@@ -20,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class ListeningTtsRetryCommandService {
 
     private final ListeningItemRepository itemRepository;
+    private final ListeningDailySetRepository dailySetRepository;
+    private final EntityManager entityManager;
     private final ListeningPolicySettingQueryService policySettingService;
     private final ListeningOutboxCommandService outboxCommandService;
 
@@ -28,6 +33,11 @@ public class ListeningTtsRetryCommandService {
             Long userId,
             Long itemId
     ) {
+        ListeningItem snapshot = itemRepository.findByIdAndDailySetUserId(itemId, userId)
+                .orElseThrow(() -> new BusinessException(
+                        "Listening 문항을 찾을 수 없습니다.",
+                        LanguageLearningErrorCode.DAILY_ITEM_NOT_FOUND));
+        dailySetRepository.findLockedById(snapshot.getDailySet().getId()).orElseThrow();
         ListeningItem item = itemRepository.findLockedById(itemId)
                 .filter(value -> value.getDailySet().getUser().getId()
                         .equals(userId))
@@ -35,6 +45,7 @@ public class ListeningTtsRetryCommandService {
                         "Listening 문항을 찾을 수 없습니다.",
                         LanguageLearningErrorCode.DAILY_ITEM_NOT_FOUND
                 ));
+        entityManager.refresh(item, LockModeType.PESSIMISTIC_WRITE);
         int limit = policySettingService.get().getManualRetryLimit();
 
         if (item.getStatus() != ListeningItemStatus.NOT_EVALUABLE
@@ -46,6 +57,7 @@ public class ListeningTtsRetryCommandService {
         }
 
         item.startManualTtsRetry(limit);
+        item.getDailySet().refreshAvailability(0, 1);
         outboxCommandService.enqueue(
                 ListeningOutboxType.GENERATE_TTS,
                 item.getId(),

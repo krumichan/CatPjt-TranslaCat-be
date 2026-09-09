@@ -12,15 +12,21 @@ import jp.co.translacat.domain.languagelearning.listening.daily.repository.Liste
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxTransactionService;
+import jp.co.translacat.domain.languagelearning.listening.outbox.repository.ListeningOutboxEventRepository;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxStatus;
 import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
 import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 import java.time.LocalDateTime;
+import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +41,8 @@ public class ListeningTtsTransactionService {
     private final ListeningOutboxCommandService outboxCommandService;
     private final ListeningOutboxTransactionService outboxTransactionService;
     private final LanguageLearningJsonCodec jsonCodec;
+    private final EntityManager entityManager;
+    private final ListeningOutboxEventRepository outboxRepository;
 
     @Transactional(readOnly = true)
     public TtsWork prepare(
@@ -83,17 +91,19 @@ public class ListeningTtsTransactionService {
         );
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void apply(
             TtsWork work,
             AiListeningContract.TtsResponse response,
             String contentType
     ) {
-        ListeningItem item = itemRepository.findLockedById(
-                work.event().aggregateId()
-        ).orElseThrow();
+        ListeningItem item = lockedItem(work.event().aggregateId());
+        if (!outboxTransactionService.ownsClaim(work.event())) {
+            return;
+        }
 
-        if (item.getStatus() == ListeningItemStatus.READY) {
+        if (item.getStatus() != ListeningItemStatus.TTS_PENDING
+                || item.getManualTtsRetryCount() != work.request().manualRetryAttempt()) {
             outboxTransactionService.succeed(
                     work.event().id(),
                     LocalDateTime.now()
@@ -116,38 +126,67 @@ public class ListeningTtsTransactionService {
         );
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void recordFailure(
-            TtsWork work,
+            ListeningOutboxTransactionService.ClaimedEvent event,
             String reason,
-            boolean automaticRetry,
-            boolean exhausted
+            boolean retryable,
+            Duration retryAfter
     ) {
-        ListeningItem item = itemRepository.findLockedById(
-                work.event().aggregateId()
-        ).orElseThrow();
+        ListeningItem item = lockedItem(event.aggregateId());
+        if (!outboxTransactionService.ownsClaim(event)) {
+            return;
+        }
+        if (item.getStatus() != ListeningItemStatus.TTS_PENDING) {
+            outboxTransactionService.succeed(event.id(), LocalDateTime.now());
+            return;
+        }
+        var result = outboxTransactionService.fail(event, reason, retryable,
+                retryAfter, policySettingService.get().getAutomaticRetryLimit(),
+                LocalDateTime.now());
 
-        if (automaticRetry) {
+        if (retryable && !result.exhausted()) {
             item.registerAutomaticTtsRetry(reason);
         }
 
-        if (!exhausted || item.getStatus() == ListeningItemStatus.READY) {
+        if (!result.exhausted()) {
             return;
         }
 
         markNotEvaluableAndScheduleReplacement(item, reason);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void abandonOrphan(Long itemId, String reason) {
-        ListeningItem item = itemRepository.findLockedById(itemId)
-                .orElseThrow();
+        ListeningItem item = lockedItem(itemId);
 
         if (item.getStatus() != ListeningItemStatus.TTS_PENDING) {
             return;
         }
 
         markNotEvaluableAndScheduleReplacement(item, reason);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void recoverOrphan(Long itemId) {
+        ListeningItem item = lockedItem(itemId);
+        if (item.getStatus() != ListeningItemStatus.TTS_PENDING) {
+            return;
+        }
+        var latest = outboxRepository.findFirstByEventTypeAndAggregateIdOrderByIdDesc(
+                ListeningOutboxType.GENERATE_TTS, itemId);
+        if (latest.isPresent() && (latest.get().getStatus() == ListeningOutboxStatus.PENDING
+                || latest.get().getStatus() == ListeningOutboxStatus.PROCESSING)) {
+            return;
+        }
+        if (latest.isPresent() && latest.get().getIdempotencyKey().contains(":tts:recovery:")) {
+            markNotEvaluableAndScheduleReplacement(item,
+                    "TTS 복구 작업이 완료되지 않아 대체 문항 생성을 시도합니다.");
+            return;
+        }
+        String suffix = latest.map(value -> "after-" + value.getId()).orElse("missing");
+        outboxCommandService.enqueue(ListeningOutboxType.GENERATE_TTS, itemId, null,
+                "listening:item:" + itemId + ":tts:recovery:" + suffix);
     }
 
     private void markNotEvaluableAndScheduleReplacement(
@@ -158,7 +197,14 @@ public class ListeningTtsTransactionService {
         ListeningDailySet set = item.getDailySet();
         ListeningPolicySetting policy = policySettingService.get();
 
-        if (set.getPhysicalItemCount() < policy.getHardItemLimit()) {
+        int missingSlots = 0;
+        for (int index = 1; index <= set.getTargetItemCount(); index++) {
+            if (!itemRepository.existsByDailySetIdAndItemIndex(set.getId(), index)) {
+                missingSlots++;
+            }
+        }
+        // Reserve capacity for original slots while independent replacements overlap.
+        if (set.getPhysicalItemCount() + missingSlots < policy.getHardItemLimit()) {
             int next = item.getReplacementSequence() + 1;
             outboxCommandService.enqueue(
                     ListeningOutboxType.GENERATE_SET,
@@ -171,7 +217,11 @@ public class ListeningTtsTransactionService {
                     ),
                     "listening:set:" + set.getId()
                             + ":replace:" + item.getItemIndex() + ":" + next
+                            + ":tts-manual:" + item.getManualTtsRetryCount()
             );
+        } else if (set.getFailureReason() == null) {
+            set.fail(reason == null || reason.isBlank()
+                    ? "Listening 음성 생성에 실패했습니다." : reason);
         }
 
         refreshSetState(set);
@@ -182,7 +232,18 @@ public class ListeningTtsTransactionService {
                 set.getId(),
                 ListeningItemStatus.READY
         );
-        set.ready(set.getGenerationVersion(), ready < set.getTargetItemCount());
+        long pending = itemRepository.countLogicalItemsByStatus(
+                set.getId(), ListeningItemStatus.TTS_PENDING);
+        set.refreshAvailability(ready, pending);
+    }
+
+    private ListeningItem lockedItem(Long itemId) {
+        ListeningItem snapshot = itemRepository.findById(itemId).orElseThrow();
+        dailySetRepository.findLockedById(snapshot.getDailySet().getId()).orElseThrow();
+        ListeningItem item = itemRepository.findLockedById(itemId).orElseThrow();
+        // The parent lock may have waited while another callback changed this item.
+        entityManager.refresh(item, LockModeType.PESSIMISTIC_WRITE);
+        return item;
     }
 
     public record TtsWork(

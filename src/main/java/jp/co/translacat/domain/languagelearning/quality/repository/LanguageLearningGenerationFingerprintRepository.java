@@ -43,6 +43,14 @@ public interface LanguageLearningGenerationFingerprintRepository
     );
 
     List<LanguageLearningGenerationFingerprint>
+    findAllByUserIdAndLearningLanguageAndSourceTypeAndSourceIdInOrderByGeneratedAtDesc(
+            Long userId,
+            String learningLanguage,
+            LanguageLearningContentSource sourceType,
+            Collection<String> sourceIds
+    );
+
+    List<LanguageLearningGenerationFingerprint>
     findTop40ByUserIdAndLearningLanguageAndSourceTypeAndSourceIdStartingWithOrderByGeneratedAtDesc(
             Long userId,
             String learningLanguage,

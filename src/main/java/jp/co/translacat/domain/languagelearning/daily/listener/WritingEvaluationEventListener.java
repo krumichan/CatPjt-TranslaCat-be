@@ -3,6 +3,7 @@ package jp.co.translacat.domain.languagelearning.daily.listener;
 import jp.co.translacat.domain.languagelearning.daily.event.WritingEvaluationRequestedEvent;
 import jp.co.translacat.domain.languagelearning.daily.service.WritingEvaluationProcessor;
 import jp.co.translacat.domain.languagelearning.daily.service.WritingEvaluationStateCommandService;
+import jp.co.translacat.domain.languagelearning.daily.service.DailyWritingCompletionCommandService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,12 +20,14 @@ public class WritingEvaluationEventListener {
 
     private final WritingEvaluationProcessor evaluationProcessor;
     private final WritingEvaluationStateCommandService evaluationStateCommandService;
+    private final DailyWritingCompletionCommandService completionCommandService;
 
     @Async("writingEvaluationExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(WritingEvaluationRequestedEvent event) {
+        Long dailySetId;
         try {
-            evaluationProcessor.process(event.answerId());
+            dailySetId = evaluationProcessor.process(event.answerId());
         } catch (Exception e) {
             try {
                 evaluationStateCommandService.failIfPending(event.answerId(), e);
@@ -40,6 +43,16 @@ public class WritingEvaluationEventListener {
                     event.answerId(),
                     e
             );
+            return;
+        }
+        if (dailySetId != null) {
+            try {
+                // Evaluation is committed before a fresh transaction reads the latest
+                // generated items and other evaluations (including earlier slow attempts).
+                completionCommandService.completeIfAllEvaluated(dailySetId);
+            } catch (Exception e) {
+                log.error("Daily Writing completion refresh failed. dailySetId={}", dailySetId, e);
+            }
         }
     }
 }

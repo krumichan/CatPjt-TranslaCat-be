@@ -139,6 +139,12 @@ public class ListeningOutboxEvent extends BaseAuditable {
         lastError = "PROCESSING lease가 만료되어 재처리합니다.";
     }
 
+    public void renewLease(LocalDateTime now) {
+        if (status == ListeningOutboxStatus.PROCESSING) {
+            updatedAt = now;
+        }
+    }
+
     public void release(LocalDateTime now, String reason) {
         if (status != ListeningOutboxStatus.PROCESSING) {
             return;

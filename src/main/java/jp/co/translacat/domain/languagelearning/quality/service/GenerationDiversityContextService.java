@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Service
@@ -26,6 +27,37 @@ public class GenerationDiversityContextService {
 
     private final LanguageLearningGenerationFingerprintRepository repository;
     private final LanguageLearningJsonCodec jsonCodec;
+
+    @Transactional(readOnly = true)
+    public DiversityContext contextForSources(
+            Long userId,
+            String learningLanguage,
+            LanguageLearningContentSource sourceType,
+            Map<String, String> sourceContents
+    ) {
+        DiversityContext base = context(userId, learningLanguage, sourceType);
+        if (sourceContents.isEmpty()) {
+            return base;
+        }
+        var fingerprints = repository.findAllByUserIdAndLearningLanguageAndSourceTypeAndSourceIdInOrderByGeneratedAtDesc(
+                userId, learningLanguage, sourceType, sourceContents.keySet());
+        var currentSession = sourceContents.entrySet().stream()
+                .skip(Math.max(0, sourceContents.size() - 40L))
+                .map(entry -> {
+                    var fingerprint = fingerprints.stream()
+                            .filter(value -> entry.getKey().equals(value.getSourceId())).findFirst().orElse(null);
+                    if (fingerprint == null) {
+                        return new DiversityHistoryItem(sourceType, entry.getValue(), null, null, null, null,
+                                List.of(), null, 0);
+                    }
+                    DiversityHistoryItem metadata = map(fingerprint);
+                    return new DiversityHistoryItem(sourceType, entry.getValue(), metadata.contentHash(),
+                            metadata.scenarioCategory(), metadata.communicativeIntent(), metadata.taskArchetype(),
+                            metadata.grammarFocusCodes(), metadata.semanticSummary(), metadata.ageDays());
+                }).toList();
+        return new DiversityContext(currentSession, base.sameFeatureRecent(), base.crossFeatureRecent(),
+                base.exactContentHashes90d());
+    }
 
     @Transactional(readOnly = true)
     public DiversityContext context(

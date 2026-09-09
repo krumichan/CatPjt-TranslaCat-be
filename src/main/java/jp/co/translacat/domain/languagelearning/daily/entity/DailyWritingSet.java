@@ -22,10 +22,10 @@ import java.time.LocalDateTime;
                 name = "uk_ll_daily_set_user_date_type",
                 columnNames = {"user_id", "learning_date", "writing_type"}
         ),
-        indexes = @Index(
-                name = "idx_ll_daily_set_user_date_type",
-                columnList = "user_id,learning_date,writing_type"
-        )
+        indexes = {
+                @Index(name = "idx_ll_daily_set_user_date_type", columnList = "user_id,learning_date,writing_type"),
+                @Index(name = "idx_ll_daily_set_generation", columnList = "status,generation_lease_until")
+        }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class DailyWritingSet extends BaseAuditable {
@@ -70,6 +70,12 @@ public class DailyWritingSet extends BaseAuditable {
     @Column(length = 1000)
     private String failureMessage;
 
+    @Column(name = "generation_token", length = 36)
+    private String generationToken;
+
+    @Column(name = "generation_lease_until")
+    private LocalDateTime generationLeaseUntil;
+
     private DailyWritingSet(
             User user,
             LocalDate learningDate,
@@ -85,6 +91,7 @@ public class DailyWritingSet extends BaseAuditable {
         this.sentenceCount = sentenceCount;
         this.snapshotJson = snapshotJson;
         this.status = DailySetStatus.GENERATING;
+        this.generationLeaseUntil = LocalDateTime.now();
     }
 
     public static DailyWritingSet createGenerating(
@@ -109,17 +116,52 @@ public class DailyWritingSet extends BaseAuditable {
         this.promptVersion = promptVersion;
         this.status = DailySetStatus.READY;
         this.failureMessage = null;
+        releaseGeneration();
     }
 
     public void fail(String message) {
         this.status = DailySetStatus.FAILED;
         this.failureMessage = message;
+        releaseGeneration();
+    }
+
+    public void failGeneration(String message, boolean hasItems) {
+        fail(message);
+        if (hasItems) {
+            this.status = DailySetStatus.PARTIAL;
+        }
+    }
+
+    public boolean canClaimGeneration(LocalDateTime now) {
+        return status == DailySetStatus.GENERATING
+                && (generationLeaseUntil == null || !generationLeaseUntil.isAfter(now));
+    }
+
+    public void claimGeneration(String token, LocalDateTime leaseUntil) {
+        this.generationToken = token;
+        this.generationLeaseUntil = leaseUntil;
+    }
+
+    public boolean ownsGeneration(String token) {
+        return status == DailySetStatus.GENERATING
+                && token != null && token.equals(generationToken);
+    }
+
+    public void itemGenerated(String promptVersion) {
+        this.promptVersion = promptVersion;
+        releaseGeneration();
+    }
+
+    private void releaseGeneration() {
+        this.generationToken = null;
+        this.generationLeaseUntil = LocalDateTime.now();
     }
 
     public void restartGeneration(String snapshotJson) {
         this.snapshotJson = snapshotJson;
         this.status = DailySetStatus.GENERATING;
         this.failureMessage = null;
+        releaseGeneration();
     }
 
     public void incrementRegeneration() {

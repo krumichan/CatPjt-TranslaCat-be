@@ -43,8 +43,16 @@ public interface ListeningItemAttemptRepository
             ListeningEvaluationPurpose purpose
     );
 
+    boolean existsByItemDailySetIdAndEvaluationPurpose(
+            Long dailySetId, ListeningEvaluationPurpose purpose
+    );
+
     List<ListeningItemAttempt>
     findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(Long sessionId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<ListeningItemAttempt>
+    findAllLockedBySessionIdOrderByItemItemIndexAscAttemptNoAsc(Long sessionId);
 
     Optional<ListeningItemAttempt> findByIdAndSessionUserId(
             Long attemptId,

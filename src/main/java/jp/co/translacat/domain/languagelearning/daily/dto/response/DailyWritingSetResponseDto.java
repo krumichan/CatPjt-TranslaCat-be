@@ -13,6 +13,8 @@ public record DailyWritingSetResponseDto(
         String snapshotId,
         DailySetStatus status,
         int sentenceCount,
+        int generatedItemCount,
+        String generationFailureMessage,
         int regenerationCount,
         String promptVersion,
         boolean reviewAvailable,

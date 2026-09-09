@@ -56,6 +56,16 @@ public class ReadingVocabularyPracticeController {
         ));
     }
 
+    @PostMapping("/sets/{setId}/retry-generation")
+    public ResponseDto<PracticeSetResponseDto> retryGeneration(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long setId
+    ) {
+        return ResponseUtil.ok(practiceFacade.retryGeneration(
+                SecurityUtil.getLoginUserId(principal), setId
+        ));
+    }
+
     @PostMapping("/questions/{questionId}/answers")
     public ResponseDto<PracticeAnswerResultResponseDto> submit(
             @AuthenticationPrincipal UserPrincipal principal,

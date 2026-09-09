@@ -19,7 +19,7 @@ import jp.co.translacat.domain.languagelearning.listening.response.entity.Listen
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
 import jp.co.translacat.domain.languagelearning.listening.service.ListeningViewMapper;
 import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
-import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
+import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionLockService;
 import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
 import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
 import jp.co.translacat.domain.user.entity.User;
@@ -42,7 +42,7 @@ class ListeningAttemptCommandServiceRetryTest {
     void retryEvaluationReopensCompletedSessionAsBackgroundEvaluation() {
         ListeningItemAttemptRepository attemptRepository = mock(ListeningItemAttemptRepository.class);
         ListeningTaskResponseRepository responseRepository = mock(ListeningTaskResponseRepository.class);
-        ListeningSessionRepository sessionRepository = mock(ListeningSessionRepository.class);
+        ListeningSessionLockService lockService = mock(ListeningSessionLockService.class);
         ListeningPolicySettingQueryService policySettingService = mock(ListeningPolicySettingQueryService.class);
         ListeningOutboxCommandService outboxCommandService = mock(ListeningOutboxCommandService.class);
         ListeningViewMapper viewMapper = mock(ListeningViewMapper.class);
@@ -50,7 +50,7 @@ class ListeningAttemptCommandServiceRetryTest {
         ListeningAttemptCommandService service = new ListeningAttemptCommandService(
                 attemptRepository,
                 responseRepository,
-                sessionRepository,
+                lockService,
                 policySettingService,
                 mock(ListeningTaskSelectionPolicy.class),
                 mock(ListeningIdempotencyPolicy.class),
@@ -101,11 +101,11 @@ class ListeningAttemptCommandServiceRetryTest {
                 0,
                 0.0,
                 null,
-                java.util.List.of()
+                java.util.List.of(),
+                1
         );
-        when(attemptRepository.findLockedById(attemptId)).thenReturn(Optional.of(attempt));
-        when(sessionRepository.findLockedById(sessionId)).thenReturn(Optional.of(session));
-        when(responseRepository.findByAttemptIdAndTaskType(attemptId, ListeningTaskType.SUMMARY))
+        when(lockService.ownedAttempt(userId, attemptId)).thenReturn(attempt);
+        when(responseRepository.findLockedByAttemptIdAndTaskType(attemptId, ListeningTaskType.SUMMARY))
                 .thenReturn(Optional.of(response));
         when(policySettingService.get()).thenReturn(setting);
         when(viewMapper.attempt(attempt)).thenReturn(expected);
@@ -136,14 +136,14 @@ class ListeningAttemptCommandServiceRetryTest {
     void retryFailedEvaluationsRetriesEveryRetryableOfficialTaskInOneRequest() {
         ListeningItemAttemptRepository attemptRepository = mock(ListeningItemAttemptRepository.class);
         ListeningTaskResponseRepository responseRepository = mock(ListeningTaskResponseRepository.class);
-        ListeningSessionRepository sessionRepository = mock(ListeningSessionRepository.class);
+        ListeningSessionLockService lockService = mock(ListeningSessionLockService.class);
         ListeningPolicySettingQueryService policySettingService = mock(ListeningPolicySettingQueryService.class);
         ListeningOutboxCommandService outboxCommandService = mock(ListeningOutboxCommandService.class);
 
         ListeningAttemptCommandService service = new ListeningAttemptCommandService(
                 attemptRepository,
                 responseRepository,
-                sessionRepository,
+                lockService,
                 policySettingService,
                 mock(ListeningTaskSelectionPolicy.class),
                 mock(ListeningIdempotencyPolicy.class),
@@ -192,18 +192,14 @@ class ListeningAttemptCommandServiceRetryTest {
         ListeningPolicySetting setting = mock(ListeningPolicySetting.class);
         when(setting.getManualRetryLimit()).thenReturn(1);
 
-        when(sessionRepository.findByIdAndUserId(sessionId, userId))
-                .thenReturn(Optional.of(session));
-        when(attemptRepository.findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(sessionId))
+        when(lockService.ownedSession(userId, sessionId)).thenReturn(session);
+        when(attemptRepository.findAllLockedBySessionIdOrderByItemItemIndexAscAttemptNoAsc(sessionId))
                 .thenReturn(java.util.List.of(retryableAttempt, exhaustedAttempt));
-        when(attemptRepository.findLockedById(retryableAttemptId))
-                .thenReturn(Optional.of(retryableAttempt));
-        when(attemptRepository.findLockedById(exhaustedAttemptId))
-                .thenReturn(Optional.of(exhaustedAttempt));
-        when(sessionRepository.findLockedById(sessionId)).thenReturn(Optional.of(session));
-        when(responseRepository.findAllByAttemptIdOrderByTaskTypeAsc(retryableAttemptId))
+        when(lockService.ownedAttempt(userId, retryableAttemptId)).thenReturn(retryableAttempt);
+        when(lockService.ownedAttempt(userId, exhaustedAttemptId)).thenReturn(exhaustedAttempt);
+        when(responseRepository.findAllLockedByAttemptIdOrderByTaskTypeAsc(retryableAttemptId))
                 .thenReturn(java.util.List.of(retryableResponse));
-        when(responseRepository.findAllByAttemptIdOrderByTaskTypeAsc(exhaustedAttemptId))
+        when(responseRepository.findAllLockedByAttemptIdOrderByTaskTypeAsc(exhaustedAttemptId))
                 .thenReturn(java.util.List.of(exhaustedResponse));
         when(policySettingService.get()).thenReturn(setting);
 

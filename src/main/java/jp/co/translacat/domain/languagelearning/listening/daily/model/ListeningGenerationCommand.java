@@ -7,11 +7,15 @@ public record ListeningGenerationCommand(
         int manualRetryAttempt
 ) {
     public static ListeningGenerationCommand initial() {
-        return new ListeningGenerationCommand(null, null, 0, 0);
+        return item(1, 0);
     }
 
     public static ListeningGenerationCommand manualRetry(int attempt) {
-        return new ListeningGenerationCommand(null, null, 0, attempt);
+        return item(1, attempt);
+    }
+
+    public static ListeningGenerationCommand item(int itemIndex, int attempt) {
+        return new ListeningGenerationCommand(null, itemIndex, 0, attempt);
     }
 
     public boolean replacement() {

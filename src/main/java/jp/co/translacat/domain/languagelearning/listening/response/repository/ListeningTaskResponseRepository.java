@@ -18,6 +18,15 @@ public interface ListeningTaskResponseRepository
     List<ListeningTaskResponse>
     findAllByAttemptIdOrderByTaskTypeAsc(Long attemptId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<ListeningTaskResponse>
+    findAllLockedByAttemptIdOrderByTaskTypeAsc(Long attemptId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<ListeningTaskResponse> findLockedByAttemptIdAndTaskType(
+            Long attemptId, ListeningTaskType taskType
+    );
+
 
     Optional<ListeningTaskResponse> findByAttemptIdAndTaskType(
             Long attemptId,

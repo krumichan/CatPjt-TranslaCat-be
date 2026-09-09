@@ -4,7 +4,6 @@ import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningCont
 import jp.co.translacat.domain.languagelearning.listening.ai.port.ListeningAiClient;
 import jp.co.translacat.domain.languagelearning.listening.daily.validator.ListeningGenerationResponseValidator;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxTransactionService;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningAiException;
 
 import lombok.RequiredArgsConstructor;
@@ -13,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -23,8 +21,6 @@ public class ListeningGenerationWorker {
     private final ListeningGenerationTransactionService transactionService;
     private final ListeningGenerationResponseValidator validator;
     private final ListeningAiClient aiClient;
-    private final ListeningOutboxTransactionService outboxTransactionService;
-    private final ListeningPolicySettingQueryService policySettingService;
 
     public void process(ListeningOutboxTransactionService.ClaimedEvent event) {
         ListeningGenerationTransactionService.GenerationWork work = null;
@@ -79,23 +75,6 @@ public class ListeningGenerationWorker {
             boolean retryable,
             Duration retryAfter
     ) {
-        int limit = policySettingService.get().getAutomaticRetryLimit();
-        var result = outboxTransactionService.fail(
-                event.id(),
-                reason,
-                retryable,
-                retryAfter,
-                limit,
-                LocalDateTime.now()
-        );
-
-        if (!result.exhausted()) {
-            return;
-        }
-        if (work != null) {
-            transactionService.failPermanently(work, reason);
-            return;
-        }
-        transactionService.failPermanently(event.aggregateId(), reason);
+        transactionService.recordFailure(event, reason, retryable, retryAfter);
     }
 }

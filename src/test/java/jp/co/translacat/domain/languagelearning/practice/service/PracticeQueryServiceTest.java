@@ -4,6 +4,7 @@ import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeSetStatus;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
+import jp.co.translacat.domain.languagelearning.practice.enums.PracticeGenerationStatus;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAttemptRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeMetricScoreRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeQuestionRepository;
@@ -58,6 +59,8 @@ class PracticeQueryServiceTest {
         when(set.getStatus()).thenReturn(PracticeSetStatus.COMPLETED);
         when(set.getQuestionCount()).thenReturn(10);
         when(set.getOfficialScore()).thenReturn(90.0);
+        when(set.getGenerationStatus()).thenReturn(PracticeGenerationStatus.READY);
+        when(questionRepository.countByPracticeSetId(11L)).thenReturn(10L);
         when(attemptRepository.countByQuestionPracticeSetIdAndAttemptNo(11L, 1))
                 .thenReturn(10L);
 
@@ -69,5 +72,24 @@ class PracticeQueryServiceTest {
         assertThat(result.get(0).answeredCount()).isEqualTo(10);
         assertThat(result.get(0).questionCount()).isEqualTo(10);
         assertThat(result.get(0).officialScore()).isEqualTo(90.0);
+        assertThat(result.get(0).generatedQuestionCount()).isEqualTo(10);
+        assertThat(result.get(0).generationStatus()).isEqualTo(PracticeGenerationStatus.READY);
+    }
+
+    @Test
+    void pollingReturnsPartialGenerationWithoutDiscardingQuestionsOrRetrying() {
+        when(setRepository.findByIdAndUserId(11L, 7L)).thenReturn(java.util.Optional.of(set));
+        when(set.getId()).thenReturn(11L);
+        when(set.getQuestionCount()).thenReturn(5);
+        when(set.getGenerationStatus()).thenReturn(PracticeGenerationStatus.PARTIAL);
+        when(set.getGenerationFailureMessage()).thenReturn("failed at three");
+
+        var result = service.get(7L, 11L);
+
+        assertThat(result.questionCount()).isEqualTo(5);
+        assertThat(result.generatedQuestionCount()).isZero();
+        assertThat(result.generationStatus()).isEqualTo(PracticeGenerationStatus.PARTIAL);
+        assertThat(result.generationFailureMessage()).isEqualTo("failed at three");
+        org.mockito.Mockito.verify(setRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
     }
 }

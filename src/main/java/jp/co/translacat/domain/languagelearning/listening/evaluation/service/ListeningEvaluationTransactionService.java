@@ -19,6 +19,7 @@ import jp.co.translacat.domain.languagelearning.listening.response.entity.Listen
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
 import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
 import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionLockService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -43,6 +44,7 @@ public class ListeningEvaluationTransactionService {
     private final ListeningAttemptFinalizationCommandService finalizationService;
     private final ListeningOutboxTransactionService outboxTransactionService;
     private final LanguageLearningJsonCodec jsonCodec;
+    private final ListeningSessionLockService lockService;
 
     @Transactional(readOnly = true)
     public EvaluationWork prepare(
@@ -189,11 +191,12 @@ public class ListeningEvaluationTransactionService {
             AiListeningContract.EvaluationResponse provider,
             AiListeningContract.TaskResult result
     ) {
+        lockService.attempt(work.attemptId());
         ListeningTaskResponse response = responseRepository.findLockedById(
                 work.responseId()
         ).orElseThrow();
         var existing = evaluationRepository
-                .findByTaskResponseIdAndEvaluationVersion(
+                .findLockedByTaskResponseIdAndEvaluationVersion(
                         response.getId(),
                         provider.evaluationVersion()
                 );
@@ -248,6 +251,7 @@ public class ListeningEvaluationTransactionService {
             boolean automaticRetry,
             boolean exhausted
     ) {
+        lockService.attempt(work.attemptId());
         ListeningTaskResponse response = responseRepository.findLockedById(
                 work.responseId()
         ).orElseThrow();
@@ -268,7 +272,7 @@ public class ListeningEvaluationTransactionService {
                         + "-" + response.getManualRetryCount();
 
                 if (evaluationRepository
-                        .findByTaskResponseIdAndEvaluationVersion(
+                        .findLockedByTaskResponseIdAndEvaluationVersion(
                                 response.getId(),
                                 version
                         ).isEmpty()) {

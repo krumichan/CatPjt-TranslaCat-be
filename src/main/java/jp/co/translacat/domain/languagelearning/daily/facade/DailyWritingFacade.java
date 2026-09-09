@@ -41,6 +41,11 @@ public class DailyWritingFacade {
         return dailyWritingQueryService.getByDate(userId, learningDate, writingType);
     }
 
+    public DailyWritingSetResponseDto retryGeneration(Long userId, Long dailySetId) {
+        return dailyWritingQueryService.toResponse(userId,
+                dailyWritingGenerationCommandService.retryGeneration(userId, dailySetId));
+    }
+
     public DailyWritingSetResponseDto regenerateUnanswered(
             Long userId,
             Long dailySetId

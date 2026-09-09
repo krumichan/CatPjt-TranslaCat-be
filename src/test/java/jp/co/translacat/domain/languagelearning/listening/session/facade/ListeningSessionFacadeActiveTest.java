@@ -77,10 +77,16 @@ class ListeningSessionFacadeActiveTest {
                         now,
                         now,
                         now.plusHours(2),
-                        List.of()
+                        List.of(),
+                        jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDailySetStatus.GENERATING,
+                        5,
+                        0,
+                        null,
+                        0,
+                        true
                 );
         when(sessionCommandService.activeSessionId(7L)).thenReturn(99L);
-        when(sessionQueryService.view(7L, 99L)).thenReturn(session);
+        when(sessionCommandService.synchronizeAndView(7L, 99L)).thenReturn(session);
 
         ListeningApiContract.ActiveSessionView result = facade.active(7L);
 

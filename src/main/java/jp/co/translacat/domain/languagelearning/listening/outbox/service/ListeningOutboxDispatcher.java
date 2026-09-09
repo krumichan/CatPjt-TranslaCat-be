@@ -8,20 +8,21 @@ import jp.co.translacat.domain.languagelearning.listening.recommendation.service
 
 import jakarta.annotation.PreDestroy;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.core.task.TaskRejectedException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ListeningOutboxDispatcher {
 
     private final ListeningOutboxTransactionService transactionService;
@@ -31,46 +32,102 @@ public class ListeningOutboxDispatcher {
     private final ListeningProfileRecalculationCommandService profileRecalculationService;
     private final ListeningRecommendationExplanationWorker explanationWorker;
 
-    private final Set<Long> locallyClaimedEventIds = ConcurrentHashMap.newKeySet();
+    private final TaskExecutor generationExecutor;
+    private final TaskExecutor audioExecutor;
+    private final TaskExecutor evaluationExecutor;
+    private final ConcurrentHashMap<Long, ListeningOutboxTransactionService.ClaimedEvent>
+            locallyClaimedEvents = new ConcurrentHashMap<>();
+    private final AtomicBoolean stopping = new AtomicBoolean();
+    private LocalDateTime lastLeaseRenewal = LocalDateTime.MIN;
+
+    public ListeningOutboxDispatcher(
+            ListeningOutboxTransactionService transactionService,
+            ListeningGenerationWorker generationWorker,
+            ListeningTtsWorker ttsWorker,
+            ListeningEvaluationWorker evaluationWorker,
+            ListeningProfileRecalculationCommandService profileRecalculationService,
+            ListeningRecommendationExplanationWorker explanationWorker,
+            @Qualifier("listeningGenerationExecutor") TaskExecutor generationExecutor,
+            @Qualifier("listeningAudioExecutor") TaskExecutor audioExecutor,
+            @Qualifier("listeningEvaluationExecutor") TaskExecutor evaluationExecutor
+    ) {
+        this.transactionService = transactionService;
+        this.generationWorker = generationWorker;
+        this.ttsWorker = ttsWorker;
+        this.evaluationWorker = evaluationWorker;
+        this.profileRecalculationService = profileRecalculationService;
+        this.explanationWorker = explanationWorker;
+        this.generationExecutor = generationExecutor;
+        this.audioExecutor = audioExecutor;
+        this.evaluationExecutor = evaluationExecutor;
+    }
 
     public void dispatch() {
+        if (stopping.get()) {
+            return;
+        }
         LocalDateTime now = LocalDateTime.now();
+        if (!now.isBefore(lastLeaseRenewal.plusSeconds(30))) {
+            locallyClaimedEvents.values().forEach(event -> transactionService.renewClaim(event, now));
+            lastLeaseRenewal = now;
+        }
         transactionService.reclaimStale(now, Duration.ofMinutes(5));
 
-        for (Long eventId : transactionService.pendingIds(now)) {
-            transactionService.claim(eventId, now).ifPresent(event -> {
-                locallyClaimedEventIds.add(event.id());
-                try {
-                    route(event);
-                } finally {
-                    locallyClaimedEventIds.remove(event.id());
-                }
-            });
+        for (var pending : transactionService.pendingEvents(now)) {
+            TaskExecutor executor = switch (pending.type()) {
+                case GENERATE_SET -> generationExecutor;
+                case GENERATE_TTS -> audioExecutor;
+                default -> evaluationExecutor;
+            };
+            try {
+                executor.execute(() -> process(pending.id()));
+            } catch (TaskRejectedException exception) {
+                // Full worker pool: leave the durable event PENDING for the next poll.
+            }
         }
+    }
+
+    private void process(Long eventId) {
+        if (stopping.get()) {
+            return;
+        }
+        transactionService.claim(eventId, LocalDateTime.now()).ifPresent(event -> {
+            locallyClaimedEvents.put(event.id(), event);
+            try {
+                if (stopping.get()) {
+                    transactionService.releaseClaimed(event, LocalDateTime.now(), "Listening worker shutdown");
+                    return;
+                }
+                route(event);
+            } finally {
+                locallyClaimedEvents.remove(event.id(), event);
+            }
+        });
     }
 
     @PreDestroy
     public void releaseLocallyClaimedEvents() {
-        if (locallyClaimedEventIds.isEmpty()) {
+        stopping.set(true);
+        if (locallyClaimedEvents.isEmpty()) {
             return;
         }
 
         LocalDateTime now = LocalDateTime.now();
-        for (Long eventId : List.copyOf(locallyClaimedEventIds)) {
+        for (var event : List.copyOf(locallyClaimedEvents.values())) {
             try {
                 transactionService.releaseClaimed(
-                        eventId,
+                        event,
                         now,
                         "Listening BE 종료/재기동으로 처리 중 작업을 즉시 재개 대기로 전환합니다."
                 );
                 log.info(
                         "Listening Outbox released on shutdown. eventId={}",
-                        eventId
+                        event.id()
                 );
             } catch (RuntimeException exception) {
                 log.warn(
                         "Listening Outbox shutdown release failed. eventId={}",
-                        eventId,
+                        event.id(),
                         exception
                 );
             }

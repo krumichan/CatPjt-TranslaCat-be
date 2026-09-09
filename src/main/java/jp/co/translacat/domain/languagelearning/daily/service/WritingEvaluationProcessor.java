@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.time.LocalDate;
 
@@ -29,20 +30,21 @@ public class WritingEvaluationProcessor {
     private final LanguageLearningUserSettingQueryService userSettingQueryService;
     private final DailyWritingSnapshotService snapshotService;
     private final WritingEvaluationCommandService evaluationCommandService;
-    private final DailyWritingCompletionCommandService completionService;
 
-    @Transactional(noRollbackFor = BusinessException.class)
-    public void process(Long answerId) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = BusinessException.class)
+    public Long process(Long answerId) {
         WritingAnswer answer = answerRepository.findById(answerId)
                 .orElseThrow(() -> new BusinessException(
                         "Writing Answer를 찾을 수 없습니다.",
                         LanguageLearningErrorCode.ANSWER_NOT_ALLOWED
                 ));
-        boolean pending = evaluationRepository.findByAnswerId(answerId)
-                .map(evaluation -> evaluation.getStatus() == EvaluationStatus.PENDING)
-                .orElse(false);
-        if (!pending) {
-            return;
+        EvaluationStatus status = evaluationRepository.findByAnswerId(answerId)
+                .map(evaluation -> evaluation.getStatus())
+                .orElse(null);
+        if (status != EvaluationStatus.PENDING) {
+            return status == EvaluationStatus.SUCCESS
+                    ? answer.getDailyItem().getDailySet().getId()
+                    : null;
         }
         Long userId = answer.getUser().getId();
         User user = userRepository.findById(userId)
@@ -64,8 +66,7 @@ public class WritingEvaluationProcessor {
                 snapshot,
                 today
         );
-        completionService.completeIfAllEvaluated(
-                answer.getDailyItem().getDailySet().getId()
-        );
+        // The caller checks completion only after this transactional proxy has committed.
+        return answer.getDailyItem().getDailySet().getId();
     }
 }

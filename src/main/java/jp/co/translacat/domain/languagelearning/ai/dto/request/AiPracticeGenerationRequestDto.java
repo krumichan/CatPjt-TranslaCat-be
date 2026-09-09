@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.languagelearning.ai.dto.request;
 
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 
 import java.time.LocalDate;
@@ -22,6 +23,7 @@ public record AiPracticeGenerationRequestDto(
         List<String> recentMistakes,
         List<PracticeReviewTargetDto> reviewTargets,
         int reviewQuestionCount,
-        LocalDate generationDate
+        LocalDate generationDate,
+        List<PracticeGeneratedQuestionDto> previousQuestions
 ) {
 }

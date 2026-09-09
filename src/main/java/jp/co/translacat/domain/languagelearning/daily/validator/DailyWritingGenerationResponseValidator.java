@@ -35,6 +35,9 @@ public class DailyWritingGenerationResponseValidator {
 
         for (DailyWritingGeneratedItemDto item : response.items()) {
             validateItem(item, orders, writingType);
+            if (item.order() < 1 || item.order() > expectedSentenceCount) {
+                throw generationFailure("AI Daily Writing 문항 순서가 유효하지 않습니다.");
+            }
 
             switch (item.difficulty()) {
                 case REVIEW -> reviewCount++;

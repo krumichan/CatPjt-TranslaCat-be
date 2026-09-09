@@ -71,6 +71,15 @@ public class DailyWritingController {
         );
     }
 
+    @PostMapping("/{dailySetId}/retry-generation")
+    public ResponseDto<DailyWritingSetResponseDto> retryGeneration(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long dailySetId
+    ) {
+        return ResponseUtil.ok(dailyWritingFacade.retryGeneration(
+                SecurityUtil.getLoginUserId(userPrincipal), dailySetId));
+    }
+
     @PostMapping("/items/{itemId}/evaluation/resume")
     public ResponseDto<Void> resumeEvaluation(
             @AuthenticationPrincipal UserPrincipal userPrincipal,

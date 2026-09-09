@@ -26,7 +26,7 @@ public class ListeningOutboxTransactionService {
         LocalDateTime cutoff = now.minus(
                 lease == null ? Duration.ofMinutes(5) : lease
         );
-        repository.findTop50ByStatusAndUpdatedAtBeforeOrderByUpdatedAtAsc(
+        repository.findTop50LockedByStatusAndUpdatedAtBeforeOrderByUpdatedAtAsc(
                 ListeningOutboxStatus.PROCESSING,
                 cutoff
         ).forEach(value -> value.reclaim(now));
@@ -41,6 +41,21 @@ public class ListeningOutboxTransactionService {
                 ).stream()
                 .map(ListeningOutboxEvent::getId)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PendingEvent> pendingEvents(LocalDateTime now) {
+        // A busy lane must not hide all pending work from another independent pool.
+        return java.util.Arrays.stream(ListeningOutboxType.values())
+                .flatMap(type -> repository
+                        .findTop50ByStatusAndEventTypeAndAvailableAtLessThanEqualOrderByCreatedAtAsc(
+                                ListeningOutboxStatus.PENDING, type, now).stream())
+                .sorted(java.util.Comparator.comparing(ListeningOutboxEvent::getCreatedAt))
+                .map(value -> new PendingEvent(value.getId(), value.getEventType()))
+                .toList();
+    }
+
+    public record PendingEvent(Long id, ListeningOutboxType type) {
     }
 
     @Transactional
@@ -67,10 +82,50 @@ public class ListeningOutboxTransactionService {
         repository.findLockedById(eventId).ifPresent(value -> value.succeed(now));
     }
 
+    /** Hold the claim lock until the caller's aggregate transaction commits. */
+    @Transactional
+    public boolean ownsClaim(ClaimedEvent claimed) {
+        return repository.findLockedById(claimed.id())
+                .filter(value -> value.getStatus() == ListeningOutboxStatus.PROCESSING)
+                .filter(value -> value.getAttemptCount() == claimed.attemptCount())
+                .isPresent();
+    }
+
+    @Transactional
+    public void renewClaim(ClaimedEvent claimed, LocalDateTime now) {
+        repository.findLockedById(claimed.id())
+                .filter(value -> value.getStatus() == ListeningOutboxStatus.PROCESSING)
+                .filter(value -> value.getAttemptCount() == claimed.attemptCount())
+                .ifPresent(value -> value.renewLease(now));
+    }
+
+    @Transactional
+    public FailureResult fail(
+            ClaimedEvent claimed,
+            String reason,
+            boolean retryable,
+            Duration retryAfter,
+            int automaticRetryLimit,
+            LocalDateTime now
+    ) {
+        if (!ownsClaim(claimed)) {
+            return new FailureResult(false, claimed.attemptCount());
+        }
+        return fail(claimed.id(), reason, retryable, retryAfter,
+                automaticRetryLimit, now);
+    }
+
     @Transactional
     public void releaseClaimed(Long eventId, LocalDateTime now, String reason) {
         repository.findLockedById(eventId)
                 .ifPresent(value -> value.release(now, reason));
+    }
+
+    @Transactional
+    public void releaseClaimed(ClaimedEvent event, LocalDateTime now, String reason) {
+        if (ownsClaim(event)) {
+            releaseClaimed(event.id(), now, reason);
+        }
     }
 
     @Transactional

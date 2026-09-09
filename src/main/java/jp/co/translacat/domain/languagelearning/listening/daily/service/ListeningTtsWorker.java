@@ -5,7 +5,6 @@ import jp.co.translacat.domain.languagelearning.listening.ai.port.ListeningAiCli
 import jp.co.translacat.domain.languagelearning.listening.audio.port.ListeningAudioStoragePort;
 import jp.co.translacat.domain.languagelearning.listening.audio.validator.ListeningAudioValidator;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxTransactionService;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningAiException;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
@@ -16,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Set;
 
@@ -33,8 +31,6 @@ public class ListeningTtsWorker {
     private final ListeningAiClient aiClient;
     private final ListeningAudioStoragePort storagePort;
     private final ListeningAudioValidator audioValidator;
-    private final ListeningOutboxTransactionService outboxTransactionService;
-    private final ListeningPolicySettingQueryService policySettingService;
 
     public void process(ListeningOutboxTransactionService.ClaimedEvent event) {
         ListeningTtsTransactionService.TtsWork work = null;
@@ -193,24 +189,7 @@ public class ListeningTtsWorker {
             boolean retryable,
             Duration retryAfter
     ) {
-        int limit = policySettingService.get().getAutomaticRetryLimit();
-        var result = outboxTransactionService.fail(
-                event.id(),
-                reason,
-                retryable,
-                retryAfter,
-                limit,
-                LocalDateTime.now()
-        );
-
-        if (work != null) {
-            transactionService.recordFailure(
-                    work,
-                    reason,
-                    retryable && !result.exhausted(),
-                    result.exhausted()
-            );
-        }
+        transactionService.recordFailure(event, reason, retryable, retryAfter);
     }
 
     private String shortHash(String value) {

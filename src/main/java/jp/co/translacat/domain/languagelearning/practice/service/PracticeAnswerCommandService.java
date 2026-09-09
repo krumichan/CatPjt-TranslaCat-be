@@ -21,6 +21,7 @@ import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAttemptRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeMetricScoreRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeQuestionRepository;
+import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.VocabularyMasteryRepository;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileSignalService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
@@ -29,6 +30,7 @@ import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -43,6 +45,7 @@ public class PracticeAnswerCommandService {
     private static final int MAX_ATTEMPTS = 3;
 
     private final PracticeQuestionRepository questionRepository;
+    private final PracticeSetRepository setRepository;
     private final PracticeAttemptRepository attemptRepository;
     private final PracticeMetricScoreRepository metricRepository;
     private final LanguageLearningJsonCodec jsonCodec;
@@ -52,7 +55,8 @@ public class PracticeAnswerCommandService {
     private final LearningActivityRepository activityRepository;
     private final LearningProfileSignalService profileSignalService;
 
-    @Transactional
+    // Ownership is checked before the set lock; subsequent reads must see commits made while waiting.
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public PracticeAnswerResultResponseDto submit(
             Long userId,
             Long questionId,
@@ -60,6 +64,9 @@ public class PracticeAnswerCommandService {
     ) {
         PracticeQuestion question = questionRepository
                 .findByIdAndPracticeSetUserId(questionId, userId)
+                .orElseThrow(this::questionNotFound);
+        // Coordinate submissions, completion and generated-question appends on the same set lock.
+        PracticeSet set = setRepository.findLockedById(question.getPracticeSet().getId())
                 .orElseThrow(this::questionNotFound);
         List<PracticeAttempt> existing = attemptRepository
                 .findAllByQuestionIdOrderByAttemptNoAsc(questionId);
@@ -86,7 +93,7 @@ public class PracticeAnswerCommandService {
             applyReadingVocabularyCandidates(userId, question);
         }
 
-        boolean setCompleted = finalizeSetIfReady(question.getPracticeSet());
+        boolean setCompleted = finalizeSetIfReady(set);
         return new PracticeAnswerResultResponseDto(
                 question.getId(),
                 attemptNo,
@@ -222,6 +229,10 @@ public class PracticeAnswerCommandService {
     private boolean finalizeSetIfReady(PracticeSet set) {
         if (set.getStatus() == PracticeSetStatus.COMPLETED) {
             return true;
+        }
+        List<PracticeQuestion> questions = questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(set.getId());
+        if (PracticePersistenceService.firstMissingOrder(questions, set.getQuestionCount()) <= set.getQuestionCount()) {
+            return false;
         }
         long officialCount = attemptRepository.countByQuestionPracticeSetIdAndAttemptNo(
                 set.getId(), 1

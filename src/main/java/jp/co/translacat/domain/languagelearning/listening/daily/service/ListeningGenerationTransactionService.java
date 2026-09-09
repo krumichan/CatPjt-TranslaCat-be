@@ -7,6 +7,7 @@ import jp.co.translacat.domain.languagelearning.ai.dto.model.LearningProfileSumm
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
 import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningGenerationCommand;
@@ -18,6 +19,8 @@ import jp.co.translacat.domain.languagelearning.listening.setting.entity.Listeni
 import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
 import jp.co.translacat.domain.languagelearning.quality.common.LanguageLearningContentSource;
 import jp.co.translacat.domain.languagelearning.quality.dto.LanguageComplexityContext;
+import jp.co.translacat.domain.languagelearning.quality.dto.DiversityContext;
+import jp.co.translacat.domain.languagelearning.quality.dto.DiversityHistoryItem;
 import jp.co.translacat.domain.languagelearning.quality.policy.LanguageComplexityPolicy;
 import jp.co.translacat.domain.languagelearning.quality.repository.LanguageLearningGenerationFingerprintRepository;
 import jp.co.translacat.domain.languagelearning.quality.service.GenerationDiversityContextService;
@@ -31,6 +34,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.time.Duration;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -58,9 +63,11 @@ public class ListeningGenerationTransactionService {
                 event.payloadJson(),
                 ListeningGenerationCommand.class
         );
-        int expectedCount = command.replacement()
-                ? 1
-                : set.getTargetItemCount();
+        // The AI always returns a local itemIndex of 1. Slot ownership belongs to BE.
+        if (command.logicalItemIndex() == null) {
+            command = ListeningGenerationCommand.item(1, command.manualRetryAttempt());
+        }
+        int expectedCount = 1;
 
         if (set.getPhysicalItemCount() + expectedCount
                 > policy.getHardItemLimit()) {
@@ -130,11 +137,7 @@ public class ListeningGenerationTransactionService {
                         policy.getModelConfigVersion(),
                         command.manualRetryAttempt(),
                         listeningComplexity(set),
-                        diversityContextService.context(
-                                set.getUser().getId(),
-                                set.getLearningLanguage(),
-                                LanguageLearningContentSource.LISTENING
-                        ),
+                        diversityContext(set),
                         GenerationFingerprintCommandService.POLICY_VERSION
                 );
 
@@ -152,12 +155,19 @@ public class ListeningGenerationTransactionService {
             GenerationWork work,
             AiListeningContract.GenerationResponse response
     ) {
-        ListeningDailySet set = dailySetRepository.findById(
+        ListeningDailySet set = dailySetRepository.findLockedById(
                 work.event().aggregateId()
         ).orElseThrow();
 
+        if (!outboxTransactionService.ownsClaim(work.event())) {
+            return;
+        }
+
         if (!work.command().replacement()
-                && itemRepository.countByDailySetId(set.getId()) > 0) {
+                && itemRepository.existsByDailySetIdAndItemIndex(
+                        set.getId(), work.command().logicalItemIndex())) {
+            enqueueNextMissing(set);
+            refreshAvailability(set);
             outboxTransactionService.succeed(
                     work.event().id(),
                     java.time.LocalDateTime.now()
@@ -171,6 +181,19 @@ public class ListeningGenerationTransactionService {
             replaced = itemRepository.findLockedById(
                     work.command().replacementForItemId()
             ).orElseThrow();
+            // A recovered/manual TTS result or another replacement wins over late AI.
+            if (replaced.getStatus() != ListeningItemStatus.NOT_EVALUABLE
+                    || !replaced.getDailySet().getId().equals(set.getId())) {
+                outboxTransactionService.succeed(work.event().id(), LocalDateTime.now());
+                return;
+            }
+        }
+
+        int reservedSlots = work.command().replacement() ? missingSlotCount(set) : 0;
+        if (set.getPhysicalItemCount() + reservedSlots
+                >= policySettingService.get().getHardItemLimit()) {
+            throw new BusinessException("Listening 물리 문항 한도를 초과했습니다.",
+                    LanguageLearningErrorCode.LISTENING_REPLACEMENT_LIMIT_EXCEEDED);
         }
 
         for (AiListeningContract.GeneratedItem generated : response.items()) {
@@ -187,9 +210,7 @@ public class ListeningGenerationTransactionService {
                 );
             }
 
-            int logicalIndex = work.command().replacement()
-                    ? work.command().logicalItemIndex()
-                    : generated.itemIndex();
+            int logicalIndex = work.command().logicalItemIndex();
             ListeningItem item = ListeningItem.create(
                     set,
                     logicalIndex,
@@ -228,6 +249,10 @@ public class ListeningGenerationTransactionService {
         }
 
         set.generated(response.generationVersion());
+        if (!work.command().replacement()) {
+            enqueueNextMissing(set);
+        }
+        refreshAvailability(set);
         outboxTransactionService.succeed(
                 work.event().id(),
                 java.time.LocalDateTime.now()
@@ -235,24 +260,62 @@ public class ListeningGenerationTransactionService {
     }
 
     @Transactional
-    public void failPermanently(GenerationWork work, String reason) {
-        ListeningDailySet set = dailySetRepository.findById(
-                work.event().aggregateId()
-        ).orElseThrow();
-
-        if (!work.command().replacement()) {
-            set.fail(reason);
+    public void recordFailure(
+            ListeningOutboxTransactionService.ClaimedEvent event,
+            String reason,
+            boolean retryable,
+            Duration retryAfter
+    ) {
+        ListeningDailySet set = dailySetRepository.findLockedById(event.aggregateId())
+                .orElseThrow();
+        if (!outboxTransactionService.ownsClaim(event)) {
+            return;
+        }
+        var result = outboxTransactionService.fail(event, reason, retryable,
+                retryAfter, policySettingService.get().getAutomaticRetryLimit(),
+                LocalDateTime.now());
+        if (!result.exhausted()) {
+            return;
+        }
+        ListeningGenerationCommand command = jsonCodec.read(event.payloadJson(),
+                ListeningGenerationCommand.class);
+        int index = command.logicalItemIndex() == null ? 1 : command.logicalItemIndex();
+        if (command.replacement()
+                || !itemRepository.existsByDailySetIdAndItemIndex(set.getId(), index)) {
+            if (!command.replacement() || set.getFailureReason() == null) {
+                set.fail(reason == null || reason.isBlank()
+                        ? "Listening 문항 생성에 실패했습니다." : reason);
+            }
+            refreshAvailability(set);
         }
     }
 
-    @Transactional
-    public void failPermanently(Long dailySetId, String reason) {
-        ListeningDailySet set = dailySetRepository.findById(dailySetId)
-                .orElseThrow();
-
-        if (set.getPhysicalItemCount() == 0 && !set.isUsable()) {
-            set.fail(reason);
+    private void enqueueNextMissing(ListeningDailySet set) {
+        for (int index = 1; index <= set.getTargetItemCount(); index++) {
+            if (!itemRepository.existsByDailySetIdAndItemIndex(set.getId(), index)) {
+                outboxCommandService.enqueue(ListeningOutboxType.GENERATE_SET,
+                        set.getId(), ListeningGenerationCommand.item(index, 0),
+                        "listening:set:" + set.getId() + ":generate:item:" + index
+                                + ":manual:0");
+                return;
+            }
         }
+    }
+
+    private void refreshAvailability(ListeningDailySet set) {
+        set.refreshAvailability(
+                itemRepository.countLogicalItemsByStatus(set.getId(), ListeningItemStatus.READY),
+                itemRepository.countLogicalItemsByStatus(set.getId(), ListeningItemStatus.TTS_PENDING));
+    }
+
+    private int missingSlotCount(ListeningDailySet set) {
+        int missing = 0;
+        for (int index = 1; index <= set.getTargetItemCount(); index++) {
+            if (!itemRepository.existsByDailySetIdAndItemIndex(set.getId(), index)) {
+                missing++;
+            }
+        }
+        return missing;
     }
 
     private LanguageComplexityContext listeningComplexity(ListeningDailySet set) {
@@ -270,6 +333,27 @@ public class ListeningGenerationTransactionService {
         return new LanguageComplexityContext(
                 baseScore, baseBand, targetBand, LanguageComplexityPolicy.VERSION
         );
+    }
+
+    private DiversityContext diversityContext(ListeningDailySet set) {
+        DiversityContext history = diversityContextService.context(set.getUser().getId(),
+                set.getLearningLanguage(), LanguageLearningContentSource.LISTENING);
+        List<DiversityHistoryItem> current = itemRepository
+                .findAllByDailySetIdOrderByItemIndexAscReplacementSequenceAsc(set.getId())
+                .stream().limit(40).map(item -> {
+                    var generated = jsonCodec.read(item.getGenerationMetadataJson(),
+                            AiListeningContract.GeneratedItem.class);
+                    var metadata = generated == null ? null : generated.diversityMetadata();
+                    return new DiversityHistoryItem(LanguageLearningContentSource.LISTENING,
+                            item.getSourceText(), item.getContentHash(),
+                            metadata == null ? null : metadata.scenarioCategory(),
+                            metadata == null ? null : metadata.communicativeIntent(),
+                            metadata == null ? null : metadata.taskArchetype(),
+                            metadata == null ? List.of() : metadata.grammarFocusCodes(),
+                            metadata == null ? null : metadata.semanticSummary(), 0);
+                }).toList();
+        return new DiversityContext(current, history.sameFeatureRecent(),
+                history.crossFeatureRecent(), history.exactContentHashes90d());
     }
 
     private List<String> profileFocus(String snapshotJson) {

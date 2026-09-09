@@ -23,7 +23,7 @@ import jp.co.translacat.domain.languagelearning.listening.policy.ListeningIdempo
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningTaskSelectionPolicy;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
-import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
+import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionLockService;
 import jp.co.translacat.domain.languagelearning.listening.service.ListeningViewMapper;
 import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
 import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
@@ -52,7 +52,7 @@ public class ListeningAttemptCommandService {
 
     private final ListeningItemAttemptRepository attemptRepository;
     private final ListeningTaskResponseRepository responseRepository;
-    private final ListeningSessionRepository sessionRepository;
+    private final ListeningSessionLockService lockService;
     private final ListeningPolicySettingQueryService policySettingService;
     private final ListeningTaskSelectionPolicy taskSelectionPolicy;
     private final ListeningIdempotencyPolicy idempotencyPolicy;
@@ -341,15 +341,14 @@ public class ListeningAttemptCommandService {
             Long userId,
             Long sessionId
     ) {
-        var session = sessionRepository.findByIdAndUserId(sessionId, userId)
-                .orElseThrow(() -> notFound("Listening Session을 찾을 수 없습니다."));
+        var session = lockService.ownedSession(userId, sessionId);
         if (session.getStatus() != ListeningSessionStatus.COMPLETED
                 && session.getStatus() != ListeningSessionStatus.EVALUATING) {
             throw invalid("완료 또는 평가 중인 Listening Session만 재시도할 수 있습니다.");
         }
 
         List<Long> officialAttemptIds = attemptRepository
-                .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(sessionId)
+                .findAllLockedBySessionIdOrderByItemItemIndexAscAttemptNoAsc(sessionId)
                 .stream()
                 .filter(ListeningItemAttempt::isOfficial)
                 .map(ListeningItemAttempt::getId)
@@ -390,6 +389,7 @@ public class ListeningAttemptCommandService {
             Long itemId,
             ListeningApiContract.PracticeAttemptRequest request
     ) {
+        lockService.ownedSession(userId, sessionId);
         ListeningItemAttempt official = attemptRepository
                 .findBySessionIdAndItemIdAndEvaluationPurpose(
                         sessionId,
@@ -559,14 +559,7 @@ public class ListeningAttemptCommandService {
     }
 
     private ListeningItemAttempt ownedAttempt(Long userId, Long attemptId) {
-        ListeningItemAttempt attempt = attemptRepository.findLockedById(attemptId)
-                .orElseThrow(() -> notFound("Listening Attempt를 찾을 수 없습니다."));
-        var session = sessionRepository.findLockedById(attempt.getSession().getId())
-                .orElseThrow(() -> notFound("Listening Session을 찾을 수 없습니다."));
-        if (!session.getUser().getId().equals(userId)) {
-            throw notFound("Listening Attempt를 찾을 수 없습니다.");
-        }
-        return attempt;
+        return lockService.ownedAttempt(userId, attemptId);
     }
 
     private void requireMutableSession(ListeningItemAttempt attempt) {
@@ -639,12 +632,13 @@ public class ListeningAttemptCommandService {
         }
 
         List<ListeningItemAttempt> official = attemptRepository
-                .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
+                .findAllLockedBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
                         changedAttempt.getSession().getId()
                 ).stream()
                 .filter(ListeningItemAttempt::isOfficial)
                 .toList();
-        if (official.isEmpty()) {
+        if (!changedAttempt.getSession().hasAllTargetItems(official.stream()
+                .map(value -> value.getItem().getItemIndex()).toList())) {
             return;
         }
 
@@ -669,14 +663,14 @@ public class ListeningAttemptCommandService {
             Long attemptId,
             ListeningTaskType taskType
     ) {
-        return responseRepository.findByAttemptIdAndTaskType(attemptId, taskType)
+        return responseRepository.findLockedByAttemptIdAndTaskType(attemptId, taskType)
                 .filter(value -> value.getStatus()
                         != ListeningTaskStatus.NOT_SELECTED)
                 .orElseThrow(() -> invalid("선택하지 않은 Listening Task입니다."));
     }
 
     private List<ListeningTaskResponse> selectedResponses(Long attemptId) {
-        return responseRepository.findAllByAttemptIdOrderByTaskTypeAsc(attemptId)
+        return responseRepository.findAllLockedByAttemptIdOrderByTaskTypeAsc(attemptId)
                 .stream()
                 .filter(value -> value.getStatus()
                         != ListeningTaskStatus.NOT_SELECTED)

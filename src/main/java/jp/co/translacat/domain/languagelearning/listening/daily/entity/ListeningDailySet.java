@@ -182,7 +182,12 @@ public class ListeningDailySet extends BaseAuditable {
 
     public void ready(String generationVersion, boolean partial) {
         this.generationVersion = generationVersion;
-        this.failureReason = null;
+        if (status == ListeningDailySetStatus.COMPLETED) {
+            return;
+        }
+        if (!partial) {
+            this.failureReason = null;
+        }
         this.status = partial
                 ? ListeningDailySetStatus.PARTIAL
                 : ListeningDailySetStatus.READY;
@@ -190,24 +195,47 @@ public class ListeningDailySet extends BaseAuditable {
 
     public void generated(String generationVersion) {
         this.generationVersion = generationVersion;
-        this.failureReason = null;
+    }
+
+    public void refreshAvailability(long readyItems, long pendingItems) {
+        if (status == ListeningDailySetStatus.COMPLETED) {
+            return;
+        }
+        if (readyItems >= targetItemCount) {
+            ready(generationVersion, false);
+        } else if (readyItems > 0 || pendingItems > 0) {
+            ready(generationVersion, true);
+        } else if (failureReason != null) {
+            status = physicalItemCount > 0
+                    ? ListeningDailySetStatus.PARTIAL
+                    : ListeningDailySetStatus.FAILED;
+        } else {
+            status = ListeningDailySetStatus.GENERATING;
+        }
     }
 
     public void fail(String reason) {
+        if (status == ListeningDailySetStatus.COMPLETED) {
+            return;
+        }
         this.failureReason = trim(reason);
-        this.status = ListeningDailySetStatus.FAILED;
+        this.status = physicalItemCount > 0
+                ? ListeningDailySetStatus.PARTIAL
+                : ListeningDailySetStatus.FAILED;
     }
 
     public void restartGeneration() {
-        if (status != ListeningDailySetStatus.FAILED
-                || physicalItemCount != 0) {
+        if ((status != ListeningDailySetStatus.FAILED
+                && status != ListeningDailySetStatus.PARTIAL)
+                || failureReason == null) {
             throw new IllegalStateException(
-                    "실패한 초기 Listening 생성만 다시 시도할 수 있습니다."
+                    "실패한 Listening 생성만 이어서 시도할 수 있습니다."
             );
         }
-        generationVersion = null;
         failureReason = null;
-        status = ListeningDailySetStatus.GENERATING;
+        status = physicalItemCount > 0
+                ? ListeningDailySetStatus.PARTIAL
+                : ListeningDailySetStatus.GENERATING;
     }
 
     public void registerCompletedLearning() {

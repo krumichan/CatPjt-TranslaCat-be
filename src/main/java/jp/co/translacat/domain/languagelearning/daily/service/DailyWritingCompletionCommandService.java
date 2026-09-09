@@ -1,5 +1,8 @@
 package jp.co.translacat.domain.languagelearning.daily.service;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+
 import jp.co.translacat.domain.languagelearning.common.enums.DailySetStatus;
 import jp.co.translacat.domain.languagelearning.common.enums.EvaluationStatus;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingItem;
@@ -14,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 @Service
 @RequiredArgsConstructor
@@ -23,24 +27,33 @@ public class DailyWritingCompletionCommandService {
     private final DailyWritingItemRepository itemRepository;
     private final WritingAnswerRepository answerRepository;
     private final WritingEvaluationRepository evaluationRepository;
+    private final EntityManager entityManager;
 
-    @Transactional
-    public void completeIfAllEvaluated(Long dailySetId) {
-        if (!allItemsEvaluated(dailySetId)) {
-            return;
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public DailyWritingSet completeIfAllEvaluated(Long dailySetId) {
+        DailyWritingSet dailySet = dailySetRepository.findLockedById(dailySetId).orElse(null);
+        if (dailySet == null) {
+            return null;
         }
-
-        dailySetRepository.findById(dailySetId)
-                .filter(dailySet -> dailySet.getStatus()
-                        != DailySetStatus.COMPLETED)
-                .ifPresent(DailyWritingSet::complete);
+        // A web request may already hold this entity in its open persistence context.
+        // Refresh the locked row before reconciling or returning its current status.
+        entityManager.refresh(dailySet, LockModeType.PESSIMISTIC_WRITE);
+        if (dailySet.getStatus() == DailySetStatus.READY && allItemsEvaluated(dailySet)) {
+            dailySet.complete();
+        }
+        return dailySet;
     }
 
-    private boolean allItemsEvaluated(Long dailySetId) {
-        for (DailyWritingItem item :
-                itemRepository.findAllByDailySetIdOrderByOrderNoAsc(
-                        dailySetId
-                )) {
+    private boolean allItemsEvaluated(DailyWritingSet dailySet) {
+        var items = itemRepository.findAllByDailySetIdOrderByOrderNoAsc(dailySet.getId());
+        if (items.size() != dailySet.getSentenceCount() || items.isEmpty()) {
+            return false;
+        }
+        for (int index = 0; index < items.size(); index++) {
+            DailyWritingItem item = items.get(index);
+            if (item.getOrderNo() != index + 1) {
+                return false;
+            }
             if (!hasSuccessfulEvaluation(item)) {
                 return false;
             }

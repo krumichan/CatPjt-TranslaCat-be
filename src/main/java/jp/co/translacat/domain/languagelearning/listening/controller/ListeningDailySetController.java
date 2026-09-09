@@ -71,6 +71,15 @@ public class ListeningDailySetController {
         ));
     }
 
+    @Operation(summary = "Listening Daily Set 생성 진행 조회 (생성하지 않음)")
+    @GetMapping("/daily-sets/{dailySetId}")
+    public ResponseDto<ListeningApiContract.DailySetView> get(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long dailySetId
+    ) {
+        return ResponseUtil.ok(facade.get(SecurityUtil.getLoginUserId(principal), dailySetId));
+    }
+
     @Operation(summary = "실패한 기준 TTS 수동 재시도")
     @PostMapping("/items/{itemId}/retry-tts")
     public ResponseDto<ListeningApiContract.DailySetView> retryTts(

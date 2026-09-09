@@ -2,8 +2,6 @@ package jp.co.translacat.domain.languagelearning.practice.service;
 
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
-import jp.co.translacat.domain.languagelearning.ai.port.LanguageLearningAiClient;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.common.enums.ProfileSignalType;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeQuestionType;
@@ -43,7 +41,6 @@ public class PracticeGenerationService {
     private final PracticeSetRepository setRepository;
     private final PracticePersistenceService persistenceService;
     private final PracticeComplexityPolicy complexityPolicy;
-    private final LanguageLearningAiClient aiClient;
     private final LanguageLearningUserSettingQueryService settingQueryService;
     private final LearningProfileCommandService profileCommandService;
     private final LearningProfileSignalService profileSignalService;
@@ -95,22 +92,14 @@ public class PracticeGenerationService {
                 recentMistakes(userId, domain),
                 reviewTargets,
                 reviewQuestionCount,
-                today
-        );
-        AiPracticeGenerationResponseDto generated = aiClient.generatePractice(request);
-        validateGenerated(request, generated);
-
-        return persistenceService.persist(
-                userId,
                 today,
-                setting.getOriginLanguage(),
-                setting.getLearningLanguage(),
-                domain,
-                mode,
-                questionCount,
-                complexityBand,
-                generated
+                List.of()
         );
+        return persistenceService.createPending(userId, request);
+    }
+
+    public PracticeSet retry(Long userId, Long setId) {
+        return persistenceService.retry(userId, setId);
     }
 
     private List<String> selectedKeywords(Long userId, LocalDate today) {
@@ -219,22 +208,6 @@ public class PracticeGenerationService {
     ) {
         static ReviewEvidence empty() {
             return new ReviewEvidence(0, List.of());
-        }
-    }
-
-    private void validateGenerated(
-            AiPracticeGenerationRequestDto request,
-            AiPracticeGenerationResponseDto response
-    ) {
-        if (response == null
-                || response.domain() != request.domain()
-                || !request.mode().equals(response.mode())
-                || response.questions() == null
-                || response.questions().size() != request.questionCount()) {
-            throw new BusinessException(
-                    "Reading/Vocabulary AI 응답 계약이 올바르지 않습니다.",
-                    LanguageLearningErrorCode.AI_SCHEMA_INVALID
-            );
         }
     }
 

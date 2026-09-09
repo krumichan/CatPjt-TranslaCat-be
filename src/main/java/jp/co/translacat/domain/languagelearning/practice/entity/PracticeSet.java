@@ -3,6 +3,7 @@ package jp.co.translacat.domain.languagelearning.practice.entity;
 import jakarta.persistence.*;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeSetStatus;
+import jp.co.translacat.domain.languagelearning.practice.enums.PracticeGenerationStatus;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.jpa.BaseAuditable;
 import lombok.AccessLevel;
@@ -22,7 +23,8 @@ import java.time.LocalDateTime;
         ),
         indexes = {
                 @Index(name = "idx_ll_practice_set_user_date", columnList = "user_id,learning_date"),
-                @Index(name = "idx_ll_practice_set_user_domain", columnList = "user_id,domain")
+                @Index(name = "idx_ll_practice_set_user_domain", columnList = "user_id,domain"),
+                @Index(name = "idx_ll_practice_set_generation", columnList = "generation_status,generation_started_at")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -73,6 +75,23 @@ public class PracticeSet extends BaseAuditable {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "generation_status", length = 20)
+    private PracticeGenerationStatus generationStatus;
+
+    @Lob
+    @Column(name = "generation_request_json", columnDefinition = "LONGTEXT")
+    private String generationRequestJson;
+
+    @Column(name = "generation_token", length = 36)
+    private String generationToken;
+
+    @Column(name = "generation_started_at")
+    private LocalDateTime generationStartedAt;
+
+    @Column(name = "generation_failure_message", length = 1000)
+    private String generationFailureMessage;
+
     private PracticeSet(
             User user,
             LocalDate learningDate,
@@ -112,6 +131,50 @@ public class PracticeSet extends BaseAuditable {
 
     public void markGenerated(String promptVersion) {
         this.promptVersion = promptVersion;
+    }
+
+    public PracticeGenerationStatus getGenerationStatus() {
+        // Sets created before incremental generation already contain their full question list.
+        return generationStatus == null ? PracticeGenerationStatus.READY : generationStatus;
+    }
+
+    public void queueGeneration(String requestJson) {
+        this.generationRequestJson = requestJson;
+        resumeGeneration();
+    }
+
+    public void resumeGeneration() {
+        this.generationStatus = PracticeGenerationStatus.PENDING;
+        this.generationToken = null;
+        this.generationStartedAt = null;
+        this.generationFailureMessage = null;
+    }
+
+    public void claimGeneration(String token, LocalDateTime now) {
+        this.generationStatus = PracticeGenerationStatus.GENERATING;
+        this.generationToken = token;
+        this.generationStartedAt = now;
+    }
+
+    public boolean ownsGeneration(String token) {
+        return getGenerationStatus() == PracticeGenerationStatus.GENERATING
+                && token != null && token.equals(generationToken);
+    }
+
+    public void finishGeneration() {
+        this.generationStatus = PracticeGenerationStatus.READY;
+        this.generationToken = null;
+        this.generationStartedAt = null;
+        this.generationFailureMessage = null;
+    }
+
+    public void failGeneration(String message, boolean hasQuestions) {
+        this.generationStatus = hasQuestions
+                ? PracticeGenerationStatus.PARTIAL : PracticeGenerationStatus.FAILED;
+        this.generationToken = null;
+        this.generationStartedAt = null;
+        String reason = message == null || message.isBlank() ? "Question generation failed." : message;
+        this.generationFailureMessage = reason.substring(0, Math.min(1000, reason.length()));
     }
 
     public void complete(double officialScore) {

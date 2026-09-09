@@ -6,15 +6,18 @@ import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
 import jp.co.translacat.domain.languagelearning.daily.factory.DailyWritingGenerationRequestFactory;
 import jp.co.translacat.domain.languagelearning.daily.model.DailyWritingSnapshot;
 import jp.co.translacat.domain.languagelearning.daily.validator.DailyWritingGenerationResponseValidator;
-import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
-import jp.co.translacat.global.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Async;
+
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DailyWritingGenerationExecutor {
 
     private static final int FAILURE_MESSAGE_MAX_LENGTH = 1000;
@@ -25,47 +28,31 @@ public class DailyWritingGenerationExecutor {
     private final DailyWritingGenerationRequestFactory requestFactory;
     private final DailyWritingGenerationResponseValidator responseValidator;
 
-    public DailyWritingSet execute(
-            DailyWritingSet dailySet,
-            DailyWritingSnapshot snapshot
-    ) {
-        Long dailySetId = dailySet.getId();
-        stateCommandService.markGenerating(
-                dailySetId,
-                snapshotService.write(snapshot)
-        );
-
-        try {
-            AiDailyWritingGenerationResponseDto response =
-                    aiClient.generateDaily(
-                            requestFactory.createInitial(dailySet.getUser().getId(), dailySet, snapshot)
-                    );
-
-            responseValidator.validate(
-                    response,
-                    snapshot.sentenceCount(),
-                    snapshot.difficultyDistribution(),
-                    dailySet.getWritingType()
-            );
-
-            return stateCommandService.complete(
-                    dailySetId,
-                    snapshot.learningLanguage(),
-                    response.items(),
-                    response.promptVersion()
-            );
-        } catch (BusinessException e) {
-            stateCommandService.fail(dailySetId, trimMessage(e.getMessage()));
-            throw e;
-        } catch (Exception e) {
-            stateCommandService.fail(
-                    dailySetId,
-                    trimMessage(e.getMessage())
-            );
-            throw new BusinessException(
-                    "Daily Writing 문제 생성에 실패했습니다.",
-                    LanguageLearningErrorCode.DAILY_SET_GENERATION_FAILED
-            );
+    @Async("writingGenerationExecutor")
+    public CompletableFuture<Void> execute(Long dailySetId) {
+        while (true) {
+            var claim = stateCommandService.claim(dailySetId);
+            if (claim == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+            DailyWritingSet dailySet = claim.dailySet();
+            try {
+                DailyWritingSnapshot snapshot = snapshotService.read(dailySet);
+                AiDailyWritingGenerationResponseDto response = aiClient.generateDaily(
+                        requestFactory.createItem(dailySet, snapshot, claim.order(), claim.token()));
+                responseValidator.validate(
+                        response, 1, requestFactory.distributionForItem(snapshot, claim.order()),
+                        dailySet.getWritingType());
+                if (!stateCommandService.publish(
+                        dailySetId, claim.token(), claim.order(), snapshot.learningLanguage(),
+                        response.items().getFirst(), response.promptVersion())) {
+                    return CompletableFuture.completedFuture(null);
+                }
+            } catch (Exception e) {
+                log.warn("Writing item generation failed. dailySetId={} order={}", dailySetId, claim.order(), e);
+                stateCommandService.fail(dailySetId, claim.token(), trimMessage(e.getMessage()));
+                return CompletableFuture.completedFuture(null);
+            }
         }
     }
 

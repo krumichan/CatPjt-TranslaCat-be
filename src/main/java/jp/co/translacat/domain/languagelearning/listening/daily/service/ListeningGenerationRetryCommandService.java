@@ -6,7 +6,9 @@ import jp.co.translacat.domain.languagelearning.listening.common.enums.Listening
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
 import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningGenerationCommand;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
+import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
 import jp.co.translacat.domain.languagelearning.listening.outbox.entity.ListeningOutboxEvent;
+import jp.co.translacat.domain.languagelearning.listening.outbox.repository.ListeningOutboxEventRepository;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
 import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
@@ -21,11 +23,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ListeningGenerationRetryCommandService {
 
-    private static final int MANUAL_RETRY_ATTEMPT = 1;
-
     private final ListeningDailySetRepository dailySetRepository;
+    private final ListeningItemRepository itemRepository;
     private final ListeningPolicySettingQueryService policySettingService;
     private final ListeningOutboxCommandService outboxCommandService;
+    private final ListeningOutboxEventRepository outboxRepository;
 
     @Transactional
     public ListeningDailySet retry(Long userId, Long dailySetId) {
@@ -36,31 +38,39 @@ public class ListeningGenerationRetryCommandService {
                         LanguageLearningErrorCode.DAILY_SET_NOT_FOUND
                 ));
 
-        if (dailySet.getStatus() != ListeningDailySetStatus.FAILED
-                || dailySet.getPhysicalItemCount() != 0) {
+        if (outboxRepository.existsByEventTypeAndAggregateIdAndStatusIn(
+                ListeningOutboxType.GENERATE_SET, dailySetId,
+                java.util.List.of(ListeningOutboxStatus.PENDING, ListeningOutboxStatus.PROCESSING))) {
+            return dailySet;
+        }
+
+        if ((dailySet.getStatus() != ListeningDailySetStatus.FAILED
+                && dailySet.getStatus() != ListeningDailySetStatus.PARTIAL)
+                || dailySet.getFailureReason() == null) {
             throw invalidState("수동 생성 재시도를 실행할 수 없습니다.");
         }
-        if (policySettingService.get().getManualRetryLimit()
-                < MANUAL_RETRY_ATTEMPT) {
-            throw invalidState("Listening 생성 수동 재시도 한도를 초과했습니다.");
+        int missingIndex = 1;
+        while (missingIndex <= dailySet.getTargetItemCount()
+                && itemRepository.existsByDailySetIdAndItemIndex(dailySetId, missingIndex)) {
+            missingIndex++;
         }
-
-        String idempotencyKey = "listening:set:" + dailySetId
-                + ":generate:manual:" + MANUAL_RETRY_ATTEMPT;
-        ListeningOutboxEvent event = outboxCommandService.enqueue(
-                ListeningOutboxType.GENERATE_SET,
-                dailySetId,
-                ListeningGenerationCommand.manualRetry(MANUAL_RETRY_ATTEMPT),
-                idempotencyKey
-        );
-
-        if (event.getStatus() == ListeningOutboxStatus.FAILED
-                || event.getStatus() == ListeningOutboxStatus.SUCCEEDED) {
-            throw invalidState("Listening 생성 수동 재시도 한도를 초과했습니다.");
+        if (missingIndex > dailySet.getTargetItemCount()) {
+            throw invalidState("생성을 재시도할 누락 문항이 없습니다.");
         }
-
-        dailySet.restartGeneration();
-        return dailySet;
+        int retryLimit = policySettingService.get().getManualRetryLimit();
+        for (int attempt = 1; attempt <= retryLimit; attempt++) {
+            String idempotencyKey = "listening:set:" + dailySetId
+                    + ":generate:item:" + missingIndex + ":manual:" + attempt;
+            ListeningOutboxEvent event = outboxCommandService.enqueue(
+                    ListeningOutboxType.GENERATE_SET, dailySetId,
+                    ListeningGenerationCommand.item(missingIndex, attempt), idempotencyKey);
+            if (event.getStatus() == ListeningOutboxStatus.PENDING
+                    || event.getStatus() == ListeningOutboxStatus.PROCESSING) {
+                dailySet.restartGeneration();
+                return dailySet;
+            }
+        }
+        throw invalidState("Listening 생성 수동 재시도 한도를 초과했습니다.");
     }
 
     private BusinessException invalidState(String message) {

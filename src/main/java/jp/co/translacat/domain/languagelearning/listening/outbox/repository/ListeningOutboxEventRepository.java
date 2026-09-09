@@ -23,12 +23,32 @@ public interface ListeningOutboxEventRepository
     );
 
     List<ListeningOutboxEvent>
+    findTop50ByStatusAndEventTypeAndAvailableAtLessThanEqualOrderByCreatedAtAsc(
+            ListeningOutboxStatus status,
+            ListeningOutboxType eventType,
+            LocalDateTime now
+    );
+
+    List<ListeningOutboxEvent>
     findTop50ByStatusAndUpdatedAtBeforeOrderByUpdatedAtAsc(
             ListeningOutboxStatus status,
             LocalDateTime updatedAt
     );
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<ListeningOutboxEvent>
+    findTop50LockedByStatusAndUpdatedAtBeforeOrderByUpdatedAtAsc(
+            ListeningOutboxStatus status,
+            LocalDateTime updatedAt
+    );
+
     Optional<ListeningOutboxEvent> findByIdempotencyKey(String idempotencyKey);
+
+    boolean existsByEventTypeAndAggregateIdAndStatusIn(
+            ListeningOutboxType eventType,
+            Long aggregateId,
+            List<ListeningOutboxStatus> statuses
+    );
 
     Optional<ListeningOutboxEvent>
     findFirstByEventTypeAndAggregateIdOrderByIdDesc(

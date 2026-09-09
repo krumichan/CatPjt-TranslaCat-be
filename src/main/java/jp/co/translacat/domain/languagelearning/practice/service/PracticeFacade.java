@@ -29,6 +29,10 @@ public class PracticeFacade {
         return queryService.get(userId, setId);
     }
 
+    public PracticeSetResponseDto retryGeneration(Long userId, Long setId) {
+        return queryService.toResponse(generationService.retry(userId, setId));
+    }
+
     public List<PracticeTodayModeStatusResponseDto> getTodayStatus(
             Long userId,
             PracticeDomain domain

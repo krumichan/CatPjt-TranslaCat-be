@@ -21,7 +21,7 @@ import jp.co.translacat.domain.languagelearning.listening.policy.ListeningProfil
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
 import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
-import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
+import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionLockService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -45,7 +45,7 @@ public class ListeningAttemptFinalizationCommandService {
 
     private final ListeningItemAttemptRepository attemptRepository;
     private final ListeningTaskResponseRepository responseRepository;
-    private final ListeningSessionRepository sessionRepository;
+    private final ListeningSessionLockService lockService;
     private final ListeningTaskEvaluationRepository evaluationRepository;
     private final ListeningMetricHistoryRepository historyRepository;
     private final ListeningOutboxCommandService outboxCommandService;
@@ -57,18 +57,15 @@ public class ListeningAttemptFinalizationCommandService {
 
     @Transactional
     public boolean finalizeIfTerminal(Long attemptId) {
-        ListeningItemAttempt attempt = attemptRepository.findLockedById(attemptId)
-                .orElseThrow();
-        ListeningSession session = sessionRepository
-                .findLockedById(attempt.getSession().getId())
-                .orElseThrow();
+        ListeningItemAttempt attempt = lockService.attempt(attemptId);
+        ListeningSession session = attempt.getSession();
 
         if (attempt.isFinalized()) {
             return true;
         }
 
         List<ListeningTaskResponse> selected = responseRepository
-                .findAllByAttemptIdOrderByTaskTypeAsc(attemptId)
+                .findAllLockedByAttemptIdOrderByTaskTypeAsc(attemptId)
                 .stream()
                 .filter(value -> value.getStatus()
                         != ListeningTaskStatus.NOT_SELECTED)
@@ -82,7 +79,7 @@ public class ListeningAttemptFinalizationCommandService {
         }
 
         List<ListeningTaskEvaluation> evaluations = evaluationRepository
-                .findAllByTaskResponseAttemptIdOrderByTaskTypeAsc(attemptId);
+                .findAllLockedByTaskResponseAttemptIdOrderByTaskTypeAsc(attemptId);
         List<ListeningTaskEvaluation> evaluated = evaluations.stream()
                 .filter(ListeningTaskEvaluation::isEvaluable)
                 .filter(value -> value.getScore() != null)
@@ -202,13 +199,17 @@ public class ListeningAttemptFinalizationCommandService {
         }
 
         if (attempt.isOfficial()) {
-            boolean allOfficialTerminal = attemptRepository
-                    .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
+            List<ListeningItemAttempt> official = attemptRepository
+                    .findAllLockedBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
                             session.getId()
                     ).stream()
                     .filter(ListeningItemAttempt::isOfficial)
-                    .allMatch(ListeningItemAttempt::isFinalized);
-            if (allOfficialTerminal) {
+                    .toList();
+            if (session.hasAllTargetItems(official.stream()
+                    .map(value -> value.getItem().getItemIndex()).toList())
+                    && official.stream().allMatch(ListeningItemAttempt::isFinalized)
+                    && (session.isActive() || session.getStatus()
+                        == jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus.EVALUATING)) {
                 session.complete(now);
             }
         }

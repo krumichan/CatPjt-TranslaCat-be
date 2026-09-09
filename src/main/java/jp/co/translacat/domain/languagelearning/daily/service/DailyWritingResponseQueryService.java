@@ -61,6 +61,8 @@ public class DailyWritingResponseQueryService {
                 dailySet.getSnapshotId(),
                 dailySet.getStatus(),
                 dailySet.getSentenceCount(),
+                items.size(),
+                dailySet.getFailureMessage(),
                 dailySet.getRegenerationCount(),
                 dailySet.getPromptVersion(),
                 reviewAvailable,

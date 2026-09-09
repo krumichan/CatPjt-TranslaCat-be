@@ -30,6 +30,8 @@ public interface ListeningItemRepository
 
     long countByDailySetId(Long dailySetId);
 
+    boolean existsByDailySetIdAndItemIndex(Long dailySetId, int itemIndex);
+
 
     List<ListeningItem>
     findTop200ByDailySetUserIdAndDailySetLearningLanguageOrderByCreatedAtDesc(

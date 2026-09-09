@@ -14,6 +14,7 @@ import jp.co.translacat.domain.languagelearning.listening.policy.ListeningIdempo
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningTaskSelectionPolicy;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
+import jp.co.translacat.domain.languagelearning.listening.service.ListeningViewMapper;
 import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
 import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
 import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
@@ -26,11 +27,13 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -48,6 +51,22 @@ public class ListeningSessionCommandService {
     private final ListeningPolicySettingQueryService policySettingService;
     private final LanguageLearningUserSettingQueryService userSettingQueryService;
     private final LanguageLearningJsonCodec jsonCodec;
+    private final ListeningSessionLockService lockService;
+    private final ListeningViewMapper viewMapper;
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public ListeningApiContract.SessionView synchronizeAndView(Long userId, Long sessionId) {
+        ListeningSession session = ownedLocked(userId, sessionId);
+        if (session.isActive() && expired(session)) {
+            session.abandon(LocalDateTime.now());
+        } else {
+            synchronizeReadyItems(session);
+        }
+        // Keep attachment reconciliation and the poll-stop fields in one Set-
+        // locked snapshot. READ_COMMITTED also avoids the ownership lookup's
+        // pre-lock snapshot hiding a just-committed TTS item.
+        return viewMapper.session(session);
+    }
 
     @Transactional
     public Long create(
@@ -58,7 +77,7 @@ public class ListeningSessionCommandService {
             throw invalid("Listening Daily Set이 필요합니다.");
         }
 
-        ListeningDailySet dailySet = dailySetQueryService.owned(
+        ListeningDailySet dailySet = lockService.ownedDailySet(
                 userId,
                 request.dailySetId()
         );
@@ -81,6 +100,7 @@ public class ListeningSessionCommandService {
 
         if (existing.isPresent()) {
             validateIdempotentSession(existing.get(), request.dailySetId(), ordered);
+            synchronizeReadyItems(ownedLocked(userId, existing.get().getId()));
             rememberSelection(userId, ordered);
             return existing.get().getId();
         }
@@ -92,15 +112,13 @@ public class ListeningSessionCommandService {
             throw invalid("준비되지 않은 Listening Daily Set입니다.");
         }
 
-        List<ListeningItem> items = dailySetQueryService.activeItems(
-                dailySet.getId()
-        ).stream()
+        List<ListeningItem> activeItems = dailySetQueryService.activeItems(dailySet.getId());
+        if (attemptRepository.existsByItemDailySetIdAndEvaluationPurpose(
+                dailySet.getId(), ListeningEvaluationPurpose.OFFICIAL)) {
+            throw invalid("이 Listening Daily Set에 이미 공식 학습 이력이 있습니다. 기존 Session을 확인해 주세요.");
+        }
+        List<ListeningItem> items = activeItems.stream()
                 .filter(item -> item.isPlayable(LocalDateTime.now()))
-                .filter(item -> !attemptRepository
-                        .existsByItemIdAndEvaluationPurpose(
-                                item.getId(),
-                                ListeningEvaluationPurpose.OFFICIAL
-                        ))
                 .toList();
 
         if (items.isEmpty()) {
@@ -136,6 +154,9 @@ public class ListeningSessionCommandService {
                     ordered, 1, now);
         }
 
+        // The Set lock serializes this snapshot with TTS completion. Subsequent
+        // polling also reconciles items which become READY after this commit.
+
         return session.getId();
     }
 
@@ -143,14 +164,17 @@ public class ListeningSessionCommandService {
     public Long activeSessionId(Long userId) {
         ListeningPolicySetting policy = policySettingService.get();
         var active = sessionRepository
-                .findFirstByUserIdAndStatusInOrderByStartedAtDesc(
+                .findFirstByUserIdAndStatusOrderByStartedAtDesc(
                         userId,
-                        List.of(ListeningSessionStatus.IN_PROGRESS)
+                        ListeningSessionStatus.IN_PROGRESS
                 );
         if (active.isEmpty()) {
             return null;
         }
-        ListeningSession session = active.get();
+        ListeningSession session = ownedLocked(userId, active.get().getId());
+        if (!session.isActive()) {
+            return null;
+        }
         if (session.isExpired(
                 LocalDateTime.now(),
                 Duration.ofHours(policy.getResumeHours())
@@ -158,6 +182,7 @@ public class ListeningSessionCommandService {
             session.abandon(LocalDateTime.now());
             return null;
         }
+        synchronizeReadyItems(session);
         return session.getId();
     }
 
@@ -178,6 +203,7 @@ public class ListeningSessionCommandService {
             return new ResumeResult(sessionId, true);
         }
 
+        synchronizeReadyItems(session);
         session.touch(LocalDateTime.now());
 
         return new ResumeResult(sessionId, false);
@@ -196,9 +222,15 @@ public class ListeningSessionCommandService {
             return new CompleteResult(sessionId, true);
         }
 
-        boolean pending = attemptRepository
-                .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(sessionId)
-                .stream()
+        synchronizeReadyItems(session);
+        List<ListeningItemAttempt> official = attemptRepository
+                .findAllLockedBySessionIdOrderByItemItemIndexAscAttemptNoAsc(sessionId)
+                .stream().filter(ListeningItemAttempt::isOfficial).toList();
+        if (!session.hasAllTargetItems(official.stream()
+                .map(value -> value.getItem().getItemIndex()).toList())) {
+            throw invalid("아직 준비되지 않은 Listening 문항이 있습니다.");
+        }
+        boolean pending = official.stream()
                 .anyMatch(value -> !value.isFinalized());
 
         if (pending) {
@@ -217,13 +249,54 @@ public class ListeningSessionCommandService {
     public boolean expireIfNeeded(Long userId, Long sessionId) {
         ListeningSession session = ownedLocked(userId, sessionId);
 
-        if (!session.isActive() || !expired(session)) {
+        if (!session.isActive()) {
+            return false;
+        }
+
+        if (!expired(session)) {
+            synchronizeReadyItems(session);
             return false;
         }
 
         session.abandon(LocalDateTime.now());
 
         return true;
+    }
+
+    private void synchronizeReadyItems(ListeningSession session) {
+        if (!session.isActive()) {
+            return;
+        }
+        List<ListeningItemAttempt> official = attemptRepository
+                .findAllLockedBySessionIdOrderByItemItemIndexAscAttemptNoAsc(session.getId())
+                .stream().filter(ListeningItemAttempt::isOfficial).toList();
+        Set<Integer> attachedIndices = new HashSet<>(official.stream()
+                .map(value -> value.getItem().getItemIndex()).toList());
+        List<ListeningTaskType> selected = jsonCodec.read(
+                session.getSelectedTaskTypesJson(),
+                new com.fasterxml.jackson.core.type.TypeReference<List<ListeningTaskType>>() { }
+        );
+        LocalDateTime now = LocalDateTime.now();
+        boolean changed = false;
+        for (ListeningItem item : dailySetQueryService.activeItems(session.getDailySet().getId())) {
+            if (item.getItemIndex() < 1
+                    || item.getItemIndex() > session.getDailySet().getTargetItemCount()
+                    || attachedIndices.contains(item.getItemIndex())
+                    || !item.isPlayable(now)
+                    || attemptRepository.existsByItemIdAndEvaluationPurpose(
+                            item.getId(), ListeningEvaluationPurpose.OFFICIAL)) {
+                continue;
+            }
+            createAttempt(session, item, ListeningEvaluationPurpose.OFFICIAL, selected, 1, now);
+            attachedIndices.add(item.getItemIndex());
+            changed = true;
+        }
+        if (changed) {
+            session.updateSelectionSnapshot(jsonCodec.write(attemptRepository
+                    .findAllLockedBySessionIdOrderByItemItemIndexAscAttemptNoAsc(session.getId())
+                    .stream().filter(ListeningItemAttempt::isOfficial)
+                    .map(value -> value.getItem().getId()).toList()));
+        }
     }
 
     private void rememberSelection(
@@ -312,13 +385,7 @@ public class ListeningSessionCommandService {
     }
 
     private ListeningSession ownedLocked(Long userId, Long sessionId) {
-        return sessionRepository.findOwnedLockedByIdAndUserId(
-                sessionId,
-                userId
-        ).orElseThrow(() -> new BusinessException(
-                "Listening Session을 찾을 수 없습니다.",
-                LanguageLearningErrorCode.SESSION_NOT_FOUND
-        ));
+        return lockService.ownedSession(userId, sessionId);
     }
 
     private boolean expired(ListeningSession session) {

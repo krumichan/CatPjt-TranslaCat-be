@@ -25,7 +25,9 @@ public class DailyWritingGenerationCommandService {
     private final DailySetClaimCommandService dailySetClaimCommandService;
     private final DailyWritingGenerationContextService generationContextService;
     private final DailyWritingSnapshotService snapshotService;
-    private final DailyWritingGenerationExecutor generationExecutor;
+    private final DailyWritingGenerationStateCommandService generationStateCommandService;
+    private final DailyWritingGenerationRecoveryService recoveryService;
+    private final DailyWritingCompletionCommandService completionService;
 
     public DailyWritingSet getOrGenerateToday(Long userId, DailyWritingType writingType) {
         DailyWritingGenerationContext context =
@@ -61,9 +63,17 @@ public class DailyWritingGenerationCommandService {
             return handleExistingSet(dailySet);
         }
 
-        return generationExecutor.execute(dailySet, snapshot);
+        recoveryService.dispatch(dailySet.getId());
+        return dailySet;
     }
 
+    public DailyWritingSet retryGeneration(Long userId, Long dailySetId) {
+        DailyWritingSet dailySet = generationStateCommandService.retry(userId, dailySetId);
+        if (dailySet.getStatus() == DailySetStatus.GENERATING) {
+            recoveryService.dispatch(dailySetId);
+        }
+        return dailySet;
+    }
 
     private DailyWritingSet claimDailySet(
             Long userId,
@@ -94,20 +104,17 @@ public class DailyWritingGenerationCommandService {
     }
 
     private DailyWritingSet handleExistingSet(DailyWritingSet dailySet) {
-        if (dailySet.getStatus() == DailySetStatus.GENERATING) {
-            throw new BusinessException(
-                    "Daily Set 생성이 진행 중입니다.",
-                    LanguageLearningErrorCode.DAILY_SET_GENERATING
-            );
+        // Polling is a read: PARTIAL/FAILED needs an explicit retry command.
+        // Reconcile the crash gap between committing the last evaluation and
+        // marking completion; the returned entity has been refreshed under lock.
+        if (dailySet.getStatus() == DailySetStatus.READY) {
+            DailyWritingSet reconciled = completionService.completeIfAllEvaluated(dailySet.getId());
+            if (reconciled == null) {
+                throw new BusinessException("Daily Set을 찾을 수 없습니다.",
+                        LanguageLearningErrorCode.DAILY_SET_NOT_FOUND);
+            }
+            return reconciled;
         }
-
-        if (dailySet.getStatus() == DailySetStatus.FAILED) {
-            return generationExecutor.execute(
-                    dailySet,
-                    snapshotService.read(dailySet)
-            );
-        }
-
         return dailySet;
     }
 

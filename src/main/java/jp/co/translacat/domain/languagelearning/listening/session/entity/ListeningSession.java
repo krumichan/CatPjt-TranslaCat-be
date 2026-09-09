@@ -27,6 +27,8 @@ import lombok.NoArgsConstructor;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.stream.IntStream;
 
 @Entity
 @Getter
@@ -158,6 +160,17 @@ public class ListeningSession extends BaseAuditable {
         return status == ListeningSessionStatus.IN_PROGRESS;
     }
 
+    public boolean hasAllTargetItems(Collection<Integer> officialItemIndices) {
+        int target = dailySet.getTargetItemCount();
+        return target > 0 && IntStream.rangeClosed(1, target)
+                .allMatch(officialItemIndices::contains);
+    }
+
+    public void updateSelectionSnapshot(String selectionSnapshotJson) {
+        requireActive();
+        this.selectionSnapshotJson = selectionSnapshotJson;
+    }
+
     public boolean isExpired(LocalDateTime now, Duration resumeWindow) {
         return isActive()
                 && lastActivityAt.plus(resumeWindow).isBefore(now);
@@ -251,7 +264,8 @@ public class ListeningSession extends BaseAuditable {
     private void requireLearningRecordable() {
         if (status != ListeningSessionStatus.IN_PROGRESS
                 && status != ListeningSessionStatus.EVALUATING
-                && status != ListeningSessionStatus.COMPLETED) {
+                && status != ListeningSessionStatus.COMPLETED
+                && status != ListeningSessionStatus.ABANDONED) {
             throw new IllegalStateException(
                     "학습 결과를 반영할 수 없는 Listening Session입니다."
             );

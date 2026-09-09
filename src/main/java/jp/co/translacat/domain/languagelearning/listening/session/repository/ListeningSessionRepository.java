@@ -30,6 +30,10 @@ public interface ListeningSessionRepository
 
     Optional<ListeningSession> findByIdAndUserId(Long id, Long userId);
 
+    Optional<ListeningSession> findFirstByUserIdAndStatusOrderByStartedAtDesc(
+            Long userId, ListeningSessionStatus status
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<ListeningSession> findLockedById(Long id);
 

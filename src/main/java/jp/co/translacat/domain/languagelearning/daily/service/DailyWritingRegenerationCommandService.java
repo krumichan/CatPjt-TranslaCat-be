@@ -3,6 +3,7 @@ package jp.co.translacat.domain.languagelearning.daily.service;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.DifficultyDistributionDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiDailyWritingGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.port.LanguageLearningAiClient;
+import jp.co.translacat.domain.languagelearning.common.enums.DailySetStatus;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingItem;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
 import jp.co.translacat.domain.languagelearning.daily.factory.DailyWritingGenerationRequestFactory;
@@ -48,6 +49,12 @@ public class DailyWritingRegenerationCommandService {
                 userId,
                 dailySetId
         );
+        if (dailySet.getStatus() == DailySetStatus.GENERATING
+                || dailySet.getStatus() == DailySetStatus.PARTIAL
+                || dailySet.getStatus() == DailySetStatus.FAILED) {
+            throw new BusinessException("생성 중이거나 일부만 생성된 문제는 생성 재시도를 이용해주세요.",
+                    LanguageLearningErrorCode.DAILY_SET_GENERATING);
+        }
         validateRegenerationLimit(dailySet);
 
         List<DailyWritingItem> unansweredItems = findUnansweredItems(

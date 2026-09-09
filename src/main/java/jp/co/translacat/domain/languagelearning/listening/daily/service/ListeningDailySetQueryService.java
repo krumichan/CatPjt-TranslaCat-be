@@ -5,6 +5,9 @@ import jp.co.translacat.domain.languagelearning.listening.attempt.repository.Lis
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAttemptStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningLearningMode;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxStatus;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
+import jp.co.translacat.domain.languagelearning.listening.outbox.repository.ListeningOutboxEventRepository;
 import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
@@ -38,6 +41,7 @@ public class ListeningDailySetQueryService {
     private final ListeningPolicySettingQueryService policySettingService;
     private final ListeningSessionRepository sessionRepository;
     private final ListeningItemAttemptRepository attemptRepository;
+    private final ListeningOutboxEventRepository outboxRepository;
 
     public ListeningDailySet owned(Long userId, Long dailySetId) {
         return dailySetRepository.findById(dailySetId)
@@ -84,7 +88,8 @@ public class ListeningDailySetQueryService {
                         item.getStatus(),
                         item.isPlayable(now),
                         item.getAudioDurationMs()
-                )).toList()
+                )).toList(),
+                generationInProgress(dailySet.getId())
         );
     }
 
@@ -108,7 +113,7 @@ public class ListeningDailySetQueryService {
                     if (set == null) {
                         return new ListeningApiContract.DailyModeStatusView(
                                 mode, null, null, null, null,
-                                0, 0, 0, 0, 0, 0, 0, 0, false
+                                0, 0, 0, 0, 0, 0, 0, 0, false, null, false
                         );
                     }
                     ListeningSession latestSession = sessionRepository
@@ -153,7 +158,9 @@ public class ListeningDailySetQueryService {
                             set.getPhysicalItemCount(),
                             readyItemCount,
                             set.getTargetItemCount(),
-                            completed
+                            completed,
+                            set.getFailureReason(),
+                            generationInProgress(set.getId())
                     );
                 })
                 .toList();
@@ -180,6 +187,12 @@ public class ListeningDailySetQueryService {
         return selected.values().stream()
                 .sorted(Comparator.comparingInt(ListeningItem::getItemIndex))
                 .toList();
+    }
+
+    public boolean generationInProgress(Long dailySetId) {
+        return outboxRepository.existsByEventTypeAndAggregateIdAndStatusIn(
+                ListeningOutboxType.GENERATE_SET, dailySetId,
+                List.of(ListeningOutboxStatus.PENDING, ListeningOutboxStatus.PROCESSING));
     }
 
     public ListeningApiContract.PolicyView policy() {

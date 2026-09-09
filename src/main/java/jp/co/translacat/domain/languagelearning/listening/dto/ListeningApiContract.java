@@ -47,7 +47,8 @@ public final class ListeningApiContract {
             int readyItemCount,
             int completedItemCount,
             String failureReason,
-            List<ItemSummary> items
+            List<ItemSummary> items,
+            boolean generationInProgress
     ) {
     }
 
@@ -85,7 +86,13 @@ public final class ListeningApiContract {
             LocalDateTime startedAt,
             LocalDateTime lastActivityAt,
             LocalDateTime resumableUntil,
-            List<AttemptView> attempts
+            List<AttemptView> attempts,
+            ListeningDailySetStatus dailySetStatus,
+            int targetItemCount,
+            int attachedItemCount,
+            String generationFailureMessage,
+            int pendingItemCount,
+            boolean generationInProgress
     ) {
     }
 
@@ -127,7 +134,9 @@ public final class ListeningApiContract {
             int physicalItemCount,
             int readyItemCount,
             int targetItemCount,
-            boolean completed
+            boolean completed,
+            String failureReason,
+            boolean generationInProgress
     ) {
     }
 
@@ -145,7 +154,8 @@ public final class ListeningApiContract {
             int evaluatedTaskCount,
             double coverage,
             String errorCode,
-            List<TaskView> tasks
+            List<TaskView> tasks,
+            int itemIndex
     ) {
     }
 

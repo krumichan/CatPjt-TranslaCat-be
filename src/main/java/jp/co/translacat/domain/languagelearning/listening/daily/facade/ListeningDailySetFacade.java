@@ -37,6 +37,10 @@ public class ListeningDailySetFacade {
         return queryService.view(userId, dailySet);
     }
 
+    public ListeningApiContract.DailySetView get(Long userId, Long dailySetId) {
+        return queryService.view(userId, queryService.owned(userId, dailySetId));
+    }
+
     public List<ListeningApiContract.DailyModeStatusView> todayStatuses(Long userId) {
         var setting = userSettingService.getOrCreateEntity(userId);
         userSettingService.requireConfigured(setting);

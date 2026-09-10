@@ -26,6 +26,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -148,16 +150,16 @@ class LevelTestAnswerCommandServiceIdempotencyTest {
         assertThat(result.idempotentReplay()).isFalse();
         assertThat(result.response()).isSameAs(response);
         verify(response).replaceAudio(
-                "level/10-rerecord.webm",
-                "audio/webm;codecs=opus",
-                2_900,
-                retentionUntil,
-                "new-audio-key",
-                org.mockito.ArgumentMatchers.any(LocalDateTime.class)
+                eq("level/10-rerecord.webm"),
+                eq("audio/webm;codecs=opus"),
+                eq(2_900),
+                eq(retentionUntil),
+                eq("new-audio-key"),
+                any(LocalDateTime.class)
         );
         verify(item).markAnswered();
         verify(item).markEvaluating();
-        verify(session).markEvaluating(org.mockito.ArgumentMatchers.any(LocalDateTime.class));
+        verify(session).markEvaluating(any(LocalDateTime.class));
     }
 
     @Test

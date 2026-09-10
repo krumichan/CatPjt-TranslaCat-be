@@ -6,6 +6,7 @@ import jp.co.translacat.domain.languagelearning.speaking.ai.port.SpeakingAiClien
 import jp.co.translacat.domain.languagelearning.speaking.assistance.dto.request.SpeakingAssistanceRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.assistance.factory.SpeakingAssistanceAiRequestFactory;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.AssistanceType;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionLifecycleService;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionQueryService;
@@ -64,14 +65,6 @@ class SpeakingAssistanceServiceTest {
                 speakingAiClient,
                 usageCommandService
         );
-
-        when(sessionQueryService.getOwnedEntity(7L, 301L))
-                .thenReturn(session);
-        when(session.getMaxTurns()).thenReturn(20);
-        when(session.getCompletedTurns()).thenReturn(5);
-        when(turnQueryService.getEntities(301L)).thenReturn(List.of(turn));
-        when(turn.getId()).thenReturn(401L);
-        when(turn.getAssistantText()).thenReturn("次は何をしたいですか？");
     }
 
     @Test
@@ -87,6 +80,7 @@ class SpeakingAssistanceServiceTest {
 
     @Test
     void hintUsesAiAndReturnsGeneratedContent() {
+        stubActiveSessionWithAssistantTurn();
         when(turnQueryService.getOwnedEntity(7L, 301L, 401L))
                 .thenReturn(turn);
         when(aiRequestFactory.create(
@@ -124,6 +118,7 @@ class SpeakingAssistanceServiceTest {
 
     @Test
     void replayUsesExistingAudioWithoutAiCall() {
+        stubActiveSessionWithAssistantTurn();
         when(turnQueryService.getOwnedEntity(7L, 301L, 401L))
                 .thenReturn(turn);
         when(turn.getAssistantAudioObjectKey()).thenReturn("assistant/401.wav");
@@ -148,6 +143,7 @@ class SpeakingAssistanceServiceTest {
 
     @Test
     void idempotentAiReplayDoesNotRecordUsageAgain() {
+        stubActiveSessionWithAssistantTurn();
         when(turnQueryService.getOwnedEntity(7L, 301L, 401L))
                 .thenReturn(turn);
         when(aiRequestFactory.create(
@@ -179,5 +175,16 @@ class SpeakingAssistanceServiceTest {
 
         verify(usageCommandService, never())
                 .record(any(), any(), any(), anyInt());
+    }
+
+    private void stubActiveSessionWithAssistantTurn() {
+        when(sessionQueryService.getOwnedEntity(7L, 301L))
+                .thenReturn(session);
+        when(session.getPracticeMode()).thenReturn(SpeakingPracticeMode.GUIDED);
+        when(session.getMaxTurns()).thenReturn(20);
+        when(session.getCompletedTurns()).thenReturn(5);
+        when(turnQueryService.getEntities(301L)).thenReturn(List.of(turn));
+        when(turn.getId()).thenReturn(401L);
+        when(turn.getAssistantText()).thenReturn("次は何をしたいですか？");
     }
 }

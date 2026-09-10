@@ -49,7 +49,8 @@ class DailyWritingGenerationStateCommandServiceTest {
 
     @Test
     void claimsFirstMissingSlotAndRejectsConcurrentClaim() {
-        when(items.findAllByDailySetIdOrderByOrderNoAsc(11L)).thenReturn(List.of(item(1), item(3)));
+        List<DailyWritingItem> generated = List.of(item(1), item(3));
+        when(items.findAllByDailySetIdOrderByOrderNoAsc(11L)).thenReturn(generated);
 
         var claim = service.claim(11L);
 
@@ -73,7 +74,8 @@ class DailyWritingGenerationStateCommandServiceTest {
 
     @Test
     void partialFailureRetainsItemsAndExplicitRetryResumesMissingSlot() {
-        when(items.findAllByDailySetIdOrderByOrderNoAsc(11L)).thenReturn(List.of(item(1), item(2)));
+        List<DailyWritingItem> generated = List.of(item(1), item(2));
+        when(items.findAllByDailySetIdOrderByOrderNoAsc(11L)).thenReturn(generated);
         var claim = service.claim(11L);
 
         service.fail(11L, claim.token(), "third failed");
@@ -112,10 +114,12 @@ class DailyWritingGenerationStateCommandServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void publishesOneItemAtGlobalOrderAndKeepsSetGenerating() {
-        when(items.findAllByDailySetIdOrderByOrderNoAsc(11L)).thenReturn(List.of(item(1), item(2)));
+        List<DailyWritingItem> generated = List.of(item(1), item(2));
+        when(items.findAllByDailySetIdOrderByOrderNoAsc(11L)).thenReturn(generated);
         var claim = service.claim(11L);
+        List<DailyWritingItem> afterPublish = List.of(generated.get(0), generated.get(1), item(3));
         when(items.findAllByDailySetIdOrderByOrderNoAsc(11L))
-                .thenReturn(List.of(item(1), item(2)), List.of(item(1), item(2), item(3)));
+                .thenReturn(generated, afterPublish);
 
         assertThat(service.publish(11L, claim.token(), 3, "ja", generated(), "prompt")).isTrue();
 
@@ -133,8 +137,10 @@ class DailyWritingGenerationStateCommandServiceTest {
         var four = List.of(item(1), item(2), item(3), item(4));
         when(items.findAllByDailySetIdOrderByOrderNoAsc(11L)).thenReturn(four);
         var claim = service.claim(11L);
-        when(items.findAllByDailySetIdOrderByOrderNoAsc(11L))
-                .thenReturn(four, List.of(item(1), item(2), item(3), item(4), item(5)));
+        List<DailyWritingItem> five = List.of(
+                four.get(0), four.get(1), four.get(2), four.get(3), item(5)
+        );
+        when(items.findAllByDailySetIdOrderByOrderNoAsc(11L)).thenReturn(four, five);
 
         service.publish(11L, claim.token(), 5, "ja", generated(), "prompt");
 

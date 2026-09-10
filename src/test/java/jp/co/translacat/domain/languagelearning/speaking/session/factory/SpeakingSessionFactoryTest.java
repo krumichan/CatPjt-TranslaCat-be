@@ -57,13 +57,16 @@ class SpeakingSessionFactoryTest {
 
 
     @Test
-    void readAloudUsesExactlyFiveDailyItems() {
+    void readAloudUsesFiveItemsWithTwoRequiredAndAtMostThreeAttemptsEach() {
         SpeakingSession session = factory.create(
                 request(SpeakingPracticeMode.READ_ALOUD, null, null),
                 context()
         );
 
-        assertThat(session.getMaxTurns()).isEqualTo(5);
+        assertThat(SpeakingSessionPolicy.READ_ALOUD_DAILY_ITEM_COUNT).isEqualTo(5);
+        assertThat(SpeakingSessionPolicy.READ_ALOUD_REQUIRED_ATTEMPTS_PER_ITEM).isEqualTo(2);
+        assertThat(SpeakingSessionPolicy.READ_ALOUD_MAX_ATTEMPTS_PER_ITEM).isEqualTo(3);
+        assertThat(session.getMaxTurns()).isEqualTo(15);
     }
 
     @Test

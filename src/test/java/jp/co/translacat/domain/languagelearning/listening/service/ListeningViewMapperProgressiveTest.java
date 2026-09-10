@@ -45,8 +45,11 @@ class ListeningViewMapperProgressiveTest {
         ListeningSession session = ListeningSession.create(mock(User.class), dailySet,
                 "[\"SUMMARY\"]", "{}", "[]", "key", LocalDateTime.now());
         ReflectionTestUtils.setField(session, "id", 30L);
+        List<ListeningItemAttempt> sessionAttempts = List.of(
+                attempt(1, true), attempt(1, true), attempt(2, false), attempt(3, true)
+        );
         when(attempts.findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(30L))
-                .thenReturn(List.of(attempt(1, true), attempt(1, true), attempt(2, false), attempt(3, true)));
+                .thenReturn(sessionAttempts);
         ListeningItem pending = mock(ListeningItem.class);
         when(pending.getStatus()).thenReturn(ListeningItemStatus.TTS_PENDING);
         ListeningItem ready = mock(ListeningItem.class);

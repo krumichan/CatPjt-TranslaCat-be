@@ -90,6 +90,15 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+
+    // Test workers use a JVM separate from the Gradle daemon.
+    // Override for the local/CI memory budget with -PtestMaxHeapSize=2g.
+    maxHeapSize = providers.gradleProperty('testMaxHeapSize').orElse('1g').get()
+
+    // Keep the original cause visible when Spring context initialization fails.
+    testLogging {
+        exceptionFormat = 'full'
+    }
 }
 
 def generated = "$projectDir/src/main/generated"

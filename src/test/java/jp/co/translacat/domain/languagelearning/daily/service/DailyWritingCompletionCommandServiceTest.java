@@ -37,8 +37,10 @@ class DailyWritingCompletionCommandServiceTest {
     void fewerThanTargetItemsNeverCompletes(int count) {
         DailyWritingSet set = set();
         set.ready("prompt");
-        when(items.findAllByDailySetIdOrderByOrderNoAsc(11L))
-                .thenReturn(IntStream.rangeClosed(1, count).mapToObj(this::item).toList());
+        List<DailyWritingItem> generated = IntStream.rangeClosed(1, count)
+                .mapToObj(this::item)
+                .toList();
+        when(items.findAllByDailySetIdOrderByOrderNoAsc(11L)).thenReturn(generated);
 
         service.completeIfAllEvaluated(11L);
 

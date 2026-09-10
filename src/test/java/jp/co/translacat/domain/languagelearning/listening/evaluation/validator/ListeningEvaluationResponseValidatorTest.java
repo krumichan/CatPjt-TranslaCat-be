@@ -5,7 +5,10 @@ import jp.co.translacat.domain.languagelearning.listening.common.enums.Listening
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningEvaluationContractPolicy;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -19,13 +22,13 @@ class ListeningEvaluationResponseValidatorTest {
                     new ListeningEvaluationContractPolicy()
             );
 
-    @Test
-    void acceptsRequestedTaskAndTwoExplicitNotSelectedTasks() {
-        var response = response(List.of(
-                notEvaluable(ListeningTaskType.DICTATION),
-                notSelected(ListeningTaskType.INTERPRETATION),
-                notSelected(ListeningTaskType.REPEAT_AFTER_AUDIO)
-        ));
+    @ParameterizedTest
+    @EnumSource(ListeningTaskType.class)
+    void acceptsRequestedTaskAndAllOtherTasksNotSelected(ListeningTaskType selectedTask) {
+        var tasks = Arrays.stream(ListeningTaskType.values())
+                .map(type -> type == selectedTask ? notEvaluable(type) : notSelected(type))
+                .toList();
+        var response = response(tasks);
 
         assertThat(validator.validate(
                 response,
@@ -33,8 +36,26 @@ class ListeningEvaluationResponseValidatorTest {
                 "listening-profile",
                 11L,
                 22L,
+                selectedTask
+        ).taskType()).isEqualTo(selectedTask);
+    }
+
+    @Test
+    void rejectsLegacyThreeTaskPayload() {
+        var response = response(List.of(
+                notEvaluable(ListeningTaskType.DICTATION),
+                notSelected(ListeningTaskType.INTERPRETATION),
+                notSelected(ListeningTaskType.REPEAT_AFTER_AUDIO)
+        ));
+
+        assertThatThrownBy(() -> validator.validate(
+                response,
+                "request-1",
+                "listening-profile",
+                11L,
+                22L,
                 ListeningTaskType.DICTATION
-        ).taskType()).isEqualTo(ListeningTaskType.DICTATION);
+        )).hasMessageContaining("기본 계약");
     }
 
     @Test
@@ -84,7 +105,9 @@ class ListeningEvaluationResponseValidatorTest {
         var response = response(List.of(
                 notEvaluable(ListeningTaskType.DICTATION),
                 invalid,
-                notSelected(ListeningTaskType.REPEAT_AFTER_AUDIO)
+                notSelected(ListeningTaskType.REPEAT_AFTER_AUDIO),
+                notSelected(ListeningTaskType.COMPREHENSION),
+                notSelected(ListeningTaskType.SUMMARY)
         ));
 
         assertThatThrownBy(() -> validator.validate(
@@ -108,7 +131,7 @@ class ListeningEvaluationResponseValidatorTest {
                 "listening-scoring-half-up",
                 "listening-profile",
                 tasks,
-                new AiListeningContract.Overall(null, 0, 3),
+                new AiListeningContract.Overall(null, 0, 5),
                 Map.of()
         );
     }

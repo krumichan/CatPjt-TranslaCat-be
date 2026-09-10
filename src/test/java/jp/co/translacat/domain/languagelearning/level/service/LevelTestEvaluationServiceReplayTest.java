@@ -82,7 +82,6 @@ class LevelTestEvaluationServiceReplayTest {
 
     @Test
     void bestAnswerChoiceUsesStoredDeterministicPartialScoreWithoutCallingAi() {
-        when(item.getStatus()).thenReturn(LevelTestItemStatus.READY);
         when(item.getAnswerMode()).thenReturn(LevelTestAnswerMode.CHOICE);
         when(item.getInternalAnswerKeyJson()).thenReturn("answer-key-json");
         when(response.getSelectedOptionKey()).thenReturn("D");

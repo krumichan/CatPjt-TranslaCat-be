@@ -30,7 +30,9 @@ class SpeakingEvaluationEligibilityPolicyTest {
 
         assertThat(result.eligibleBeforeAi()).isTrue();
         assertThat(result.validUserTurns()).isEqualTo(5);
-        assertThat(result.validUserSpeechSeconds()).isEqualTo(30.0);
+        assertThat(result.validUserSpeechSeconds()).isEqualTo(60.0);
+        assertThat(result.requiredUserTurns()).isEqualTo(5);
+        assertThat(result.requiredSpeechSeconds()).isEqualTo(60.0);
         assertThat(result.validSttTurnRatio()).isEqualTo(1.0);
     }
 

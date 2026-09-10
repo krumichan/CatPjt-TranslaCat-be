@@ -8,7 +8,7 @@ import jp.co.translacat.domain.languagelearning.speaking.common.enums.Conversati
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.CorrectionMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.event.SpeakingEvaluationRequestedEvent;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.service.SpeakingEvaluationJobQueueService;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvaluationEligibilityPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionPolicySnapshot;
@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -48,7 +47,7 @@ class SpeakingSessionCompletionCommandServiceTest {
     @Mock
     private LearningActivityCommandService activityCommandService;
     @Mock
-    private ApplicationEventPublisher eventPublisher;
+    private SpeakingEvaluationJobQueueService queueService;
     @Mock
     private LanguageLearningJsonCodec jsonCodec;
     @Mock
@@ -68,14 +67,14 @@ class SpeakingSessionCompletionCommandServiceTest {
                 lifecycleService,
                 snapshotService,
                 activityCommandService,
-                eventPublisher,
+                queueService,
                 jsonCodec,
                 turnQueryService,
                 eligibilityPolicy
         );
         session = session();
 
-        when(sessionQueryService.getOwnedEntity(7L, 301L))
+        when(sessionQueryService.getOwnedEntityForUpdate(7L, 301L))
                 .thenReturn(session);
         when(snapshotService.read(session)).thenReturn(snapshot());
         when(turnQueryService.getEntities(301L)).thenReturn(List.of());
@@ -105,8 +104,8 @@ class SpeakingSessionCompletionCommandServiceTest {
         assertThat(completed.getEvaluationStatus())
                 .isEqualTo(SpeakingEvaluationStatus.NOT_REQUESTED);
         verify(activity).updateMetadataJson("{\"evaluationSkipped\":true}");
-        verify(eventPublisher, never())
-                .publishEvent(any(SpeakingEvaluationRequestedEvent.class));
+        verify(queueService, never())
+                .enqueue(any(), eq(0));
     }
 
     @Test

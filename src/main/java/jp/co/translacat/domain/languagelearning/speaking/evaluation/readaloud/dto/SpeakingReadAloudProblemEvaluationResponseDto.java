@@ -12,7 +12,9 @@ public record SpeakingReadAloudProblemEvaluationResponseDto(
         Double evaluationConfidence,
         String errorMessage,
         LocalDateTime submittedAt,
-        LocalDateTime evaluatedAt
+        LocalDateTime evaluatedAt,
+        int manualRetryCount,
+        int manualRetryLimit
 ) {
     public static SpeakingReadAloudProblemEvaluationResponseDto from(
             SpeakingReadAloudProblemEvaluation entity
@@ -25,7 +27,9 @@ public record SpeakingReadAloudProblemEvaluationResponseDto(
                 entity.getEvaluationConfidence(),
                 entity.getErrorMessage(),
                 entity.getSubmittedAt(),
-                entity.getEvaluatedAt()
+                entity.getEvaluatedAt(),
+                entity.getManualRetryCount(),
+                entity.getManualRetryLimit()
         );
     }
 }

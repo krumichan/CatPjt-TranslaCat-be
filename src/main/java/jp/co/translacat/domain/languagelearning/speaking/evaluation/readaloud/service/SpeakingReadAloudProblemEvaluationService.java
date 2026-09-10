@@ -3,7 +3,8 @@ package jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.s
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.dto.SpeakingReadAloudProblemEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.entity.SpeakingReadAloudProblemEvaluation;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.event.SpeakingReadAloudProblemEvaluationRequestedEvent;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.service.SpeakingEvaluationJobQueueService;
+import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionPolicySnapshotService;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.repository.SpeakingReadAloudProblemEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.policy.SpeakingSessionPolicy;
@@ -17,7 +18,6 @@ import jp.co.translacat.global.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +32,8 @@ public class SpeakingReadAloudProblemEvaluationService {
     private final SpeakingSessionCompletionCommandService completionCommandService;
     private final SpeakingTurnRepository turnRepository;
     private final SpeakingReadAloudProblemEvaluationRepository evaluationRepository;
-    private final ApplicationEventPublisher eventPublisher;
+    private final SpeakingEvaluationJobQueueService queueService;
+    private final SpeakingSessionPolicySnapshotService snapshotService;
 
     @Transactional
     public SpeakingReadAloudProblemEvaluationResponseDto submit(
@@ -44,10 +45,13 @@ public class SpeakingReadAloudProblemEvaluationService {
                 userId,
                 sessionId
         );
-        lifecycleService.expireIfNeeded(session);
-        lifecycleService.requireActive(session);
         requireReadAloud(session);
         validateProblemIndex(problemIndex);
+        // A replay of the final submit remains valid after the session is completed.
+        var submitted = evaluationRepository.findBySessionIdAndProblemIndex(sessionId, problemIndex);
+        if (submitted.isPresent()) return SpeakingReadAloudProblemEvaluationResponseDto.from(submitted.get());
+        lifecycleService.expireIfNeeded(session);
+        lifecycleService.requireActive(session);
         validateSubmissionOrder(sessionId, problemIndex);
 
         List<SpeakingTurn> attempts = turnRepository
@@ -63,39 +67,35 @@ public class SpeakingReadAloudProblemEvaluationService {
         int includedAttempts = (int) attempts.stream()
                 .filter(turn -> !turn.isExcludedFromEvaluation())
                 .count();
-        SpeakingReadAloudProblemEvaluation evaluation = evaluationRepository
-                .findBySessionIdAndProblemIndex(sessionId, problemIndex)
-                .map(existing -> {
-                    if ("PENDING".equals(existing.getStatus())
-                            || "EVALUATING".equals(existing.getStatus())
-                            || "EVALUATED".equals(existing.getStatus())) {
-                        return existing;
-                    }
-                    existing.resubmit(includedAttempts);
-                    return existing;
-                })
-                .orElseGet(() -> evaluationRepository.save(
-                        SpeakingReadAloudProblemEvaluation.pending(
-                                session,
-                                problemIndex,
-                                includedAttempts
-                        )
-                ));
-
-        if ("PENDING".equals(evaluation.getStatus())) {
-            eventPublisher.publishEvent(
-                    new SpeakingReadAloudProblemEvaluationRequestedEvent(
-                            sessionId,
-                            problemIndex
-                    )
-            );
-        }
+        var snapshot = snapshotService.read(session);
+        SpeakingReadAloudProblemEvaluation evaluation = SpeakingReadAloudProblemEvaluation.pending(
+                session, problemIndex, includedAttempts);
+        evaluation.configureRetryLimit(snapshot.manualRetryLimitPerStage());
+        if (!snapshot.speakingEvaluationEnabled()) evaluation.markSkipped();
+        evaluationRepository.save(evaluation);
+        if (snapshot.speakingEvaluationEnabled()) queueService.enqueue(session, problemIndex);
 
         if (problemIndex == SpeakingSessionPolicy.READ_ALOUD_DAILY_ITEM_COUNT
                 && allFiveProblemsSubmitted(sessionId)) {
             completionCommandService.complete(userId, sessionId, false);
         }
 
+        return SpeakingReadAloudProblemEvaluationResponseDto.from(evaluation);
+    }
+
+    /** Only failed submitted evaluations may retry after completion; recording is never reopened. */
+    @Transactional
+    public SpeakingReadAloudProblemEvaluationResponseDto retry(Long userId, Long sessionId, int problemIndex) {
+        SpeakingSession session = sessionQueryService.getOwnedEntityForUpdate(userId, sessionId);
+        requireReadAloud(session);
+        validateProblemIndex(problemIndex);
+        var evaluation = evaluationRepository.findBySessionIdAndProblemIndex(sessionId, problemIndex)
+                .orElseThrow(() -> invalid("제출한 듣고 리피트 평가가 없습니다."));
+        if ("PENDING".equals(evaluation.getStatus()) || "EVALUATING".equals(evaluation.getStatus()))
+            return SpeakingReadAloudProblemEvaluationResponseDto.from(evaluation);
+        if (!"FAILED".equals(evaluation.getStatus())) throw invalid("실패한 문제 평가만 재시도할 수 있습니다.");
+        int retryCount = queueService.retry(session, problemIndex);
+        evaluation.acceptRetry(retryCount);
         return SpeakingReadAloudProblemEvaluationResponseDto.from(evaluation);
     }
 

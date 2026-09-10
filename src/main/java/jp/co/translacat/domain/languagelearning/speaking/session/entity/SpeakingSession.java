@@ -443,6 +443,11 @@ public class SpeakingSession extends BaseAuditable {
         complete(true);
     }
 
+    public void markEvaluationPending() {
+        this.status = SpeakingSessionStatus.COMPLETED;
+        this.evaluationStatus = SpeakingEvaluationStatus.PENDING;
+    }
+
     public void markEvaluating() {
         this.status = SpeakingSessionStatus.EVALUATING;
         this.evaluationStatus = SpeakingEvaluationStatus.EVALUATING;

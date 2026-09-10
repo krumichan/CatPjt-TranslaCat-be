@@ -40,6 +40,15 @@ public class SpeakingReadAloudProblemEvaluationController {
         );
     }
 
+    @PostMapping("/{problemIndex}/evaluation/retry")
+    public ResponseDto<SpeakingReadAloudProblemEvaluationResponseDto> retry(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long sessionId,
+            @PathVariable int problemIndex
+    ) {
+        return ResponseUtil.ok(service.retry(SecurityUtil.getLoginUserId(principal), sessionId, problemIndex));
+    }
+
     @GetMapping
     public ResponseDto<List<SpeakingReadAloudProblemEvaluationResponseDto>> list(
             @AuthenticationPrincipal UserPrincipal principal,

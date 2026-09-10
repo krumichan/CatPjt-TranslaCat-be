@@ -44,6 +44,12 @@ public class SpeakingReadAloudProblemEvaluation extends BaseAuditable {
     @Column(nullable = false, length = 40)
     private String status;
 
+    @Column(name = "manual_retry_count", nullable = false)
+    private int manualRetryCount;
+
+    @Column(name = "manual_retry_limit", nullable = false)
+    private int manualRetryLimit = 1;
+
     @Column(name = "overall_score")
     private Integer overallScore;
 
@@ -99,18 +105,26 @@ public class SpeakingReadAloudProblemEvaluation extends BaseAuditable {
         );
     }
 
-    public void resubmit(int attemptCount) {
-        this.attemptCount = attemptCount;
+    public void configureRetryLimit(int limit) {
+        this.manualRetryLimit = Math.max(0, limit);
+    }
+
+    public void acceptRetry(int manualRetryCount) {
+        this.manualRetryCount = manualRetryCount;
+        markPending();
+    }
+
+    public void markPending() {
         this.status = "PENDING";
+        this.errorMessage = null;
+        this.evaluatedAt = null;
+    }
+
+    public void markSkipped() {
+        this.status = "NOT_REQUESTED";
         this.overallScore = null;
         this.evaluationConfidence = null;
-        this.metricsJson = "[]";
-        this.strengthsJson = "[]";
-        this.improvementsJson = "[]";
-        this.pronunciationPracticeJson = "[]";
-        this.errorMessage = null;
-        this.submittedAt = LocalDateTime.now();
-        this.evaluatedAt = null;
+        this.evaluatedAt = LocalDateTime.now();
     }
 
     public void markEvaluating() {

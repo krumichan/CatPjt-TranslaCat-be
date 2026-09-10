@@ -18,6 +18,7 @@ import jp.co.translacat.domain.languagelearning.speaking.session.service.Speakin
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionUsageQueryService;
 import jp.co.translacat.domain.languagelearning.speaking.turn.dto.request.SpeakingTurnProcessRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.repository.SpeakingReadAloudProblemEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.turn.factory.SpeakingTurnAiRequestFactory;
 import jp.co.translacat.domain.languagelearning.speaking.turn.policy.SpeakingTurnCompletionPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.turn.repository.SpeakingTurnRepository;
@@ -38,6 +39,7 @@ import java.util.List;
 public class SpeakingTurnProcessCommandService {
 
     private final SpeakingTurnRepository turnRepository;
+    private final SpeakingReadAloudProblemEvaluationRepository problemEvaluationRepository;
     private final SpeakingTurnQueryService turnQueryService;
     private final SpeakingSessionQueryService sessionQueryService;
     private final SpeakingSessionLifecycleService sessionLifecycleService;
@@ -78,6 +80,7 @@ public class SpeakingTurnProcessCommandService {
         if (!rerecord && shouldReturnExisting(turn)) {
             return turn;
         }
+        requireUnsubmittedProblem(session, turn);
         if (rerecord) {
             validateRerecord(session, turn);
         }
@@ -180,6 +183,7 @@ public class SpeakingTurnProcessCommandService {
                 sessionId,
                 turnId
         );
+        requireUnsubmittedProblem(session, turn);
         if (turn.getStatus() == SpeakingTurnStatus.READY
                 || turn.getStatus() == SpeakingTurnStatus.EXCLUDED) {
             return turn;
@@ -264,6 +268,14 @@ public class SpeakingTurnProcessCommandService {
         }
     }
 
+    private void requireUnsubmittedProblem(SpeakingSession session, SpeakingTurn turn) {
+        if (session.getPracticeMode() == SpeakingPracticeMode.READ_ALOUD && turn.getProblemIndex() != null
+                && problemEvaluationRepository.findBySessionIdAndProblemIndex(session.getId(), turn.getProblemIndex()).isPresent()) {
+            throw new BusinessException("평가를 요청한 문제의 발화는 변경할 수 없습니다.",
+                    LanguageLearningErrorCode.TURN_PROCESSING);
+        }
+    }
+
     private void validateRerecord(
             SpeakingSession session,
             SpeakingTurn turn
@@ -283,7 +295,7 @@ public class SpeakingTurnProcessCommandService {
     }
 
     private SpeakingSession activeSession(Long userId, Long sessionId) {
-        SpeakingSession session = sessionQueryService.getOwnedEntity(
+        SpeakingSession session = sessionQueryService.getOwnedEntityForUpdate(
                 userId,
                 sessionId
         );

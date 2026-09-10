@@ -26,4 +26,12 @@ public record AiSpeakingEvaluationRequestDto(
         String evaluationPolicyVersion,
         int manualRetryAttempt
 ) {
+    public AiSpeakingEvaluationRequestDto forManualRetry(int attempt) {
+        if (attempt < 1) throw new IllegalArgumentException("Positive manual retry count required");
+        return new AiSpeakingEvaluationRequestDto(
+                idempotencyKey + ":manual:" + attempt, idempotencyKey, sessionId, topic,
+                practiceMode, evaluationScope, goal, targetLevel, originLanguage, learningLanguage,
+                userTurns, assistantTurns, sessionSummary, priorProfileSummary,
+                evaluationPolicyVersion, attempt);
+    }
 }

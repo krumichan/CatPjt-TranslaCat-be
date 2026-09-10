@@ -4,7 +4,8 @@ import jp.co.translacat.domain.languagelearning.activity.entity.LearningActivity
 import jp.co.translacat.domain.languagelearning.activity.service.LearningActivityCommandService;
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.event.SpeakingEvaluationRequestedEvent;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.service.SpeakingEvaluationJobQueueService;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvaluationEligibilityPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionPolicySnapshot;
@@ -14,7 +15,6 @@ import jp.co.translacat.global.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +29,7 @@ public class SpeakingSessionCompletionCommandService {
     private final SpeakingSessionLifecycleService lifecycleService;
     private final SpeakingSessionPolicySnapshotService snapshotService;
     private final LearningActivityCommandService activityCommandService;
-    private final ApplicationEventPublisher eventPublisher;
+    private final SpeakingEvaluationJobQueueService evaluationJobQueueService;
     private final LanguageLearningJsonCodec jsonCodec;
     private final SpeakingTurnQueryService turnQueryService;
     private final SpeakingEvaluationEligibilityPolicy eligibilityPolicy;
@@ -45,10 +45,13 @@ public class SpeakingSessionCompletionCommandService {
             Long sessionId,
             boolean skipEvaluation
     ) {
-        SpeakingSession session = sessionQueryService.getOwnedEntity(
+        SpeakingSession session = sessionQueryService.getOwnedEntityForUpdate(
                 userId,
                 sessionId
         );
+        if (session.getCompletedAt() != null && session.getStatus() != SpeakingSessionStatus.EXPIRED) {
+            return session; // A lost completion response can be replayed without queueing another evaluation.
+        }
         lifecycleService.requireActive(session);
         SpeakingSessionPolicySnapshot snapshot = snapshotService.read(session);
         var eligibility = eligibilityPolicy.evaluate(
@@ -80,12 +83,7 @@ public class SpeakingSessionCompletionCommandService {
         activity.updateMetadataJson(metadata(session, skipEvaluation));
         if (evaluate) {
             activity.markEvaluating();
-            eventPublisher.publishEvent(
-                    new SpeakingEvaluationRequestedEvent(
-                            session.getId(),
-                            0
-                    )
-            );
+            evaluationJobQueueService.enqueue(session, 0);
         }
         return session;
     }

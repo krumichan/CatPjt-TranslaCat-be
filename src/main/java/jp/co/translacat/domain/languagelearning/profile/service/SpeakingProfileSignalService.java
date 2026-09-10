@@ -31,7 +31,10 @@ public class SpeakingProfileSignalService {
         if (signals == null || signals.isEmpty()) {
             return;
         }
-        User user = userRepository.getReferenceById(userId);
+        // Different completed sessions of one learner can finish concurrently.
+        // Lock the owner even when evidence does not exist yet, then use a locking
+        // current read below (a MySQL REPEATABLE READ snapshot may predate this lock).
+        User user = userRepository.findLockedById(userId).orElseThrow();
         for (AiSpeakingProfileSignalDto signal : signals) {
             if (signal == null
                     || signal.patternKey() == null
@@ -41,7 +44,7 @@ public class SpeakingProfileSignalService {
             String patternKey = normalize(signal.patternKey());
             String direction = normalizeDirection(signal.direction());
             Optional<LearningProfileEvidence> existing = evidenceRepository
-                    .findByUserIdAndSourceAndPatternKeyAndDirection(
+                    .findOneByUserIdAndSourceAndPatternKeyAndDirection(
                             userId,
                             LearningSource.SPEAKING,
                             patternKey,

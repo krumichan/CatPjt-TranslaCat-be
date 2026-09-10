@@ -19,6 +19,9 @@ public interface SpeakingSessionRepository
 
     boolean existsByUserId(Long userId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<SpeakingSession> findOneById(Long id);
+
     Optional<SpeakingSession> findByIdAndUserId(Long id, Long userId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

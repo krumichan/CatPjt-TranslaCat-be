@@ -33,6 +33,7 @@ public class DailyWritingResponseQueryService {
     private final WritingEvaluationRepository writingEvaluationRepository;
     private final WritingEvaluationResponseMapper evaluationResponseMapper;
     private final LanguageLearningJsonCodec jsonCodec;
+    private final DailyWritingItemRevisionService itemRevisionService;
 
     public DailyWritingSetResponseDto toSetResponse(
             DailyWritingSet dailySet,
@@ -44,13 +45,17 @@ public class DailyWritingResponseQueryService {
                 today,
                 reviewAvailableDays
         );
+        boolean regenerating = dailySet.isRegenerationActive(
+                java.time.LocalDateTime.now()
+        );
         List<DailyWritingItemResponseDto> items = dailyWritingItemRepository
                 .findAllByDailySetIdOrderByOrderNoAsc(dailySet.getId())
                 .stream()
                 .map(item -> toItemResponse(
                         item,
                         today,
-                        reviewAvailable
+                        reviewAvailable,
+                        regenerating
                 ))
                 .toList();
 
@@ -66,7 +71,8 @@ public class DailyWritingResponseQueryService {
                 dailySet.getRegenerationCount(),
                 dailySet.getPromptVersion(),
                 reviewAvailable,
-                items
+                items,
+                regenerating
         );
     }
 
@@ -89,7 +95,8 @@ public class DailyWritingResponseQueryService {
     private DailyWritingItemResponseDto toItemResponse(
             DailyWritingItem item,
             LocalDate today,
-            boolean reviewAvailable
+            boolean reviewAvailable,
+            boolean regenerating
     ) {
         List<WritingAnswer> answers = writingAnswerRepository
                 .findAllByDailyItemIdOrderByAttemptDateAsc(item.getId());
@@ -122,10 +129,14 @@ public class DailyWritingResponseQueryService {
                 readStringList(item.getResponseConstraintsJson()),
                 !answers.isEmpty(),
                 todayAnswer != null,
-                reviewAvailable && !successfulToday && !evaluatingToday,
+                reviewAvailable
+                        && !successfulToday
+                        && !evaluatingToday
+                        && !regenerating,
                 answers.stream()
                         .map(this::toAttemptResponse)
-                        .toList()
+                        .toList(),
+                itemRevisionService.revision(item)
         );
     }
 

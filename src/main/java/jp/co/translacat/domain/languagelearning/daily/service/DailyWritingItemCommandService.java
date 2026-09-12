@@ -1,21 +1,28 @@
 package jp.co.translacat.domain.languagelearning.daily.service;
 
 import jp.co.translacat.domain.languagelearning.ai.dto.model.DailyWritingGeneratedItemDto;
+import jp.co.translacat.domain.languagelearning.common.enums.DailyWritingDifficulty;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingItem;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
 import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingItemRepository;
 import jp.co.translacat.domain.languagelearning.quality.common.LanguageLearningContentSource;
 import jp.co.translacat.domain.languagelearning.quality.service.GenerationFingerprintCommandService;
+import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
+import jp.co.translacat.global.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Deque;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -59,15 +66,36 @@ public class DailyWritingItemCommandService {
                 DailyWritingItem::getOrderNo
         ));
 
+        Map<DailyWritingDifficulty, Deque<DailyWritingGeneratedItemDto>>
+                generatedByDifficulty = new EnumMap<>(
+                        DailyWritingDifficulty.class
+                );
         List<DailyWritingGeneratedItemDto> sortedGenerated =
                 new ArrayList<>(generatedItems);
         sortedGenerated.sort(Comparator.comparingInt(
                 DailyWritingGeneratedItemDto::order
         ));
+        for (DailyWritingGeneratedItemDto generated : sortedGenerated) {
+            generatedByDifficulty
+                    .computeIfAbsent(
+                            generated.difficulty(),
+                            ignored -> new ArrayDeque<>()
+                    )
+                    .addLast(generated);
+        }
 
-        for (int index = 0; index < sortedCurrent.size(); index++) {
-            DailyWritingItem current = sortedCurrent.get(index);
-            DailyWritingGeneratedItemDto generated = sortedGenerated.get(index);
+        for (DailyWritingItem current : sortedCurrent) {
+            Deque<DailyWritingGeneratedItemDto> candidates =
+                    generatedByDifficulty.get(current.getDifficulty());
+            DailyWritingGeneratedItemDto generated =
+                    candidates == null ? null : candidates.pollFirst();
+            if (generated == null) {
+                throw new BusinessException(
+                        "재생성된 Writing 난이도가 기존 슬롯과 일치하지 않습니다.",
+                        LanguageLearningErrorCode.DAILY_SET_GENERATION_FAILED
+                );
+            }
+
             replaceEntity(current, generated);
             fingerprintCommandService.register(
                     current.getDailySet().getUser().getId(),
@@ -76,6 +104,16 @@ public class DailyWritingItemCommandService {
                     learningLanguage,
                     generated.originText(),
                     generated.diversityMetadata()
+            );
+        }
+
+        boolean remainingGeneratedItem = generatedByDifficulty.values()
+                .stream()
+                .anyMatch(queue -> !queue.isEmpty());
+        if (remainingGeneratedItem) {
+            throw new BusinessException(
+                    "재생성된 Writing 문항 수가 대상 슬롯과 일치하지 않습니다.",
+                    LanguageLearningErrorCode.DAILY_SET_GENERATION_FAILED
             );
         }
     }

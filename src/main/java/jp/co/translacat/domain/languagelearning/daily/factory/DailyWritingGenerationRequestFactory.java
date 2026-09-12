@@ -77,12 +77,15 @@ public class DailyWritingGenerationRequestFactory {
             DailyWritingSet dailySet,
             DailyWritingSnapshot snapshot,
             int sentenceCount,
-            DifficultyDistributionDto difficultyDistribution
+            DifficultyDistributionDto difficultyDistribution,
+            String regenerationToken
     ) {
         String requestId = "daily-regen-"
                 + dailySet.getId()
                 + "-"
-                + (dailySet.getRegenerationCount() + 1);
+                + (dailySet.getRegenerationCount() + 1)
+                + "-"
+                + regenerationToken;
 
         return create(
                 userId,

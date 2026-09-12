@@ -19,6 +19,7 @@ public record DailyWritingItemResponseDto(
         boolean answered,
         boolean answeredToday,
         boolean canSubmit,
-        List<AnswerAttemptResponseDto> attempts
+        List<AnswerAttemptResponseDto> attempts,
+        String contentRevision
 ) {
 }

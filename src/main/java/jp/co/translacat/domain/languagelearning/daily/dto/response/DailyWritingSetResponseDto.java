@@ -18,6 +18,7 @@ public record DailyWritingSetResponseDto(
         int regenerationCount,
         String promptVersion,
         boolean reviewAvailable,
-        List<DailyWritingItemResponseDto> items
+        List<DailyWritingItemResponseDto> items,
+        boolean regenerating
 ) {
 }

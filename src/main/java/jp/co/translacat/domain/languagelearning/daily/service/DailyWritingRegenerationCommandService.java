@@ -1,139 +1,92 @@
 package jp.co.translacat.domain.languagelearning.daily.service;
 
-import jp.co.translacat.domain.languagelearning.ai.dto.model.DifficultyDistributionDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiDailyWritingGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.port.LanguageLearningAiClient;
-import jp.co.translacat.domain.languagelearning.common.enums.DailySetStatus;
-import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingItem;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
-import jp.co.translacat.domain.languagelearning.daily.factory.DailyWritingGenerationRequestFactory;
-import jp.co.translacat.domain.languagelearning.daily.model.DailyWritingSnapshot;
-import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingItemRepository;
-import jp.co.translacat.domain.languagelearning.daily.repository.WritingAnswerRepository;
+import jp.co.translacat.domain.languagelearning.daily.service.DailyWritingRegenerationStateCommandService.RegenerationClaim;
 import jp.co.translacat.domain.languagelearning.daily.validator.DailyWritingGenerationResponseValidator;
 import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DailyWritingRegenerationCommandService {
 
-    private static final int MAX_REGENERATIONS = 3;
-
-    private final DailyWritingQueryService dailyWritingQueryService;
-    private final DailyWritingItemRepository itemRepository;
-    private final WritingAnswerRepository answerRepository;
-    private final DailyWritingItemCommandService itemCommandService;
+    private final DailyWritingRegenerationStateCommandService stateCommandService;
     private final LanguageLearningAiClient aiClient;
-    private final DailyWritingSnapshotService snapshotService;
-    private final DailyWritingGenerationRequestFactory requestFactory;
     private final DailyWritingGenerationResponseValidator responseValidator;
     private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
 
-    @Transactional(noRollbackFor = BusinessException.class)
     public DailyWritingSet regenerateUnanswered(
             Long userId,
             Long dailySetId
     ) {
         validateAdaptiveWritingEnabled();
-
-        DailyWritingSet dailySet = dailyWritingQueryService.getOwnedSet(
+        RegenerationClaim claim = stateCommandService.claim(
                 userId,
                 dailySetId
         );
-        if (dailySet.getStatus() == DailySetStatus.GENERATING
-                || dailySet.getStatus() == DailySetStatus.PARTIAL
-                || dailySet.getStatus() == DailySetStatus.FAILED) {
-            throw new BusinessException("생성 중이거나 일부만 생성된 문제는 생성 재시도를 이용해주세요.",
-                    LanguageLearningErrorCode.DAILY_SET_GENERATING);
-        }
-        validateRegenerationLimit(dailySet);
-
-        List<DailyWritingItem> unansweredItems = findUnansweredItems(
-                dailySetId
+        log.info(
+                "Writing regeneration claimed. dailySetId={} requestId={} targetCount={}",
+                dailySetId,
+                claim.request().requestId(),
+                claim.expectedCount()
         );
-        if (unansweredItems.isEmpty()) {
-            throw new BusinessException(
-                    "재생성 가능한 미응답 문제가 없습니다.",
-                    LanguageLearningErrorCode.ANSWER_NOT_ALLOWED
+
+        try {
+            AiDailyWritingGenerationResponseDto response =
+                    aiClient.generateDaily(claim.request());
+            responseValidator.validate(
+                    response,
+                    claim.expectedCount(),
+                    claim.distribution(),
+                    claim.writingType()
             );
-        }
-
-        DailyWritingSnapshot snapshot = snapshotService.read(dailySet);
-        DifficultyDistributionDto distribution = distributionFrom(
-                unansweredItems
-        );
-        AiDailyWritingGenerationResponseDto response = aiClient.generateDaily(
-                requestFactory.createRegeneration(
-                        userId,
-                        dailySet,
-                        snapshot,
-                        unansweredItems.size(),
-                        distribution
-                )
-        );
-
-        responseValidator.validate(
-                response,
-                unansweredItems.size(),
-                distribution,
-                dailySet.getWritingType()
-        );
-        itemCommandService.replaceAll(
-                snapshot.learningLanguage(),
-                unansweredItems,
-                response.items()
-        );
-        dailySet.incrementRegeneration();
-
-        return dailySet;
-    }
-
-    private List<DailyWritingItem> findUnansweredItems(Long dailySetId) {
-        return itemRepository.findAllByDailySetIdOrderByOrderNoAsc(dailySetId)
-                .stream()
-                .filter(item -> !answerRepository.existsByDailyItemId(
-                        item.getId()
-                ))
-                .toList();
-    }
-
-    private DifficultyDistributionDto distributionFrom(
-            List<DailyWritingItem> items
-    ) {
-        int reviewCount = 0;
-        int normalCount = 0;
-        int challengeCount = 0;
-
-        for (DailyWritingItem item : items) {
-            switch (item.getDifficulty()) {
-                case REVIEW -> reviewCount++;
-                case NORMAL -> normalCount++;
-                case CHALLENGE -> challengeCount++;
+            DailyWritingSet result = stateCommandService.publish(
+                    claim,
+                    response
+            );
+            log.info(
+                    "Writing regeneration published. dailySetId={} requestId={} targetCount={}",
+                    dailySetId,
+                    claim.request().requestId(),
+                    claim.expectedCount()
+            );
+            return result;
+        } catch (RuntimeException exception) {
+            try {
+                stateCommandService.release(
+                        claim.dailySetId(),
+                        claim.token()
+                );
+            } catch (RuntimeException releaseException) {
+                exception.addSuppressed(releaseException);
+                log.error(
+                        "Writing regeneration claim release failed. dailySetId={} requestId={}",
+                        dailySetId,
+                        claim.request().requestId(),
+                        releaseException
+                );
             }
-        }
-
-        return new DifficultyDistributionDto(
-                reviewCount,
-                normalCount,
-                challengeCount
-        );
-    }
-
-    private void validateRegenerationLimit(DailyWritingSet dailySet) {
-        if (dailySet.getRegenerationCount() >= MAX_REGENERATIONS) {
-            throw new BusinessException(
-                    "문제 재생성 가능 횟수를 초과했습니다.",
-                    LanguageLearningErrorCode.REGENERATION_LIMIT
+            String errorCode = exception instanceof BusinessException businessException
+                    ? businessException.getErrorCode()
+                    : null;
+            log.warn(
+                    "Writing regeneration failed. dailySetId={} requestId={} errorType={} errorCode={}",
+                    dailySetId,
+                    claim.request().requestId(),
+                    exception.getClass().getSimpleName(),
+                    errorCode,
+                    exception
             );
+            throw exception;
         }
     }
 

@@ -164,6 +164,44 @@ public class DailyWritingSet extends BaseAuditable {
         releaseGeneration();
     }
 
+    public boolean canClaimRegeneration(LocalDateTime now) {
+        if (status == DailySetStatus.GENERATING
+                || status == DailySetStatus.PARTIAL
+                || status == DailySetStatus.FAILED) {
+            return false;
+        }
+        return generationToken == null
+                || generationLeaseUntil == null
+                || !generationLeaseUntil.isAfter(now);
+    }
+
+    public void claimRegeneration(
+            String token,
+            LocalDateTime leaseUntil
+    ) {
+        this.generationToken = token;
+        this.generationLeaseUntil = leaseUntil;
+    }
+
+    public boolean ownsRegeneration(String token) {
+        return status != DailySetStatus.GENERATING
+                && token != null
+                && token.equals(generationToken);
+    }
+
+    public boolean isRegenerationActive(LocalDateTime now) {
+        return status != DailySetStatus.GENERATING
+                && generationToken != null
+                && generationLeaseUntil != null
+                && generationLeaseUntil.isAfter(now);
+    }
+
+    public void releaseRegeneration(String token) {
+        if (token != null && token.equals(generationToken)) {
+            releaseGeneration();
+        }
+    }
+
     public void incrementRegeneration() {
         this.regenerationCount++;
     }

@@ -35,6 +35,12 @@ public final class LanguageLearningErrorCode {
             "LANGUAGE_LEARNING_DAILY_ITEM_NOT_FOUND";
     public static final String REGENERATION_LIMIT =
             "LANGUAGE_LEARNING_REGENERATION_LIMIT";
+    public static final String WRITING_REGENERATION_IN_PROGRESS =
+            "LANGUAGE_LEARNING_WRITING_REGENERATION_IN_PROGRESS";
+    public static final String WRITING_REGENERATION_CONFLICT =
+            "LANGUAGE_LEARNING_WRITING_REGENERATION_CONFLICT";
+    public static final String WRITING_ITEM_STALE =
+            "LANGUAGE_LEARNING_WRITING_ITEM_STALE";
     public static final String ANSWER_NOT_ALLOWED =
             "LANGUAGE_LEARNING_ANSWER_NOT_ALLOWED";
     public static final String REVIEW_EXPIRED =

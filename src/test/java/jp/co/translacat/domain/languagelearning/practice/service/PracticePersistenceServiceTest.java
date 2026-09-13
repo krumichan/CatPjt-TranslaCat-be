@@ -411,6 +411,39 @@ class PracticePersistenceServiceTest {
     }
 
     @Test
+    void contextualChoiceProgressiveRequestsKeepTenSlotMixAndTwoReviewLimit() {
+        List<PracticeReviewTargetDto> reviews = List.of(
+                reviewTarget("review-a", "復習一", 30.0, 3),
+                reviewTarget("review-b", "復習二", 40.0, 2)
+        );
+        var original = new AiPracticeGenerationRequestDto(
+                "contextual", PracticeDomain.VOCABULARY, "CONTEXTUAL_CHOICE",
+                "ko", "ja", 10, 4, 2, 6, 2,
+                List.of(), List.of(), List.of(), reviews, 2,
+                now.toLocalDate(), List.of()
+        );
+        List<AiPracticeGenerationRequestDto> items = java.util.stream.IntStream
+                .rangeClosed(1, 10)
+                .mapToObj(order -> PracticePersistenceService.itemRequest(
+                        original, order, List.of(), "token-" + order
+                ))
+                .toList();
+
+        assertThat(items).extracting(AiPracticeGenerationRequestDto::mode)
+                .containsOnly("CONTEXTUAL_CHOICE");
+        assertThat(items.stream().mapToInt(AiPracticeGenerationRequestDto::easierCount).sum())
+                .isEqualTo(2);
+        assertThat(items.stream().mapToInt(AiPracticeGenerationRequestDto::currentCount).sum())
+                .isEqualTo(6);
+        assertThat(items.stream().mapToInt(AiPracticeGenerationRequestDto::challengeCount).sum())
+                .isEqualTo(2);
+        assertThat(items).extracting(AiPracticeGenerationRequestDto::reviewQuestionCount)
+                .containsExactly(1, 1, 0, 0, 0, 0, 0, 0, 0, 0);
+        assertThat(items.get(0).reviewTargets().getFirst()).isEqualTo(reviews.get(0));
+        assertThat(items.get(1).reviewTargets().getFirst()).isEqualTo(reviews.get(1));
+    }
+
+    @Test
     void initialVocabularyItemJsonMatchesAiPracticeRequestContract() throws Exception {
         var item = PracticePersistenceService.itemRequest(
                 vocabularyRequest(), 1, List.of(), "initial-token"
@@ -449,6 +482,87 @@ class PracticePersistenceServiceTest {
         assertThat(second.request().currentCount()).isZero();
         assertThat(second.request().challengeCount()).isZero();
         assertThat(second.request().previousQuestions().getFirst()).isEqualTo(firstItem);
+    }
+
+    @Test
+    void contextualChoiceThirdItemReconstructedFromPersistedReviewQuestionsMatchesAiContract()
+            throws Exception {
+        AiPracticeGenerationRequestDto original = contextualChoiceRequest();
+        PracticeSet vocabularySet = contextualChoiceSet();
+        vocabularySet.queueGeneration(jsonCodec.write(original));
+        PracticeGeneratedQuestionDto firstItem = contextualChoiceItem(
+                1, PracticeDifficulty.CURRENT, 4, "MEANING",
+                "追加の検証期間", "追加の検証期間", "A"
+        );
+        PracticeGeneratedQuestionDto secondItem = contextualChoiceItem(
+                2, PracticeDifficulty.EASIER, 3, "NUANCE",
+                "顧客サービスへの影響", "顧客サービスへの影響", "B"
+        );
+        PracticeQuestion firstQuestion = persistedQuestion(vocabularySet, firstItem);
+        PracticeQuestion secondQuestion = persistedQuestion(vocabularySet, secondItem);
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of(firstQuestion, secondQuestion));
+
+        var third = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+        String exactJson = jsonCodec.write(third.request());
+        var wire = objectMapper.readTree(exactJson);
+
+        assertThat(third.order()).isEqualTo(3);
+        assertThat(third.request().mode()).isEqualTo("CONTEXTUAL_CHOICE");
+        assertThat(third.request().previousQuestions()).hasSize(2);
+        assertThat(third.request().reviewQuestionCount()).isZero();
+        assertThat(third.request().currentCount()).isEqualTo(1);
+        assertThat(wire.has("questionOffset")).isFalse();
+        assertThat(wire.path("previousQuestions").size()).isEqualTo(2);
+        assertThat(wire.path("previousQuestions").get(0).path("order").asInt()).isEqualTo(1);
+        assertThat(wire.path("previousQuestions").get(1).path("order").asInt()).isEqualTo(2);
+        assertThat(wire.path("reviewTargets").get(0).path("preferredSkill").asText())
+                .isEqualTo("MEANING");
+        assertThat(wire.path("reviewTargets").get(1).path("preferredSkill").asText())
+                .isEqualTo("NUANCE");
+    }
+
+    @Test
+    void allTenProgressiveContextualChoicePayloadsPreservePrefixAndReviewSlots()
+            throws Exception {
+        AiPracticeGenerationRequestDto original = contextualChoiceRequest();
+        List<PracticeGeneratedQuestionDto> previous = new ArrayList<>();
+        String[] skills = {
+                "MEANING", "NUANCE", "COLLOCATION", "REGISTER", "PRAGMATIC_FIT",
+                "MEANING", "COLLOCATION", "NUANCE", "REGISTER", "PRAGMATIC_FIT"
+        };
+        String[] keys = {"A", "B", "C", "D"};
+
+        for (int order = 1; order <= 10; order++) {
+            AiPracticeGenerationRequestDto itemRequest = PracticePersistenceService.itemRequest(
+                    original, order, List.copyOf(previous), "contextual-token-" + order
+            );
+            var wire = objectMapper.readTree(jsonCodec.write(itemRequest));
+            assertThat(itemRequest.mode()).isEqualTo("CONTEXTUAL_CHOICE");
+            assertThat(itemRequest.previousQuestions()).hasSize(order - 1);
+            assertThat(wire.path("previousQuestions").size()).isEqualTo(order - 1);
+            for (int previousIndex = 0; previousIndex < order - 1; previousIndex++) {
+                assertThat(wire.path("previousQuestions").get(previousIndex).path("order").asInt())
+                        .isEqualTo(previousIndex + 1);
+            }
+            assertThat(itemRequest.reviewQuestionCount()).isEqualTo(order <= 2 ? 1 : 0);
+            PracticeDifficulty difficulty = itemRequest.easierCount() == 1
+                    ? PracticeDifficulty.EASIER
+                    : itemRequest.currentCount() == 1
+                    ? PracticeDifficulty.CURRENT : PracticeDifficulty.CHALLENGE;
+            int band = difficulty == PracticeDifficulty.EASIER ? 3
+                    : difficulty == PracticeDifficulty.CHALLENGE ? 5 : 4;
+            previous.add(contextualChoiceItem(
+                    order,
+                    difficulty,
+                    band,
+                    skills[order - 1],
+                    "進行表現" + order,
+                    "進行表現" + order,
+                    keys[(order - 1) % keys.length]
+            ));
+        }
     }
 
     @Test
@@ -611,6 +725,96 @@ class PracticePersistenceServiceTest {
         return value;
     }
 
+    private PracticeSet contextualChoiceSet() {
+        PracticeSet value = PracticeSet.create(
+                user,
+                now.toLocalDate(),
+                PracticeDomain.VOCABULARY,
+                "CONTEXTUAL_CHOICE",
+                "ko",
+                "ja",
+                10,
+                4
+        );
+        ReflectionTestUtils.setField(value, "id", 12L);
+        return value;
+    }
+
+    private AiPracticeGenerationRequestDto contextualChoiceRequest() {
+        return new AiPracticeGenerationRequestDto(
+                "practice-contextual-choice",
+                PracticeDomain.VOCABULARY,
+                "CONTEXTUAL_CHOICE",
+                "ko",
+                "ja",
+                10,
+                4,
+                2,
+                6,
+                2,
+                List.of("業務", "協業"),
+                List.of(),
+                List.of(),
+                List.of(
+                        reviewTarget("追加の検証期間", "追加の検証期間", 70.0, 2, "MEANING"),
+                        reviewTarget(
+                                "顧客サービスへの影響", "顧客サービスへの影響", 65.0, 1, "NUANCE"
+                        )
+                ),
+                2,
+                now.toLocalDate(),
+                List.of()
+        );
+    }
+
+    private PracticeGeneratedQuestionDto contextualChoiceItem(
+            int order,
+            PracticeDifficulty difficulty,
+            int complexityBand,
+            String skillTag,
+            String targetExpression,
+            String canonicalKey,
+            String correctKey
+    ) {
+        return new PracticeGeneratedQuestionDto(
+                order,
+                PracticeQuestionType.SINGLE_CHOICE,
+                difficulty,
+                complexityBand,
+                null,
+                null,
+                "状況を確認した結果、担当者は______ことにしました。",
+                List.of(
+                        new PracticeOptionDto("A", order == 1 ? targetExpression : "追加の対応"),
+                        new PracticeOptionDto("B", order == 2 ? targetExpression : "通常の対応"),
+                        new PracticeOptionDto("C", "限定的な対応"),
+                        new PracticeOptionDto("D", "慎重な対応")
+                ),
+                List.of(correctKey),
+                skillTag,
+                null,
+                "문맥상 이 표현이 가장 자연스럽습니다.",
+                "文脈上、この表現が最も自然です。",
+                targetExpression,
+                canonicalKey,
+                true,
+                List.of()
+        );
+    }
+
+    private PracticeQuestion persistedQuestion(
+            PracticeSet practiceSet,
+            PracticeGeneratedQuestionDto item
+    ) {
+        return PracticeQuestion.create(
+                practiceSet,
+                item,
+                jsonCodec.write(item.options()),
+                jsonCodec.write(item.correctAnswer()),
+                jsonCodec.write(item.vocabularyCandidates())
+        );
+    }
+
     private AiPracticeGenerationRequestDto vocabularyRequest() {
         return new AiPracticeGenerationRequestDto(
                 "practice-vocabulary",
@@ -685,6 +889,23 @@ class PracticePersistenceServiceTest {
                 masteryScore,
                 wrongCount,
                 List.of(PracticeQuestionType.SINGLE_CHOICE)
+        );
+    }
+
+    private PracticeReviewTargetDto reviewTarget(
+            String canonicalKey,
+            String expression,
+            double masteryScore,
+            int wrongCount,
+            String preferredSkill
+    ) {
+        return new PracticeReviewTargetDto(
+                canonicalKey,
+                expression,
+                masteryScore,
+                wrongCount,
+                List.of(PracticeQuestionType.SINGLE_CHOICE),
+                preferredSkill
         );
     }
 

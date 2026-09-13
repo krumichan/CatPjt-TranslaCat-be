@@ -49,6 +49,8 @@ public class PracticeQueryService {
         return setRepository.findAllByUserIdAndLearningDateAndDomainOrderByIdAsc(
                         userId, today, domain
                 ).stream()
+                .filter(set -> domain != PracticeDomain.VOCABULARY
+                        || "CONTEXTUAL_CHOICE".equals(set.getMode()))
                 .map(set -> new PracticeTodayModeStatusResponseDto(
                         set.getMode(),
                         set.getId(),

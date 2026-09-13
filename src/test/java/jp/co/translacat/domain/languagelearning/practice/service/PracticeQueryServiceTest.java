@@ -32,6 +32,7 @@ class PracticeQueryServiceTest {
     @Mock private LanguageLearningJsonCodec jsonCodec;
     @Mock private LanguageLearningUserSettingQueryService settingQueryService;
     @Mock private PracticeSet set;
+    @Mock private PracticeSet legacySet;
 
     private PracticeQueryService service;
 
@@ -53,8 +54,9 @@ class PracticeQueryServiceTest {
         when(settingQueryService.resolveToday(7L)).thenReturn(today);
         when(setRepository.findAllByUserIdAndLearningDateAndDomainOrderByIdAsc(
                 7L, today, PracticeDomain.VOCABULARY
-        )).thenReturn(List.of(set));
-        when(set.getMode()).thenReturn("MEANING_RELATION");
+        )).thenReturn(List.of(legacySet, set));
+        when(legacySet.getMode()).thenReturn("MEANING_RELATION");
+        when(set.getMode()).thenReturn("CONTEXTUAL_CHOICE");
         when(set.getId()).thenReturn(11L);
         when(set.getStatus()).thenReturn(PracticeSetStatus.COMPLETED);
         when(set.getQuestionCount()).thenReturn(10);
@@ -67,7 +69,7 @@ class PracticeQueryServiceTest {
         var result = service.getTodayStatus(7L, PracticeDomain.VOCABULARY);
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).mode()).isEqualTo("MEANING_RELATION");
+        assertThat(result.get(0).mode()).isEqualTo("CONTEXTUAL_CHOICE");
         assertThat(result.get(0).status()).isEqualTo(PracticeSetStatus.COMPLETED);
         assertThat(result.get(0).answeredCount()).isEqualTo(10);
         assertThat(result.get(0).questionCount()).isEqualTo(10);

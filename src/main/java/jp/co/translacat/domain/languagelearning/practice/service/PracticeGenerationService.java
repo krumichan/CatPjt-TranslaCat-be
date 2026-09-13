@@ -29,6 +29,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -36,7 +37,10 @@ import java.util.UUID;
 public class PracticeGenerationService {
     private static final int READING_QUESTION_COUNT = 5;
     private static final int VOCABULARY_QUESTION_COUNT = 10;
-    private static final int VOCABULARY_REVIEW_TARGET = 6;
+    private static final int VOCABULARY_REVIEW_TARGET = 2;
+    private static final Set<String> CONTEXTUAL_CHOICE_REVIEW_SKILLS = Set.of(
+            "MEANING", "COLLOCATION", "NUANCE", "REGISTER", "PRAGMATIC_FIT"
+    );
 
     private final PracticeSetRepository setRepository;
     private final PracticePersistenceService persistenceService;
@@ -140,18 +144,16 @@ public class PracticeGenerationService {
 
         Map<String, ReviewEvidence> evidenceByKey = recentVocabularyEvidence(userId);
 
-        for (String candidate : profileSignalService.getKeys(
-                userId, ProfileSignalType.VOCABULARY_CANDIDATE, 12
-        )) {
-            String canonical = normalizeCandidate(candidate);
-            if (canonical == null || !seen.add(canonical)) continue;
-            ReviewEvidence evidence = evidenceByKey.getOrDefault(canonical, ReviewEvidence.empty());
+        for (Map.Entry<String, ReviewEvidence> entry : evidenceByKey.entrySet()) {
+            ReviewEvidence evidence = entry.getValue();
+            if (evidence.displayExpression() == null || !seen.add(entry.getKey())) continue;
             result.add(new PracticeReviewTargetDto(
-                    canonical,
-                    candidate.trim(),
+                    evidence.canonicalKey(),
+                    evidence.displayExpression(),
                     null,
-                    Math.max(1, evidence.wrongCount()),
-                    evidence.previousQuestionTypes()
+                    evidence.wrongCount(),
+                    evidence.previousQuestionTypes(),
+                    preferredReviewSkill(evidence.preferredSkill())
             ));
             if (result.size() >= 12) return List.copyOf(result);
         }
@@ -166,9 +168,27 @@ public class PracticeGenerationService {
                     mastery.getDisplayExpression(),
                     mastery.getScore(),
                     Math.max(evidence.wrongCount(), mastery.getScore() < 55 ? 2 : 1),
-                    evidence.previousQuestionTypes()
+                    evidence.previousQuestionTypes(),
+                    preferredReviewSkill(evidence.preferredSkill())
             ));
-            if (result.size() >= 12) break;
+            if (result.size() >= 12) return List.copyOf(result);
+        }
+
+        for (String candidate : profileSignalService.getKeys(
+                userId, ProfileSignalType.VOCABULARY_CANDIDATE, 12
+        )) {
+            String canonical = normalizeCandidate(candidate);
+            if (canonical == null || !seen.add(canonical)) continue;
+            ReviewEvidence evidence = evidenceByKey.getOrDefault(canonical, ReviewEvidence.empty());
+            result.add(new PracticeReviewTargetDto(
+                    canonical,
+                    candidate.trim(),
+                    null,
+                    Math.max(1, evidence.wrongCount()),
+                    evidence.previousQuestionTypes(),
+                    preferredReviewSkill(evidence.preferredSkill())
+            ));
+            if (result.size() >= 12) return List.copyOf(result);
         }
         return List.copyOf(result);
     }
@@ -176,6 +196,9 @@ public class PracticeGenerationService {
     private Map<String, ReviewEvidence> recentVocabularyEvidence(Long userId) {
         Map<String, Integer> wrongCounts = new java.util.LinkedHashMap<>();
         Map<String, LinkedHashSet<PracticeQuestionType>> questionTypes = new java.util.LinkedHashMap<>();
+        Map<String, String> expressions = new java.util.LinkedHashMap<>();
+        Map<String, String> canonicalKeys = new java.util.LinkedHashMap<>();
+        Map<String, String> preferredSkills = new java.util.LinkedHashMap<>();
         for (PracticeAttempt attempt : attemptRepository
                 .findTop30ByQuestionPracticeSetUserIdAndQuestionPracticeSetDomainAndCorrectFalseOrderBySubmittedAtDesc(
                         userId, PracticeDomain.VOCABULARY
@@ -184,14 +207,24 @@ public class PracticeGenerationService {
             String canonical = normalizeCandidate(question.getCanonicalKey());
             if (canonical == null) continue;
             wrongCounts.merge(canonical, 1, Integer::sum);
+            canonicalKeys.putIfAbsent(canonical, question.getCanonicalKey());
+            if (question.getTargetExpression() != null && !question.getTargetExpression().isBlank()) {
+                expressions.putIfAbsent(canonical, question.getTargetExpression().trim());
+            }
             questionTypes.computeIfAbsent(canonical, ignored -> new LinkedHashSet<>())
                     .add(question.getQuestionType());
+            if (CONTEXTUAL_CHOICE_REVIEW_SKILLS.contains(question.getSkillTag())) {
+                preferredSkills.putIfAbsent(canonical, question.getSkillTag());
+            }
         }
         Map<String, ReviewEvidence> result = new java.util.LinkedHashMap<>();
         for (String canonical : wrongCounts.keySet()) {
             result.put(canonical, new ReviewEvidence(
+                    canonicalKeys.get(canonical),
+                    expressions.get(canonical),
                     wrongCounts.getOrDefault(canonical, 0),
-                    List.copyOf(questionTypes.getOrDefault(canonical, new LinkedHashSet<>()))
+                    List.copyOf(questionTypes.getOrDefault(canonical, new LinkedHashSet<>())),
+                    preferredSkills.get(canonical)
             ));
         }
         return result;
@@ -202,12 +235,20 @@ public class PracticeGenerationService {
         return value.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
+    private static String preferredReviewSkill(String value) {
+        return value != null && CONTEXTUAL_CHOICE_REVIEW_SKILLS.contains(value)
+                ? value : "MEANING";
+    }
+
     private record ReviewEvidence(
+            String canonicalKey,
+            String displayExpression,
             int wrongCount,
-            List<PracticeQuestionType> previousQuestionTypes
+            List<PracticeQuestionType> previousQuestionTypes,
+            String preferredSkill
     ) {
         static ReviewEvidence empty() {
-            return new ReviewEvidence(0, List.of());
+            return new ReviewEvidence(null, null, 0, List.of(), null);
         }
     }
 
@@ -216,7 +257,10 @@ public class PracticeGenerationService {
             if (domain == PracticeDomain.READING) {
                 jp.co.translacat.domain.languagelearning.common.enums.ReadingMode.valueOf(mode);
             } else {
-                jp.co.translacat.domain.languagelearning.common.enums.VocabularyMode.valueOf(mode);
+                if (jp.co.translacat.domain.languagelearning.common.enums.VocabularyMode.valueOf(mode)
+                        != jp.co.translacat.domain.languagelearning.common.enums.VocabularyMode.CONTEXTUAL_CHOICE) {
+                    throw new IllegalArgumentException("legacy Vocabulary modes are read-only");
+                }
             }
         } catch (Exception e) {
             throw new BusinessException(

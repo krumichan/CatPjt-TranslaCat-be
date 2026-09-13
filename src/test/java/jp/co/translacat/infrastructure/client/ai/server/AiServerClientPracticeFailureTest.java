@@ -64,7 +64,12 @@ class AiServerClientPracticeFailureTest {
         ReflectionTestUtils.setField(client, "apiKey", "secret");
         String responseBody = """
                 {"detail":[{"type":"missing","loc":["body","previousQuestions",0,"options"],
-                "msg":"Field required","input":{"targetExpression":"安全な導入"}}]}
+                "msg":"Field required","input":{"targetExpression":"安全な導入"}},
+                {"type":"bool_type","loc":["body","previousQuestions",0,"reviewTarget"],
+                "msg":"Input should be a valid boolean"},
+                {"type":"string_too_long","loc":["body","previousQuestions",1,"prompt"],
+                "msg":"String should have at most 3000 characters"},
+                {"type":"secret","loc":["body","apiKey"],"msg":"must not be logged"}]}
                 """;
         var response = WebClientResponseException.create(
                 422,
@@ -89,8 +94,12 @@ class AiServerClientPracticeFailureTest {
                     assertThat(classified.isRetryable()).isFalse();
                     assertThat(classified.getHttpStatus()).isEqualTo(422);
                     assertThat(classified.getSafeDetail())
-                            .isEqualTo("type=missing loc=body.previousQuestions.0.options msg=Field required")
-                            .doesNotContain("安全な導入", "input");
+                            .contains(
+                                    "type=missing loc=body.previousQuestions.0.options msg=Field required",
+                                    "type=bool_type loc=body.previousQuestions.0.reviewTarget",
+                                    "type=string_too_long loc=body.previousQuestions.1.prompt"
+                            )
+                            .doesNotContain("安全な導入", "input", "apiKey", "must not be logged");
                 });
     }
 

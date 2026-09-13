@@ -29,6 +29,7 @@ import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeak
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingTtsResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingTurnProcessResponseDto;
 import jp.co.translacat.global.exception.AiServerCommunicationException;
+import jp.co.translacat.global.exception.AiServerFailureCode;
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiChatTranslationRequest;
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiChatTranslationResponse;
@@ -204,17 +205,21 @@ public class AiServerClient {
     ) {
         String url = aiServerUrl + "/api/v1/language-learning/practice/generate";
         try {
-            return this.apiClient.postOnce(
+            return this.apiClient.postOnceLanguageLearningPractice(
                     url, request, this.basicHeader(), AiPracticeGenerationResponseDto.class
             );
         } catch (Exception e) {
+            AiServerFailureCode failureCode = AiServerFailureClassifier.classify(e);
             log.error(
-                    "AI Server Reading/Vocabulary generation failed. requestId={}, cause={}",
+                    "AI Server Reading/Vocabulary generation failed. requestId={}, failureCode={}, causeType={}",
                     request == null ? null : request.requestId(),
-                    e.getMessage()
+                    failureCode,
+                    e.getClass().getSimpleName()
             );
             throw new AiServerCommunicationException(
-                    "AI Server Reading/Vocabulary Generation Error", e
+                    "AI Server Reading/Vocabulary Generation Error: " + failureCode,
+                    failureCode,
+                    e
             );
         }
     }

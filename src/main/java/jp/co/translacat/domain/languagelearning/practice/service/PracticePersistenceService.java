@@ -33,6 +33,8 @@ import java.util.stream.Stream;
 @Service
 @RequiredArgsConstructor
 public class PracticePersistenceService {
+    static final String STORED_REQUEST_INVALID = "STORED_REQUEST_INVALID";
+    static final String LEASE_RECOVERY_EXHAUSTED = "LEASE_RECOVERY_EXHAUSTED";
     private final PracticeSetRepository setRepository;
     private final PracticeQuestionRepository questionRepository;
     private final UserRepository userRepository;
@@ -69,9 +71,11 @@ public class PracticePersistenceService {
     }
 
     @Transactional(readOnly = true)
-    public List<Long> pendingIds(LocalDateTime staleBefore) {
+    public List<Long> pendingIds(LocalDateTime now, LocalDateTime staleBefore) {
         return Stream.concat(
-                setRepository.findTop20ByGenerationStatusOrderByIdAsc(PracticeGenerationStatus.PENDING).stream(),
+                setRepository.findDueByGenerationStatus(
+                        PracticeGenerationStatus.PENDING, now, 20
+                ).stream(),
                 setRepository.findTop20ByGenerationStatusAndGenerationStartedAtBeforeOrderByGenerationStartedAtAsc(
                         PracticeGenerationStatus.GENERATING, staleBefore
                 ).stream()
@@ -79,39 +83,59 @@ public class PracticePersistenceService {
     }
 
     @Transactional
-    public Optional<GenerationClaim> claim(Long setId, LocalDateTime now, LocalDateTime staleBefore) {
+    public Optional<GenerationClaim> claim(
+            Long setId,
+            LocalDateTime now,
+            LocalDateTime staleBefore,
+            int automaticRetryLimit
+    ) {
         PracticeSet set = setRepository.findLockedById(setId).orElse(null);
         if (set == null) return Optional.empty();
         boolean stale = set.getGenerationStatus() == PracticeGenerationStatus.GENERATING
                 && set.getGenerationStartedAt() != null
                 && set.getGenerationStartedAt().isBefore(staleBefore);
-        if (set.getGenerationStatus() != PracticeGenerationStatus.PENDING && !stale) {
+        if ((!set.isGenerationDue(now)) && !stale) {
             return Optional.empty();
         }
         List<PracticeQuestion> questions = questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(setId);
+        if (stale) {
+            if (set.getGenerationRetryCount() >= Math.max(0, automaticRetryLimit)) {
+                set.failGeneration(LEASE_RECOVERY_EXHAUSTED, !questions.isEmpty());
+                return Optional.empty();
+            }
+            set.registerGenerationRecovery();
+        }
         int order = firstMissingOrder(questions, set.getQuestionCount());
         if (order > set.getQuestionCount()) {
             set.finishGeneration();
             return Optional.empty();
         }
         if (set.getGenerationRequestJson() == null) {
-            set.failGeneration("Stored generation request is unavailable.", !questions.isEmpty());
+            set.failGeneration(STORED_REQUEST_INVALID, !questions.isEmpty());
             return Optional.empty();
         }
         AiPracticeGenerationRequestDto original;
         try {
             original = jsonCodec.read(set.getGenerationRequestJson(), AiPracticeGenerationRequestDto.class);
         } catch (RuntimeException error) {
-            set.failGeneration("Stored generation request could not be read.", !questions.isEmpty());
+            set.failGeneration(STORED_REQUEST_INVALID, !questions.isEmpty());
             return Optional.empty();
         }
         List<PracticeGeneratedQuestionDto> previous = questions.stream()
                 .filter(question -> question.getOrderNo() < order)
                 .map(this::generatedQuestion).toList();
         String token = UUID.randomUUID().toString();
-        AiPracticeGenerationRequestDto request = itemRequest(original, order, previous, token);
+        AiPracticeGenerationRequestDto request;
+        try {
+            request = itemRequest(original, order, previous, token);
+        } catch (RuntimeException error) {
+            set.failGeneration(STORED_REQUEST_INVALID, !questions.isEmpty());
+            return Optional.empty();
+        }
         set.claimGeneration(token, now);
-        return Optional.of(new GenerationClaim(setId, order, token, request));
+        return Optional.of(new GenerationClaim(
+                setId, order, token, set.getGenerationRetryCount(), request
+        ));
     }
 
     @Transactional
@@ -161,6 +185,25 @@ public class PracticePersistenceService {
                 .ifPresent(set -> set.failGeneration(
                         message, questionRepository.countByPracticeSetId(set.getId()) > 0
                 ));
+    }
+
+    @Transactional
+    public void recordInfrastructureFailure(
+            GenerationClaim claim,
+            String failureCode,
+            LocalDateTime retryAt,
+            int automaticRetryLimit
+    ) {
+        setRepository.findLockedById(claim.setId())
+                .filter(set -> set.ownsGeneration(claim.token()))
+                .ifPresent(set -> {
+                    boolean hasQuestions = questionRepository.countByPracticeSetId(set.getId()) > 0;
+                    if (set.getGenerationRetryCount() < automaticRetryLimit) {
+                        set.deferGeneration(retryAt);
+                    } else {
+                        set.failGeneration(failureCode, hasQuestions);
+                    }
+                });
     }
 
     static int firstMissingOrder(List<PracticeQuestion> questions, int target) {
@@ -247,5 +290,11 @@ public class PracticePersistenceService {
                 LanguageLearningErrorCode.DAILY_SET_NOT_FOUND);
     }
 
-    public record GenerationClaim(Long setId, int order, String token, AiPracticeGenerationRequestDto request) {}
+    public record GenerationClaim(
+            Long setId,
+            int order,
+            String token,
+            int infrastructureRetryCount,
+            AiPracticeGenerationRequestDto request
+    ) {}
 }

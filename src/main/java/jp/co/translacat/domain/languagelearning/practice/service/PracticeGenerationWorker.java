@@ -6,6 +6,7 @@ import jp.co.translacat.domain.languagelearning.ai.port.LanguageLearningAiClient
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDifficulty;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
+import jp.co.translacat.global.exception.AiServerCommunicationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,23 +28,35 @@ public class PracticeGenerationWorker {
     private final LanguageLearningAiClient aiClient;
     private final Executor executor;
     private final Duration lease;
+    private final int automaticRetryLimit;
+    private final Duration retryInitialDelay;
+    private final Duration retryMaxDelay;
     private final Set<Long> scheduledSets = ConcurrentHashMap.newKeySet();
 
     public PracticeGenerationWorker(
             PracticePersistenceService persistenceService,
             LanguageLearningAiClient aiClient,
             @Qualifier("practiceGenerationExecutor") Executor executor,
-            @Value("${language-learning.practice.generation-lease-seconds:1800}") long leaseSeconds
+            @Value("${language-learning.practice.generation-lease-seconds:1800}") long leaseSeconds,
+            @Value("${language-learning.practice.automatic-retry-limit:3}") int automaticRetryLimit,
+            @Value("${language-learning.practice.retry-initial-delay-seconds:10}") long retryInitialDelaySeconds,
+            @Value("${language-learning.practice.retry-max-delay-seconds:120}") long retryMaxDelaySeconds
     ) {
         this.persistenceService = persistenceService;
         this.aiClient = aiClient;
         this.executor = executor;
         this.lease = Duration.ofSeconds(Math.max(60, leaseSeconds));
+        this.automaticRetryLimit = Math.max(0, automaticRetryLimit);
+        this.retryInitialDelay = Duration.ofSeconds(Math.max(1, retryInitialDelaySeconds));
+        this.retryMaxDelay = Duration.ofSeconds(Math.max(
+                this.retryInitialDelay.toSeconds(), retryMaxDelaySeconds
+        ));
     }
 
     @Scheduled(fixedDelayString = "${language-learning.practice.generation-delay-ms:1000}")
     public void dispatch() {
-        for (Long setId : persistenceService.pendingIds(LocalDateTime.now().minus(lease))) {
+        LocalDateTime now = LocalDateTime.now();
+        for (Long setId : persistenceService.pendingIds(now, now.minus(lease))) {
             schedule(setId);
         }
     }
@@ -69,7 +82,9 @@ public class PracticeGenerationWorker {
 
     void generateNext(Long setId) {
         LocalDateTime now = LocalDateTime.now();
-        var claimed = persistenceService.claim(setId, now, now.minus(lease));
+        var claimed = persistenceService.claim(
+                setId, now, now.minus(lease), automaticRetryLimit
+        );
         if (claimed.isEmpty()) return;
         var claim = claimed.get();
         try {
@@ -77,11 +92,47 @@ public class PracticeGenerationWorker {
             var generated = aiClient.generatePractice(claim.request());
             validateGenerated(claim.request(), generated);
             persistenceService.append(claim, generated);
+        } catch (AiServerCommunicationException error) {
+            log.warn(
+                    "Practice item AI infrastructure failure. setId={} order={} failureCode={} retryable={}",
+                    setId, claim.order(), error.getErrorCode(), error.isRetryable()
+            );
+            if (error.isRetryable()) {
+                persistenceService.recordInfrastructureFailure(
+                        claim,
+                        safeCode(error.getErrorCode()),
+                        LocalDateTime.now().plus(retryDelay(claim.infrastructureRetryCount())),
+                        automaticRetryLimit
+                );
+            } else {
+                persistenceService.fail(claim, safeCode(error.getErrorCode()));
+            }
+        } catch (BusinessException error) {
+            log.warn(
+                    "Practice item generation contract failure. setId={} order={} failureCode={}",
+                    setId, claim.order(), error.getErrorCode()
+            );
+            persistenceService.fail(claim, safeCode(error.getErrorCode()));
         } catch (RuntimeException error) {
             log.warn("Practice item generation failed. setId={} order={}", setId, claim.order(), error);
-            persistenceService.fail(claim, error.getMessage());
+            persistenceService.fail(claim, "UNKNOWN");
         }
         // Each subsequent slot is rediscovered from persisted state by the next scheduler tick.
+    }
+
+    Duration retryDelay(int retryCount) {
+        long multiplier = 1L << Math.min(Math.max(0, retryCount), 30);
+        long seconds;
+        try {
+            seconds = Math.multiplyExact(retryInitialDelay.toSeconds(), multiplier);
+        } catch (ArithmeticException ignored) {
+            seconds = retryMaxDelay.toSeconds();
+        }
+        return Duration.ofSeconds(Math.min(seconds, retryMaxDelay.toSeconds()));
+    }
+
+    private String safeCode(String code) {
+        return code == null || code.isBlank() ? "UNKNOWN" : code;
     }
 
     static void validateGenerated(

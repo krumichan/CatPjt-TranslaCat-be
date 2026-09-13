@@ -24,7 +24,8 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_ll_practice_set_user_date", columnList = "user_id,learning_date"),
                 @Index(name = "idx_ll_practice_set_user_domain", columnList = "user_id,domain"),
-                @Index(name = "idx_ll_practice_set_generation", columnList = "generation_status,generation_started_at")
+                @Index(name = "idx_ll_practice_set_generation", columnList = "generation_status,generation_started_at"),
+                @Index(name = "idx_ll_practice_set_generation_due", columnList = "generation_status,generation_available_at,id")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -89,6 +90,13 @@ public class PracticeSet extends BaseAuditable {
     @Column(name = "generation_started_at")
     private LocalDateTime generationStartedAt;
 
+    @Column(name = "generation_available_at")
+    private LocalDateTime generationAvailableAt;
+
+    // Nullable for rows created before progressive infrastructure retries were introduced.
+    @Column(name = "generation_retry_count")
+    private Integer generationRetryCount;
+
     @Column(name = "generation_failure_message", length = 1000)
     private String generationFailureMessage;
 
@@ -147,13 +155,21 @@ public class PracticeSet extends BaseAuditable {
         this.generationStatus = PracticeGenerationStatus.PENDING;
         this.generationToken = null;
         this.generationStartedAt = null;
+        this.generationAvailableAt = null;
+        this.generationRetryCount = 0;
         this.generationFailureMessage = null;
+    }
+
+    public boolean isGenerationDue(LocalDateTime now) {
+        return getGenerationStatus() == PracticeGenerationStatus.PENDING
+                && (generationAvailableAt == null || !generationAvailableAt.isAfter(now));
     }
 
     public void claimGeneration(String token, LocalDateTime now) {
         this.generationStatus = PracticeGenerationStatus.GENERATING;
         this.generationToken = token;
         this.generationStartedAt = now;
+        this.generationAvailableAt = null;
     }
 
     public boolean ownsGeneration(String token) {
@@ -165,6 +181,25 @@ public class PracticeSet extends BaseAuditable {
         this.generationStatus = PracticeGenerationStatus.READY;
         this.generationToken = null;
         this.generationStartedAt = null;
+        this.generationAvailableAt = null;
+        this.generationRetryCount = 0;
+        this.generationFailureMessage = null;
+    }
+
+    public int getGenerationRetryCount() {
+        return generationRetryCount == null ? 0 : generationRetryCount;
+    }
+
+    public void registerGenerationRecovery() {
+        this.generationRetryCount = getGenerationRetryCount() + 1;
+    }
+
+    public void deferGeneration(LocalDateTime retryAt) {
+        this.generationStatus = PracticeGenerationStatus.PENDING;
+        this.generationToken = null;
+        this.generationStartedAt = null;
+        this.generationAvailableAt = retryAt;
+        this.generationRetryCount = getGenerationRetryCount() + 1;
         this.generationFailureMessage = null;
     }
 
@@ -173,7 +208,12 @@ public class PracticeSet extends BaseAuditable {
                 ? PracticeGenerationStatus.PARTIAL : PracticeGenerationStatus.FAILED;
         this.generationToken = null;
         this.generationStartedAt = null;
-        String reason = message == null || message.isBlank() ? "Question generation failed." : message;
+        this.generationAvailableAt = null;
+        setGenerationFailureMessage(message);
+    }
+
+    private void setGenerationFailureMessage(String message) {
+        String reason = message == null || message.isBlank() ? "UNKNOWN" : message;
         this.generationFailureMessage = reason.substring(0, Math.min(1000, reason.length()));
     }
 

@@ -12,11 +12,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-public interface PracticeSetRepository extends JpaRepository<PracticeSet, Long> {
+public interface PracticeSetRepository
+        extends JpaRepository<PracticeSet, Long>, PracticeSetRepositoryCustom {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<PracticeSet> findLockedById(Long id);
-
-    List<PracticeSet> findTop20ByGenerationStatusOrderByIdAsc(PracticeGenerationStatus status);
 
     List<PracticeSet> findTop20ByGenerationStatusAndGenerationStartedAtBeforeOrderByGenerationStartedAtAsc(
             PracticeGenerationStatus status, LocalDateTime cutoff

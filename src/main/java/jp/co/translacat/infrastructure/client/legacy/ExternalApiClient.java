@@ -193,6 +193,17 @@ public class ExternalApiClient {
         return executePostOnce(uri, body, headers, responseType);
     }
 
+    /** Reading/Vocabulary progressive generation has its own failure domain. */
+    @CircuitBreaker(name = "languageLearningPracticeAi", fallbackMethod = "postFallback")
+    public <T, R> R postOnceLanguageLearningPractice(
+            String uri,
+            T body,
+            Map<String, String> headers,
+            Class<R> responseType
+    ) {
+        return executePostOnce(uri, body, headers, responseType);
+    }
+
     /**
      * Level Test 문제 풀 배치 전용 단발 POST.
      * 사용자 요청과 별도 Circuit Breaker를 사용하여 배치 장애가 실시간 학습 요청으로 전파되지 않게 한다.

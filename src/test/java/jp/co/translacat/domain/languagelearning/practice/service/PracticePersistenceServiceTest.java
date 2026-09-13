@@ -96,7 +96,7 @@ class PracticePersistenceServiceTest {
         when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
                 .thenReturn(List.of(question(1), question(3)));
 
-        var claim = service.claim(12L, now, now.minusMinutes(30)).orElseThrow();
+        var claim = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
 
         assertThat(claim.order()).isEqualTo(2);
         assertThat(claim.request().questionCount()).isEqualTo(1);
@@ -112,7 +112,7 @@ class PracticePersistenceServiceTest {
         set.claimGeneration("active", now);
         lockSet();
 
-        assertThat(service.claim(12L, now, now.minusMinutes(30))).isEmpty();
+        assertThat(service.claim(12L, now, now.minusMinutes(30), 3)).isEmpty();
         verifyNoInteractions(questionRepository);
     }
 
@@ -122,11 +122,57 @@ class PracticePersistenceServiceTest {
         set.claimGeneration("expired", now.minusHours(1));
         lockSet();
 
-        var claim = service.claim(12L, now, now.minusMinutes(30)).orElseThrow();
+        var claim = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
 
         assertThat(claim.token()).isNotEqualTo("expired");
         assertThat(set.ownsGeneration("expired")).isFalse();
         assertThat(set.ownsGeneration(claim.token())).isTrue();
+        assertThat(set.getGenerationRetryCount()).isEqualTo(1);
+    }
+
+    @Test
+    void exhaustedLeaseRecoveryBudgetBecomesTerminalAndDoesNotCreateAnotherClaim() {
+        set.queueGeneration(jsonCodec.write(request()));
+        ReflectionTestUtils.setField(set, "generationRetryCount", 3);
+        set.claimGeneration("expired", now.minusHours(1));
+        lockSet();
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of(question(1)));
+
+        assertThat(service.claim(12L, now, now.minusMinutes(30), 3)).isEmpty();
+
+        assertThat(set.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.PARTIAL);
+        assertThat(set.getGenerationFailureMessage())
+                .isEqualTo(PracticePersistenceService.LEASE_RECOVERY_EXHAUSTED);
+        assertThat(set.ownsGeneration("expired")).isFalse();
+    }
+
+    @Test
+    void failedAndPartialManualRetriesCreateFreshAttemptIdentity() {
+        when(user.getId()).thenReturn(7L);
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of());
+
+        for (boolean hasQuestions : List.of(false, true)) {
+            set = PracticeSet.create(user, now.toLocalDate(), PracticeDomain.READING,
+                    "COMPREHENSION", "ko", "ja", 5, 3);
+            ReflectionTestUtils.setField(set, "id", 12L);
+            set.queueGeneration(jsonCodec.write(request()));
+            set.failGeneration("initial", hasQuestions);
+            lockSet();
+
+            service.retry(7L, 12L);
+            var first = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+            set.failGeneration("again", hasQuestions);
+            service.retry(7L, 12L);
+            var second = service.claim(12L, now.plusSeconds(1), now.minusMinutes(30), 3).orElseThrow();
+
+            assertThat(first.token()).isNotEqualTo(second.token());
+            assertThat(first.request().requestId()).isNotEqualTo(second.request().requestId());
+            assertThat(first.request().requestId()).isNotEqualTo(request().requestId());
+            assertThat(second.request().requestId()).isNotEqualTo(request().requestId());
+        }
+        verify(questionRepository, never()).deleteAll();
     }
 
     @Test
@@ -142,6 +188,27 @@ class PracticePersistenceServiceTest {
         assertThat(saved.getValue().getOrderNo()).isEqualTo(2);
         assertThat(set.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.PENDING);
         assertThat(set.getStatus()).isEqualTo(PracticeSetStatus.ACTIVE);
+    }
+
+    @Test
+    void successfulItemQueuesAndClaimsNextMissingOrderWithPersistedPrefix() {
+        set.queueGeneration(jsonCodec.write(request()));
+        lockSet();
+        PracticeQuestion firstQuestion = question(1);
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of(), List.of(), List.of(firstQuestion));
+
+        var first = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+        service.append(first, response());
+        var second = service.claim(12L, now.plusSeconds(1), now.minusMinutes(30), 3).orElseThrow();
+
+        assertThat(set.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.GENERATING);
+        assertThat(second.order()).isEqualTo(2);
+        assertThat(second.token()).isNotEqualTo(first.token());
+        assertThat(second.request().requestId()).isNotEqualTo(first.request().requestId());
+        assertThat(second.request().previousQuestions())
+                .extracting(PracticeGeneratedQuestionDto::order)
+                .containsExactly(1);
     }
 
     @Test
@@ -216,6 +283,59 @@ class PracticePersistenceServiceTest {
         service.fail(claim(1, "active"), "generation unavailable");
 
         assertThat(set.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.FAILED);
+    }
+
+    @Test
+    void transientFailureIsDeferredDurablyAndNotClaimedBeforeAvailableAt() {
+        set.queueGeneration(jsonCodec.write(request()));
+        set.claimGeneration("active", now);
+        lockSet();
+        when(questionRepository.countByPracticeSetId(12L)).thenReturn(0L);
+
+        service.recordInfrastructureFailure(
+                claim(1, "active"), "CIRCUIT_OPEN", now.plusSeconds(10), 3
+        );
+
+        assertThat(set.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.PENDING);
+        assertThat(set.getGenerationAvailableAt()).isEqualTo(now.plusSeconds(10));
+        assertThat(set.getGenerationRetryCount()).isEqualTo(1);
+        assertThat(set.getGenerationFailureMessage()).isNull();
+
+        assertThat(service.claim(12L, now.plusSeconds(9), now.minusMinutes(30), 3)).isEmpty();
+        verify(questionRepository, never()).deleteAll();
+    }
+
+    @Test
+    void exhaustedInfrastructureRetryBudgetBecomesTerminalWithoutDeletingRows() {
+        set.queueGeneration(jsonCodec.write(request()));
+        ReflectionTestUtils.setField(set, "generationRetryCount", 3);
+        set.claimGeneration("active", now);
+        lockSet();
+        when(questionRepository.countByPracticeSetId(12L)).thenReturn(2L);
+
+        service.recordInfrastructureFailure(
+                claim(3, "active"), "HTTP_5XX", now.plusMinutes(1), 3
+        );
+
+        assertThat(set.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.PARTIAL);
+        assertThat(set.getGenerationFailureMessage()).isEqualTo("HTTP_5XX");
+        assertThat(set.getGenerationAvailableAt()).isNull();
+        verify(questionRepository, never()).deleteAll();
+    }
+
+    @Test
+    void malformedStoredRequestFailsWithExplicitSafeClassification() {
+        set.queueGeneration("not-json");
+        lockSet();
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of());
+
+        assertThat(service.claim(12L, now, now.minusMinutes(30), 3)).isEmpty();
+
+        assertThat(set.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.FAILED);
+        assertThat(set.getGenerationFailureMessage())
+                .isEqualTo(PracticePersistenceService.STORED_REQUEST_INVALID);
+        verifyNoInteractions(masteryRepository);
     }
 
     @Test
@@ -298,7 +418,7 @@ class PracticePersistenceServiceTest {
         when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
                 .thenReturn(List.of(question(1), question(2), question(3), question(4), question(5)));
 
-        assertThat(service.claim(12L, now, now.minusMinutes(30))).isEmpty();
+        assertThat(service.claim(12L, now, now.minusMinutes(30), 3)).isEmpty();
         assertThat(set.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.READY);
         verify(questionRepository, never()).save(any());
     }
@@ -312,7 +432,7 @@ class PracticePersistenceServiceTest {
     }
 
     private PracticePersistenceService.GenerationClaim claim(int order, String token) {
-        return new PracticePersistenceService.GenerationClaim(12L, order, token, request());
+        return new PracticePersistenceService.GenerationClaim(12L, order, token, 0, request());
     }
 
     static AiPracticeGenerationRequestDto request() {

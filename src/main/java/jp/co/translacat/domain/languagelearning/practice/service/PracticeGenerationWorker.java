@@ -93,9 +93,22 @@ public class PracticeGenerationWorker {
             validateGenerated(claim.request(), generated);
             persistenceService.append(claim, generated);
         } catch (AiServerCommunicationException error) {
+            int previousQuestionCount = claim.request().previousQuestions() == null
+                    ? 0 : claim.request().previousQuestions().size();
             log.warn(
-                    "Practice item AI infrastructure failure. setId={} order={} failureCode={} retryable={}",
-                    setId, claim.order(), error.getErrorCode(), error.isRetryable()
+                    "Practice item AI call failed. setId={} order={} requestId={} endpoint={} "
+                            + "httpStatus={} safeDetail={} previousQuestions={} questionOffset={} "
+                            + "failureCode={} retryable={}",
+                    setId,
+                    claim.order(),
+                    claim.request().requestId(),
+                    "/api/v1/language-learning/practice/generate",
+                    error.getHttpStatus(),
+                    error.getSafeDetail(),
+                    previousQuestionCount,
+                    previousQuestionCount,
+                    error.getErrorCode(),
+                    error.isRetryable()
             );
             if (error.isRetryable()) {
                 persistenceService.recordInfrastructureFailure(

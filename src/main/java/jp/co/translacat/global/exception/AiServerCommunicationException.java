@@ -6,23 +6,31 @@ import lombok.Getter;
 public class AiServerCommunicationException extends RuntimeException {
     private final String errorCode;
     private final boolean retryable;
+    private final Integer httpStatus;
+    private final String safeDetail;
 
     public AiServerCommunicationException(String message) {
         super(message);
         this.errorCode = "";
         this.retryable = false;
+        this.httpStatus = null;
+        this.safeDetail = "";
     }
 
     public AiServerCommunicationException(String message, String errorCode) {
         super(message);
         this.errorCode = errorCode;
         this.retryable = false;
+        this.httpStatus = null;
+        this.safeDetail = "";
     }
 
     public AiServerCommunicationException(String message, Throwable cause) {
         super(message, cause);
         this.errorCode = "";
         this.retryable = false;
+        this.httpStatus = null;
+        this.safeDetail = "";
     }
 
     public AiServerCommunicationException(
@@ -33,5 +41,21 @@ public class AiServerCommunicationException extends RuntimeException {
         super(message, cause);
         this.errorCode = failureCode.name();
         this.retryable = failureCode.isRetryable();
+        this.httpStatus = null;
+        this.safeDetail = "";
+    }
+
+    public AiServerCommunicationException(
+            String message,
+            AiServerFailureCode failureCode,
+            Integer httpStatus,
+            String safeDetail,
+            Throwable cause
+    ) {
+        super(message, cause);
+        this.errorCode = failureCode.name();
+        this.retryable = failureCode.isRetryable();
+        this.httpStatus = httpStatus;
+        this.safeDetail = safeDetail == null ? "" : safeDetail;
     }
 }

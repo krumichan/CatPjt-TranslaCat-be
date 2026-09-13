@@ -1,5 +1,8 @@
 package jp.co.translacat.domain.languagelearning.practice.service;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.port.LanguageLearningAiClient;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
@@ -11,10 +14,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Optional;
 import java.time.LocalDateTime;
+import java.util.stream.Collectors;
 
 import static jp.co.translacat.domain.languagelearning.practice.service.PracticePersistenceServiceTest.*;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -110,21 +115,49 @@ class PracticeGenerationWorkerTest {
     }
 
     @Test
-    void terminalAiFailurePreservesSafeClassification() {
+    void terminalAiFailurePreservesSafeClassificationAndLogsContractContext() {
         var claim = claim(2, 0);
         when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(claim));
         when(aiClient.generatePractice(request())).thenThrow(
                 new AiServerCommunicationException(
                         "response body must not be persisted",
                         AiServerFailureCode.HTTP_4XX,
+                        422,
+                        "type=missing loc=body.previousQuestions.0.options msg=Field required",
                         new RuntimeException("private response")
                 )
         );
 
-        worker.generateNext(12L);
+        Logger logger = (Logger) LoggerFactory.getLogger(PracticeGenerationWorker.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            worker.generateNext(12L);
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
 
         verify(persistence).fail(claim, "HTTP_4XX");
         verify(persistence, never()).recordInfrastructureFailure(any(), any(), any(), anyInt());
+        String logOutput = appender.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .collect(Collectors.joining("\n"));
+        org.assertj.core.api.Assertions.assertThat(logOutput)
+                .contains(
+                        "setId=12",
+                        "order=2",
+                        "requestId=request",
+                        "endpoint=/api/v1/language-learning/practice/generate",
+                        "httpStatus=422",
+                        "safeDetail=type=missing loc=body.previousQuestions.0.options msg=Field required",
+                        "previousQuestions=0",
+                        "questionOffset=0",
+                        "failureCode=HTTP_4XX",
+                        "retryable=false"
+                )
+                .doesNotContain("private response", "response body must not be persisted");
     }
 
     @Test

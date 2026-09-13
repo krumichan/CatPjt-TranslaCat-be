@@ -56,6 +56,9 @@ import java.util.Set;
 @Component
 @RequiredArgsConstructor
 public class AiServerClient {
+    private static final String PRACTICE_GENERATION_PATH =
+            "/api/v1/language-learning/practice/generate";
+    private static final int MAX_SAFE_PRACTICE_ERROR_DETAIL_CHARS = 500;
     private final ExternalApiClient apiClient;
     private final ObjectMapper objectMapper;
 
@@ -203,26 +206,109 @@ public class AiServerClient {
     public AiPracticeGenerationResponseDto callLanguageLearningPracticeGeneration(
             AiPracticeGenerationRequestDto request
     ) {
-        String url = aiServerUrl + "/api/v1/language-learning/practice/generate";
+        String url = aiServerUrl + PRACTICE_GENERATION_PATH;
         try {
             return this.apiClient.postOnceLanguageLearningPractice(
                     url, request, this.basicHeader(), AiPracticeGenerationResponseDto.class
             );
         } catch (Exception e) {
             AiServerFailureCode failureCode = AiServerFailureClassifier.classify(e);
+            PracticeHttpFailureDiagnostic diagnostic = practiceHttpFailureDiagnostic(e);
             log.error(
-                    "AI Server Reading/Vocabulary generation failed. requestId={}, failureCode={}, causeType={}",
+                    "AI Server Reading/Vocabulary generation failed. endpoint={} requestId={} "
+                            + "httpStatus={} safeDetail={} failureCode={} causeType={}",
+                    PRACTICE_GENERATION_PATH,
                     request == null ? null : request.requestId(),
+                    diagnostic.httpStatus(),
+                    diagnostic.safeDetail(),
                     failureCode,
                     e.getClass().getSimpleName()
             );
             throw new AiServerCommunicationException(
                     "AI Server Reading/Vocabulary Generation Error: " + failureCode,
                     failureCode,
+                    diagnostic.httpStatus(),
+                    diagnostic.safeDetail(),
                     e
             );
         }
     }
+
+    private PracticeHttpFailureDiagnostic practiceHttpFailureDiagnostic(Throwable failure) {
+        ExternalApiClient4xxException clientError = findCause(
+                failure,
+                ExternalApiClient4xxException.class
+        );
+        org.springframework.web.reactive.function.client.WebClientResponseException response =
+                clientError == null
+                        ? findCause(
+                                failure,
+                                org.springframework.web.reactive.function.client.WebClientResponseException.class
+                        )
+                        : clientError.getResponseException();
+        if (response == null) {
+            return new PracticeHttpFailureDiagnostic(null, "none");
+        }
+        return new PracticeHttpFailureDiagnostic(
+                response.getRawStatusCode(),
+                safePracticeErrorDetail(response.getResponseBodyAsString())
+        );
+    }
+
+    private String safePracticeErrorDetail(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return "empty";
+        }
+        try {
+            JsonNode detail = objectMapper.readTree(responseBody).path("detail");
+            if (detail.isArray()) {
+                List<String> issues = new java.util.ArrayList<>();
+                for (JsonNode issue : detail) {
+                    if (issues.size() == 3) break;
+                    issues.add("type=" + safeDiagnosticText(issue.path("type").asText("unknown"))
+                            + " loc=" + safeValidationLocation(issue.path("loc"))
+                            + " msg=" + safeDiagnosticText(issue.path("msg").asText("unknown")));
+                }
+                return boundedSafeDetail(issues.isEmpty()
+                        ? "validation_error_without_issues"
+                        : String.join("; ", issues));
+            }
+            if (detail.isObject()) {
+                String code = safeDiagnosticText(detail.path("code").asText("unknown"));
+                return boundedSafeDetail("code=" + code + " message=redacted");
+            }
+            if (detail.isTextual()) {
+                return "text_detail_redacted";
+            }
+            return "unstructured_json_error";
+        } catch (JsonProcessingException ignored) {
+            return "unparseable_error_body";
+        }
+    }
+
+    private String safeValidationLocation(JsonNode location) {
+        if (!location.isArray()) return "unknown";
+        List<String> segments = new java.util.ArrayList<>();
+        for (JsonNode segment : location) {
+            if (segment.isTextual() || segment.isIntegralNumber()) {
+                segments.add(safeDiagnosticText(segment.asText()));
+            }
+        }
+        return segments.isEmpty() ? "unknown" : String.join(".", segments);
+    }
+
+    private String safeDiagnosticText(String value) {
+        if (value == null || value.isBlank()) return "unknown";
+        return value.replace('\r', ' ').replace('\n', ' ').replace('\t', ' ').strip();
+    }
+
+    private String boundedSafeDetail(String value) {
+        return value.length() <= MAX_SAFE_PRACTICE_ERROR_DETAIL_CHARS
+                ? value
+                : value.substring(0, MAX_SAFE_PRACTICE_ERROR_DETAIL_CHARS) + "...<truncated>";
+    }
+
+    private record PracticeHttpFailureDiagnostic(Integer httpStatus, String safeDetail) {}
 
     public AiDailyWritingGenerationResponseDto callLanguageLearningDailyGeneration(
             AiDailyWritingGenerationRequestDto request

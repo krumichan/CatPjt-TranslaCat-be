@@ -1,6 +1,8 @@
 package jp.co.translacat.domain.languagelearning.practice.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeOptionDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
@@ -32,6 +34,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.ArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,9 +49,10 @@ class PracticePersistenceServiceTest {
     @Mock private VocabularyMasteryRepository masteryRepository;
     @Mock private User user;
 
-    private final LanguageLearningJsonCodec jsonCodec = new LanguageLearningJsonCodec(
-            new ObjectMapper().findAndRegisterModules()
-    );
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .findAndRegisterModules()
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    private final LanguageLearningJsonCodec jsonCodec = new LanguageLearningJsonCodec(objectMapper);
     private final LocalDateTime now = LocalDateTime.of(2026, 9, 9, 12, 0);
     private PracticePersistenceService service;
     private PracticeSet set;
@@ -407,6 +411,167 @@ class PracticePersistenceServiceTest {
     }
 
     @Test
+    void initialVocabularyItemJsonMatchesAiPracticeRequestContract() throws Exception {
+        var item = PracticePersistenceService.itemRequest(
+                vocabularyRequest(), 1, List.of(), "initial-token"
+        );
+
+        assertAiPracticeRequestJson(item, 0, 0);
+        assertThat(item.currentCount()).isEqualTo(1);
+        assertThat(item.easierCount()).isZero();
+        assertThat(item.challengeCount()).isZero();
+    }
+
+    @Test
+    void secondVocabularyItemReconstructedFromPersistedQuestionMatchesAiContract()
+            throws Exception {
+        PracticeSet vocabularySet = vocabularySet();
+        vocabularySet.queueGeneration(jsonCodec.write(vocabularyRequest()));
+        PracticeGeneratedQuestionDto firstItem = vocabularyItem(
+                1, PracticeDifficulty.CURRENT, 4
+        );
+        PracticeQuestion firstQuestion = PracticeQuestion.create(
+                vocabularySet,
+                firstItem,
+                jsonCodec.write(firstItem.options()),
+                jsonCodec.write(firstItem.correctAnswer()),
+                jsonCodec.write(firstItem.vocabularyCandidates())
+        );
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of(firstQuestion));
+
+        var second = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+
+        assertThat(second.order()).isEqualTo(2);
+        assertAiPracticeRequestJson(second.request(), 1, 1);
+        assertThat(second.request().easierCount()).isEqualTo(1);
+        assertThat(second.request().currentCount()).isZero();
+        assertThat(second.request().challengeCount()).isZero();
+        assertThat(second.request().previousQuestions().getFirst()).isEqualTo(firstItem);
+    }
+
+    @Test
+    void allTenProgressiveVocabularyPayloadsRemainAiContractCompatible() throws Exception {
+        AiPracticeGenerationRequestDto original = vocabularyRequest();
+        List<PracticeGeneratedQuestionDto> previous = new ArrayList<>();
+
+        for (int order = 1; order <= 10; order++) {
+            var itemRequest = PracticePersistenceService.itemRequest(
+                    original, order, List.copyOf(previous), "token-" + order
+            );
+            assertAiPracticeRequestJson(itemRequest, order - 1, order - 1);
+            PracticeDifficulty difficulty = itemRequest.easierCount() == 1
+                    ? PracticeDifficulty.EASIER
+                    : itemRequest.currentCount() == 1
+                    ? PracticeDifficulty.CURRENT : PracticeDifficulty.CHALLENGE;
+            int band = difficulty == PracticeDifficulty.EASIER ? 3
+                    : difficulty == PracticeDifficulty.CHALLENGE ? 5 : 4;
+            previous.add(vocabularyItem(order, difficulty, band));
+        }
+    }
+
+    @Test
+    void freshRetryChangesOnlyRequestIdForSameAcceptedPrefix() throws Exception {
+        List<PracticeGeneratedQuestionDto> previous = List.of(
+                vocabularyItem(1, PracticeDifficulty.CURRENT, 4)
+        );
+        var first = PracticePersistenceService.itemRequest(
+                vocabularyRequest(), 2, previous, "attempt-one"
+        );
+        var retry = PracticePersistenceService.itemRequest(
+                vocabularyRequest(), 2, previous, "attempt-two"
+        );
+        ObjectNode firstJson = (ObjectNode) objectMapper.readTree(jsonCodec.write(first));
+        ObjectNode retryJson = (ObjectNode) objectMapper.readTree(jsonCodec.write(retry));
+
+        assertThat(first.requestId()).isNotEqualTo(retry.requestId());
+        firstJson.remove("requestId");
+        retryJson.remove("requestId");
+        assertThat(retryJson).isEqualTo(firstJson);
+        assertAiPracticeRequestJson(first, 1, 1);
+        assertAiPracticeRequestJson(retry, 1, 1);
+    }
+
+    @Test
+    void progressiveVocabularyReviewSlotsRemainAiContractCompatible() throws Exception {
+        List<PracticeReviewTargetDto> reviewTargets = List.of(
+                reviewTarget("target-a", "target A", 81.0, 3),
+                reviewTarget("target-b", "target B", 72.0, 2),
+                reviewTarget("target-c", "target C", 63.0, 1)
+        );
+        AiPracticeGenerationRequestDto base = vocabularyRequest();
+        AiPracticeGenerationRequestDto original = new AiPracticeGenerationRequestDto(
+                base.requestId(), base.domain(), base.mode(), base.originLanguage(),
+                base.learningLanguage(), base.questionCount(), base.complexityBand(),
+                base.easierCount(), base.currentCount(), base.challengeCount(),
+                base.selectedKeywords(), base.weakSignals(), base.recentMistakes(),
+                reviewTargets, 3, base.generationDate(), List.of()
+        );
+        List<PracticeGeneratedQuestionDto> previous = new ArrayList<>();
+
+        for (int order = 1; order <= 4; order++) {
+            AiPracticeGenerationRequestDto itemRequest = PracticePersistenceService.itemRequest(
+                    original, order, List.copyOf(previous), "review-token-" + order
+            );
+            int expectedReviewQuestionCount = order <= 3 ? 1 : 0;
+            assertAiPracticeRequestJson(
+                    itemRequest, order - 1, order - 1, expectedReviewQuestionCount
+            );
+            assertThat(itemRequest.questionCount()).isEqualTo(1);
+            assertThat(itemRequest.reviewTargets()).hasSize(3);
+            assertThat(itemRequest.reviewTargets().getFirst())
+                    .isEqualTo(order <= 3 ? reviewTargets.get(order - 1) : reviewTargets.getFirst());
+            assertThat(itemRequest.reviewTargets())
+                    .allSatisfy(target -> {
+                        assertThat(target.canonicalKey()).isNotBlank();
+                        assertThat(target.expression()).isNotBlank();
+                        assertThat(target.wrongCount()).isGreaterThanOrEqualTo(0);
+                        assertThat(target.previousQuestionTypes()).isNotNull();
+                    });
+            var wirePayload = objectMapper.readTree(jsonCodec.write(itemRequest));
+            for (int targetIndex = 0; targetIndex < itemRequest.reviewTargets().size(); targetIndex++) {
+                PracticeReviewTargetDto expected = itemRequest.reviewTargets().get(targetIndex);
+                var serialized = wirePayload.path("reviewTargets").get(targetIndex);
+                assertThat(serialized.size()).isEqualTo(5);
+                assertThat(serialized.path("canonicalKey").asText()).isEqualTo(expected.canonicalKey());
+                assertThat(serialized.path("expression").asText()).isEqualTo(expected.expression());
+                assertThat(serialized.path("masteryScore").asDouble()).isEqualTo(expected.masteryScore());
+                assertThat(serialized.path("wrongCount").asInt()).isEqualTo(expected.wrongCount());
+                assertThat(serialized.path("previousQuestionTypes").get(0).asText())
+                        .isEqualTo("SINGLE_CHOICE");
+            }
+            assertThat(itemRequest.previousQuestions())
+                    .allSatisfy(question -> assertThat(question.reviewTarget()).isTrue());
+
+            if (order <= 3) {
+                PracticeDifficulty difficulty = itemRequest.easierCount() == 1
+                        ? PracticeDifficulty.EASIER : PracticeDifficulty.CURRENT;
+                int band = difficulty == PracticeDifficulty.EASIER ? 3 : 4;
+                previous.add(vocabularyItem(order, difficulty, band, true));
+            }
+        }
+
+        List<PracticeGeneratedQuestionDto> acceptedPrefix = List.of(previous.getFirst());
+        AiPracticeGenerationRequestDto firstAttempt = PracticePersistenceService.itemRequest(
+                original, 2, acceptedPrefix, "review-retry-one"
+        );
+        AiPracticeGenerationRequestDto retry = PracticePersistenceService.itemRequest(
+                original, 2, acceptedPrefix, "review-retry-two"
+        );
+        ObjectNode firstJson = (ObjectNode) objectMapper.readTree(jsonCodec.write(firstAttempt));
+        ObjectNode retryJson = (ObjectNode) objectMapper.readTree(jsonCodec.write(retry));
+        firstJson.remove("requestId");
+        retryJson.remove("requestId");
+
+        assertThat(firstAttempt.requestId()).isNotEqualTo(retry.requestId());
+        assertThat(retryJson).isEqualTo(firstJson);
+        assertThat(retry.reviewQuestionCount()).isEqualTo(1);
+        assertThat(retry.reviewTargets().getFirst()).isEqualTo(reviewTargets.get(1));
+        assertAiPracticeRequestJson(retry, 1, 1, 1);
+    }
+
+    @Test
     void existingFullyGeneratedSetDefaultsToReady() {
         assertThat(set.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.READY);
     }
@@ -429,6 +594,157 @@ class PracticePersistenceServiceTest {
 
     private PracticeQuestion question(int order) {
         return PracticeQuestion.create(set, item(order), "[{\"key\":\"A\",\"text\":\"はい\"}]", "[\"A\"]", "[]");
+    }
+
+    private PracticeSet vocabularySet() {
+        PracticeSet value = PracticeSet.create(
+                user,
+                now.toLocalDate(),
+                PracticeDomain.VOCABULARY,
+                "MEANING_RELATION",
+                "ko",
+                "ja",
+                10,
+                4
+        );
+        ReflectionTestUtils.setField(value, "id", 12L);
+        return value;
+    }
+
+    private AiPracticeGenerationRequestDto vocabularyRequest() {
+        return new AiPracticeGenerationRequestDto(
+                "practice-vocabulary",
+                PracticeDomain.VOCABULARY,
+                "MEANING_RELATION",
+                "ko",
+                "ja",
+                10,
+                4,
+                2,
+                6,
+                2,
+                List.of("導入"),
+                List.of("DISTINCTION"),
+                List.of("DISTINCTION:安全な導入"),
+                List.of(),
+                0,
+                now.toLocalDate(),
+                List.of()
+        );
+    }
+
+    private PracticeGeneratedQuestionDto vocabularyItem(
+            int order,
+            PracticeDifficulty difficulty,
+            int complexityBand
+    ) {
+        return vocabularyItem(order, difficulty, complexityBand, false);
+    }
+
+    private PracticeGeneratedQuestionDto vocabularyItem(
+            int order,
+            PracticeDifficulty difficulty,
+            int complexityBand,
+            boolean reviewTarget
+    ) {
+        return new PracticeGeneratedQuestionDto(
+                order,
+                PracticeQuestionType.SINGLE_CHOICE,
+                difficulty,
+                complexityBand,
+                null,
+                null,
+                "文脈に最も適切な表現を選んでください。",
+                List.of(
+                        new PracticeOptionDto("A", "安全な展開"),
+                        new PracticeOptionDto("B", "安全な公開"),
+                        new PracticeOptionDto("C", "安全な運用"),
+                        new PracticeOptionDto("D", "安全な移行")
+                ),
+                List.of("A"),
+                "DISTINCTION",
+                null,
+                "문맥상 범위와 뉘앙스가 가장 정확합니다.",
+                "文脈上の範囲とニュアンスが最も正確です。",
+                "安全な導入-" + order,
+                "safe-deployment-" + order,
+                reviewTarget,
+                List.of()
+        );
+    }
+
+    private PracticeReviewTargetDto reviewTarget(
+            String canonicalKey,
+            String expression,
+            double masteryScore,
+            int wrongCount
+    ) {
+        return new PracticeReviewTargetDto(
+                canonicalKey,
+                expression,
+                masteryScore,
+                wrongCount,
+                List.of(PracticeQuestionType.SINGLE_CHOICE)
+        );
+    }
+
+    private void assertAiPracticeRequestJson(
+            AiPracticeGenerationRequestDto request,
+            int previousQuestionCount,
+            int expectedQuestionOffset
+    ) throws Exception {
+        assertAiPracticeRequestJson(request, previousQuestionCount, expectedQuestionOffset, 0);
+    }
+
+    private void assertAiPracticeRequestJson(
+            AiPracticeGenerationRequestDto request,
+            int previousQuestionCount,
+            int expectedQuestionOffset,
+            int expectedReviewQuestionCount
+    ) throws Exception {
+        var payload = objectMapper.readTree(jsonCodec.write(request));
+        assertThat(payload.size()).isEqualTo(17);
+        assertThat(payload.path("requestId").asText()).isEqualTo(request.requestId());
+        assertThat(payload.path("domain").asText()).isEqualTo("VOCABULARY");
+        assertThat(payload.path("mode").asText()).isEqualTo("MEANING_RELATION");
+        assertThat(payload.path("originLanguage").asText()).isEqualTo("ko");
+        assertThat(payload.path("learningLanguage").asText()).isEqualTo("ja");
+        assertThat(payload.path("questionCount").asInt()).isEqualTo(1);
+        assertThat(payload.path("complexityBand").asInt()).isEqualTo(4);
+        assertThat(payload.path("easierCount").asInt()
+                + payload.path("currentCount").asInt()
+                + payload.path("challengeCount").asInt()).isEqualTo(1);
+        assertThat(payload.path("selectedKeywords").isArray()).isTrue();
+        assertThat(payload.path("weakSignals").isArray()).isTrue();
+        assertThat(payload.path("recentMistakes").isArray()).isTrue();
+        assertThat(payload.path("reviewTargets").isArray()).isTrue();
+        assertThat(payload.path("reviewQuestionCount").asInt())
+                .isEqualTo(expectedReviewQuestionCount);
+        assertThat(payload.path("generationDate").asText()).isEqualTo(now.toLocalDate().toString());
+        assertThat(payload.path("previousQuestions").size()).isEqualTo(previousQuestionCount);
+        assertThat(payload.has("questionOffset")).isFalse();
+        assertThat(request.previousQuestions().size()).isEqualTo(expectedQuestionOffset);
+        for (int index = 0; index < previousQuestionCount; index++) {
+            var question = payload.path("previousQuestions").get(index);
+            assertThat(question.path("order").asInt()).isEqualTo(index + 1);
+            assertThat(question.path("questionType").asText()).isEqualTo("SINGLE_CHOICE");
+            assertThat(question.path("difficulty").asText()).isNotBlank();
+            assertThat(question.path("complexityBand").asInt()).isBetween(1, 5);
+            assertThat(question.path("passageId").isNull()).isTrue();
+            assertThat(question.path("passageText").isNull()).isTrue();
+            assertThat(question.path("prompt").asText()).isNotBlank();
+            assertThat(question.path("options").size()).isEqualTo(4);
+            assertThat(question.path("correctAnswer").size()).isEqualTo(1);
+            assertThat(question.path("skillTag").asText()).isEqualTo("DISTINCTION");
+            assertThat(question.path("evidenceText").isNull()).isTrue();
+            assertThat(question.path("explanationLearning").asText()).isNotBlank();
+            assertThat(question.path("explanationOrigin").asText()).isNotBlank();
+            assertThat(question.path("targetExpression").asText()).isNotBlank();
+            assertThat(question.path("canonicalKey").asText()).isNotBlank();
+            assertThat(question.path("reviewTarget").asBoolean())
+                    .isEqualTo(request.previousQuestions().get(index).reviewTarget());
+            assertThat(question.path("vocabularyCandidates").isArray()).isTrue();
+        }
     }
 
     private PracticePersistenceService.GenerationClaim claim(int order, String token) {

@@ -3,9 +3,17 @@ package jp.co.translacat.domain.languagelearning.practice.service;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.PersonalizedVocabularyPlanDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeOptionDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.VocabularyPlanItemDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.port.LanguageLearningAiClient;
+import jp.co.translacat.domain.languagelearning.common.enums.PracticeDifficulty;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
+import jp.co.translacat.domain.languagelearning.common.enums.PracticeQuestionType;
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.global.exception.AiServerCommunicationException;
 import jp.co.translacat.global.exception.AiServerFailureCode;
@@ -18,6 +26,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
@@ -53,6 +62,134 @@ class PracticeGenerationWorkerTest {
         worker.generateNext(12L);
         verify(persistence).append(claim, response());
         verify(persistence, never()).fail(any(), any());
+    }
+
+    @Test
+    void contextualChoicePersistsPlanBeforePublishingFirstQuestion() {
+        var request = contextualRequest(null);
+        var claim = new PracticePersistenceService.GenerationClaim(12L, 1, "token", 0, request);
+        var planResponse = contextualPlanResponse();
+        var response = contextualResponse("contextual-request-context", vocabularyPlan());
+        when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(claim));
+        when(aiClient.generatePractice(any())).thenReturn(planResponse, response);
+        when(persistence.persistVocabularyPlan(claim, vocabularyPlan())).thenReturn(true);
+
+        worker.generateNext(12L);
+
+        var ordered = inOrder(aiClient, persistence);
+        ordered.verify(aiClient).generatePractice(argThat(planRequest ->
+                planRequest.vocabularyPlanOnly() && planRequest.vocabularyPlan() == null));
+        ordered.verify(persistence).persistVocabularyPlan(claim, vocabularyPlan());
+        ordered.verify(aiClient).generatePractice(argThat(contextRequest ->
+                !contextRequest.vocabularyPlanOnly()
+                        && contextRequest.vocabularyPlan().equals(vocabularyPlan())
+                        && contextRequest.requestId().endsWith("-context")));
+        ordered.verify(persistence).append(claim, response);
+    }
+
+    @Test
+    void firstItemLogsSafePlanAndJitStagesAroundAiFailure() {
+        var request = contextualRequest(null);
+        var claim = new PracticePersistenceService.GenerationClaim(12L, 1, "token", 0, request);
+        when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(claim));
+        when(persistence.persistVocabularyPlan(claim, vocabularyPlan())).thenReturn(true);
+        when(aiClient.generatePractice(any())).thenReturn(contextualPlanResponse())
+                .thenThrow(new AiServerCommunicationException(
+                        "raw learner body", AiServerFailureCode.HTTP_4XX, 422,
+                        "code=AI_CONTENT_QUALITY_REJECTED stage=LEXICAL_VALIDATION message=redacted",
+                        new RuntimeException("secret")
+                ));
+        Logger logger = (Logger) LoggerFactory.getLogger(PracticeGenerationWorker.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            worker.generateNext(12L);
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+        verify(persistence).persistVocabularyPlan(claim, vocabularyPlan());
+        verify(persistence).fail(claim, "HTTP_4XX");
+        verify(persistence, never()).append(any(), any());
+        String logged = appender.list.stream().map(ILoggingEvent::getFormattedMessage)
+                .collect(Collectors.joining("\n"));
+        org.assertj.core.api.Assertions.assertThat(logged).contains(
+                "stage=PLAN_REQUEST_STARTED", "stage=PLAN_RESPONSE_RECEIVED",
+                "stage=PLAN_PERSISTED", "stage=LEXICAL_VALIDATION_REQUEST_STARTED",
+                "stage=CONTEXT_REQUEST_STARTED", "stage=GENERATION_FAILED",
+                "failedStage=CONTEXT_REQUEST_STARTED", "stage=LEXICAL_VALIDATION message=redacted",
+                "httpStatus=422", "failureCode=HTTP_4XX", "retryable=false"
+        ).doesNotContain("追加の検証期間", "raw learner body", "secret");
+    }
+
+    @Test
+    void staleVocabularyPlanClaimCannotPublishQuestion() {
+        var request = contextualRequest(null);
+        var claim = new PracticePersistenceService.GenerationClaim(12L, 1, "stale", 0, request);
+        when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(claim));
+        when(aiClient.generatePractice(any())).thenReturn(contextualPlanResponse());
+        when(persistence.persistVocabularyPlan(claim, vocabularyPlan())).thenReturn(false);
+
+        worker.generateNext(12L);
+
+        verify(persistence, never()).append(any(), any());
+    }
+
+    @Test
+    void validFirstPlanIsPersistedEvenWhenQuestionContractIsRejected() {
+        var request = contextualRequest(null);
+        var claim = new PracticePersistenceService.GenerationClaim(12L, 1, "token", 0, request);
+        var invalidQuestionResponse = new AiPracticeGenerationResponseDto(
+                "contextual-request-context",
+                "vocabulary-contextual-choice-recipe-v3",
+                PracticeDomain.VOCABULARY,
+                "CONTEXTUAL_CHOICE",
+                4,
+                List.of(),
+                vocabularyPlan()
+        );
+        when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(claim));
+        when(aiClient.generatePractice(any())).thenReturn(
+                contextualPlanResponse(), invalidQuestionResponse
+        );
+        when(persistence.persistVocabularyPlan(claim, vocabularyPlan())).thenReturn(true);
+
+        worker.generateNext(12L);
+
+        var ordered = inOrder(persistence);
+        ordered.verify(persistence).persistVocabularyPlan(claim, vocabularyPlan());
+        ordered.verify(persistence).fail(claim, "AI_SCHEMA_INVALID");
+        verify(persistence, never()).append(any(), any());
+    }
+
+    @Test
+    void contextualChoiceRequiresValidImmutableDailyPlan() {
+        var firstRequest = contextualRequest(null);
+        assertThatThrownBy(() -> PracticeGenerationWorker.validateGenerated(
+                firstRequest, contextualResponse(null)
+        )).isInstanceOf(BusinessException.class);
+
+        var plan = vocabularyPlan();
+        var invalidItems = new java.util.ArrayList<>(plan.items());
+        VocabularyPlanItemDto first = invalidItems.getFirst();
+        invalidItems.set(0, new VocabularyPlanItemDto(
+                first.globalOrder(), first.reviewTarget(), first.targetExpression(),
+                first.canonicalKey(), first.distractors(), first.skillTag(),
+                PracticeDifficulty.EASIER, 3, first.scenarioFamily(),
+                first.anchorType(), first.anchorValue()
+        ));
+        var invalidMix = new PersonalizedVocabularyPlanDto(plan.version(), List.copyOf(invalidItems));
+        assertThatThrownBy(() -> PracticeGenerationWorker.validateGenerated(
+                firstRequest, contextualResponse(invalidMix)
+        )).isInstanceOf(BusinessException.class);
+
+        var retryRequest = contextualRequest(plan);
+        var replacement = new PersonalizedVocabularyPlanDto("replacement", plan.items());
+        assertThatThrownBy(() -> PracticeGenerationWorker.validateGenerated(
+                retryRequest, contextualResponse(replacement)
+        )).isInstanceOf(BusinessException.class);
+        PracticeGenerationWorker.validateGenerated(retryRequest, contextualResponse(plan));
     }
 
     @Test
@@ -191,6 +328,102 @@ class PracticeGenerationWorkerTest {
     private PracticePersistenceService.GenerationClaim claim(int order, int retryCount) {
         return new PracticePersistenceService.GenerationClaim(
                 12L, order, "token-" + retryCount, retryCount, request()
+        );
+    }
+
+    private AiPracticeGenerationRequestDto contextualRequest(
+            PersonalizedVocabularyPlanDto plan
+    ) {
+        return new AiPracticeGenerationRequestDto(
+                "contextual-request",
+                PracticeDomain.VOCABULARY,
+                "CONTEXTUAL_CHOICE",
+                "ko",
+                "ja",
+                1,
+                4,
+                0,
+                1,
+                0,
+                List.of("業務"),
+                List.of(),
+                List.of(),
+                List.of(
+                        new PracticeReviewTargetDto(
+                                "追加の検証期間", "追加の検証期間", 70.0, 2,
+                                List.of(PracticeQuestionType.SINGLE_CHOICE), "MEANING"
+                        ),
+                        new PracticeReviewTargetDto(
+                                "顧客サービスへの影響", "顧客サービスへの影響", 65.0, 1,
+                                List.of(PracticeQuestionType.SINGLE_CHOICE), "NUANCE"
+                        )
+                ),
+                1,
+                LocalDate.of(2026, 9, 14),
+                List.of(),
+                plan
+        );
+    }
+
+    private AiPracticeGenerationResponseDto contextualResponse(
+            PersonalizedVocabularyPlanDto plan
+    ) {
+        return contextualResponse("contextual-request", plan);
+    }
+
+    private AiPracticeGenerationResponseDto contextualResponse(
+            String requestId,
+            PersonalizedVocabularyPlanDto plan
+    ) {
+        VocabularyPlanItemDto planned = plan == null ? null : plan.items().getFirst();
+        String target = planned == null ? "追加の検証期間" : planned.targetExpression();
+        List<String> distractors = planned == null
+                ? List.of("関連候補1一", "関連候補1二", "関連候補1三")
+                : planned.distractors();
+        var question = new PracticeGeneratedQuestionDto(
+                1,
+                PracticeQuestionType.SINGLE_CHOICE,
+                PracticeDifficulty.CURRENT,
+                4,
+                null,
+                null,
+                "状況を最も適切に表すものを選んでください。",
+                List.of(
+                        new PracticeOptionDto("A", target),
+                        new PracticeOptionDto("B", distractors.get(0)),
+                        new PracticeOptionDto("C", distractors.get(1)),
+                        new PracticeOptionDto("D", distractors.get(2))
+                ),
+                List.of("A"),
+                "MEANING",
+                null,
+                "문맥상 가장 적절한 표현입니다.",
+                "文脈上、最も適切な表現です。",
+                target,
+                target,
+                true,
+                List.of()
+        );
+        return new AiPracticeGenerationResponseDto(
+                requestId,
+                "vocabulary-contextual-choice-recipe-v3",
+                PracticeDomain.VOCABULARY,
+                "CONTEXTUAL_CHOICE",
+                4,
+                List.of(question),
+                plan
+        );
+    }
+
+    private AiPracticeGenerationResponseDto contextualPlanResponse() {
+        return new AiPracticeGenerationResponseDto(
+                "contextual-request",
+                "vocabulary-contextual-choice-recipe-v3",
+                PracticeDomain.VOCABULARY,
+                "CONTEXTUAL_CHOICE",
+                4,
+                List.of(),
+                vocabularyPlan()
         );
     }
 }

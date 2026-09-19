@@ -151,6 +151,10 @@ public class PracticeSet extends BaseAuditable {
         resumeGeneration();
     }
 
+    public void updateGenerationRequest(String requestJson) {
+        this.generationRequestJson = requestJson;
+    }
+
     public void resumeGeneration() {
         this.generationStatus = PracticeGenerationStatus.PENDING;
         this.generationToken = null;

@@ -275,7 +275,12 @@ public class AiServerClient {
             }
             if (detail.isObject()) {
                 String code = safeDiagnosticText(detail.path("code").asText("unknown"));
-                return boundedSafeDetail("code=" + code + " message=redacted");
+                String stage = detail.path("stage").asText("");
+                String safeStage = Set.of(
+                        "PLAN_STRUCTURE", "PLAN_AUTHORITY", "LEXICAL_VALIDATION",
+                        "CONTEXT_VALIDATION"
+                ).contains(stage) ? " stage=" + stage : "";
+                return boundedSafeDetail("code=" + code + safeStage + " message=redacted");
             }
             if (detail.isTextual()) {
                 return "text_detail_redacted";

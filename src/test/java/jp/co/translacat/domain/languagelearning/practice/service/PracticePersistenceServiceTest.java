@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeOptionDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.PersonalizedVocabularyPlanDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.VocabularyPlanItemDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDifficulty;
@@ -15,6 +17,7 @@ import jp.co.translacat.domain.languagelearning.common.enums.PracticeSetStatus;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeQuestion;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
+import jp.co.translacat.domain.languagelearning.practice.entity.VocabularyMastery;
 import jp.co.translacat.domain.languagelearning.practice.enums.PracticeGenerationStatus;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeQuestionRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
@@ -213,6 +216,290 @@ class PracticePersistenceServiceTest {
         assertThat(second.request().previousQuestions())
                 .extracting(PracticeGeneratedQuestionDto::order)
                 .containsExactly(1);
+    }
+
+    @Test
+    void contextualChoicePlanIsDurableBeforeFirstQuestionAndReusedByLeaseRetry() {
+        PracticeSet vocabularySet = contextualChoiceSet();
+        vocabularySet.queueGeneration(jsonCodec.write(contextualChoiceRequest()));
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of(), List.of());
+
+        var first = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+        assertThat(first.request().vocabularyPlan()).isNull();
+        assertThat(service.persistVocabularyPlan(first, vocabularyPlan())).isTrue();
+
+        AiPracticeGenerationRequestDto persisted = jsonCodec.read(
+                vocabularySet.getGenerationRequestJson(), AiPracticeGenerationRequestDto.class
+        );
+        assertThat(persisted.vocabularyPlan()).isEqualTo(vocabularyPlan());
+        assertThat(vocabularySet.ownsGeneration(first.token())).isTrue();
+        verify(questionRepository, never()).save(any());
+
+        var recovered = service.claim(
+                12L, now.plusHours(1), now.plusMinutes(30), 3
+        ).orElseThrow();
+        assertThat(recovered.order()).isEqualTo(1);
+        assertThat(recovered.token()).isNotEqualTo(first.token());
+        assertThat(recovered.request().vocabularyPlan()).isEqualTo(vocabularyPlan());
+        assertThat(recovered.request().requestId()).isNotEqualTo(first.request().requestId());
+    }
+
+    @Test
+    void contextualChoicePlanAndAcceptedPrefixAreReusedForNextOrder() {
+        PracticeSet vocabularySet = contextualChoiceSet();
+        vocabularySet.queueGeneration(jsonCodec.write(contextualChoiceRequest()));
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of(), List.of(), List.of());
+        when(user.getId()).thenReturn(7L);
+        var mastery = mock(jp.co.translacat.domain.languagelearning.practice.entity.VocabularyMastery.class);
+        when(masteryRepository.findByUserIdAndCanonicalKey(7L, "追加の検証期間"))
+                .thenReturn(Optional.of(mastery));
+        when(questionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var first = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+        var generated = contextualChoiceResponse(first.request().requestId(), vocabularyPlan());
+        assertThat(service.persistVocabularyPlan(first, generated.vocabularyPlan())).isTrue();
+        assertThat(service.append(first, generated)).isTrue();
+
+        ArgumentCaptor<PracticeQuestion> saved = ArgumentCaptor.forClass(PracticeQuestion.class);
+        verify(questionRepository).save(saved.capture());
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of(saved.getValue()));
+        var second = service.claim(12L, now.plusSeconds(1), now.minusMinutes(30), 3).orElseThrow();
+
+        assertThat(second.order()).isEqualTo(2);
+        assertThat(second.request().previousQuestions()).hasSize(1);
+        assertThat(second.request().vocabularyPlan()).isEqualTo(vocabularyPlan());
+        assertThat(second.request().reviewQuestionCount()).isEqualTo(1);
+        assertThat(second.request().reviewTargets().getFirst().canonicalKey())
+                .isEqualTo("顧客サービスへの影響");
+    }
+
+    @Test
+    void staleClaimCannotPersistOrReplaceVocabularyPlan() {
+        PracticeSet vocabularySet = contextualChoiceSet();
+        vocabularySet.queueGeneration(jsonCodec.write(contextualChoiceRequest()));
+        vocabularySet.claimGeneration("replacement", now);
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
+        var expired = new PracticePersistenceService.GenerationClaim(
+                12L, 1, "expired", 0,
+                PracticePersistenceService.itemRequest(
+                        contextualChoiceRequest(), 1, List.of(), "expired"
+                )
+        );
+
+        assertThat(service.persistVocabularyPlan(expired, vocabularyPlan())).isFalse();
+        assertThat(jsonCodec.read(
+                vocabularySet.getGenerationRequestJson(), AiPracticeGenerationRequestDto.class
+        ).vocabularyPlan()).isNull();
+        assertThat(vocabularySet.ownsGeneration("replacement")).isTrue();
+    }
+
+    @Test
+    void persistedVocabularyPlanCannotBeMutatedByLaterAttempt() {
+        PracticeSet vocabularySet = contextualChoiceSet();
+        AiPracticeGenerationRequestDto withPlan = contextualChoiceRequest(vocabularyPlan());
+        vocabularySet.queueGeneration(jsonCodec.write(withPlan));
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L)).thenReturn(List.of());
+        var claim = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+        var mutated = new PersonalizedVocabularyPlanDto("unexpected-version", vocabularyPlan().items());
+
+        assertThatThrownBy(() -> service.persistVocabularyPlan(claim, mutated))
+                .isInstanceOf(BusinessException.class);
+        assertThat(jsonCodec.read(
+                vocabularySet.getGenerationRequestJson(), AiPracticeGenerationRequestDto.class
+        ).vocabularyPlan()).isEqualTo(vocabularyPlan());
+    }
+
+    @Test
+    void currentUnacceptedReviewDistractorPatchAndQuestionArePublishedTogether() {
+        var originalPlan = vocabularyPlan();
+        var originalItem = originalPlan.items().getFirst();
+        var repairedItem = new VocabularyPlanItemDto(
+                originalItem.globalOrder(), originalItem.reviewTarget(),
+                originalItem.targetExpression(), originalItem.canonicalKey(),
+                List.of("修正候補一", "修正候補二", "修正候補三"),
+                originalItem.skillTag(), originalItem.difficulty(), originalItem.complexityBand(),
+                originalItem.scenarioFamily(), originalItem.anchorType(), originalItem.anchorValue()
+        );
+        var repairedPlan = withPlanItem(originalPlan, 1, repairedItem);
+        PracticeSet vocabularySet = contextualChoiceSet();
+        vocabularySet.queueGeneration(jsonCodec.write(contextualChoiceRequest(originalPlan)));
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of(), List.of());
+        when(user.getId()).thenReturn(7L);
+        var mastery = mock(VocabularyMastery.class);
+        when(masteryRepository.findByUserIdAndCanonicalKey(7L, originalItem.canonicalKey()))
+                .thenReturn(Optional.of(mastery));
+        when(questionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var first = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+        var generated = contextualChoiceResponse(first.request().requestId(), repairedPlan);
+        assertThat(service.append(first, generated)).isTrue();
+        var stored = jsonCodec.read(vocabularySet.getGenerationRequestJson(),
+                AiPracticeGenerationRequestDto.class);
+        assertThat(stored.vocabularyPlan()).isEqualTo(repairedPlan);
+        ArgumentCaptor<PracticeQuestion> saved = ArgumentCaptor.forClass(PracticeQuestion.class);
+        verify(questionRepository).save(saved.capture());
+        assertThat(saved.getValue().getOptionsJson()).contains("修正候補一");
+
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of(saved.getValue()));
+        var second = service.claim(12L, now.plusSeconds(1), now.minusMinutes(30), 3).orElseThrow();
+        assertThat(second.request().vocabularyPlan()).isEqualTo(repairedPlan);
+        assertThat(second.request().previousQuestions()).hasSize(1);
+        assertThat(second.request().previousQuestions().getFirst().options())
+                .extracting(PracticeOptionDto::text).contains("修正候補一");
+    }
+
+    @Test
+    void staleClaimCannotPatchCurrentPlanOrAppendQuestion() {
+        var originalPlan = vocabularyPlan();
+        var originalItem = originalPlan.items().getFirst();
+        var repairedPlan = withPlanItem(originalPlan, 1, new VocabularyPlanItemDto(
+                originalItem.globalOrder(), originalItem.reviewTarget(),
+                originalItem.targetExpression(), originalItem.canonicalKey(),
+                List.of("修正候補一", "修正候補二", "修正候補三"),
+                originalItem.skillTag(), originalItem.difficulty(), originalItem.complexityBand(),
+                originalItem.scenarioFamily(), originalItem.anchorType(), originalItem.anchorValue()
+        ));
+        PracticeSet vocabularySet = contextualChoiceSet();
+        vocabularySet.queueGeneration(jsonCodec.write(contextualChoiceRequest(originalPlan)));
+        vocabularySet.claimGeneration("new-owner", now);
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
+        var stale = new PracticePersistenceService.GenerationClaim(
+                12L, 1, "old-owner", 0,
+                PracticePersistenceService.itemRequest(
+                        contextualChoiceRequest(originalPlan), 1, List.of(), "old-owner")
+        );
+        assertThat(service.append(stale,
+                contextualChoiceResponse(stale.request().requestId(), repairedPlan))).isFalse();
+        assertThat(jsonCodec.read(vocabularySet.getGenerationRequestJson(),
+                AiPracticeGenerationRequestDto.class).vocabularyPlan()).isEqualTo(originalPlan);
+        verify(questionRepository, never()).save(any());
+    }
+
+    @Test
+    void corruptedPersistedPlanAndAcceptedQuestionFailBeforeNextAiCall() {
+        var plan = vocabularyPlan();
+        var first = contextualChoiceItem(1, PracticeDifficulty.CURRENT, 4, "MEANING",
+                "追加の検証期間", "追加の検証期間", "A");
+        var firstItem = plan.items().getFirst();
+        var corruptedPlan = withPlanItem(plan, 1, new VocabularyPlanItemDto(
+                firstItem.globalOrder(), firstItem.reviewTarget(), firstItem.targetExpression(),
+                firstItem.canonicalKey(), List.of("不整合一", "不整合二", "不整合三"),
+                firstItem.skillTag(), firstItem.difficulty(), firstItem.complexityBand(),
+                firstItem.scenarioFamily(), firstItem.anchorType(), firstItem.anchorValue()
+        ));
+        PracticeSet vocabularySet = contextualChoiceSet();
+        vocabularySet.queueGeneration(jsonCodec.write(contextualChoiceRequest(corruptedPlan)));
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of(persistedQuestion(vocabularySet, first)));
+
+        assertThat(service.claim(12L, now, now.minusMinutes(30), 3)).isEmpty();
+        assertThat(vocabularySet.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.PARTIAL);
+        assertThat(vocabularySet.getGenerationFailureMessage()).isEqualTo("AI_SCHEMA_INVALID");
+    }
+
+    @Test
+    void literalNullStoredRequestIsExplicitTerminalFailure() {
+        PracticeSet vocabularySet = contextualChoiceSet();
+        vocabularySet.queueGeneration("null");
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of());
+
+        assertThat(service.claim(12L, now, now.minusMinutes(30), 3)).isEmpty();
+        assertThat(vocabularySet.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.FAILED);
+        assertThat(vocabularySet.getGenerationFailureMessage()).isEqualTo("STORED_REQUEST_INVALID");
+    }
+
+    @Test
+    void onlyCurrentNewLexicalBundleMayChangeInReturnedPlan() {
+        var plan = vocabularyPlan();
+        var prefix = List.of(
+                contextualChoiceItem(1, PracticeDifficulty.CURRENT, 4, "MEANING",
+                        "追加の検証期間", "追加の検証期間", "A"),
+                contextualChoiceItem(2, PracticeDifficulty.EASIER, 3, "NUANCE",
+                        "顧客サービスへの影響", "顧客サービスへの影響", "B")
+        );
+        var third = plan.items().get(2);
+        var request = PracticePersistenceService.itemRequest(
+                contextualChoiceRequest(plan), 3, prefix, "third-token"
+        );
+        var repaired = withPlanItem(plan, 3, new VocabularyPlanItemDto(
+                third.globalOrder(), third.reviewTarget(), "新しい個別表現", "新しい個別表現",
+                List.of("別の候補一", "別の候補二", "別の候補三"),
+                third.skillTag(), third.difficulty(), third.complexityBand(),
+                third.scenarioFamily(), third.anchorType(), third.anchorValue()
+        ));
+        PracticeGenerationWorker.validateContextualChoicePlanDelta(request, repaired);
+        assertThatThrownBy(() -> PracticeGenerationWorker.validateContextualChoicePlanDelta(
+                request, withPlanItem(repaired, 1, repaired.items().get(2))))
+                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> PracticeGenerationWorker.validateContextualChoicePlanDelta(
+                request, withPlanItem(repaired, 4, repaired.items().get(2))))
+                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> PracticeGenerationWorker.validateContextualChoicePlanDelta(
+                request, withPlanItem(plan, 3, new VocabularyPlanItemDto(
+                        third.globalOrder(), third.reviewTarget(), third.targetExpression(),
+                        third.canonicalKey(), third.distractors(), "REGISTER", third.difficulty(),
+                        third.complexityBand(), third.scenarioFamily(),
+                        third.anchorType(), third.anchorValue()
+                )))).isInstanceOf(BusinessException.class);
+        List<VocabularyPlanItemDto> forbiddenMetadata = List.of(
+                new VocabularyPlanItemDto(3, false, third.targetExpression(), third.canonicalKey(),
+                        third.distractors(), third.skillTag(), PracticeDifficulty.EASIER,
+                        third.complexityBand(), third.scenarioFamily(), third.anchorType(), third.anchorValue()),
+                new VocabularyPlanItemDto(3, false, third.targetExpression(), third.canonicalKey(),
+                        third.distractors(), third.skillTag(), third.difficulty(),
+                        5, third.scenarioFamily(), third.anchorType(), third.anchorValue()),
+                new VocabularyPlanItemDto(3, false, third.targetExpression(), third.canonicalKey(),
+                        third.distractors(), third.skillTag(), third.difficulty(),
+                        third.complexityBand(), "OTHER_SCENARIO", third.anchorType(), third.anchorValue()),
+                new VocabularyPlanItemDto(3, false, third.targetExpression(), third.canonicalKey(),
+                        third.distractors(), third.skillTag(), third.difficulty(),
+                        third.complexityBand(), third.scenarioFamily(), "WEAK_SIGNAL", third.anchorValue()),
+                new VocabularyPlanItemDto(3, false, third.targetExpression(), third.canonicalKey(),
+                        third.distractors(), third.skillTag(), third.difficulty(),
+                        third.complexityBand(), third.scenarioFamily(), third.anchorType(), "別のアンカー")
+        );
+        for (var mutation : forbiddenMetadata) {
+            assertThatThrownBy(() -> PracticeGenerationWorker.validateContextualChoicePlanDelta(
+                    request, withPlanItem(plan, 3, mutation)
+            )).isInstanceOf(BusinessException.class);
+        }
+    }
+
+    @Test
+    void currentReviewTargetAndCanonicalRemainImmutableDuringDistractorPatch() {
+        var plan = vocabularyPlan();
+        var first = plan.items().getFirst();
+        var request = PracticePersistenceService.itemRequest(
+                contextualChoiceRequest(plan), 1, List.of(), "review-token"
+        );
+        var distractorPatch = withPlanItem(plan, 1, new VocabularyPlanItemDto(
+                1, true, first.targetExpression(), first.canonicalKey(),
+                List.of("別候補一", "別候補二", "別候補三"), first.skillTag(),
+                first.difficulty(), first.complexityBand(), null, null, null
+        ));
+        PracticeGenerationWorker.validateContextualChoicePlanDelta(request, distractorPatch);
+        assertThatThrownBy(() -> PracticeGenerationWorker.validateContextualChoicePlanDelta(
+                request, withPlanItem(plan, 1, new VocabularyPlanItemDto(
+                        1, true, "別の復習対象", first.canonicalKey(), first.distractors(),
+                        first.skillTag(), first.difficulty(), first.complexityBand(), null, null, null
+                )))).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> PracticeGenerationWorker.validateContextualChoicePlanDelta(
+                request, withPlanItem(plan, 1, new VocabularyPlanItemDto(
+                        1, true, first.targetExpression(), "別のcanonical", first.distractors(),
+                        first.skillTag(), first.difficulty(), first.complexityBand(), null, null, null
+                )))).isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -456,6 +743,44 @@ class PracticePersistenceServiceTest {
     }
 
     @Test
+    void contextualChoicePersistedPlanJsonMatchesAiV3Contract() throws Exception {
+        AiPracticeGenerationRequestDto request = PracticePersistenceService.itemRequest(
+                contextualChoiceRequest(vocabularyPlan()), 4,
+                List.of(
+                        contextualChoiceItem(1, PracticeDifficulty.CURRENT, 4, "MEANING",
+                                "追加の検証期間", "追加の検証期間", "A"),
+                        contextualChoiceItem(2, PracticeDifficulty.EASIER, 3, "NUANCE",
+                                "顧客サービスへの影響", "顧客サービスへの影響", "B"),
+                        contextualChoiceItem(3, PracticeDifficulty.CURRENT, 4, "COLLOCATION",
+                                "個別表現3", "個別表現3", "C")
+                ),
+                "restored-token"
+        );
+
+        var payload = objectMapper.readTree(jsonCodec.write(request));
+        var plan = payload.path("vocabularyPlan");
+        assertThat(plan.path("version").asText())
+                .isEqualTo("personalized-daily-vocabulary-plan-v1");
+        assertThat(plan.path("items").size()).isEqualTo(10);
+        assertThat(plan.path("items").get(0).fieldNames())
+                .toIterable()
+                .containsExactlyInAnyOrder(
+                        "globalOrder", "reviewTarget", "targetExpression", "canonicalKey",
+                        "distractors", "skillTag", "difficulty", "complexityBand",
+                        "scenarioFamily", "anchorType", "anchorValue"
+                );
+        assertThat(plan.path("items").get(0).path("reviewTarget").asBoolean()).isTrue();
+        assertThat(plan.path("items").get(0).path("scenarioFamily").isNull()).isTrue();
+        assertThat(plan.path("items").get(2).path("reviewTarget").asBoolean()).isFalse();
+        assertThat(plan.path("items").get(2).path("anchorType").asText())
+                .isEqualTo("SELECTED_KEYWORD");
+        assertThat(payload.path("previousQuestions").size()).isEqualTo(3);
+        assertThat(payload.path("vocabularyPlanOnly").asBoolean()).isFalse();
+        assertThat(jsonCodec.read(jsonCodec.write(request), AiPracticeGenerationRequestDto.class))
+                .isEqualTo(request);
+    }
+
+    @Test
     void secondVocabularyItemReconstructedFromPersistedQuestionMatchesAiContract()
             throws Exception {
         PracticeSet vocabularySet = vocabularySet();
@@ -526,7 +851,7 @@ class PracticePersistenceServiceTest {
     @Test
     void allTenProgressiveContextualChoicePayloadsPreservePrefixAndReviewSlots()
             throws Exception {
-        AiPracticeGenerationRequestDto original = contextualChoiceRequest();
+        AiPracticeGenerationRequestDto original = contextualChoiceRequest(vocabularyPlan());
         List<PracticeGeneratedQuestionDto> previous = new ArrayList<>();
         String[] skills = {
                 "MEANING", "NUANCE", "COLLOCATION", "REGISTER", "PRAGMATIC_FIT",
@@ -540,8 +865,10 @@ class PracticePersistenceServiceTest {
             );
             var wire = objectMapper.readTree(jsonCodec.write(itemRequest));
             assertThat(itemRequest.mode()).isEqualTo("CONTEXTUAL_CHOICE");
+            assertThat(itemRequest.vocabularyPlan()).isEqualTo(vocabularyPlan());
             assertThat(itemRequest.previousQuestions()).hasSize(order - 1);
             assertThat(wire.path("previousQuestions").size()).isEqualTo(order - 1);
+            assertThat(wire.path("vocabularyPlan").path("items").size()).isEqualTo(10);
             for (int previousIndex = 0; previousIndex < order - 1; previousIndex++) {
                 assertThat(wire.path("previousQuestions").get(previousIndex).path("order").asInt())
                         .isEqualTo(previousIndex + 1);
@@ -558,8 +885,8 @@ class PracticePersistenceServiceTest {
                     difficulty,
                     band,
                     skills[order - 1],
-                    "進行表現" + order,
-                    "進行表現" + order,
+                    vocabularyPlan().items().get(order - 1).targetExpression(),
+                    vocabularyPlan().items().get(order - 1).canonicalKey(),
                     keys[(order - 1) % keys.length]
             ));
         }
@@ -741,6 +1068,12 @@ class PracticePersistenceServiceTest {
     }
 
     private AiPracticeGenerationRequestDto contextualChoiceRequest() {
+        return contextualChoiceRequest(null);
+    }
+
+    private AiPracticeGenerationRequestDto contextualChoiceRequest(
+            PersonalizedVocabularyPlanDto vocabularyPlan
+    ) {
         return new AiPracticeGenerationRequestDto(
                 "practice-contextual-choice",
                 PracticeDomain.VOCABULARY,
@@ -763,8 +1096,79 @@ class PracticePersistenceServiceTest {
                 ),
                 2,
                 now.toLocalDate(),
-                List.of()
+                List.of(),
+                vocabularyPlan
         );
+    }
+
+    private AiPracticeGenerationResponseDto contextualChoiceResponse(
+            String requestId,
+            PersonalizedVocabularyPlanDto vocabularyPlan
+    ) {
+        return new AiPracticeGenerationResponseDto(
+                requestId,
+                "vocabulary-contextual-choice-recipe-v3",
+                PracticeDomain.VOCABULARY,
+                "CONTEXTUAL_CHOICE",
+                4,
+                List.of(contextualChoiceItem(
+                        vocabularyPlan,
+                        1,
+                        PracticeDifficulty.CURRENT,
+                        4,
+                        "MEANING",
+                        "追加の検証期間",
+                        "追加の検証期間",
+                        "A"
+                )),
+                vocabularyPlan
+        );
+    }
+
+    static PersonalizedVocabularyPlanDto vocabularyPlan() {
+        String[] skills = {
+                "MEANING", "NUANCE", "COLLOCATION", "REGISTER", "PRAGMATIC_FIT",
+                "MEANING", "COLLOCATION", "NUANCE", "REGISTER", "PRAGMATIC_FIT"
+        };
+        PracticeDifficulty[] difficulties = {
+                PracticeDifficulty.CURRENT, PracticeDifficulty.EASIER,
+                PracticeDifficulty.CURRENT, PracticeDifficulty.CHALLENGE,
+                PracticeDifficulty.CURRENT, PracticeDifficulty.EASIER,
+                PracticeDifficulty.CURRENT, PracticeDifficulty.CHALLENGE,
+                PracticeDifficulty.CURRENT, PracticeDifficulty.CURRENT
+        };
+        List<VocabularyPlanItemDto> items = new ArrayList<>();
+        for (int order = 1; order <= 10; order++) {
+            boolean review = order <= 2;
+            String target = order == 1 ? "追加の検証期間"
+                    : order == 2 ? "顧客サービスへの影響" : "個別表現" + order;
+            int band = difficulties[order - 1] == PracticeDifficulty.EASIER ? 3
+                    : difficulties[order - 1] == PracticeDifficulty.CHALLENGE ? 5 : 4;
+            items.add(new VocabularyPlanItemDto(
+                    order,
+                    review,
+                    target,
+                    target,
+                    List.of("関連候補" + order + "一", "関連候補" + order + "二", "関連候補" + order + "三"),
+                    skills[order - 1],
+                    difficulties[order - 1],
+                    band,
+                    review ? null : "SCENARIO_" + order,
+                    review ? null : "SELECTED_KEYWORD",
+                    review ? null : "業務"
+            ));
+        }
+        return new PersonalizedVocabularyPlanDto(
+                "personalized-daily-vocabulary-plan-v1", List.copyOf(items)
+        );
+    }
+
+    private static PersonalizedVocabularyPlanDto withPlanItem(
+            PersonalizedVocabularyPlanDto plan, int order, VocabularyPlanItemDto item
+    ) {
+        var revised = new ArrayList<>(plan.items());
+        revised.set(order - 1, item);
+        return new PersonalizedVocabularyPlanDto(plan.version(), List.copyOf(revised));
     }
 
     private PracticeGeneratedQuestionDto contextualChoiceItem(
@@ -776,6 +1180,22 @@ class PracticePersistenceServiceTest {
             String canonicalKey,
             String correctKey
     ) {
+        return contextualChoiceItem(vocabularyPlan(), order, difficulty, complexityBand,
+                skillTag, targetExpression, canonicalKey, correctKey);
+    }
+
+    private PracticeGeneratedQuestionDto contextualChoiceItem(
+            PersonalizedVocabularyPlanDto plan,
+            int order,
+            PracticeDifficulty difficulty,
+            int complexityBand,
+            String skillTag,
+            String targetExpression,
+            String canonicalKey,
+            String correctKey
+    ) {
+        var optionTexts = new ArrayList<>(plan.items().get(order - 1).distractors());
+        optionTexts.add((order - 1) % 4, targetExpression);
         return new PracticeGeneratedQuestionDto(
                 order,
                 PracticeQuestionType.SINGLE_CHOICE,
@@ -785,10 +1205,10 @@ class PracticePersistenceServiceTest {
                 null,
                 "状況を確認した結果、担当者は______ことにしました。",
                 List.of(
-                        new PracticeOptionDto("A", order == 1 ? targetExpression : "追加の対応"),
-                        new PracticeOptionDto("B", order == 2 ? targetExpression : "通常の対応"),
-                        new PracticeOptionDto("C", "限定的な対応"),
-                        new PracticeOptionDto("D", "慎重な対応")
+                        new PracticeOptionDto("A", optionTexts.get(0)),
+                        new PracticeOptionDto("B", optionTexts.get(1)),
+                        new PracticeOptionDto("C", optionTexts.get(2)),
+                        new PracticeOptionDto("D", optionTexts.get(3))
                 ),
                 List.of(correctKey),
                 skillTag,
@@ -797,7 +1217,7 @@ class PracticePersistenceServiceTest {
                 "文脈上、この表現が最も自然です。",
                 targetExpression,
                 canonicalKey,
-                true,
+                order <= 2,
                 List.of()
         );
     }
@@ -924,7 +1344,7 @@ class PracticePersistenceServiceTest {
             int expectedReviewQuestionCount
     ) throws Exception {
         var payload = objectMapper.readTree(jsonCodec.write(request));
-        assertThat(payload.size()).isEqualTo(17);
+        assertThat(payload.size()).isEqualTo(19);
         assertThat(payload.path("requestId").asText()).isEqualTo(request.requestId());
         assertThat(payload.path("domain").asText()).isEqualTo("VOCABULARY");
         assertThat(payload.path("mode").asText()).isEqualTo("MEANING_RELATION");
@@ -943,6 +1363,8 @@ class PracticePersistenceServiceTest {
                 .isEqualTo(expectedReviewQuestionCount);
         assertThat(payload.path("generationDate").asText()).isEqualTo(now.toLocalDate().toString());
         assertThat(payload.path("previousQuestions").size()).isEqualTo(previousQuestionCount);
+        assertThat(payload.path("vocabularyPlan").isNull()).isTrue();
+        assertThat(payload.path("vocabularyPlanOnly").asBoolean()).isFalse();
         assertThat(payload.has("questionOffset")).isFalse();
         assertThat(request.previousQuestions().size()).isEqualTo(expectedQuestionOffset);
         for (int index = 0; index < previousQuestionCount; index++) {

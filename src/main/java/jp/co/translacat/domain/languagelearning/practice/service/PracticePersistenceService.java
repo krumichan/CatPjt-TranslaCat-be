@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.languagelearning.practice.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.PersonalizedVocabularyPlanDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeOptionDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
@@ -20,6 +21,7 @@ import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class PracticePersistenceService {
     static final String STORED_REQUEST_INVALID = "STORED_REQUEST_INVALID";
@@ -121,6 +124,22 @@ public class PracticePersistenceService {
             set.failGeneration(STORED_REQUEST_INVALID, !questions.isEmpty());
             return Optional.empty();
         }
+        if (original == null) {
+            set.failGeneration(STORED_REQUEST_INVALID, !questions.isEmpty());
+            return Optional.empty();
+        }
+        if (isContextualChoice(original) && original.vocabularyPlan() != null) {
+            try {
+                PracticeGenerationWorker.validateContextualChoiceAcceptedPrefix(
+                        original.vocabularyPlan(),
+                        questions.stream().filter(question -> question.getOrderNo() < order)
+                                .map(this::generatedQuestion).toList()
+                );
+            } catch (RuntimeException error) {
+                set.failGeneration(LanguageLearningErrorCode.AI_SCHEMA_INVALID, !questions.isEmpty());
+                return Optional.empty();
+            }
+        }
         List<PracticeGeneratedQuestionDto> previous = questions.stream()
                 .filter(question -> question.getOrderNo() < order)
                 .map(this::generatedQuestion).toList();
@@ -139,11 +158,52 @@ public class PracticePersistenceService {
     }
 
     @Transactional
+    public boolean persistVocabularyPlan(
+            GenerationClaim claim,
+            PersonalizedVocabularyPlanDto vocabularyPlan
+    ) {
+        PracticeSet set = setRepository.findLockedById(claim.setId()).orElseThrow(this::notFound);
+        if (!set.ownsGeneration(claim.token())) return false;
+        if (!isContextualChoice(claim.request())) return true;
+        if (vocabularyPlan == null) throw invalidAiResponse();
+
+        AiPracticeGenerationRequestDto storedRequest = storedRequest(set);
+        if (!isContextualChoice(storedRequest)) throw invalidAiResponse();
+        if (storedRequest.vocabularyPlan() != null) {
+            if (!storedRequest.vocabularyPlan().equals(vocabularyPlan)) throw invalidAiResponse();
+            return true;
+        }
+        set.updateGenerationRequest(jsonCodec.write(withVocabularyPlan(storedRequest, vocabularyPlan)));
+        return true;
+    }
+
+    @Transactional
     public boolean append(GenerationClaim claim, AiPracticeGenerationResponseDto generated) {
         PracticeSet set = setRepository.findLockedById(claim.setId()).orElseThrow(this::notFound);
         if (!set.ownsGeneration(claim.token())) return false;
         List<PracticeQuestion> existing = questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(set.getId());
         if (firstMissingOrder(existing, set.getQuestionCount()) != claim.order()) return false;
+        if (isContextualChoice(claim.request())) {
+            PersonalizedVocabularyPlanDto persistedPlan = storedRequest(set).vocabularyPlan();
+            if (persistedPlan == null || generated.vocabularyPlan() == null
+                    || (claim.request().vocabularyPlan() != null
+                        && !claim.request().vocabularyPlan().equals(persistedPlan))) {
+                throw invalidAiResponse();
+            }
+            PracticeGenerationWorker.validateContextualChoiceAcceptedPrefix(
+                    persistedPlan,
+                    existing.stream().filter(question -> question.getOrderNo() < claim.order())
+                            .map(this::generatedQuestion).toList()
+            );
+            PracticeGenerationWorker.validateContextualChoicePlanDelta(
+                    withVocabularyPlan(claim.request(), persistedPlan), generated.vocabularyPlan()
+            );
+            if (!persistedPlan.equals(generated.vocabularyPlan())) {
+                set.updateGenerationRequest(jsonCodec.write(withVocabularyPlan(
+                        storedRequest(set), generated.vocabularyPlan()
+                )));
+            }
+        }
         PracticeGeneratedQuestionDto item = withOrder(generated.questions().getFirst(), claim.order());
         if (set.getDomain() == PracticeDomain.VOCABULARY && existing.stream().anyMatch(question ->
                 sameExpression(question.getCanonicalKey(), item.canonicalKey())
@@ -156,6 +216,10 @@ public class PracticePersistenceService {
                 jsonCodec.write(item.vocabularyCandidates() == null ? List.of() : item.vocabularyCandidates())
         );
         questionRepository.save(savedQuestion);
+        if (isContextualChoice(claim.request())) {
+            log.info("Practice generation stage. setId={} order={} requestId={} stage=QUESTION_APPENDED",
+                    claim.setId(), claim.order(), claim.request().requestId());
+        }
         set.markGenerated(generated.promptVersion());
         if (set.getDomain() == PracticeDomain.VOCABULARY
                 && item.canonicalKey() != null && !item.canonicalKey().isBlank()) {
@@ -236,7 +300,44 @@ public class PracticePersistenceService {
                 1, original.complexityBand(), easier, current, 1 - easier - current,
                 original.selectedKeywords(), original.weakSignals(), original.recentMistakes(),
                 List.copyOf(orderedReviews), review ? 1 : 0,
-                original.generationDate(), previous
+                original.generationDate(), previous, original.vocabularyPlan()
+        );
+    }
+
+    private AiPracticeGenerationRequestDto storedRequest(PracticeSet set) {
+        try {
+            return jsonCodec.read(set.getGenerationRequestJson(), AiPracticeGenerationRequestDto.class);
+        } catch (RuntimeException error) {
+            throw new BusinessException(
+                    "Stored Reading/Vocabulary generation request is invalid.",
+                    LanguageLearningErrorCode.AI_SCHEMA_INVALID
+            );
+        }
+    }
+
+    private static AiPracticeGenerationRequestDto withVocabularyPlan(
+            AiPracticeGenerationRequestDto request,
+            PersonalizedVocabularyPlanDto vocabularyPlan
+    ) {
+        return new AiPracticeGenerationRequestDto(
+                request.requestId(), request.domain(), request.mode(), request.originLanguage(),
+                request.learningLanguage(), request.questionCount(), request.complexityBand(),
+                request.easierCount(), request.currentCount(), request.challengeCount(),
+                request.selectedKeywords(), request.weakSignals(), request.recentMistakes(),
+                request.reviewTargets(), request.reviewQuestionCount(), request.generationDate(),
+                request.previousQuestions(), vocabularyPlan
+        );
+    }
+
+    private static boolean isContextualChoice(AiPracticeGenerationRequestDto request) {
+        return request.domain() == PracticeDomain.VOCABULARY
+                && "CONTEXTUAL_CHOICE".equals(request.mode());
+    }
+
+    private static BusinessException invalidAiResponse() {
+        return new BusinessException(
+                "Reading/Vocabulary AI response contract is invalid.",
+                LanguageLearningErrorCode.AI_SCHEMA_INVALID
         );
     }
 

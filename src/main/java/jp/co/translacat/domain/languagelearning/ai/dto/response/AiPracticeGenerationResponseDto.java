@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.languagelearning.ai.dto.response;
 
+import jp.co.translacat.domain.languagelearning.ai.dto.model.PersonalizedVocabularyPlanDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 
@@ -11,6 +12,17 @@ public record AiPracticeGenerationResponseDto(
         PracticeDomain domain,
         String mode,
         int complexityBand,
-        List<PracticeGeneratedQuestionDto> questions
+        List<PracticeGeneratedQuestionDto> questions,
+        PersonalizedVocabularyPlanDto vocabularyPlan
 ) {
+    public AiPracticeGenerationResponseDto(
+            String requestId,
+            String promptVersion,
+            PracticeDomain domain,
+            String mode,
+            int complexityBand,
+            List<PracticeGeneratedQuestionDto> questions
+    ) {
+        this(requestId, promptVersion, domain, mode, complexityBand, questions, null);
+    }
 }

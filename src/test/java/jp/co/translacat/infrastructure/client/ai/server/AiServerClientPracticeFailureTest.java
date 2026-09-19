@@ -103,6 +103,38 @@ class AiServerClientPracticeFailureTest {
                 });
     }
 
+    @Test
+    void practiceContentFailureKeepsWhitelistedStageWithoutLearnerPayload() {
+        ExternalApiClient external = mock(ExternalApiClient.class);
+        AiServerClient client = new AiServerClient(external, new ObjectMapper());
+        ReflectionTestUtils.setField(client, "aiServerUrl", "http://localhost:8000");
+        ReflectionTestUtils.setField(client, "apiKey", "secret");
+        String body = """
+                {"detail":{"code":"AI_CONTENT_QUALITY_REJECTED",
+                "stage":"LEXICAL_VALIDATION","message":"秘密の学習表現"}}
+                """;
+        var response = WebClientResponseException.create(
+                422, "Unprocessable Entity", HttpHeaders.EMPTY,
+                body.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8
+        );
+        doThrow(new ExternalApiInvocationException(
+                "raw learner body", new ExternalApiClient4xxException(response)
+        )).when(external).postOnceLanguageLearningPractice(
+                anyString(), any(), anyMap(), eq(AiPracticeGenerationResponseDto.class)
+        );
+
+        assertThatThrownBy(() -> client.callLanguageLearningPracticeGeneration(request()))
+                .isInstanceOf(AiServerCommunicationException.class)
+                .satisfies(failure -> {
+                    var classified = (AiServerCommunicationException) failure;
+                    assertThat(classified.getHttpStatus()).isEqualTo(422);
+                    assertThat(classified.getSafeDetail())
+                            .contains("code=AI_CONTENT_QUALITY_REJECTED",
+                                    "stage=LEXICAL_VALIDATION", "message=redacted")
+                            .doesNotContain("秘密の学習表現", "raw learner body", "secret");
+                });
+    }
+
     private AiPracticeGenerationRequestDto request() {
         return new AiPracticeGenerationRequestDto(
                 "practice-item-1-token",

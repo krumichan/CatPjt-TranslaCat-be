@@ -277,6 +277,7 @@ public class AiServerListeningClient implements ListeningAiClient {
             );
             retryable = status == 429 || status >= 500;
             if (status == 429) {
+                resolvedCode = "PROVIDER_RATE_LIMITED";
                 retryAfter = parseRetryAfter(
                         response.getHeaders().getFirst("Retry-After")
                 );
@@ -291,6 +292,17 @@ public class AiServerListeningClient implements ListeningAiClient {
                         && detail.get("retryable").isBoolean()) {
                     retryable = retryable
                             || detail.get("retryable").booleanValue();
+                }
+                JsonNode delay = detail.path("details").path("retryAfterSeconds");
+                if (retryable && delay.isNumber()
+                        && Double.isFinite(delay.asDouble()) && delay.asDouble() > 0) {
+                    // A provider daily-quota cooldown is not a one-second retry.
+                    // Keep a bounded durable delay without exposing provider text.
+                    Duration indicated = Duration.ofSeconds((long) Math.ceil(
+                            Math.min(86_400, delay.asDouble())));
+                    if (indicated.compareTo(retryAfter) > 0) {
+                        retryAfter = indicated;
+                    }
                 }
             } catch (RuntimeException | JsonProcessingException ignored) {
                 // Provider-independent fallback values are retained.

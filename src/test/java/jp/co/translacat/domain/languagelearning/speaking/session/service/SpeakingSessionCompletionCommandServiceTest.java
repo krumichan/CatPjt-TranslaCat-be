@@ -8,6 +8,8 @@ import jp.co.translacat.domain.languagelearning.speaking.common.enums.Conversati
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.CorrectionMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.service.SpeakingEvaluationJobQueueService;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvaluationEligibilityPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
@@ -34,6 +36,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class SpeakingSessionCompletionCommandServiceTest {
@@ -74,9 +77,9 @@ class SpeakingSessionCompletionCommandServiceTest {
         );
         session = session();
 
-        when(sessionQueryService.getOwnedEntityForUpdate(7L, 301L))
+        lenient().when(sessionQueryService.getOwnedEntityForUpdate(7L, 301L))
                 .thenReturn(session);
-        when(snapshotService.read(session)).thenReturn(snapshot());
+        lenient().when(snapshotService.read(session)).thenReturn(snapshot());
         when(turnQueryService.getEntities(301L)).thenReturn(List.of());
     }
 
@@ -129,6 +132,24 @@ class SpeakingSessionCompletionCommandServiceTest {
                 any(),
                 any()
         );
+    }
+
+    @Test
+    void coachingSessionCompletesActivityAndQueuesOnlyCoachingWithoutScoreState() {
+        session = coachingSession();
+        when(sessionQueryService.getOwnedEntityForUpdate(7L, 301L)).thenReturn(session);
+        when(snapshotService.read(session)).thenReturn(snapshot());
+        when(eligibilityPolicy.evaluate(any(), eq(List.of()))).thenReturn(eligibility(false));
+        when(activityCommandService.getOrCreate(anyLong(), any(), any(), any(), any(), anyLong(), any(), any()))
+                .thenReturn(activity);
+        when(jsonCodec.write(any())).thenReturn("{}");
+
+        SpeakingSession completed = service.complete(7L, 301L, false);
+
+        assertThat(completed.getStatus()).isEqualTo(SpeakingSessionStatus.COMPLETED);
+        assertThat(completed.getEvaluationStatus()).isEqualTo(SpeakingEvaluationStatus.NOT_REQUESTED);
+        verify(queueService).enqueue(session, 0);
+        verify(activity, never()).markEvaluating();
     }
 
     private AiSpeakingEvaluationEligibilityDto eligibility(boolean eligible) {
@@ -199,6 +220,20 @@ class SpeakingSessionCompletionCommandServiceTest {
                 "NORMAL",
                 "{}",
                 "{}"
+        );
+    }
+
+    private SpeakingSession coachingSession() {
+        User user = User.createLocalUser(
+                "coaching@test.local", "pw", "coaching", Role.USER, "COACHING001"
+        );
+        return SpeakingSession.create(
+                user, null, "coaching-key", LocalDate.of(2026, 9, 21),
+                "Free Talk", "FREE_TALK", 1, null, "대화 연습", null, "[]",
+                "ko", "ja", SpeakingPracticeMode.FREE,
+                SpeakingResultKind.SESSION_COACHING, "free-session-coaching-v1",
+                ConversationStartMode.USER_FIRST, ConversationStartMode.USER_FIRST,
+                CorrectionMode.CONVERSATION, 5, 20, "marin", "NORMAL", "{}", "{}"
         );
     }
 }

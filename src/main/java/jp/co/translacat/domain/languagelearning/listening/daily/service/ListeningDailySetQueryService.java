@@ -1,5 +1,8 @@
 package jp.co.translacat.domain.languagelearning.listening.daily.service;
 
+import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
+import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
+
 import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
 import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAttemptStatus;
@@ -42,6 +45,7 @@ public class ListeningDailySetQueryService {
     private final ListeningSessionRepository sessionRepository;
     private final ListeningItemAttemptRepository attemptRepository;
     private final ListeningOutboxEventRepository outboxRepository;
+    private final LanguageLearningJsonCodec jsonCodec;
 
     public ListeningDailySet owned(Long userId, Long dailySetId) {
         return dailySetRepository.findById(dailySetId)
@@ -81,16 +85,24 @@ public class ListeningDailySetQueryService {
                         .count(),
                 dailySet.getCompletedItemCount(),
                 dailySet.getFailureReason(),
-                active.stream().map(item -> new ListeningApiContract.ItemSummary(
-                        item.getId(),
-                        item.getItemIndex(),
-                        item.getReplacementSequence(),
-                        item.getStatus(),
-                        item.isPlayable(now),
-                        item.getAudioDurationMs()
-                )).toList(),
+                active.stream().map(item -> itemSummary(item, now)).toList(),
                 generationInProgress(dailySet.getId())
         );
+    }
+
+    private ListeningApiContract.ItemSummary itemSummary(ListeningItem item, LocalDateTime now) {
+        var metadata = jsonCodec.read(item.getGenerationMetadataJson(), AiListeningContract.GeneratedItem.class);
+        var demand = metadata == null ? null : metadata.durationDemand();
+        String validation = demand == null ? "LEGACY_UNVALIDATED"
+                : item.getStatus() == ListeningItemStatus.READY ? "VALIDATED"
+                : item.getStatus() == ListeningItemStatus.NOT_EVALUABLE ? "FAILED" : "PENDING";
+        boolean retryAllowed = item.getStatus() == ListeningItemStatus.NOT_EVALUABLE
+                && item.getManualTtsRetryCount() < policySettingService.get().getManualRetryLimit()
+                && !"AUDIO_TOO_SHORT".equals(item.getFailureReason())
+                && !"AUDIO_TOO_LONG".equals(item.getFailureReason());
+        return new ListeningApiContract.ItemSummary(item.getId(), item.getItemIndex(),
+                item.getReplacementSequence(), item.getStatus(), item.isPlayable(now),
+                item.getAudioDurationMs(), retryAllowed, validation, demand == null ? null : demand.policyVersion());
     }
 
     public List<ListeningApiContract.DailyModeStatusView> todayStatuses(

@@ -7,6 +7,7 @@ import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJson
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.service.SpeakingEvaluationJobQueueService;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvaluationEligibilityPolicy;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionPolicySnapshot;
 import jp.co.translacat.domain.languagelearning.speaking.turn.service.SpeakingTurnQueryService;
@@ -58,17 +59,18 @@ public class SpeakingSessionCompletionCommandService {
                 session.getPracticeMode(),
                 turnQueryService.getEntities(sessionId)
         );
+        boolean coaching = session.getResultKind() == SpeakingResultKind.SESSION_COACHING;
         if (skipEvaluation
                 && snapshot.speakingEvaluationEnabled()
-                && eligibility.eligibleBeforeAi()) {
+                && (coaching || eligibility.eligibleBeforeAi())) {
             throw new BusinessException(
                     "평가 가능 조건을 충족한 Session은 평가 없이 종료할 수 없습니다.",
                     LanguageLearningErrorCode.SPEAKING_EVALUATION_SKIP_NOT_ALLOWED
             );
         }
-        boolean evaluate = snapshot.speakingEvaluationEnabled()
+        boolean resultRequested = snapshot.speakingEvaluationEnabled()
                 && !skipEvaluation;
-        session.complete(evaluate);
+        session.complete(resultRequested && !coaching);
 
         LearningActivity activity = activityCommandService.getOrCreate(
                 userId,
@@ -81,8 +83,8 @@ public class SpeakingSessionCompletionCommandService {
                 session.getCompletedAt()
         );
         activity.updateMetadataJson(metadata(session, skipEvaluation));
-        if (evaluate) {
-            activity.markEvaluating();
+        if (resultRequested) {
+            if (!coaching) activity.markEvaluating();
             evaluationJobQueueService.enqueue(session, 0);
         }
         return session;
@@ -105,6 +107,8 @@ public class SpeakingSessionCompletionCommandService {
         metadata.put("correctionMode", session.getCorrectionMode().name());
         metadata.put("selectedKeywords", session.getSelectedKeywordsJson());
         metadata.put("evaluationSkipped", evaluationSkipped);
+        metadata.put("resultKind", session.getResultKind().name());
+        metadata.put("resultPolicyVersion", session.getResultPolicyVersion());
         return jsonCodec.write(metadata);
     }
 }

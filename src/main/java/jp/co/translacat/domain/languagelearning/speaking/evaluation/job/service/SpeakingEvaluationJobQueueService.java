@@ -2,6 +2,8 @@ package jp.co.translacat.domain.languagelearning.speaking.evaluation.job.service
 
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingCoachingRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.factory.SpeakingEvaluationRequestFactory;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.entity.SpeakingEvaluationJob;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.event.SpeakingEvaluationJobRequestedEvent;
@@ -37,9 +39,12 @@ public class SpeakingEvaluationJobQueueService {
     public void enqueue(SpeakingSession session, int problemIndex) {
         requireEnabled(session);
         if (repository.findBySessionIdAndProblemIndex(session.getId(), problemIndex).isPresent()) return;
-        AiSpeakingEvaluationRequestDto request = createRequest(session, problemIndex);
+        Object request = createRequest(session, problemIndex);
+        String sourceHash = request instanceof AiSpeakingCoachingRequestDto coaching
+                ? coaching.sourceSnapshotHash() : null;
         SpeakingEvaluationJob job = repository.save(SpeakingEvaluationJob.pending(
-                session, problemIndex, jsonCodec.write(request), LocalDateTime.now()));
+                session, problemIndex, session.getResultKind(), session.getResultPolicyVersion(),
+                sourceHash, jsonCodec.write(request), LocalDateTime.now()));
         publish(job);
     }
 
@@ -53,15 +58,25 @@ public class SpeakingEvaluationJobQueueService {
         if (job.getStatus() != SpeakingEvaluationJob.Status.FAILED || job.getManualRetryCount() >= limit)
             throw invalid("Speaking 평가 수동 재시도 한도를 초과했거나 재시도할 수 없는 상태입니다.");
         // Reuse the submitted evidence snapshot. Never re-open recording/editing on a completed session.
-        AiSpeakingEvaluationRequestDto previous = jsonCodec.read(job.getRequestJson(), AiSpeakingEvaluationRequestDto.class);
-        job.retry(limit, jsonCodec.write(previous.forManualRetry(job.getManualRetryCount() + 1)), LocalDateTime.now());
+        Object previous = job.getResultKind() == SpeakingResultKind.SESSION_COACHING
+                ? jsonCodec.read(job.getRequestJson(), AiSpeakingCoachingRequestDto.class)
+                : jsonCodec.read(job.getRequestJson(), AiSpeakingEvaluationRequestDto.class);
+        Object retry = previous instanceof AiSpeakingCoachingRequestDto coaching
+                ? coaching.forManualRetry(job.getManualRetryCount() + 1)
+                : ((AiSpeakingEvaluationRequestDto) previous).forManualRetry(job.getManualRetryCount() + 1);
+        job.retry(limit, jsonCodec.write(retry), LocalDateTime.now());
         publish(job);
         return job.getManualRetryCount();
     }
 
-    private AiSpeakingEvaluationRequestDto createRequest(SpeakingSession session, int problemIndex) {
-        if (problemIndex == 0) return requestFactory.create(session,
-                turnRepository.findAllBySessionIdOrderByTurnIndexAsc(session.getId()), 0);
+    private Object createRequest(SpeakingSession session, int problemIndex) {
+        if (problemIndex == 0) {
+            var turns = turnRepository.findAllBySessionIdOrderByTurnIndexAsc(session.getId());
+            if (session.getResultKind() == SpeakingResultKind.SESSION_COACHING) {
+                return requestFactory.createCoaching(session, turns, 0);
+            }
+            return requestFactory.create(session, turns, 0);
+        }
         List<SpeakingTurn> attempts = turnRepository.findAllBySessionIdAndProblemIndexOrderByAttemptIndexAsc(
                         session.getId(), problemIndex).stream()
                 .filter(turn -> !turn.isExcludedFromEvaluation()).toList();

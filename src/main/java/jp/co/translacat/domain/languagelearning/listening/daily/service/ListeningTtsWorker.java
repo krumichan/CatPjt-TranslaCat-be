@@ -6,6 +6,7 @@ import jp.co.translacat.domain.languagelearning.listening.audio.port.ListeningAu
 import jp.co.translacat.domain.languagelearning.listening.audio.validator.ListeningAudioValidator;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxTransactionService;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningAiException;
+import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningReferenceDurationException;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -76,6 +77,10 @@ public class ListeningTtsWorker {
                     event.id(), work.request().itemId(), audioReference, audio.length
             );
             String contentType = contentType(response.audio().format());
+            if (audio.length > work.maxAudioBytes()) {
+                throw invalid();
+            }
+            audioValidator.validateReferenceFrames(audio, response.audio(), work.request().durationDemand());
             audioValidator.validate(
                     audio,
                     contentType,
@@ -95,6 +100,10 @@ public class ListeningTtsWorker {
                     event.id(), work.request().itemId(), work.objectKey(),
                     contentType, audio.length
             );
+        } catch (ListeningReferenceDurationException exception) {
+            log.warn("Listening reference duration rejected. eventId={} itemId={} code={} measuredSeconds={}",
+                    event.id(), event.aggregateId(), exception.code(), exception.measuredSeconds());
+            transactionService.recordDurationFailure(work, exception.measuredSeconds(), exception.code());
         } catch (ListeningAiException exception) {
             log.warn(
                     "Listening TTS AI call failed. eventId={} itemId={} code={} stage={} "
@@ -107,7 +116,7 @@ public class ListeningTtsWorker {
                     exception.getMessage()
             );
             fail(work, event, exception.getMessage(), exception.isRetryable(),
-                    exception.getRetryAfter());
+                    exception.getRetryAfter(), exception.getErrorCode());
         } catch (RuntimeException exception) {
             log.error(
                     "Listening TTS worker failed unexpectedly. eventId={} itemId={}",
@@ -115,7 +124,7 @@ public class ListeningTtsWorker {
                     work == null ? event.aggregateId() : work.request().itemId(),
                     exception
             );
-            fail(work, event, exception.getMessage(), false, Duration.ZERO);
+            fail(work, event, exception.getMessage(), false, Duration.ZERO, null);
         }
     }
 
@@ -143,6 +152,20 @@ public class ListeningTtsWorker {
                 throw invalid();
             }
 
+            if (Set.of("AUDIO_TOO_SHORT", "AUDIO_TOO_LONG").contains(error.code())
+                    && error.details() != null
+                    && error.details().get("measuredSeconds") instanceof Number measured
+                    && Double.isFinite(measured.doubleValue()) && measured.doubleValue() > 0
+                    && work.request().durationDemand() != null) {
+                double seconds = measured.doubleValue();
+                var demand = work.request().durationDemand();
+                if (("AUDIO_TOO_SHORT".equals(error.code()) && seconds < demand.minSeconds())
+                        || ("AUDIO_TOO_LONG".equals(error.code()) && seconds > demand.maxSeconds())) {
+                    throw new ListeningReferenceDurationException(seconds, error.code());
+                }
+                throw invalid();
+            }
+
             throw new ListeningAiException(
                     error.message() == null || error.message().isBlank()
                             ? "Listening TTS 처리에 실패했습니다."
@@ -152,7 +175,7 @@ public class ListeningTtsWorker {
                             ? "TTS"
                             : error.failedStage(),
                     error.retryable(),
-                    Duration.ofSeconds(1),
+                    retryAfter(error),
                     response.itemId(),
                     null
             );
@@ -166,6 +189,7 @@ public class ListeningTtsWorker {
                 || response.audio().format() == null
                 || response.audio().format().isBlank()
                 || response.audio().voice() == null
+                || !work.request().voice().equals(response.audio().voice())
                 || !work.request().contentHash().equals(
                         response.audio().textHash()
                 )
@@ -182,14 +206,26 @@ public class ListeningTtsWorker {
         );
     }
 
+    private Duration retryAfter(AiListeningContract.AiError error) {
+        if (error.details() != null
+                && error.details().get("retryAfterSeconds") instanceof Number seconds) {
+            double value = seconds.doubleValue();
+            if (Double.isFinite(value) && value > 0) {
+                return Duration.ofSeconds((long) Math.min(Math.ceil(value), 86_400));
+            }
+        }
+        return Duration.ofSeconds(1);
+    }
+
     private void fail(
             ListeningTtsTransactionService.TtsWork work,
             ListeningOutboxTransactionService.ClaimedEvent event,
             String reason,
             boolean retryable,
-            Duration retryAfter
+            Duration retryAfter,
+            String failureCode
     ) {
-        transactionService.recordFailure(event, reason, retryable, retryAfter);
+        transactionService.recordFailure(event, reason, retryable, retryAfter, failureCode);
     }
 
     private String shortHash(String value) {

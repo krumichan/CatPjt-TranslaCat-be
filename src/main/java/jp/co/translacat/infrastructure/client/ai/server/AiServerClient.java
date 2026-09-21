@@ -668,6 +668,17 @@ public class AiServerClient {
         );
     }
 
+    public jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingCoachingResponseDto callSpeakingCoaching(
+            jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingCoachingRequestDto request
+    ) {
+        return postSpeaking(
+                "/api/v1/language-learning/speaking/coach",
+                request,
+                jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingCoachingResponseDto.class,
+                "Speaking Session Coaching"
+        );
+    }
+
     public byte[] callSpeakingAudio(String audioReference) {
         String url = aiServerUrl
                 + "/api/v1/language-learning/speaking/audio/"

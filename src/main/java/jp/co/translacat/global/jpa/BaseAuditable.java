@@ -34,7 +34,7 @@ public class BaseAuditable extends Base {
 
     private void fillUpdatedBy() {
         try {
-            this.updatedBy = SecurityUtil.getUsername();
+            this.updatedBy = SecurityUtil.getAuditorIdentity();
         } catch (NullPointerException e) {
             log.warn("No authentication found; 'updatedBy' will be set to 'SYSTEM'.");
             this.updatedBy = "SYSTEM";

@@ -14,6 +14,7 @@ import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.Sp
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingPracticeModeStatusResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.repository.SpeakingSessionRepository;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.repository.SpeakingEvaluationJobRepository;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -34,6 +35,7 @@ public class SpeakingSessionQueryService {
     private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
     private final LanguageLearningUserSettingQueryService userSettingQueryService;
     private final LanguageLearningJsonCodec jsonCodec;
+    private final SpeakingEvaluationJobRepository evaluationJobRepository;
 
     public SpeakingSession getOwnedEntity(Long userId, Long sessionId) {
         return sessionRepository.findByIdAndUserId(sessionId, userId)
@@ -83,6 +85,9 @@ public class SpeakingSessionQueryService {
                 session.getLearningLanguage(),
                 session.getStatus(),
                 session.getEvaluationStatus(),
+                session.getResultKind(),
+                session.getResultPolicyVersion(),
+                resultStatus(session),
                 session.getPracticeMode(),
                 session.getConversationStartMode(),
                 session.getResolvedStartMode(),
@@ -137,20 +142,32 @@ public class SpeakingSessionQueryService {
                         .findFirstByUserIdAndLearningDateAndPracticeModeOrderByStartedAtDesc(
                                 userId, today, mode
                         )
-                        .map(session -> new SpeakingPracticeModeStatusResponseDto(
-                                mode,
-                                session.getId(),
-                                session.getStatus(),
-                                session.getEvaluationStatus(),
-                                session.getCompletedTurns(),
-                                session.getMaxTurns(),
-                                session.getEvaluationStatus() == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus.EVALUATED
-                                        || session.getEvaluationStatus() == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus.INSUFFICIENT_EVIDENCE
-                        ))
+                        .map(session -> {
+                            String resultStatus = resultStatus(session);
+                            boolean completed = session.getResultKind()
+                                    == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind.SESSION_COACHING
+                                    ? session.getCompletedAt() != null
+                                    : session.getEvaluationStatus() == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus.EVALUATED
+                                    || session.getEvaluationStatus() == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus.INSUFFICIENT_EVIDENCE;
+                            return new SpeakingPracticeModeStatusResponseDto(
+                                    mode, session.getId(), session.getStatus(), session.getEvaluationStatus(),
+                                    session.getResultKind(), session.getResultPolicyVersion(), resultStatus,
+                                    session.getCompletedTurns(), session.getMaxTurns(), completed);
+                        })
                         .orElseGet(() -> new SpeakingPracticeModeStatusResponseDto(
-                                mode, null, null, null, 0, 0, false
+                                mode, null, null, null, null, null, "NOT_REQUESTED", 0, 0, false
                         )))
                 .toList();
+    }
+
+    public String resultStatus(SpeakingSession session) {
+        if (session.getResultKind()
+                != jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind.SESSION_COACHING) {
+            return session.getEvaluationStatus().name();
+        }
+        return evaluationJobRepository.findBySessionIdAndProblemIndex(session.getId(), 0)
+                .map(job -> job.getStatus().name())
+                .orElse("NOT_REQUESTED");
     }
 
     public SpeakingDailyUsageResponseDto getDailyUsage(Long userId) {

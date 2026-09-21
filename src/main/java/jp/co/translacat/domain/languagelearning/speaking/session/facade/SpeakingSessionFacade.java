@@ -14,6 +14,7 @@ import jp.co.translacat.domain.languagelearning.speaking.session.service.Speakin
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionLifecycleService;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionQueryService;
 import jp.co.translacat.domain.languagelearning.speaking.turn.service.SpeakingTurnQueryService;
+import jp.co.translacat.domain.languagelearning.speaking.coaching.service.SpeakingCoachingResultService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +31,7 @@ public class SpeakingSessionFacade {
     private final SpeakingTurnQueryService turnQueryService;
     private final SpeakingEvaluationEligibilityPolicy eligibilityPolicy;
     private final SpeakingReadAloudProblemEvaluationService readAloudProblemEvaluationService;
+    private final SpeakingCoachingResultService coachingResultService;
 
     public SpeakingSessionResponseDto create(
             Long userId,
@@ -75,6 +77,7 @@ public class SpeakingSessionFacade {
                                 turns
                         )
                 ),
+                coachingResultService.find(sessionId),
                 lifecycleService.isResumable(session)
         );
     }

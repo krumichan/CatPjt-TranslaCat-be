@@ -18,6 +18,10 @@ public record SpeakingEvaluationResponseDto(
         String evaluationVersion,
         String scoringPolicyVersion,
         String promptVersion,
-        LocalDateTime evaluatedAt
+        LocalDateTime evaluatedAt,
+        List<String> evaluatedAxes,
+        Double evaluationCoverage,
+        String evidencePolicyVersion,
+        String evidenceSource
 ) {
 }

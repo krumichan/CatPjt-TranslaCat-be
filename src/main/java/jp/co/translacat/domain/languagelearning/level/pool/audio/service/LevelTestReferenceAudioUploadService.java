@@ -26,7 +26,7 @@ import java.util.Objects;
 public class LevelTestReferenceAudioUploadService {
 
     private static final String CONTENT_TYPE = "audio/wav";
-    private static final String VOICE = "Kore";
+    private static final String VOICE = "marin";
     private static final String PLAYBACK_SPEED = "NORMAL";
 
     private final LevelTestReferenceAudioUploadPort uploadPort;

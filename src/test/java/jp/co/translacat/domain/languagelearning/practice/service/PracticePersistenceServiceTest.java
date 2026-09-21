@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeOptionDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingPassageBundleDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PersonalizedVocabularyPlanDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.VocabularyPlanItemDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
@@ -83,6 +84,150 @@ class PracticePersistenceServiceTest {
         assertThat(jsonCodec.read(created.getGenerationRequestJson(), AiPracticeGenerationRequestDto.class))
                 .isEqualTo(request());
         verifyNoInteractions(questionRepository);
+    }
+
+    @Test
+    void retiredVocabularyCannotCreatePendingEvenThroughPersistenceEntry() {
+        assertThatThrownBy(() -> service.createPending(7L, contextualChoiceRequest()))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo("DAILY_VOCABULARY_RETIRED"));
+        verifyNoInteractions(userRepository, setRepository, questionRepository);
+    }
+
+    @Test
+    void retiredVocabularyManualRetryPreservesIncompleteSetAndPlan() {
+        PracticeSet retired = contextualChoiceSet();
+        String snapshot = jsonCodec.write(contextualChoiceRequest(vocabularyPlan()));
+        retired.queueGeneration(snapshot);
+        retired.failGeneration("ORIGINAL_FAILURE", true);
+        when(user.getId()).thenReturn(7L);
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(retired));
+
+        assertThatThrownBy(() -> service.retry(7L, 12L)).isInstanceOfSatisfying(BusinessException.class,
+                error -> assertThat(error.getErrorCode()).isEqualTo("DAILY_VOCABULARY_RETIRED"));
+        assertThat(retired.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.PARTIAL);
+        assertThat(retired.getStatus()).isEqualTo(PracticeSetStatus.ACTIVE);
+        assertThat(retired.getGenerationRequestJson()).isEqualTo(snapshot);
+        assertThat(retired.getGenerationFailureMessage()).isEqualTo("ORIGINAL_FAILURE");
+        assertThat(retired.getOfficialScore()).isNull();
+        verifyNoInteractions(questionRepository);
+    }
+
+    @Test
+    void retiredDueVocabularyIsStoppedWithoutClaimOrDeletingAcceptedRows() {
+        PracticeSet retired = contextualChoiceSet();
+        String snapshot = jsonCodec.write(contextualChoiceRequest(vocabularyPlan()));
+        retired.queueGeneration(snapshot);
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(retired));
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of(mock(PracticeQuestion.class)));
+
+        assertThat(service.claim(12L, now, now.minusMinutes(30), 3)).isEmpty();
+        assertThat(retired.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.PARTIAL);
+        assertThat(retired.getGenerationFailureMessage()).isEqualTo("DAILY_VOCABULARY_RETIRED");
+        assertThat(retired.getGenerationRequestJson()).isEqualTo(snapshot);
+        assertThat(retired.getStatus()).isEqualTo(PracticeSetStatus.ACTIVE);
+        assertThat(retired.getGenerationToken()).isNull();
+        verify(questionRepository, never()).save(any());
+        verify(questionRepository, never()).deleteAll();
+    }
+
+    @Test
+    void b4StructureCannotCreateFreshSetIncludingChallengeB5() {
+        when(userRepository.findLockedById(7L)).thenReturn(Optional.of(user));
+        assertThatThrownBy(() -> service.createPending(7L, ReadingB5AvailabilityTest.request(4, "STRUCTURE")))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo("READING_B5_STRUCTURE_DEFERRED"));
+        verify(setRepository, never()).save(any());
+        verifyNoInteractions(questionRepository);
+    }
+
+    @Test
+    void existingB4PartialPreservesPublishedRowsAndRejectsManualRetry() {
+        var original = ReadingB5AvailabilityTest.request(4, "STRUCTURE");
+        PracticeSet structure = PracticeSet.create(user, now.toLocalDate(), PracticeDomain.READING,
+                "STRUCTURE", "ko", "ja", 5, 4);
+        ReflectionTestUtils.setField(structure, "id", 12L);
+        String snapshot = jsonCodec.write(original);
+        structure.queueGeneration(snapshot);
+        structure.failGeneration("PREVIOUS_FAILURE", true);
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(structure));
+        when(user.getId()).thenReturn(7L);
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of(question(1), question(2), question(3)));
+
+        assertThatThrownBy(() -> service.retry(7L, 12L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo("READING_B5_STRUCTURE_DEFERRED"));
+        assertThat(structure.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.PARTIAL);
+        assertThat(structure.getGenerationRequestJson()).isEqualTo(snapshot);
+        assertThat(structure.getGenerationFailureMessage()).isEqualTo("PREVIOUS_FAILURE");
+        verify(questionRepository, never()).save(any());
+    }
+
+    @Test
+    void queuedLegacyB4RequestIsDeferredBeforeAnyProviderClaimAndFencesStaleLease() {
+        var original = ReadingB5AvailabilityTest.request(4, "STRUCTURE");
+        PracticeSet structure = PracticeSet.create(user, now.toLocalDate(), PracticeDomain.READING,
+                "STRUCTURE", "ko", "ja", 5, 4);
+        ReflectionTestUtils.setField(structure, "id", 12L);
+        String snapshot = jsonCodec.write(original);
+        structure.queueGeneration(snapshot);
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(structure));
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L)).thenReturn(List.of());
+
+        assertThat(service.claim(12L, now, now.minusMinutes(30), 3)).isEmpty();
+        assertThat(structure.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.FAILED);
+        assertThat(structure.getGenerationFailureMessage()).isEqualTo("READING_B5_STRUCTURE_DEFERRED");
+        assertThat(structure.getGenerationRequestJson()).isEqualTo(snapshot);
+        verify(questionRepository, never()).save(any());
+
+        structure.resumeGeneration();
+        structure.claimGeneration("old-token", now.minusHours(1));
+        assertThat(service.claim(12L, now, now.minusMinutes(30), 3)).isEmpty();
+        assertThat(structure.ownsGeneration("old-token")).isFalse();
+        assertThat(structure.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.FAILED);
+        assertThat(structure.getGenerationRetryCount()).isZero();
+    }
+
+    @Test
+    void inFlightB5ResultCannotPublishAfterPolicyBoundary() {
+        var original = ReadingB5AvailabilityTest.request(4, "STRUCTURE");
+        PracticeSet structure = PracticeSet.create(user, now.toLocalDate(), PracticeDomain.READING,
+                "STRUCTURE", "ko", "ja", 5, 4);
+        ReflectionTestUtils.setField(structure, "id", 12L);
+        structure.queueGeneration(jsonCodec.write(original));
+        structure.claimGeneration("old-token", now);
+        var claim = new PracticePersistenceService.GenerationClaim(12L, 1, "old-token", 0,
+                PracticePersistenceService.itemRequest(original, 1, List.of(), "old-token"));
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(structure));
+        assertThat(service.persistReadingBundle(claim, mock(ReadingPassageBundleDto.class))).isFalse();
+        assertThat(structure.ownsGeneration("old-token")).isFalse();
+        assertThat(structure.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.FAILED);
+        assertThat(structure.getGenerationFailureMessage()).isEqualTo("READING_B5_STRUCTURE_DEFERRED");
+        assertThat(service.append(claim, response())).isFalse();
+        verify(questionRepository, never()).save(any());
+    }
+
+    @Test
+    void retirementDoesNotRevokeLiveLeaseButExpiredLeaseIsFenced() {
+        PracticeSet retired = contextualChoiceSet();
+        retired.queueGeneration(jsonCodec.write(contextualChoiceRequest(vocabularyPlan())));
+        retired.claimGeneration("old-owned-token", now);
+        when(setRepository.findLockedById(12L)).thenReturn(Optional.of(retired));
+        assertThat(service.claim(12L, now, now.minusMinutes(30), 3)).isEmpty();
+        assertThat(retired.ownsGeneration("old-owned-token")).isTrue();
+        verifyNoInteractions(questionRepository);
+
+        assertThat(service.claim(12L, now.plusHours(1), now.plusMinutes(30), 3)).isEmpty();
+        assertThat(retired.ownsGeneration("old-owned-token")).isFalse();
+        assertThat(retired.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.FAILED);
+        assertThat(retired.getGenerationFailureMessage()).isEqualTo("DAILY_VOCABULARY_RETIRED");
+        var stale = new PracticePersistenceService.GenerationClaim(12L, 1, "old-owned-token", 0,
+                PracticePersistenceService.itemRequest(contextualChoiceRequest(), 1, List.of(), "old-owned-token"));
+        assertThat(service.persistVocabularyPlan(stale, vocabularyPlan())).isFalse();
+        assertThat(service.append(stale, contextualChoiceResponse(stale.request().requestId(), vocabularyPlan()))).isFalse();
+        verify(questionRepository, never()).save(any());
     }
 
     @Test
@@ -198,35 +343,128 @@ class PracticePersistenceServiceTest {
     }
 
     @Test
-    void successfulItemQueuesAndClaimsNextMissingOrderWithPersistedPrefix() {
+    void verifiedReadingPassagePublishesThreeRowsAtomicallyAndNextClaimStartsAtFour() {
         set.queueGeneration(jsonCodec.write(request()));
         lockSet();
-        PracticeQuestion firstQuestion = question(1);
+        var persisted = new ArrayList<PracticeQuestion>();
         when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
-                .thenReturn(List.of(), List.of(), List.of(firstQuestion));
+                .thenAnswer(invocation -> List.copyOf(persisted));
+        when(questionRepository.save(any())).thenAnswer(invocation -> {
+            PracticeQuestion saved = invocation.getArgument(0);
+            persisted.add(saved);
+            return saved;
+        });
 
         var first = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
-        service.append(first, response());
+        var bundle = new ReadingPassageBundleDto("p1", "practice", "private-hash",
+                List.of(), List.of(item(1), item(2), item(3)));
+        assertThat(service.persistReadingBundle(first, bundle)).isTrue();
+        assertThat(jsonCodec.read(set.getGenerationRequestJson(), AiPracticeGenerationRequestDto.class)
+                .readingBundles()).containsEntry("p1", bundle);
+        assertThat(persisted).isEmpty();
+        var response = new AiPracticeGenerationResponseDto(first.request().requestId(), "practice",
+                PracticeDomain.READING, "COMPREHENSION", 3, bundle.questions(), null, bundle);
+        assertThat(service.append(first, response)).isTrue();
+        assertThat(persisted).extracting(PracticeQuestion::getOrderNo).containsExactly(1, 2, 3);
+        assertThat(set.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.PENDING);
         var second = service.claim(12L, now.plusSeconds(1), now.minusMinutes(30), 3).orElseThrow();
 
         assertThat(set.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.GENERATING);
-        assertThat(second.order()).isEqualTo(2);
+        assertThat(second.order()).isEqualTo(4);
         assertThat(second.token()).isNotEqualTo(first.token());
         assertThat(second.request().requestId()).isNotEqualTo(first.request().requestId());
         assertThat(second.request().previousQuestions())
                 .extracting(PracticeGeneratedQuestionDto::order)
-                .containsExactly(1);
+                .containsExactly(1, 2, 3);
+        assertThat(second.request().readingBundles()).containsEntry("p1", bundle);
+        assertThat(second.request().questionCount()).isEqualTo(2);
     }
 
     @Test
-    void contextualChoicePlanIsDurableBeforeFirstQuestionAndReusedByLeaseRetry() {
+    void expiredClaimAfterPrivateReadingBundleSnapshotReplaysWholePassage() {
+        set.queueGeneration(jsonCodec.write(request()));
+        lockSet();
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
+                .thenReturn(List.of());
+        var initial = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+        var bundle = new ReadingPassageBundleDto("p1", "practice", "private-hash",
+                List.of(), List.of(item(1), item(2), item(3)));
+        assertThat(service.persistReadingBundle(initial, bundle)).isTrue();
+        verify(questionRepository, never()).save(any());
+
+        var replay = service.claim(12L, now.plusHours(1), now.plusMinutes(30), 3).orElseThrow();
+        assertThat(replay.order()).isEqualTo(1);
+        assertThat(replay.request().questionCount()).isEqualTo(3);
+        assertThat(replay.request().readingBundles()).containsEntry("p1", bundle);
+        assertThat(replay.token()).isNotEqualTo(initial.token());
+        assertThat(replay.request().requestId()).isNotEqualTo(initial.request().requestId());
+    }
+
+    @Test
+    void secondReadingPassagePublishesTwoRowsAtomicallyAndFinishes() {
+        set.queueGeneration(jsonCodec.write(request()));
+        set.claimGeneration("active", now);
+        lockSet();
+        var prefix = List.of(question(1), question(2), question(3));
+        when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L)).thenReturn(prefix);
+        var original = request();
+        var fourth = PracticePersistenceService.itemRequest(original, 4,
+                List.of(item(1), item(2), item(3)), "active");
+        var claim = new PracticePersistenceService.GenerationClaim(12L, 4, "active", 0, fourth);
+        var fourthItem = new PracticeGeneratedQuestionDto(1, PracticeQuestionType.SINGLE_CHOICE,
+                PracticeDifficulty.EASIER, 3, "p2", "別の本文です。", "質問です。",
+                List.of(new PracticeOptionDto("A", "はい")), List.of("A"), "MAIN_IDEA",
+                "本文", "설명", "説明", null, null, false, List.of());
+        var fifthItem = new PracticeGeneratedQuestionDto(2, PracticeQuestionType.SINGLE_CHOICE,
+                PracticeDifficulty.EASIER, 3, "p2", "別の本文です。", "質問です。",
+                List.of(new PracticeOptionDto("A", "はい")), List.of("A"), "MAIN_IDEA",
+                "本文", "설명", "説明", null, null, false, List.of());
+        var bundle = new ReadingPassageBundleDto("p2", "practice", "private-hash",
+                List.of(), List.of(fourthItem, fifthItem));
+        var stored = new AiPracticeGenerationRequestDto(original.requestId(), original.domain(),
+                original.mode(), original.originLanguage(), original.learningLanguage(), 5,
+                original.complexityBand(), original.easierCount(), original.currentCount(),
+                original.challengeCount(), original.selectedKeywords(), original.weakSignals(),
+                original.recentMistakes(), original.reviewTargets(), original.reviewQuestionCount(),
+                original.generationDate(), original.previousQuestions(), null, false,
+                java.util.Map.of("p2", bundle), null);
+        set.updateGenerationRequest(jsonCodec.write(stored));
+        var generated = new AiPracticeGenerationResponseDto(fourth.requestId(), "practice",
+                PracticeDomain.READING, "COMPREHENSION", 3, bundle.questions(), null, bundle);
+
+        assertThat(service.append(claim, generated)).isFalse();
+        ArgumentCaptor<PracticeQuestion> captured = ArgumentCaptor.forClass(PracticeQuestion.class);
+        verify(questionRepository, times(2)).save(captured.capture());
+        assertThat(captured.getAllValues()).extracting(PracticeQuestion::getOrderNo)
+                .containsExactly(4, 5);
+        assertThat(set.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.READY);
+    }
+
+    @Test
+    void staleReadingClaimCannotPersistOrPublishItsBundle() {
+        set.queueGeneration(jsonCodec.write(request()));
+        set.claimGeneration("new-owner", now);
+        lockSet();
+        var stale = new PracticePersistenceService.GenerationClaim(12L, 1, "expired-owner", 0,
+                PracticePersistenceService.itemRequest(request(), 1, List.of(), "expired-owner"));
+        var bundle = new ReadingPassageBundleDto("p1", "practice", "hash", List.of(), List.of());
+        String snapshot = set.getGenerationRequestJson();
+
+        assertThat(service.persistReadingBundle(stale, bundle)).isFalse();
+        assertThat(service.append(stale, response())).isFalse();
+        assertThat(set.getGenerationRequestJson()).isEqualTo(snapshot);
+        verifyNoInteractions(questionRepository);
+    }
+
+    @Test
+    void legacyReplayContextualChoicePlanIsDurableBeforeFirstQuestionAndReusedByLeaseRetry() {
         PracticeSet vocabularySet = contextualChoiceSet();
         vocabularySet.queueGeneration(jsonCodec.write(contextualChoiceRequest()));
         when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
         when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
                 .thenReturn(List.of(), List.of());
 
-        var first = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+        var first = legacyReplayClaim(vocabularySet, now).orElseThrow();
         assertThat(first.request().vocabularyPlan()).isNull();
         assertThat(service.persistVocabularyPlan(first, vocabularyPlan())).isTrue();
 
@@ -237,9 +475,7 @@ class PracticePersistenceServiceTest {
         assertThat(vocabularySet.ownsGeneration(first.token())).isTrue();
         verify(questionRepository, never()).save(any());
 
-        var recovered = service.claim(
-                12L, now.plusHours(1), now.plusMinutes(30), 3
-        ).orElseThrow();
+        var recovered = legacyReplayClaim(vocabularySet, now.plusHours(1)).orElseThrow();
         assertThat(recovered.order()).isEqualTo(1);
         assertThat(recovered.token()).isNotEqualTo(first.token());
         assertThat(recovered.request().vocabularyPlan()).isEqualTo(vocabularyPlan());
@@ -247,7 +483,7 @@ class PracticePersistenceServiceTest {
     }
 
     @Test
-    void contextualChoicePlanAndAcceptedPrefixAreReusedForNextOrder() {
+    void legacyReplayContextualChoicePlanAndAcceptedPrefixAreReusedForNextOrder() {
         PracticeSet vocabularySet = contextualChoiceSet();
         vocabularySet.queueGeneration(jsonCodec.write(contextualChoiceRequest()));
         when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
@@ -259,7 +495,7 @@ class PracticePersistenceServiceTest {
                 .thenReturn(Optional.of(mastery));
         when(questionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var first = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+        var first = legacyReplayClaim(vocabularySet, now).orElseThrow();
         var generated = contextualChoiceResponse(first.request().requestId(), vocabularyPlan());
         assertThat(service.persistVocabularyPlan(first, generated.vocabularyPlan())).isTrue();
         assertThat(service.append(first, generated)).isTrue();
@@ -268,7 +504,7 @@ class PracticePersistenceServiceTest {
         verify(questionRepository).save(saved.capture());
         when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
                 .thenReturn(List.of(saved.getValue()));
-        var second = service.claim(12L, now.plusSeconds(1), now.minusMinutes(30), 3).orElseThrow();
+        var second = legacyReplayClaim(vocabularySet, now.plusSeconds(1)).orElseThrow();
 
         assertThat(second.order()).isEqualTo(2);
         assertThat(second.request().previousQuestions()).hasSize(1);
@@ -299,13 +535,13 @@ class PracticePersistenceServiceTest {
     }
 
     @Test
-    void persistedVocabularyPlanCannotBeMutatedByLaterAttempt() {
+    void legacyReplayPersistedVocabularyPlanCannotBeMutatedByLaterAttempt() {
         PracticeSet vocabularySet = contextualChoiceSet();
         AiPracticeGenerationRequestDto withPlan = contextualChoiceRequest(vocabularyPlan());
         vocabularySet.queueGeneration(jsonCodec.write(withPlan));
         when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
         when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L)).thenReturn(List.of());
-        var claim = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+        var claim = legacyReplayClaim(vocabularySet, now).orElseThrow();
         var mutated = new PersonalizedVocabularyPlanDto("unexpected-version", vocabularyPlan().items());
 
         assertThatThrownBy(() -> service.persistVocabularyPlan(claim, mutated))
@@ -316,7 +552,7 @@ class PracticePersistenceServiceTest {
     }
 
     @Test
-    void currentUnacceptedReviewDistractorPatchAndQuestionArePublishedTogether() {
+    void legacyReplayCurrentUnacceptedReviewDistractorPatchAndQuestionArePublishedTogether() {
         var originalPlan = vocabularyPlan();
         var originalItem = originalPlan.items().getFirst();
         var repairedItem = new VocabularyPlanItemDto(
@@ -338,7 +574,7 @@ class PracticePersistenceServiceTest {
                 .thenReturn(Optional.of(mastery));
         when(questionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var first = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+        var first = legacyReplayClaim(vocabularySet, now).orElseThrow();
         var generated = contextualChoiceResponse(first.request().requestId(), repairedPlan);
         assertThat(service.append(first, generated)).isTrue();
         var stored = jsonCodec.read(vocabularySet.getGenerationRequestJson(),
@@ -350,7 +586,7 @@ class PracticePersistenceServiceTest {
 
         when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
                 .thenReturn(List.of(saved.getValue()));
-        var second = service.claim(12L, now.plusSeconds(1), now.minusMinutes(30), 3).orElseThrow();
+        var second = legacyReplayClaim(vocabularySet, now.plusSeconds(1)).orElseThrow();
         assertThat(second.request().vocabularyPlan()).isEqualTo(repairedPlan);
         assertThat(second.request().previousQuestions()).hasSize(1);
         assertThat(second.request().previousQuestions().getFirst().options())
@@ -385,7 +621,7 @@ class PracticePersistenceServiceTest {
     }
 
     @Test
-    void corruptedPersistedPlanAndAcceptedQuestionFailBeforeNextAiCall() {
+    void legacyReplayCorruptedPersistedPlanAndAcceptedQuestionFailBeforeNextAiCall() {
         var plan = vocabularyPlan();
         var first = contextualChoiceItem(1, PracticeDifficulty.CURRENT, 4, "MEANING",
                 "追加の検証期間", "追加の検証期間", "A");
@@ -402,20 +638,20 @@ class PracticePersistenceServiceTest {
         when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
                 .thenReturn(List.of(persistedQuestion(vocabularySet, first)));
 
-        assertThat(service.claim(12L, now, now.minusMinutes(30), 3)).isEmpty();
+        assertThat(legacyReplayClaim(vocabularySet, now)).isEmpty();
         assertThat(vocabularySet.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.PARTIAL);
         assertThat(vocabularySet.getGenerationFailureMessage()).isEqualTo("AI_SCHEMA_INVALID");
     }
 
     @Test
-    void literalNullStoredRequestIsExplicitTerminalFailure() {
+    void legacyReplayLiteralNullStoredRequestIsExplicitTerminalFailure() {
         PracticeSet vocabularySet = contextualChoiceSet();
         vocabularySet.queueGeneration("null");
         when(setRepository.findLockedById(12L)).thenReturn(Optional.of(vocabularySet));
         when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
                 .thenReturn(List.of());
 
-        assertThat(service.claim(12L, now, now.minusMinutes(30), 3)).isEmpty();
+        assertThat(legacyReplayClaim(vocabularySet, now)).isEmpty();
         assertThat(vocabularySet.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.FAILED);
         assertThat(vocabularySet.getGenerationFailureMessage()).isEqualTo("STORED_REQUEST_INVALID");
     }
@@ -654,18 +890,22 @@ class PracticePersistenceServiceTest {
     }
 
     @Test
-    void oneItemRequestsKeepGlobalDifficultyMixAndReviewSelection() {
+    void readingPassageRequestsKeepGlobalDifficultyMixAndReviewSelection() {
         var base = request();
-        List<AiPracticeGenerationRequestDto> items = java.util.stream.IntStream.rangeClosed(1, 5)
-                .mapToObj(order -> PracticePersistenceService.itemRequest(base, order, List.of(), "token"))
-                .toList();
-        assertThat(items.stream().mapToInt(AiPracticeGenerationRequestDto::easierCount).sum()).isEqualTo(1);
-        assertThat(items.stream().mapToInt(AiPracticeGenerationRequestDto::currentCount).sum()).isEqualTo(3);
-        assertThat(items.stream().mapToInt(AiPracticeGenerationRequestDto::challengeCount).sum()).isEqualTo(1);
-        assertThat(items).extracting(AiPracticeGenerationRequestDto::currentCount)
-                .containsExactly(1, 0, 1, 0, 1);
-        assertThat(items).extracting(AiPracticeGenerationRequestDto::challengeCount)
-                .containsExactly(0, 0, 0, 1, 0);
+        var first = PracticePersistenceService.itemRequest(base, 1, List.of(), "token");
+        var fourth = PracticePersistenceService.itemRequest(base, 4, List.of(), "token");
+        assertThat(first.questionCount()).isEqualTo(3);
+        assertThat(fourth.questionCount()).isEqualTo(2);
+        assertThat(first.easierCount() + fourth.easierCount()).isEqualTo(1);
+        assertThat(first.currentCount() + fourth.currentCount()).isEqualTo(3);
+        assertThat(first.challengeCount() + fourth.challengeCount()).isEqualTo(1);
+        assertThat(first.readingSlotTargets()).hasSize(5);
+        assertThat(fourth.readingSlotTargets()).isEqualTo(first.readingSlotTargets());
+        var legacyThird = PracticePersistenceService.itemRequest(base, 3,
+                List.of(item(1), item(2)), "legacy-token");
+        assertThat(legacyThird.questionCount()).isEqualTo(1);
+        assertThat(legacyThird.previousQuestions()).hasSize(2);
+        assertThat(fourth.previousQuestions()).isEmpty();
         var vocabulary = new AiPracticeGenerationRequestDto(
                 "request", PracticeDomain.VOCABULARY, "MEANING_RELATION", "ko", "ja", 10,
                 3, 2, 6, 2, List.of(), List.of(), List.of(),
@@ -781,7 +1021,7 @@ class PracticePersistenceServiceTest {
     }
 
     @Test
-    void secondVocabularyItemReconstructedFromPersistedQuestionMatchesAiContract()
+    void legacyReplaySecondVocabularyItemReconstructedFromPersistedQuestionMatchesAiContract()
             throws Exception {
         PracticeSet vocabularySet = vocabularySet();
         vocabularySet.queueGeneration(jsonCodec.write(vocabularyRequest()));
@@ -799,7 +1039,7 @@ class PracticePersistenceServiceTest {
         when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
                 .thenReturn(List.of(firstQuestion));
 
-        var second = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+        var second = legacyReplayClaim(vocabularySet, now).orElseThrow();
 
         assertThat(second.order()).isEqualTo(2);
         assertAiPracticeRequestJson(second.request(), 1, 1);
@@ -810,7 +1050,7 @@ class PracticePersistenceServiceTest {
     }
 
     @Test
-    void contextualChoiceThirdItemReconstructedFromPersistedReviewQuestionsMatchesAiContract()
+    void legacyReplayContextualChoiceThirdItemReconstructedFromPersistedReviewQuestionsMatchesAiContract()
             throws Exception {
         AiPracticeGenerationRequestDto original = contextualChoiceRequest();
         PracticeSet vocabularySet = contextualChoiceSet();
@@ -829,7 +1069,7 @@ class PracticePersistenceServiceTest {
         when(questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(12L))
                 .thenReturn(List.of(firstQuestion, secondQuestion));
 
-        var third = service.claim(12L, now, now.minusMinutes(30), 3).orElseThrow();
+        var third = legacyReplayClaim(vocabularySet, now).orElseThrow();
         String exactJson = jsonCodec.write(third.request());
         var wire = objectMapper.readTree(exactJson);
 
@@ -1027,6 +1267,18 @@ class PracticePersistenceServiceTest {
         assertThat(service.claim(12L, now, now.minusMinutes(30), 3)).isEmpty();
         assertThat(set.getGenerationStatus()).isEqualTo(PracticeGenerationStatus.READY);
         verify(questionRepository, never()).save(any());
+    }
+
+    /** Offline legacy contract replay, deliberately not the retired public claim entry. */
+    private Optional<PracticePersistenceService.GenerationClaim> legacyReplayClaim(
+            PracticeSet legacySet, LocalDateTime at
+    ) {
+        assertThat(legacySet.getDomain()).isEqualTo(PracticeDomain.VOCABULARY);
+        assertThat(setRepository.findLockedById(legacySet.getId()).orElseThrow()).isSameAs(legacySet);
+        var questions = questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(legacySet.getId());
+        boolean stale = legacySet.getGenerationStatus() == PracticeGenerationStatus.GENERATING
+                && legacySet.getGenerationStartedAt().isBefore(at.minusMinutes(30));
+        return ReflectionTestUtils.invokeMethod(service, "claimAvailable", legacySet, questions, at, stale, 3);
     }
 
     private void lockSet() {

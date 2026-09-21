@@ -2,6 +2,7 @@ package jp.co.translacat.domain.languagelearning.speaking.evaluation.job.entity;
 
 import jakarta.persistence.*;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import jp.co.translacat.global.jpa.BaseAuditable;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -30,6 +31,12 @@ public class SpeakingEvaluationJob extends BaseAuditable {
     private SpeakingSession session;
     @Column(name = "problem_index", nullable = false, updatable = false)
     private int problemIndex;
+    @Enumerated(EnumType.STRING) @Column(name = "result_kind", nullable = false, length = 40)
+    private SpeakingResultKind resultKind;
+    @Column(name = "result_policy_version", nullable = false, length = 100)
+    private String resultPolicyVersion;
+    @Column(name = "source_snapshot_hash", length = 128)
+    private String sourceSnapshotHash;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20)
     private Status status;
     @Lob @Column(name = "request_json", nullable = false, columnDefinition = "LONGTEXT")
@@ -47,10 +54,20 @@ public class SpeakingEvaluationJob extends BaseAuditable {
 
     public static SpeakingEvaluationJob pending(SpeakingSession session, int problemIndex,
                                                  String requestJson, LocalDateTime now) {
+        return pending(session, problemIndex, SpeakingResultKind.SCORED_EVALUATION,
+                "speaking-evaluation-policy-v2", null, requestJson, now);
+    }
+
+    public static SpeakingEvaluationJob pending(SpeakingSession session, int problemIndex,
+                                                 SpeakingResultKind resultKind, String resultPolicyVersion,
+                                                 String sourceSnapshotHash, String requestJson, LocalDateTime now) {
         if (problemIndex < 0 || problemIndex > 5) throw new IllegalArgumentException("Invalid problem index");
         SpeakingEvaluationJob job = new SpeakingEvaluationJob();
         job.session = Objects.requireNonNull(session);
         job.problemIndex = problemIndex;
+        job.resultKind = Objects.requireNonNull(resultKind);
+        job.resultPolicyVersion = Objects.requireNonNull(resultPolicyVersion);
+        job.sourceSnapshotHash = sourceSnapshotHash;
         job.requestJson = Objects.requireNonNull(requestJson);
         job.status = Status.PENDING;
         job.availableAt = Objects.requireNonNull(now);

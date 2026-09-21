@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvidenceMetadata;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +20,7 @@ public class SpeakingEvaluationQueryService {
 
     private final SpeakingEvaluationRepository evaluationRepository;
     private final SpeakingEvaluationMetricRepository metricRepository;
+    private final LanguageLearningJsonCodec jsonCodec;
 
     public SpeakingEvaluation findLatest(Long sessionId) {
         return evaluationRepository
@@ -33,6 +36,7 @@ public class SpeakingEvaluationQueryService {
     public SpeakingEvaluationResponseDto toResponse(
             SpeakingEvaluation evaluation
     ) {
+        var evidence = SpeakingEvidenceMetadata.read(evaluation.getEligibilityJson(), jsonCodec);
         return new SpeakingEvaluationResponseDto(
                 evaluation.getId(),
                 evaluation.getSession().getId(),
@@ -62,7 +66,8 @@ public class SpeakingEvaluationQueryService {
                 evaluation.getEvaluationVersion(),
                 evaluation.getScoringPolicyVersion(),
                 evaluation.getPromptVersion(),
-                evaluation.getEvaluatedAt()
+                evaluation.getEvaluatedAt(),
+                evidence.evaluatedAxes(), evidence.evaluationCoverage(), evidence.evidencePolicyVersion(), evidence.evidenceSource()
         );
     }
 }

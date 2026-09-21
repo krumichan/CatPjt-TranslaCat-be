@@ -49,7 +49,9 @@ public class ListeningTtsRetryCommandService {
         int limit = policySettingService.get().getManualRetryLimit();
 
         if (item.getStatus() != ListeningItemStatus.NOT_EVALUABLE
-                || item.getManualTtsRetryCount() >= limit) {
+                || item.getManualTtsRetryCount() >= limit
+                || "AUDIO_TOO_SHORT".equals(item.getFailureReason())
+                || "AUDIO_TOO_LONG".equals(item.getFailureReason())) {
             throw new BusinessException(
                     "수동 TTS 재시도를 실행할 수 없습니다.",
                     LanguageLearningErrorCode.LISTENING_INVALID_STATE

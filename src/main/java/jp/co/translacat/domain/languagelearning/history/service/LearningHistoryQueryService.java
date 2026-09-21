@@ -29,6 +29,7 @@ import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningU
 import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.entity.SpeakingEvaluation;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.service.SpeakingEvaluationQueryService;
+import jp.co.translacat.domain.languagelearning.speaking.coaching.service.SpeakingCoachingResultService;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.repository.SpeakingSessionRepository;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionQueryService;
@@ -58,6 +59,7 @@ public class LearningHistoryQueryService {
     private final SpeakingSessionQueryService speakingSessionQueryService;
     private final SpeakingTurnQueryService speakingTurnQueryService;
     private final SpeakingEvaluationQueryService speakingEvaluationQueryService;
+    private final SpeakingCoachingResultService speakingCoachingResultService;
     private final ListeningSessionRepository listeningSessionRepository;
     private final ListeningItemAttemptRepository listeningAttemptRepository;
     private final ListeningTaskResponseRepository listeningResponseRepository;
@@ -225,7 +227,7 @@ public class LearningHistoryQueryService {
                         ? null
                         : evaluation.getOverallScore().doubleValue(),
                 session.getStatus().name(),
-                session.getEvaluationStatus().name()
+                speakingSessionQueryService.resultStatus(session)
         );
     }
 
@@ -355,7 +357,8 @@ public class LearningHistoryQueryService {
                 new SpeakingHistoryDetailResponseDto(
                         speakingSessionQueryService.toResponse(userId, session),
                         speakingTurnQueryService.getResponses(userId, session.getId()),
-                        speakingEvaluationQueryService.getResponse(session.getId())
+                        speakingEvaluationQueryService.getResponse(session.getId()),
+                        speakingCoachingResultService.find(session.getId())
                 )
         );
     }

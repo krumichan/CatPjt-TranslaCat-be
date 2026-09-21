@@ -32,7 +32,7 @@ public class Base {
     protected void prePersist() {
         if (this.createdBy == null) {
             try {
-                this.createdBy = SecurityUtil.getUsername();
+                this.createdBy = SecurityUtil.getAuditorIdentity();
             } catch (Exception e) {
                 this.createdBy = "SYSTEM";
 //                log.warn("Unable to get current username for createdBy. Falling back to 'SYSTEM'.", e);

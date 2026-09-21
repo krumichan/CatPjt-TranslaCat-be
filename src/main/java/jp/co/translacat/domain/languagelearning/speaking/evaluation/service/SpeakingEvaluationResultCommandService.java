@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvidenceMetadata;
 
 @Service
 @RequiredArgsConstructor
@@ -63,7 +64,7 @@ public class SpeakingEvaluationResultCommandService {
                 formal ? "EVALUATED" : "INSUFFICIENT_EVIDENCE",
                 jsonCodec.write(response.strengths()), jsonCodec.write(response.improvements()),
                 jsonCodec.write(response.recommendedExpressions()), jsonCodec.write(response.pronunciationPractice()),
-                jsonCodec.write(response.profileSignals()), jsonCodec.write(response.eligibility()),
+                jsonCodec.write(response.profileSignals()), SpeakingEvidenceMetadata.eligibilitySnapshot(response, jsonCodec),
                 jsonCodec.write(response.usage())));
         saveSpeakingMetrics(evaluation, response);
         if (!formal) {

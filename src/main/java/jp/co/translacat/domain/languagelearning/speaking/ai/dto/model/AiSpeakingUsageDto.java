@@ -4,6 +4,7 @@ public record AiSpeakingUsageDto(
         AiSpeakingStageUsageDto stt,
         AiSpeakingStageUsageDto conversation,
         AiSpeakingStageUsageDto tts,
-        AiSpeakingStageUsageDto evaluation
+        AiSpeakingStageUsageDto evaluation,
+        AiSpeakingStageUsageDto coaching
 ) {
 }

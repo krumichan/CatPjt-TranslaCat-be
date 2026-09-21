@@ -5,5 +5,6 @@ public enum SpeakingStage {
     STT,
     CONVERSATION,
     TTS,
-    EVALUATION
+    EVALUATION,
+    COACHING
 }

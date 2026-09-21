@@ -10,9 +10,47 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Locale;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.UnsupportedAudioFileException;
+import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
+import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningReferenceDurationException;
 
 @Component
 public class ListeningAudioValidator {
+
+    public void validateReferenceFrames(byte[] bytes, AiListeningContract.Audio metadata,
+                                        AiListeningContract.DurationDemand demand) {
+        try (var audio = AudioSystem.getAudioInputStream(new ByteArrayInputStream(bytes))) {
+            AudioFormat format = audio.getFormat();
+            if (detect(bytes) != Format.WAV
+                    || !(AudioFormat.Encoding.PCM_SIGNED.equals(format.getEncoding())
+                    || AudioFormat.Encoding.PCM_UNSIGNED.equals(format.getEncoding()))
+                    || format.getFrameSize() <= 0 || format.getFrameRate() <= 0
+                    || format.getChannels() != metadata.channels()
+                    || Math.round(format.getSampleRate()) != metadata.sampleRate()) {
+                throw invalid("LISTENING_REFERENCE_AUDIO_FORMAT_MISMATCH");
+            }
+            byte[] decoded = audio.readAllBytes();
+            long frames = decoded.length / format.getFrameSize();
+            if (frames <= 0 || decoded.length % format.getFrameSize() != 0
+                    || (audio.getFrameLength() >= 0 && audio.getFrameLength() != frames)) {
+                throw invalid("LISTENING_REFERENCE_AUDIO_INCOMPLETE");
+            }
+            double seconds = frames / (double) format.getFrameRate();
+            if (Math.abs(Math.round(seconds * 1000) - metadata.durationMs()) > 1) {
+                throw invalid("LISTENING_REFERENCE_AUDIO_DURATION_METADATA_MISMATCH");
+            }
+            if (demand != null && (seconds < demand.minSeconds() || seconds > demand.maxSeconds())) {
+                throw new ListeningReferenceDurationException(seconds,
+                        seconds < demand.minSeconds() ? "AUDIO_TOO_SHORT" : "AUDIO_TOO_LONG");
+            }
+        } catch (IOException | UnsupportedAudioFileException exception) {
+            throw invalid("LISTENING_REFERENCE_AUDIO_DECODE_FAILED");
+        }
+    }
 
     public void validate(
             byte[] bytes,

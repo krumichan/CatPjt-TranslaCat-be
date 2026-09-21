@@ -82,6 +82,8 @@ class ListeningProgressiveGenerationTest {
         assertThat(work.expectedCount()).isEqualTo(1);
         assertThat(work.request().setContext().itemCount()).isEqualTo(1);
         assertThat(work.command().logicalItemIndex()).isEqualTo(3);
+        assertThat(work.request().referenceVoice().voiceKey()).isEqualTo("marin");
+        assertThat(work.request().referenceVoice().version()).isEqualTo("openai-speech-v1");
     }
 
     @Test
@@ -92,6 +94,7 @@ class ListeningProgressiveGenerationTest {
         var captured = org.mockito.ArgumentCaptor.forClass(ListeningItem.class);
         verify(items).saveAndFlush(captured.capture());
         assertThat(captured.getValue().getItemIndex()).isEqualTo(2);
+        assertThat(captured.getValue().getVoiceSnapshotJson()).isEqualTo("{}");
         verify(enqueue).enqueue(ListeningOutboxType.GENERATE_TTS, 102L, null,
                 "listening:item:102:tts:0");
         verify(enqueue).enqueue(ListeningOutboxType.GENERATE_SET, 20L,
@@ -153,8 +156,11 @@ class ListeningProgressiveGenerationTest {
     }
 
     private ListeningGenerationTransactionService.GenerationWork work(int index) {
+        var request = mock(AiListeningContract.GenerationRequest.class);
+        when(request.constraints()).thenReturn(new AiListeningContract.GenerationConstraints(
+                1.0, 60.0, List.of(), List.of()));
         return new ListeningGenerationTransactionService.GenerationWork(event,
-                ListeningGenerationCommand.item(index, 0), null, 1, 60);
+                ListeningGenerationCommand.item(index, 0), request, 1, 60);
     }
 
     private AiListeningContract.GenerationResponse response() {

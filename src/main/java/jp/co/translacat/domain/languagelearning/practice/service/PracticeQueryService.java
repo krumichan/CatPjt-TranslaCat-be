@@ -3,11 +3,15 @@ package jp.co.translacat.domain.languagelearning.practice.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeOptionDto;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
+import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.practice.dto.response.*;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeAttempt;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeQuestion;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
+import jp.co.translacat.domain.languagelearning.practice.policy.PracticeAvailabilityPolicy;
+import jp.co.translacat.domain.languagelearning.practice.enums.PracticeGenerationStatus;
+import jp.co.translacat.domain.languagelearning.practice.policy.ReadingPassageExpressionPolicy;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAttemptRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeMetricScoreRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeQuestionRepository;
@@ -20,6 +24,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -62,16 +69,25 @@ public class PracticeQueryService {
                         set.getOfficialScore(),
                         set.getGenerationStatus(),
                         Math.toIntExact(questionRepository.countByPracticeSetId(set.getId())),
-                        set.getGenerationFailureMessage()
+                        generationFailureReason(set, questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(set.getId()))
                 ))
                 .toList();
     }
 
     public PracticeSetResponseDto toResponse(PracticeSet set) {
-        List<PracticeQuestionResponseDto> questions = questionRepository
-                .findAllByPracticeSetIdOrderByOrderNoAsc(set.getId())
-                .stream()
-                .map(this::questionResponse)
+        List<PracticeQuestion> storedQuestions = questionRepository
+                .findAllByPracticeSetIdOrderByOrderNoAsc(set.getId());
+        Map<Long, List<PracticeAttempt>> attemptsByQuestion = storedQuestions.stream().collect(Collectors.toMap(
+                PracticeQuestion::getId,
+                question -> attemptRepository.findAllByQuestionIdOrderByAttemptNoAsc(question.getId())
+        ));
+        Set<String> completedPassages = set.getDomain() == PracticeDomain.READING
+                ? ReadingPassageExpressionPolicy.completedPassages(
+                        storedQuestions, question -> !attemptsByQuestion.get(question.getId()).isEmpty())
+                : Set.of();
+        List<PracticeQuestionResponseDto> questions = storedQuestions.stream()
+                .map(question -> questionResponse(question, attemptsByQuestion.get(question.getId()),
+                        question.getPassageId() != null && completedPassages.contains(question.getPassageId())))
                 .toList();
         int answered = (int) questions.stream().filter(PracticeQuestionResponseDto::answered).count();
         int correct = (int) questions.stream()
@@ -101,13 +117,31 @@ public class PracticeQueryService {
                 questions,
                 set.getGenerationStatus(),
                 questions.size(),
-                set.getGenerationFailureMessage()
+                generationFailureReason(set, storedQuestions)
         );
     }
 
-    private PracticeQuestionResponseDto questionResponse(PracticeQuestion question) {
-        List<PracticeAttempt> attempts = attemptRepository
-                .findAllByQuestionIdOrderByAttemptNoAsc(question.getId());
+    private String generationFailureReason(PracticeSet set, List<PracticeQuestion> questions) {
+        if (set.getDomain() != PracticeDomain.READING || !"STRUCTURE".equals(set.getMode())
+                || (set.getGenerationStatus() != PracticeGenerationStatus.PARTIAL
+                    && set.getGenerationStatus() != PracticeGenerationStatus.FAILED)
+                || set.getGenerationRequestJson() == null) return set.getGenerationFailureMessage();
+        try {
+            var original = jsonCodec.read(set.getGenerationRequestJson(), AiPracticeGenerationRequestDto.class);
+            int missing = PracticePersistenceService.firstMissingOrder(questions, set.getQuestionCount());
+            if (PracticeAvailabilityPolicy.needsAnyNewB5Structure(
+                    original, PracticePersistenceService.readingSlotTargets(original), missing)) {
+                return PracticeAvailabilityPolicy.B5_STRUCTURE_DEFERRED;
+            }
+        } catch (RuntimeException ignored) {
+            // Preserve the stored request error; a read must never rewrite historic rows.
+        }
+        return set.getGenerationFailureMessage();
+    }
+
+    private PracticeQuestionResponseDto questionResponse(
+            PracticeQuestion question, List<PracticeAttempt> attempts, boolean passageCompleted
+    ) {
         boolean answered = !attempts.isEmpty();
         PracticeAttempt latest = answered ? attempts.get(attempts.size() - 1) : null;
         List<String> correctAnswer = answered
@@ -129,7 +163,9 @@ public class PracticeQueryService {
                 question.getSkillTag(),
                 question.getTargetExpression(),
                 question.isReviewTarget(),
-                jsonCodec.read(question.getVocabularyCandidatesJson(), new TypeReference<List<String>>() {}),
+                passageCompleted ? ReadingPassageExpressionPolicy.readCandidates(
+                        jsonCodec, question.getVocabularyCandidatesJson(), question.getPassageText()
+                ) : List.of(),
                 answered,
                 latest != null && latest.isCorrect(),
                 latest != null && !latest.isCorrect() && attempts.size() < 3,

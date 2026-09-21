@@ -9,8 +9,10 @@ import jp.co.translacat.domain.languagelearning.keyword.model.SelectedKeywordCan
 import jp.co.translacat.domain.languagelearning.keyword.service.KeywordCandidateQueryService;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeAttempt;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
+import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeModeAvailabilityResponseDto;
 import jp.co.translacat.domain.languagelearning.practice.entity.VocabularyMastery;
 import jp.co.translacat.domain.languagelearning.practice.policy.PracticeComplexityPolicy;
+import jp.co.translacat.domain.languagelearning.practice.policy.PracticeAvailabilityPolicy;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAttemptRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.VocabularyMasteryRepository;
@@ -57,6 +59,7 @@ public class PracticeGenerationService {
             PracticeDomain domain,
             String mode
     ) {
+        PracticeAvailabilityPolicy.requireGenerationAllowed(domain);
         validateMode(domain, mode);
         LanguageLearningUserSetting setting = settingQueryService.getOrCreateEntity(userId);
         settingQueryService.requireConfigured(setting);
@@ -99,11 +102,35 @@ public class PracticeGenerationService {
                 today,
                 List.of()
         );
+        if (domain == PracticeDomain.READING) {
+            PracticeAvailabilityPolicy.requireNewReadingAllowed(
+                    request, PracticePersistenceService.readingSlotTargets(request));
+        }
         return persistenceService.createPending(userId, request);
     }
 
     public PracticeSet retry(Long userId, Long setId) {
         return persistenceService.retry(userId, setId);
+    }
+
+    public List<PracticeModeAvailabilityResponseDto> availability(Long userId) {
+        LanguageLearningUserSetting setting = settingQueryService.getOrCreateEntity(userId);
+        settingQueryService.requireConfigured(setting);
+        LocalDate today = settingQueryService.resolveToday(setting);
+        int[] mix = complexityPolicy.mix(PracticeDomain.READING);
+        return List.of("COMPREHENSION", "STRUCTURE", "CONTEXT_INFERENCE").stream()
+                .map(mode -> {
+                    int band = complexityPolicy.resolve(userId, PracticeDomain.READING, mode);
+                    AiPracticeGenerationRequestDto preview = new AiPracticeGenerationRequestDto(
+                            "availability-preview", PracticeDomain.READING, mode,
+                            setting.getOriginLanguage(), setting.getLearningLanguage(),
+                            READING_QUESTION_COUNT, band, mix[0], mix[1], mix[2],
+                            List.of(), List.of(), List.of(), List.of(), 0, today, List.of());
+                    boolean deferred = PracticeAvailabilityPolicy.needsAnyNewB5Structure(
+                            preview, PracticePersistenceService.readingSlotTargets(preview), 1);
+                    return new PracticeModeAvailabilityResponseDto(mode, !deferred,
+                            deferred ? PracticeAvailabilityPolicy.B5_STRUCTURE_DEFERRED : null);
+                }).toList();
     }
 
     private List<String> selectedKeywords(Long userId, LocalDate today) {

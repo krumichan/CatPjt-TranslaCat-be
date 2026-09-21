@@ -1,11 +1,18 @@
 package jp.co.translacat.domain.languagelearning.listening.daily.model;
 
+import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
+
 public record ListeningGenerationCommand(
         Long replacementForItemId,
         Integer logicalItemIndex,
         int replacementSequence,
-        int manualRetryAttempt
+        int manualRetryAttempt,
+        AiListeningContract.DurationCorrection durationCorrection
 ) {
+    public ListeningGenerationCommand(Long replacementForItemId, Integer logicalItemIndex,
+                                      int replacementSequence, int manualRetryAttempt) {
+        this(replacementForItemId, logicalItemIndex, replacementSequence, manualRetryAttempt, null);
+    }
     public static ListeningGenerationCommand initial() {
         return item(1, 0);
     }

@@ -9,7 +9,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
 /** A daily quote: target currency units per ONE source currency unit. */
 @Getter
@@ -50,13 +52,18 @@ public class ExchangeRate extends BaseAuditable {
     @Column(nullable = false, length = 50)
     private String provider;
 
+    /** UTC instant when this provider value was retrieved. Null only for legacy rows. */
+    @Column(name = "rate_fetched_at")
+    private Instant rateFetchedAt;
+
     public static ExchangeRate create(
             String source,
             String target,
             BigDecimal rate,
             LocalDate requested,
             LocalDate effective,
-            String provider) {
+            String provider,
+            Instant fetchedAt) {
         ExchangeRate value = new ExchangeRate();
         value.sourceCurrencyCode = source;
         value.targetCurrencyCode = target;
@@ -64,6 +71,39 @@ public class ExchangeRate extends BaseAuditable {
         value.requestedRateDate = requested;
         value.rateDate = effective;
         value.provider = provider;
+        // The schema stores TIMESTAMP(6). Canonicalize before a preview quote is hashed so a
+        // persist/read round trip cannot invalidate an otherwise identical reviewed quote.
+        value.rateFetchedAt = fetchedAt == null ? null : fetchedAt.truncatedTo(ChronoUnit.MICROS);
         return value;
+    }
+
+    public static ExchangeRate create(
+            String source,
+            String target,
+            BigDecimal rate,
+            LocalDate requested,
+            LocalDate effective,
+            String provider) {
+        return create(source, target, rate, requested, effective, provider, Instant.now());
+    }
+
+    public static ExchangeRate identity(String currency, LocalDate requested) {
+        return create(
+                currency,
+                currency,
+                BigDecimal.ONE,
+                requested,
+                requested,
+                "IDENTITY",
+                null);
+    }
+
+    public void refresh(BigDecimal newRate, LocalDate effective, Instant fetchedAt) {
+        if (newRate == null || newRate.signum() <= 0 || effective == null || fetchedAt == null) {
+            throw new IllegalArgumentException("A refreshed exchange rate must be complete.");
+        }
+        this.rate = newRate;
+        this.rateDate = effective;
+        this.rateFetchedAt = fetchedAt.truncatedTo(ChronoUnit.MICROS);
     }
 }

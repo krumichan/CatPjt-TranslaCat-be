@@ -25,8 +25,10 @@ public class ReceiptBatchController {
     public ResponseDto<List<AccountBookTransactionResponseDto>> register(
             @PathVariable Long accountBookId,
             @AuthenticationPrincipal UserPrincipal user,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestBody @Valid ReceiptBatchRequestDto request) {
-        return ResponseUtil.ok(receipts.register(accountBookId, user.getId(), request));
+        return ResponseUtil.ok(
+                receipts.register(accountBookId, user.getId(), idempotencyKey, request));
     }
 
     @PostMapping("/receipt-conversion")

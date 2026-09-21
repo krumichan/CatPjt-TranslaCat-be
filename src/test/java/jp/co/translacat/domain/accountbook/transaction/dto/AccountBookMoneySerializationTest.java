@@ -72,7 +72,8 @@ class AccountBookMoneySerializationTest {
         var json = mapper.readTree(mapper.writeValueAsString(response));
         assertThat(json.path("incomeAmount").textValue()).isEqualTo(expected);
         var receipt = new ReceiptConversionResponseDto(value, "USD", "JPY", value, value,
-                null, null, "TEST", "CONVERTED", false, List.of());
+                null, null, "TEST", null, null, 3, "HALF_UP", "receipt-fx-v1",
+                "a".repeat(64), "CONVERTED", false, List.of());
         var receiptJson = mapper.valueToTree(receipt);
         assertThat(receiptJson.path("originalAmount").textValue()).isEqualTo(expected);
         assertThat(receiptJson.path("convertedAmount").textValue()).isEqualTo(expected);

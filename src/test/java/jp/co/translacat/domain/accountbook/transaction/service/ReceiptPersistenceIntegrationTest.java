@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.accountbook.transaction.service;
 
 import jakarta.persistence.EntityManager;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookAccessService;
 import jp.co.translacat.domain.accountbook.accountbook.repository.AccountBookRepository;
@@ -12,6 +13,7 @@ import jp.co.translacat.domain.accountbook.transaction.dto.*;
 import jp.co.translacat.domain.accountbook.transaction.entity.AccountBookTransaction;
 import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionType;
 import jp.co.translacat.domain.accountbook.transaction.repository.AccountBookTransactionRepository;
+import jp.co.translacat.domain.accountbook.transaction.repository.ReceiptBatchRegistrationRepository;
 import jp.co.translacat.domain.accountbook.fixedcost.entity.AccountBookFixedCost;
 import jp.co.translacat.domain.accountbook.monthlygoal.entity.AccountBookMonthlyGoal;
 import jp.co.translacat.domain.currency.entity.Currency;
@@ -47,7 +49,8 @@ import static org.assertj.core.api.Assertions.*;
 @ActiveProfiles("test")
 @Import({QueryDslConfig.class, AccountBookAccessService.class, AccountBookCategoryService.class,
         ReceiptBatchService.class, ReceiptConversionService.class, ExchangeRateService.class,
-        ExchangeRateCache.class, AccountBookTransactionService.class, AccountBookSummaryRepositoryImpl.class, ReceiptPersistenceIntegrationTest.Config.class})
+        ExchangeRateCache.class, ReceiptBatchRegistrationExecutor.class, ReceiptBatchFingerprint.class,
+        AccountBookTransactionService.class, AccountBookSummaryRepositoryImpl.class, ReceiptPersistenceIntegrationTest.Config.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ReceiptPersistenceIntegrationTest {
     @TestConfiguration static class Config {
@@ -60,6 +63,7 @@ class ReceiptPersistenceIntegrationTest {
                 }
             };
         }
+        @Bean ObjectMapper objectMapper() { return new ObjectMapper().findAndRegisterModules(); }
     }
     @Autowired EntityManager em;
     @Autowired PlatformTransactionManager manager;
@@ -68,6 +72,7 @@ class ReceiptPersistenceIntegrationTest {
     @Autowired AccountBookTransactionRepository transactions;
     @Autowired ExchangeRateRepository rates;
     @Autowired ExchangeRateCache cache;
+    @Autowired ReceiptBatchRegistrationRepository registrations;
     @Autowired AccountBookRepository books;
     @Autowired AccountBookSummaryRepositoryImpl summary;
     TransactionTemplate tx;
@@ -86,21 +91,32 @@ class ReceiptPersistenceIntegrationTest {
     }
     @AfterEach void cleanup() {
         tx.executeWithoutResult(status -> {
-            for (String name : List.of("AccountBookTransaction","AccountBookFixedCost","AccountBookMonthlyGoal","AccountBookCategory",
+            for (String name : List.of("ReceiptBatchRegistration","AccountBookTransaction","AccountBookFixedCost","AccountBookMonthlyGoal","AccountBookCategory",
                     "AccountBookMember","AccountBook","ExchangeRate","Currency","User")) em.createQuery("delete from "+name).executeUpdate();
         });
     }
     ReceiptCandidateRequestDto item(String id,String source,String amount) {
-        return new ReceiptCandidateRequestDto(id,"Purchase","Store","Food",new BigDecimal(amount),source,date,"Memo");
+        var conversion = batch.recalculate(
+                bookId, userId, new ReceiptConversionRequestDto(new BigDecimal(amount), source, date));
+        return new ReceiptCandidateRequestDto(
+                id,"Purchase","Store","Food",new BigDecimal(amount),source,date,"Memo",
+                conversion.conversionQuoteId());
     }
+    String key() { return "receipt-" + UUID.randomUUID(); }
     @Test void batchPersistsOriginalFactsAndRateAndQueryProjection() {
-        var result=batch.register(bookId,userId,new ReceiptBatchRequestDto(List.of(item("1","USD","12.34"),item("2","THB","10.125"))));
+        var result=batch.register(bookId,userId,key(),new ReceiptBatchRequestDto(List.of(item("1","USD","12.34"),item("2","THB","10.125"))));
         assertThat(result).hasSize(2);
         assertThat(result.getFirst().amount()).isEqualByComparingTo("1853");
         assertThat(result.getFirst().originalAmount()).isEqualByComparingTo("12.34");
         assertThat(result.getFirst().originalCurrencyCode()).isEqualTo("USD");
         assertThat(result.getFirst().exchangeRate()).isEqualByComparingTo("150.123456789012345678");
         assertThat(result.getFirst().effectiveRateDate()).isEqualTo(date.minusDays(1));
+        assertThat(result.getFirst().targetCurrencyCode()).isEqualTo("JPY");
+        assertThat(result.getFirst().rateFetchedAt()).isNotNull();
+        assertThat(result.getFirst().convertedAt()).isNotNull();
+        assertThat(result.getFirst().roundingPrecision()).isZero();
+        assertThat(result.getFirst().roundingMode()).isEqualTo("HALF_UP");
+        assertThat(result.getFirst().conversionPolicyVersion()).isEqualTo("receipt-fx-v1");
         tx.executeWithoutResult(status -> {
             em.clear();
             var persisted=transactions.findById(result.getFirst().id()).orElseThrow();
@@ -111,8 +127,39 @@ class ReceiptPersistenceIntegrationTest {
             assertThat(em.createQuery("select count(c) from Currency c",Long.class).getSingleResult()).isEqualTo(1);
         });
     }
+    @Test void papasuFactsPersistWith5020BookAmountAndSourceProvenance() {
+        var payments = List.of(
+                new ReceiptPaymentItemDto("LOYALTY_POINTS", new BigDecimal("2069"), "ポイント支払", null),
+                new ReceiptPaymentItemDto("CREDIT_CARD", new BigDecimal("5020"), "クレジット", "card-1"),
+                new ReceiptPaymentItemDto("CREDIT_CARD", new BigDecimal("5020"), "カード明細", "card-1"));
+        var preview = batch.recalculate(bookId, userId, new ReceiptConversionRequestDto(
+                new BigDecimal("5020"), "JPY", date, new BigDecimal("7089"),
+                payments, null, null));
+        var candidate = new ReceiptCandidateRequestDto(
+                "papasu", "どらっぐ ぱぱす 船堀店", "どらっぐ ぱぱす", "船堀店", "Food",
+                new BigDecimal("7089"), payments, null, null, new BigDecimal("5020"),
+                "JPY", date, "14:23", "買い物", preview.conversionQuoteId(), "image-papasu", 1,
+                ReceiptAmountPolicy.VERSION, "SETTLED_PAYMENT_EXCLUDING_LOYALTY_POINTS", "READY");
+        var created = batch.register(bookId, userId, key(),
+                new ReceiptBatchRequestDto(List.of(candidate))).getFirst();
+        assertThat(created.amount()).isEqualByComparingTo("5020");
+        assertThat(created.originalAmount()).isEqualByComparingTo("5020");
+        tx.executeWithoutResult(status -> {
+            em.clear();
+            var persisted = transactions.findById(created.id()).orElseThrow();
+            assertThat(persisted.getPurchaseTotal()).isEqualByComparingTo("7089");
+            assertThat(persisted.getBookAmount()).isEqualByComparingTo("5020");
+            assertThat(persisted.getReceiptPaymentBreakdownJson())
+                    .contains("LOYALTY_POINTS", "2069", "CREDIT_CARD", "5020");
+            assertThat(persisted.getReceiptBranchName()).isEqualTo("船堀店");
+            assertThat(persisted.getMerchantKey()).isEqualTo("どらっぐ ぱぱす");
+            assertThat(persisted.getReceiptSourceImageId()).isEqualTo("image-papasu");
+            assertThat(persisted.getReceiptAnalysisRevision()).isEqualTo(1);
+            assertThat(persisted.getReceiptTransactionTime()).isEqualTo("14:23");
+        });
+    }
     @Test void failedSecondReceiptRollsBackFirstTransactionAndNewCategory() {
-        assertThatThrownBy(() -> batch.register(bookId,userId,new ReceiptBatchRequestDto(List.of(item("1","USD","12.34"),item("2","EUR","10")))))
+        assertThatThrownBy(() -> batch.register(bookId,userId,key(),new ReceiptBatchRequestDto(List.of(item("1","USD","12.34"),item("2","EUR","10")))))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("RATE_UNAVAILABLE");
         assertThat(transactions.count()).isZero();
         tx.executeWithoutResult(status -> assertThat(em.createQuery("select count(c) from AccountBookCategory c",Long.class).getSingleResult()).isZero());
@@ -120,12 +167,12 @@ class ReceiptPersistenceIntegrationTest {
         assertThat(rates.count()).isEqualTo(1);
     }
     @Test void duplicateIdentifiersRollbackBatch() {
-        assertThatThrownBy(() -> batch.register(bookId,userId,new ReceiptBatchRequestDto(List.of(item("same","JPY","10"),item("same","JPY","20")))))
+        assertThatThrownBy(() -> batch.register(bookId,userId,key(),new ReceiptBatchRequestDto(List.of(item("same","JPY","10"),item("same","JPY","20")))))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(transactions.count()).isZero();
     }
     @Test void unauthorizedBatchDoesNotPersist() {
-        assertThatThrownBy(() -> batch.register(bookId,-1L,new ReceiptBatchRequestDto(List.of(item("1","JPY","10")))))
+        assertThatThrownBy(() -> batch.register(bookId,-1L,key(),new ReceiptBatchRequestDto(List.of(item("1","JPY","10")))))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(transactions.count()).isZero();
     }
@@ -173,20 +220,122 @@ class ReceiptPersistenceIntegrationTest {
         });
     }
     @Test void metadataEditPreservesProvenanceAndRejectsStaleFinancialChanges() {
-        var created=batch.register(bookId,userId,new ReceiptBatchRequestDto(List.of(item("1","USD","10")))).getFirst();
+        var created=batch.register(bookId,userId,key(),new ReceiptBatchRequestDto(List.of(item("1","USD","10")))).getFirst();
         var edited=manual.updateTransaction(bookId,created.id(),new AccountBookTransactionUpdateRequestDto(
                 AccountBookTransactionType.EXPENSE,"Edited",null,"Food",created.amount(),date,"new memo"),userId);
         assertThat(edited.originalAmount()).isEqualByComparingTo("10");
         assertThatThrownBy(() -> manual.updateTransaction(bookId,created.id(),new AccountBookTransactionUpdateRequestDto(
                 AccountBookTransactionType.EXPENSE,"Edited",null,"Food",BigDecimal.ONE,date,null),userId)).isInstanceOf(IllegalArgumentException.class);
     }
+    @Test void storeChartAggregatesBranchesByMerchantAndTracksStoreEdits() {
+        manual.createTransaction(bookId, new AccountBookTransactionCreateRequestDto(
+                AccountBookTransactionType.EXPENSE, "どらっぐ ぱぱす 船堀店", "どらっぐ ぱぱす",
+                "Food", new BigDecimal("10"), date, null), userId);
+        var second = manual.createTransaction(bookId, new AccountBookTransactionCreateRequestDto(
+                AccountBookTransactionType.EXPENSE, "どらっぐ ぱぱす 西葛西店", "どらっぐ ぱぱす",
+                "Food", new BigDecimal("20"), date, null), userId);
+
+        var combined = transactions.aggregateExpenseAmountsByStore(
+                bookId, date.withDayOfMonth(1), date.plusMonths(1).withDayOfMonth(1));
+        assertThat(combined).singleElement().satisfies(row -> {
+            assertThat(row.name()).isEqualTo("どらっぐ ぱぱす");
+            assertThat(row.amount()).isEqualByComparingTo("30");
+            assertThat(row.transactionCount()).isEqualTo(2L);
+        });
+
+        manual.updateTransaction(bookId, second.id(), new AccountBookTransactionUpdateRequestDto(
+                AccountBookTransactionType.EXPENSE, second.title(), "別ブランド", "Food",
+                second.amount(), date, null), userId);
+        var afterEdit = transactions.aggregateExpenseAmountsByStore(
+                bookId, date.withDayOfMonth(1), date.plusMonths(1).withDayOfMonth(1));
+        assertThat(afterEdit).extracting(row -> row.name())
+                .containsExactlyInAnyOrder("どらっぐ ぱぱす", "別ブランド");
+    }
     @Test void adminPrecisionChangeCannotAlterRecordedReceiptAmountDuringMetadataEdit() {
         tx.executeWithoutResult(status -> em.find(AccountBook.class,bookId).getCurrency().update("Yen","Y",3));
-        var created=batch.register(bookId,userId,new ReceiptBatchRequestDto(List.of(item("1","JPY","10.125")))).getFirst();
+        var created=batch.register(bookId,userId,key(),new ReceiptBatchRequestDto(List.of(item("1","JPY","10.125")))).getFirst();
         tx.executeWithoutResult(status -> em.find(AccountBook.class,bookId).getCurrency().update("Yen","Y",0));
         var edited=manual.updateTransaction(bookId,created.id(),new AccountBookTransactionUpdateRequestDto(
                 AccountBookTransactionType.EXPENSE,"Metadata",null,"Food",created.amount(),date,"memo"),userId);
         assertThat(edited.amount()).isEqualByComparingTo("10.125");
         assertThat(edited.originalAmount()).isEqualByComparingTo("10.125");
+    }
+
+    @Test void committedResponseLossRetryReturnsOriginalBatchWithoutDuplicateTransactions() {
+        var request = new ReceiptBatchRequestDto(List.of(item("1", "USD", "12.34")));
+        String idempotencyKey = key();
+        var first = batch.register(bookId, userId, idempotencyKey, request);
+        var replay = batch.register(bookId, userId, idempotencyKey, request);
+        assertThat(replay).extracting(AccountBookTransactionResponseDto::id)
+                .containsExactly(first.getFirst().id());
+        assertThat(transactions.count()).isEqualTo(1);
+        assertThat(registrations.count()).isEqualTo(1);
+    }
+
+    @Test void concurrentIdenticalRetriesCommitExactlyOneBatch() throws Exception {
+        var request = new ReceiptBatchRequestDto(List.of(item("1", "USD", "12.34")));
+        String idempotencyKey = key();
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var start = new CountDownLatch(1);
+            Callable<List<AccountBookTransactionResponseDto>> register = () -> {
+                start.await();
+                return batch.register(bookId, userId, idempotencyKey, request);
+            };
+            var first = pool.submit(register);
+            var second = pool.submit(register);
+            start.countDown();
+
+            var firstResult = first.get(20, TimeUnit.SECONDS);
+            var secondResult = second.get(20, TimeUnit.SECONDS);
+            assertThat(secondResult).extracting(AccountBookTransactionResponseDto::id)
+                    .containsExactly(firstResult.getFirst().id());
+        }
+        assertThat(transactions.count()).isEqualTo(1);
+        assertThat(registrations.count()).isEqualTo(1);
+    }
+
+    @Test void reusedIdempotencyKeyWithDifferentPayloadConflicts() {
+        String idempotencyKey = key();
+        batch.register(bookId, userId, idempotencyKey,
+                new ReceiptBatchRequestDto(List.of(item("1", "JPY", "10"))));
+        assertThatThrownBy(() -> batch.register(bookId, userId, idempotencyKey,
+                new ReceiptBatchRequestDto(List.of(item("1", "JPY", "11")))))
+                .isInstanceOf(jp.co.translacat.domain.accountbook.transaction.exception.ReceiptRegistrationException.class)
+                .hasMessageContaining("different receipt batch");
+        assertThat(transactions.count()).isEqualTo(1);
+    }
+
+    @Test void stalePreviewQuoteRollsBackWholeBatch() {
+        var valid = item("1", "USD", "12.34");
+        var stale = new ReceiptCandidateRequestDto(
+                valid.receiptId(), valid.title(), valid.storeName(), valid.categoryName(),
+                valid.originalAmount(), valid.originalCurrencyCode(), valid.transactionDate(),
+                valid.memo(), "0".repeat(64));
+        assertThatThrownBy(() -> batch.register(bookId, userId, key(),
+                new ReceiptBatchRequestDto(List.of(stale))))
+                .isInstanceOf(jp.co.translacat.domain.accountbook.transaction.exception.ReceiptRegistrationException.class)
+                .hasMessageContaining("reviewed again");
+        assertThat(transactions.count()).isZero();
+        assertThat(registrations.count()).isZero();
+    }
+
+    @Test void previewQuoteCannotBeRegisteredIntoAnotherAccountBook() {
+        var reviewedForFirstBook = item("1", "USD", "12.34");
+        Long secondBookId = tx.execute(status -> {
+            var user = em.find(User.class, userId);
+            var currency = em.find(AccountBook.class, bookId).getCurrency();
+            var secondBook = AccountBook.create(user, currency, "Other receipts", "Test");
+            em.persist(secondBook);
+            em.persist(AccountBookMember.createOwner(secondBook, user));
+            em.flush();
+            return secondBook.getId();
+        });
+
+        assertThatThrownBy(() -> batch.register(secondBookId, userId, key(),
+                new ReceiptBatchRequestDto(List.of(reviewedForFirstBook))))
+                .isInstanceOf(jp.co.translacat.domain.accountbook.transaction.exception.ReceiptRegistrationException.class)
+                .hasMessageContaining("reviewed again");
+        assertThat(transactions.count()).isZero();
+        assertThat(registrations.count()).isZero();
     }
 }

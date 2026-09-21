@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -36,6 +37,7 @@ public class UserService {
     private final JWTService jwtService;
 
     private final AuthenticationManager authenticationManager;
+    private final PasswordEncoder passwordEncoder;
 
     public User getById(Long userId) {
         return userRepository.findById(userId)
@@ -62,7 +64,7 @@ public class UserService {
 
         User user = User.createLocalUser(
                 userCreateRequestDto.getEmail(),
-                userCreateRequestDto.getPassword(),
+                passwordEncoder.encode(userCreateRequestDto.getPassword()),
                 userCreateRequestDto.getUsername(),
                 Role.USER,
                 generateUniquePublicId());

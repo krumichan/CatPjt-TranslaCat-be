@@ -8,6 +8,7 @@ import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransact
 import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionType;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -31,7 +32,26 @@ public record AccountBookTransactionResponseDto(
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal exchangeRate,
         LocalDate requestedRateDate,
         LocalDate effectiveRateDate,
-        String exchangeRateProvider) {
+        String exchangeRateProvider,
+        String targetCurrencyCode,
+        Instant rateFetchedAt,
+        Instant convertedAt,
+        Integer roundingPrecision,
+        String roundingMode,
+        String conversionPolicyVersion,
+        String conversionQuoteId,
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal purchaseTotal,
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal bookAmount,
+        String receiptPaymentBreakdownJson,
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal cashTendered,
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal changeAmount,
+        String amountPolicyVersion,
+        String amountReason,
+        String amountReviewStatus,
+        String receiptBranchName,
+        String receiptSourceImageId,
+        Integer receiptAnalysisRevision,
+        String receiptTransactionTime) {
     public static AccountBookTransactionResponseDto from(AccountBookTransaction transaction) {
         return new AccountBookTransactionResponseDto(
                 transaction.getId(),
@@ -53,6 +73,25 @@ public record AccountBookTransactionResponseDto(
                 transaction.getExchangeRate(),
                 transaction.getRequestedRateDate(),
                 transaction.getEffectiveRateDate(),
-                transaction.getExchangeRateProvider());
+                transaction.getExchangeRateProvider(),
+                transaction.getTargetCurrencyCode(),
+                transaction.getRateFetchedAt(),
+                transaction.getConvertedAt(),
+                transaction.getRoundingPrecision(),
+                transaction.getRoundingMode(),
+                transaction.getConversionPolicyVersion(),
+                transaction.getConversionQuoteId(),
+                transaction.getPurchaseTotal(),
+                transaction.getBookAmount(),
+                transaction.getReceiptPaymentBreakdownJson(),
+                transaction.getCashTendered(),
+                transaction.getChangeAmount(),
+                transaction.getAmountPolicyVersion(),
+                transaction.getAmountReason(),
+                transaction.getAmountReviewStatus(),
+                transaction.getReceiptBranchName(),
+                transaction.getReceiptSourceImageId(),
+                transaction.getReceiptAnalysisRevision(),
+                transaction.getReceiptTransactionTime());
     }
 }

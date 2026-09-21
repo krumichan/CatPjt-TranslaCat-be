@@ -3,6 +3,7 @@ package jp.co.translacat.global.exception;
 import jakarta.persistence.EntityNotFoundException;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningAiException;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningErrorDto;
+import jp.co.translacat.domain.accountbook.transaction.exception.ReceiptRegistrationException;
 import jp.co.translacat.global.dto.ErrorDto;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.utils.ExceptionUtil;
@@ -21,6 +22,14 @@ import java.time.LocalDateTime;
 @Slf4j
 @RestControllerAdvice
 public class ApiExceptionAdvice {
+
+    @ExceptionHandler(ReceiptRegistrationException.class)
+    protected ResponseEntity<ResponseDto<ErrorDto>> handleReceiptRegistrationException(
+            ReceiptRegistrationException e) {
+        String responseMessage = this.trace(e);
+        log.warn("Receipt registration rejected: code={}, message={}", e.getErrorCode(), e.getMessage());
+        return this.entity(e.getStatus(), e.getErrorCode(), responseMessage, e);
+    }
 
     @ExceptionHandler(ListeningAiException.class)
     protected ResponseEntity<ResponseDto<ListeningErrorDto>>

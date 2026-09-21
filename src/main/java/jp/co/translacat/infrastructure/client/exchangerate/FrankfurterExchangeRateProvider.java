@@ -18,8 +18,6 @@ import org.springframework.web.client.RestClientResponseException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.Comparator;
 
 @Component
 @ConditionalOnProperty(
@@ -56,39 +54,24 @@ public class FrankfurterExchangeRateProvider implements ExchangeRateProvider {
 
     private Quote fetchPublishedRate(String source, String target, LocalDate requestedDate) {
         try {
-            // Bounded historical series: explicitly choose the previous published day.
-            RateRow[] rows =
+            // The scalar v2 endpoint avoids downloading a whole historical series for one quote.
+            RateRow row =
                     client.get()
                             .uri(
                                     builder ->
-                                            builder.path("/v2/rates")
-                                                    .queryParam("base", source)
-                                                    .queryParam("quotes", target)
-                                                    .queryParam(
-                                                            "from",
-                                                            requestedDate.minusDays(lookbackDays))
-                                                    .queryParam("to", requestedDate)
-                                                    .build())
+                                            builder.path("/v2/rate/{source}/{target}")
+                                                    .queryParam("date", requestedDate)
+                                                    .build(source, target))
                             .retrieve()
-                            .body(RateRow[].class);
-            if (rows == null) throw new RateUnavailableException();
-            RateRow row =
-                    Arrays.stream(rows)
-                            .filter(
-                                    r ->
-                                            r != null
-                                                    && r.date() != null
-                                                    && !r.date().isAfter(requestedDate)
-                                                    && !r.date()
-                                                            .isBefore(
-                                                                    requestedDate.minusDays(
-                                                                            lookbackDays))
-                                                    && source.equalsIgnoreCase(r.base())
-                                                    && target.equalsIgnoreCase(r.quote())
-                                                    && r.rate() != null
-                                                    && r.rate().signum() > 0)
-                            .max(Comparator.comparing(RateRow::date))
-                            .orElseThrow(RateUnavailableException::new);
+                            .body(RateRow.class);
+            if (row == null
+                    || row.date() == null
+                    || row.date().isAfter(requestedDate)
+                    || row.date().isBefore(requestedDate.minusDays(lookbackDays))
+                    || !source.equalsIgnoreCase(row.base())
+                    || !target.equalsIgnoreCase(row.quote())
+                    || row.rate() == null
+                    || row.rate().signum() <= 0) throw new RateUnavailableException();
             return new Quote(row.rate(), row.date());
         } catch (RestClientResponseException e) {
             if (e.getStatusCode().is5xxServerError() || e.getStatusCode().value() == 429) {

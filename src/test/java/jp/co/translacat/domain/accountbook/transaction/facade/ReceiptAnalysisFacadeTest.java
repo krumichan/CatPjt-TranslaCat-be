@@ -38,7 +38,29 @@ class ReceiptAnalysisFacadeTest {
         when(keywords.findByCurrencyCodeIsNullAndEnabledTrueAndDeletedFalseOrderByDisplayOrderAscIdAsc()).thenReturn(List.of());
         when(categories.findByAccountBookIdAndActiveTrueOrderByDisplayOrderAscNameAsc(1L)).thenReturn(List.of(AccountBookCategory.create(book,"Food",1)));
         when(rates.getRate("USD","JPY",date)).thenReturn(ExchangeRate.create("USD","JPY",new BigDecimal("150"),date,date,"TEST"));
+        when(rates.getRate("JPY","JPY",date)).thenReturn(ExchangeRate.create("JPY","JPY",BigDecimal.ONE,date,date,"IDENTITY"));
         when(rates.getRate("EUR","JPY",date)).thenThrow(new RateUnavailableException());
+    }
+    @Test void papasuPaymentFactsAreRecalculatedTo5020ByBackend() throws Exception {
+        var aiResponse=mapper.readValue("""
+            {"receipts":[{"receipt_id":"papasu","title":"どらっぐ ぱぱす 船堀店",
+            "store_name":"どらっぐ ぱぱす","branch_name":"船堀店","purchase_total":"7089",
+            "payment_breakdown":[
+              {"payment_type":"LOYALTY_POINTS","amount":"2069","evidence":"ポイント支払","duplicate_group":null},
+              {"payment_type":"CREDIT_CARD","amount":"5020","evidence":"クレジット","duplicate_group":"card-1"},
+              {"payment_type":"CREDIT_CARD","amount":"5020","evidence":"カード明細","duplicate_group":"card-1"}],
+            "change":"0","book_amount":"7089","original_amount":"7089","detected_currency_code":"JPY",
+            "transaction_date":"2026-09-12","category_name":"Food","confidence":0.9,
+            "status":"READY"}],"receipt_count":1,"warnings":[],"ocr_engine":"vision","used_ai":true}
+            """,AiReceiptAnalysisResponse.class);
+        when(ai.callReceiptAnalysis(any(),any())).thenReturn(aiResponse);
+        var result=facade.analyze(1L,2L,null,"VISION_ONLY").receipts().getFirst();
+        assertThat(result.purchaseTotal()).isEqualByComparingTo("7089");
+        assertThat(result.bookAmount()).isEqualByComparingTo("5020");
+        assertThat(result.originalAmount()).isEqualByComparingTo("5020");
+        assertThat(result.convertedAmount()).isEqualByComparingTo("5020");
+        assertThat(result.warnings()).contains("AI_BOOK_AMOUNT_DISAGREED","DUPLICATE_PAYMENT_DETAIL_COLLAPSED");
+        assertThat(result.status()).isEqualTo("READY");
     }
     AiReceiptAnalysisResponse.Item item(String id,String currency,String amount,String date,String category) {
         return new AiReceiptAnalysisResponse.Item(id,"Purchase","Store",amount,currency,date,category,null,.9,"en","READY",List.of());

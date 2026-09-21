@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -22,6 +23,11 @@ class ReceiptConversionServiceTest {
         assertThat(result.convertedAmount()).isEqualByComparingTo(expected);
         assertThat(result.convertedAmount().scale()).isEqualTo(decimals);
         assertThat(result.originalAmount()).isEqualByComparingTo("12.34");
+        assertThat(result.roundingPrecision()).isEqualTo(decimals);
+        assertThat(result.roundingMode()).isEqualTo("HALF_UP");
+        assertThat(result.conversionPolicyVersion()).isEqualTo("receipt-fx-v1");
+        assertThat(result.conversionQuoteId()).matches("[a-f0-9]{64}");
+        assertThat(result.convertedAt()).isNotNull();
     }
     @Test void recordsHistoricalFallbackSeparately() {
         when(rates.getRate("USD", "JPY", date)).thenReturn(ExchangeRate.create("USD","JPY",new BigDecimal("150"),date,date.minusDays(1),"FAKE"));
@@ -59,5 +65,23 @@ class ReceiptConversionServiceTest {
     @Test void roundedZeroCannotBeRegistered() {
         when(rates.getRate("USD","JPY",date)).thenReturn(ExchangeRate.create("USD","JPY",BigDecimal.ONE,date,date,"FAKE"));
         assertThat(service.convert(new BigDecimal("0.1"),"USD",date,target("JPY",0)).registrable()).isFalse();
+    }
+    @Test void quoteCannotBeReusedForAnotherAccountBook() {
+        when(rates.getRate("USD", "JPY", date)).thenReturn(ExchangeRate.create(
+                "USD", "JPY", new BigDecimal("150"), date, date, "FAKE",
+                Instant.parse("2026-09-12T01:02:03Z")));
+        var first = service.convert(BigDecimal.TEN, "USD", date, target("JPY", 0), 10L);
+        var second = service.convert(BigDecimal.TEN, "USD", date, target("JPY", 0), 11L);
+        assertThat(first.conversionQuoteId()).isNotEqualTo(second.conversionQuoteId());
+    }
+    @Test void refreshedProviderObservationInvalidatesEarlierQuote() {
+        when(rates.getRate("USD", "JPY", date)).thenReturn(
+                ExchangeRate.create("USD", "JPY", new BigDecimal("150"), date, date, "FAKE",
+                        Instant.parse("2026-09-12T01:02:03Z")),
+                ExchangeRate.create("USD", "JPY", new BigDecimal("150"), date, date, "FAKE",
+                        Instant.parse("2026-09-12T01:03:03Z")));
+        var first = service.convert(BigDecimal.TEN, "USD", date, target("JPY", 0), 10L);
+        var refreshed = service.convert(BigDecimal.TEN, "USD", date, target("JPY", 0), 10L);
+        assertThat(first.conversionQuoteId()).isNotEqualTo(refreshed.conversionQuoteId());
     }
 }

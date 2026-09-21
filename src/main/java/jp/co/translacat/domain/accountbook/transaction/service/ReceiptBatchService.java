@@ -1,77 +1,76 @@
 package jp.co.translacat.domain.accountbook.transaction.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookAccessService;
-import jp.co.translacat.domain.accountbook.category.service.AccountBookCategoryService;
 import jp.co.translacat.domain.accountbook.transaction.dto.*;
-import jp.co.translacat.domain.accountbook.transaction.entity.AccountBookTransaction;
-import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionType;
-import jp.co.translacat.domain.accountbook.transaction.repository.AccountBookTransactionRepository;
+import jp.co.translacat.domain.accountbook.transaction.exception.ReceiptRegistrationException;
+import jp.co.translacat.domain.accountbook.transaction.repository.ReceiptBatchRegistrationRepository;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.io.IOException;
+import java.util.List;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class ReceiptBatchService {
     private final AccountBookAccessService access;
-    private final AccountBookCategoryService categories;
-    private final AccountBookTransactionRepository transactions;
     private final ReceiptConversionService conversions;
+    private final ReceiptBatchRegistrationExecutor executor;
+    private final ReceiptBatchRegistrationRepository registrations;
+    private final ReceiptBatchFingerprint fingerprint;
+    private final ObjectMapper objectMapper;
+    private static final Pattern IDEMPOTENCY_KEY = Pattern.compile("[A-Za-z0-9._:-]{8,100}");
 
     public ReceiptConversionResponseDto recalculate(
             Long bookId, Long userId, ReceiptConversionRequestDto request) {
         var book = access.getAccessibleAccountBook(bookId, userId);
+        var amountDecision = ReceiptAmountPolicy.decide(
+                request.purchaseTotal() != null ? request.purchaseTotal() : request.originalAmount(),
+                request.paymentBreakdown(), request.cashTendered(), request.change());
         return conversions.convert(
-                request.originalAmount(),
+                amountDecision.ready() ? amountDecision.bookAmount() : null,
                 request.originalCurrencyCode(),
                 request.transactionDate(),
-                book.getCurrency());
+                book.getCurrency(),
+                bookId,
+                amountDecision.fingerprint());
     }
 
-    @Transactional
     public List<AccountBookTransactionResponseDto> register(
-            Long bookId, Long userId, ReceiptBatchRequestDto request) {
-        var book = access.getAccessibleAccountBook(bookId, userId);
-        if (request.receipts() == null
-                || request.receipts().isEmpty()
-                || request.receipts().size() > 30) {
-            throw new IllegalArgumentException("A receipt batch must contain 1 to 30 receipts.");
+            Long bookId,
+            Long userId,
+            String idempotencyKey,
+            ReceiptBatchRequestDto request) {
+        if (idempotencyKey == null || !IDEMPOTENCY_KEY.matcher(idempotencyKey).matches()) {
+            throw ReceiptRegistrationException.invalidKey();
         }
-        Set<String> ids = new HashSet<>();
-        List<AccountBookTransaction> created = new ArrayList<>();
-        for (var item : request.receipts()) {
-            if (item == null || item.receiptId() == null || !ids.add(item.receiptId())) {
-                throw new IllegalArgumentException("Duplicate or missing receipt identifier.");
+        String payloadFingerprint = fingerprint.create(request);
+        try {
+            return executor.execute(bookId, userId, idempotencyKey, payloadFingerprint, request);
+        } catch (DataIntegrityViolationException duplicate) {
+            var existing = registrations
+                    .findByAccountBookIdAndUserIdAndIdempotencyKey(bookId, userId, idempotencyKey)
+                    .orElseThrow(() -> duplicate);
+            if (!payloadFingerprint.equals(existing.getPayloadFingerprint())) {
+                throw ReceiptRegistrationException.idempotencyConflict();
             }
-            var conversion =
-                    conversions.convert(
-                            item.originalAmount(),
-                            item.originalCurrencyCode(),
-                            item.transactionDate(),
-                            book.getCurrency());
-            if (!conversion.registrable()) {
-                throw new IllegalArgumentException(
-                        "Receipt candidate requires review: " + conversion.conversionStatus());
+            if (existing.getResponseJson() == null) {
+                throw new IllegalStateException("The idempotent receipt result is incomplete.");
             }
-            var category = categories.findOrCreateCategory(bookId, item.categoryName());
-            var transaction =
-                    AccountBookTransaction.create(
-                            book,
-                            AccountBookTransactionType.EXPENSE,
-                            conversion.convertedAmount(),
-                            item.title(),
-                            item.storeName(),
-                            category.getName(),
-                            item.transactionDate(),
-                            item.memo());
-            transaction.recordReceiptConversion(conversion);
-            created.add(transactions.save(transaction));
+            try {
+                return objectMapper.readValue(
+                        existing.getResponseJson(),
+                        new TypeReference<List<AccountBookTransactionResponseDto>>() {});
+            } catch (IOException e) {
+                throw new IllegalStateException("Failed to restore the receipt batch response.", e);
+            }
         }
-        transactions.flush();
-        return created.stream().map(AccountBookTransactionResponseDto::from).toList();
     }
 }

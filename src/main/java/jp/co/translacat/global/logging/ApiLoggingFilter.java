@@ -24,22 +24,25 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
                                     @NotNull FilterChain chain)
     throws IOException, ServletException {
 
-        // Voice V2에는 transcript, translation, reading token, short-lived WS ticket이 포함될 수 있다.
-        // 일반 API Body logger에는 내용을 남기지 않고 metadata만 기록한다.
-        if (request.getRequestURI().startsWith("/api/v1/voice/")) {
+        // Auth contains passwords and bearer/refresh tokens. Voice contains transcripts,
+        // translations and short-lived tickets. Log metadata only for both surfaces.
+        String redactionLabel = sensitiveBodyLabel(request.getRequestURI());
+        if (redactionLabel != null) {
             String username = SecurityUtil.getSafeUsername();
             log.info(
-                    "[REQUEST] [{}] {} {} | Body: [VOICE_REDACTED]",
+                    "[REQUEST] [{}] {} {} | Body: [{}]",
                     username,
                     request.getMethod(),
-                    request.getRequestURI()
+                    request.getRequestURI(),
+                    redactionLabel
             );
             try {
                 chain.doFilter(request, response);
             } finally {
                 log.info(
-                        "[RESPONSE] Status: {} | Body: [VOICE_REDACTED]",
-                        response.getStatus()
+                        "[RESPONSE] Status: {} | Body: [{}]",
+                        response.getStatus(),
+                        redactionLabel
                 );
             }
             return;
@@ -101,5 +104,15 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
         // 원본 길이 기록.
         log.info("[RESPONSE] Status: {}, Length: {} bytes, Body: {}",
                 response.getStatus(), content.length, trimmedBody);
+    }
+
+    private String sensitiveBodyLabel(String uri) {
+        if (uri.startsWith("/api/v1/auth")) {
+            return "AUTH_REDACTED";
+        }
+        if (uri.startsWith("/api/v1/voice/")) {
+            return "VOICE_REDACTED";
+        }
+        return null;
     }
 }

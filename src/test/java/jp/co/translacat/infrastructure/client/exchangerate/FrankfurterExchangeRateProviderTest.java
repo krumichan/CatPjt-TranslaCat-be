@@ -22,7 +22,7 @@ class FrankfurterExchangeRateProviderTest {
     final LocalDate saturday = LocalDate.of(2026,9,12);
     @BeforeEach void start() throws Exception {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
-        server.createContext("/v2/rates", exchange -> {
+        server.createContext("/v2/rate/", exchange -> {
             query.set(exchange.getRequestURI().getQuery());
             byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type","application/json");
@@ -35,20 +35,18 @@ class FrankfurterExchangeRateProviderTest {
         provider = new FrankfurterExchangeRateProvider("http://127.0.0.1:"+server.getAddress().getPort(),1000,1000,31,retryRegistry);
     }
     @AfterEach void stop() { server.stop(0); }
-    @Test void selectsNearestPublishedDateAndSendsHistoricalRange() {
+    @Test void acceptsNearestPublishedDateAndSendsHistoricalDate() {
         response = """
-            [{"date":"2026-09-10","base":"USD","quote":"JPY","rate":149.15},
-             {"date":"2026-09-11","base":"USD","quote":"JPY","rate":150.123456789012345678}]
+            {"date":"2026-09-11","base":"USD","quote":"JPY","rate":150.123456789012345678}
             """;
         var result = provider.fetch("USD","JPY",saturday);
         assertThat(result.rate()).isEqualByComparingTo("150.123456789012345678");
         assertThat(result.effectiveDate()).isEqualTo(saturday.minusDays(1));
-        assertThat(query.get()).contains("base=USD","quotes=JPY","from=2026-08-12","to=2026-09-12");
+        assertThat(query.get()).contains("date=2026-09-12");
     }
     @Test void rejectsReversedAndFutureQuotes() {
         response = """
-            [{"date":"2026-09-11","base":"JPY","quote":"USD","rate":0.006},
-             {"date":"2026-09-13","base":"USD","quote":"JPY","rate":150}]
+            {"date":"2026-09-11","base":"JPY","quote":"USD","rate":0.006}
             """;
         assertThatThrownBy(() -> provider.fetch("USD","JPY",saturday)).isInstanceOf(RateUnavailableException.class);
         assertThat(calls.get()).isEqualTo(1);
@@ -65,12 +63,12 @@ class FrankfurterExchangeRateProviderTest {
     }
     @Test void recoversFromTransient503WithoutChangingHistoricalDate() {
         failuresBeforeSuccess = 1;
-        response = "[{\"date\":\"2026-09-11\",\"base\":\"USD\",\"quote\":\"JPY\",\"rate\":150.25}]";
+        response = "{\"date\":\"2026-09-11\",\"base\":\"USD\",\"quote\":\"JPY\",\"rate\":150.25}";
         var result = provider.fetch("USD","JPY",saturday);
         assertThat(calls.get()).isEqualTo(2);
         assertThat(result.rate()).isEqualByComparingTo("150.25");
         assertThat(result.effectiveDate()).isEqualTo(saturday.minusDays(1));
-        assertThat(query.get()).contains("to=2026-09-12");
+        assertThat(query.get()).contains("date=2026-09-12");
     }
     @Test void doesNotRetryUnsupportedCurrency404() {
         status = 404; response = "{\"message\":\"not found\"}";

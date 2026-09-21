@@ -35,9 +35,24 @@ public class ExchangeRateCache {
                                         source, target, date, provider));
     }
 
-    public ExchangeRate saveOrGet(ExchangeRate rate) {
+    public ExchangeRate saveOrRefresh(ExchangeRate rate) {
         try {
-            return transaction.execute(status -> repository.saveAndFlush(rate));
+            return transaction.execute(status -> {
+                var existing = repository.findForUpdate(
+                        rate.getSourceCurrencyCode(),
+                        rate.getTargetCurrencyCode(),
+                        rate.getRequestedRateDate(),
+                        rate.getProvider());
+                if (existing.isPresent()) {
+                    ExchangeRate stored = existing.get();
+                    if (stored.getRateFetchedAt() == null
+                            || !stored.getRateFetchedAt().isAfter(rate.getRateFetchedAt())) {
+                        stored.refresh(rate.getRate(), rate.getRateDate(), rate.getRateFetchedAt());
+                    }
+                    return repository.saveAndFlush(stored);
+                }
+                return repository.saveAndFlush(rate);
+            });
         } catch (DataIntegrityViolationException duplicate) {
             return find(
                             rate.getSourceCurrencyCode(),
@@ -46,5 +61,9 @@ public class ExchangeRateCache {
                             rate.getProvider())
                     .orElseThrow(() -> duplicate);
         }
+    }
+
+    public ExchangeRate saveOrGet(ExchangeRate rate) {
+        return saveOrRefresh(rate);
     }
 }

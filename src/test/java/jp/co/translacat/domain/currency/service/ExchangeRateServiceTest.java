@@ -3,6 +3,10 @@ import jp.co.translacat.domain.currency.entity.ExchangeRate;
 import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -17,7 +21,7 @@ class ExchangeRateServiceTest {
     ExchangeRateServiceTest() {
         when(provider.name()).thenReturn("FAKE");
         when(cache.find(anyString(), anyString(), any(), anyString())).thenReturn(Optional.empty());
-        when(cache.saveOrGet(any())).thenAnswer(i -> i.getArgument(0));
+        when(cache.saveOrRefresh(any())).thenAnswer(i -> i.getArgument(0));
     }
     @Test void sameCurrencyUsesOneWithoutProviderOrCache() {
         var result = service.getRate("jpy", "JPY", date);
@@ -48,7 +52,7 @@ class ExchangeRateServiceTest {
     @Test void providerFailureNeverCachesIdentityOrTodayRate() {
         when(provider.fetch("USD", "JPY", date)).thenThrow(new RateUnavailableException());
         assertThatThrownBy(() -> service.getRate("USD", "JPY", date)).isInstanceOf(RateUnavailableException.class);
-        verify(cache, never()).saveOrGet(any());
+        verify(cache, never()).saveOrRefresh(any());
     }
     @Test void futureEffectiveDateIsRejected() {
         when(provider.fetch("USD", "JPY", date)).thenReturn(new ExchangeRateProvider.Quote(BigDecimal.ONE, date.plusDays(1)));
@@ -66,12 +70,29 @@ class ExchangeRateServiceTest {
     @Test void concurrentMissesCoalesceToSingleProviderCall() throws Exception {
         AtomicReference<ExchangeRate> stored = new AtomicReference<>();
         when(cache.find("USD", "JPY", date, "FAKE")).thenAnswer(i -> Optional.ofNullable(stored.get()));
-        when(cache.saveOrGet(any())).thenAnswer(i -> { stored.set(i.getArgument(0)); return stored.get(); });
+        when(cache.saveOrRefresh(any())).thenAnswer(i -> { stored.set(i.getArgument(0)); return stored.get(); });
         when(provider.fetch("USD", "JPY", date)).thenReturn(new ExchangeRateProvider.Quote(new BigDecimal("150"), date));
         try (var pool = Executors.newFixedThreadPool(8)) {
             var work = java.util.stream.IntStream.range(0, 16).<Callable<ExchangeRate>>mapToObj(i -> () -> service.getRate("USD", "JPY", date)).toList();
             for (var future : pool.invokeAll(work)) assertThat(future.get().getRate()).isEqualByComparingTo("150");
         }
         verify(provider, times(1)).fetch("USD", "JPY", date);
+    }
+
+    @Test void staleCacheRefreshesProviderValueWhileFreshCacheDoesNot() {
+        Instant now = Instant.parse("2026-09-21T00:00:00Z");
+        var stale = ExchangeRate.create(
+                "USD", "JPY", new BigDecimal("149"), date, date.minusDays(1), "FAKE",
+                now.minus(Duration.ofHours(25)));
+        when(cache.find("USD", "JPY", date, "FAKE")).thenReturn(Optional.of(stale));
+        when(provider.fetch("USD", "JPY", date)).thenReturn(
+                new ExchangeRateProvider.Quote(new BigDecimal("150"), date));
+        when(cache.saveOrRefresh(any())).thenAnswer(i -> i.getArgument(0));
+        var refreshing = new ExchangeRateService(
+                cache, provider, Duration.ofHours(24), Clock.fixed(now, ZoneOffset.UTC));
+        var result = refreshing.getRate("USD", "JPY", date);
+        assertThat(result.getRate()).isEqualByComparingTo("150");
+        assertThat(result.getRateFetchedAt()).isEqualTo(now);
+        verify(provider).fetch("USD", "JPY", date);
     }
 }

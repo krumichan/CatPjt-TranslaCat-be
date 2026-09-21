@@ -228,7 +228,9 @@ public class ListeningItem extends BaseAuditable {
 
     public void startManualTtsRetry(int limit) {
         if (status != ListeningItemStatus.NOT_EVALUABLE
-                || manualTtsRetryCount >= limit) {
+                || manualTtsRetryCount >= limit
+                || "AUDIO_TOO_SHORT".equals(failureReason)
+                || "AUDIO_TOO_LONG".equals(failureReason)) {
             throw new IllegalStateException(
                     "수동 TTS 재시도 가능 횟수를 초과했습니다."
             );
@@ -245,6 +247,20 @@ public class ListeningItem extends BaseAuditable {
 
     public void markReplaced() {
         status = ListeningItemStatus.REPLACED;
+    }
+
+    public void bindPendingVoice(String voiceSnapshotJson) {
+        if (status != ListeningItemStatus.TTS_PENDING || this.voiceSnapshotJson != null) {
+            throw new IllegalStateException("LISTENING_VOICE_ALREADY_BOUND");
+        }
+        this.voiceSnapshotJson = voiceSnapshotJson;
+    }
+
+    public void reserveDurationCorrection(String metadataJson) {
+        if (status != ListeningItemStatus.TTS_PENDING || audioObjectKey != null) {
+            throw new IllegalStateException("LISTENING_DURATION_CORRECTION_EXPOSED");
+        }
+        this.generationMetadataJson = metadataJson;
     }
 
     public boolean isPlayable(LocalDateTime now) {

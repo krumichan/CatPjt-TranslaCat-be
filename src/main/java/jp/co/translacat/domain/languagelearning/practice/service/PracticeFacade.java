@@ -5,6 +5,7 @@ import jp.co.translacat.domain.languagelearning.practice.dto.request.PracticeAns
 import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeAnswerResultResponseDto;
 import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeSetResponseDto;
 import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeTodayModeStatusResponseDto;
+import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeModeAvailabilityResponseDto;
 
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,10 @@ public class PracticeFacade {
             PracticeDomain domain
     ) {
         return queryService.getTodayStatus(userId, domain);
+    }
+
+    public List<PracticeModeAvailabilityResponseDto> availability(Long userId) {
+        return generationService.availability(userId);
     }
 
     public PracticeAnswerResultResponseDto submit(

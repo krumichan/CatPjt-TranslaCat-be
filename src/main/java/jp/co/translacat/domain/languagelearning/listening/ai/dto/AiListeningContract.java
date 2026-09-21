@@ -60,6 +60,16 @@ public final class AiListeningContract {
     ) {
     }
 
+    public record DurationDemand(
+            double minSeconds, double maxSeconds, String policyVersion, String playbackSpeed
+    ) {
+    }
+
+    public record DurationCorrection(
+            String previousSourceText, double previousMeasuredSeconds, int qualityCorrectionCount
+    ) {
+    }
+
     public record GenerationRequest(
             String requestId,
             String idempotencyKey,
@@ -71,8 +81,22 @@ public final class AiListeningContract {
             int manualRetryAttempt,
             LanguageComplexityContext languageComplexity,
             DiversityContext diversityContext,
-            String contentDiversityPolicyVersion
+            String contentDiversityPolicyVersion,
+            DurationCorrection durationCorrection,
+            Voice referenceVoice
     ) {
+        public GenerationRequest(
+                String requestId, String idempotencyKey, UserContext userContext,
+                SetContext setContext, GenerationConstraints constraints,
+                String policyVersion, String modelConfigVersion, int manualRetryAttempt,
+                LanguageComplexityContext languageComplexity, DiversityContext diversityContext,
+                String contentDiversityPolicyVersion
+        ) {
+            this(requestId, idempotencyKey, userContext, setContext, constraints,
+                    policyVersion, modelConfigVersion, manualRetryAttempt, languageComplexity,
+                    diversityContext, contentDiversityPolicyVersion, null, null);
+        }
+
         public GenerationRequest(
                 String requestId, String idempotencyKey, UserContext userContext,
                 SetContext setContext, GenerationConstraints constraints,
@@ -107,8 +131,26 @@ public final class AiListeningContract {
             List<ChoiceOption> options,
             String correctOptionKey,
             String comprehensionFocus,
-            List<String> summaryKeyPoints
+            List<String> summaryKeyPoints,
+            DurationDemand durationDemand,
+            int qualityCorrectionCount
     ) {
+        public GeneratedItem(
+                int itemIndex, String sourceText, String normalizedSourceText,
+                List<String> referenceMeanings, List<String> keyMeaningUnits,
+                List<String> targetKeywords, double estimatedAudioSeconds,
+                String contentHash, String similarityKey, Safety safety,
+                Integer languageComplexityBand, DiversityMetadata diversityMetadata,
+                String question, List<ChoiceOption> options, String correctOptionKey,
+                String comprehensionFocus, List<String> summaryKeyPoints
+        ) {
+            this(itemIndex, sourceText, normalizedSourceText, referenceMeanings,
+                    keyMeaningUnits, targetKeywords, estimatedAudioSeconds, contentHash,
+                    similarityKey, safety, languageComplexityBand, diversityMetadata,
+                    question, options, correctOptionKey, comprehensionFocus, summaryKeyPoints,
+                    null, 0);
+        }
+
         public GeneratedItem(
                 int itemIndex, String sourceText, String normalizedSourceText,
                 List<String> referenceMeanings, List<String> keyMeaningUnits,
@@ -162,8 +204,19 @@ public final class AiListeningContract {
             String policyVersion,
             String modelConfigVersion,
             int automaticRetryLimit,
-            int manualRetryAttempt
+            int manualRetryAttempt,
+            DurationDemand durationDemand
     ) {
+        public TtsRequest(
+                String requestId, String idempotencyKey, Long itemId, String sourceText,
+                String contentHash, String generationVersion, String learningLanguage,
+                Voice voice, String playbackSpeed, String policyVersion, String modelConfigVersion,
+                int automaticRetryLimit, int manualRetryAttempt
+        ) {
+            this(requestId, idempotencyKey, itemId, sourceText, contentHash, generationVersion,
+                    learningLanguage, voice, playbackSpeed, policyVersion, modelConfigVersion,
+                    automaticRetryLimit, manualRetryAttempt, null);
+        }
     }
 
     public record Audio(
@@ -176,8 +229,17 @@ public final class AiListeningContract {
             String textHash,
             String checksum,
             String cacheKey,
-            String ttsVersion
+            String ttsVersion,
+            boolean durationValidated,
+            String durationPolicyVersion
     ) {
+        public Audio(
+                String audioReference, int durationMs, String format, int sampleRate, int channels,
+                Voice voice, String textHash, String checksum, String cacheKey, String ttsVersion
+        ) {
+            this(audioReference, durationMs, format, sampleRate, channels, voice,
+                    textHash, checksum, cacheKey, ttsVersion, false, null);
+        }
     }
 
     public record AiError(

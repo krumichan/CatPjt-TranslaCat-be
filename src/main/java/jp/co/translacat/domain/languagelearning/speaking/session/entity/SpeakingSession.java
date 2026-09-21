@@ -7,6 +7,7 @@ import jp.co.translacat.domain.languagelearning.speaking.common.enums.Correction
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import jp.co.translacat.domain.languagelearning.speaking.topic.entity.SpeakingTopic;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.jpa.BaseAuditable;
@@ -99,6 +100,13 @@ public class SpeakingSession extends BaseAuditable {
     private SpeakingEvaluationStatus evaluationStatus;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "result_kind", nullable = false, length = 40)
+    private SpeakingResultKind resultKind;
+
+    @Column(name = "result_policy_version", nullable = false, length = 100)
+    private String resultPolicyVersion;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "practice_mode", nullable = false, length = 40)
     private SpeakingPracticeMode practiceMode;
 
@@ -187,6 +195,8 @@ public class SpeakingSession extends BaseAuditable {
             String originLanguage,
             String learningLanguage,
             SpeakingPracticeMode practiceMode,
+            SpeakingResultKind resultKind,
+            String resultPolicyVersion,
             ConversationStartMode requestedStartMode,
             ConversationStartMode resolvedStartMode,
             CorrectionMode correctionMode,
@@ -211,6 +221,8 @@ public class SpeakingSession extends BaseAuditable {
         this.originLanguage = originLanguage;
         this.learningLanguage = learningLanguage;
         this.practiceMode = practiceMode == null ? SpeakingPracticeMode.FREE : practiceMode;
+        this.resultKind = resultKind;
+        this.resultPolicyVersion = resultPolicyVersion;
         this.status = SpeakingSessionStatus.IN_PROGRESS;
         this.evaluationStatus = SpeakingEvaluationStatus.NOT_REQUESTED;
         this.conversationStartMode = requestedStartMode;
@@ -282,6 +294,8 @@ public class SpeakingSession extends BaseAuditable {
                 originLanguage,
                 learningLanguage,
                 SpeakingPracticeMode.FREE,
+                SpeakingResultKind.SCORED_EVALUATION,
+                "speaking-evaluation-policy-v2",
                 requestedStartMode,
                 resolvedStartMode,
                 correctionMode,
@@ -319,6 +333,41 @@ public class SpeakingSession extends BaseAuditable {
             String policySnapshotJson,
             String profileSnapshotJson
     ) {
+        return create(user, topic, createIdempotencyKey, learningDate, topicTitle,
+                topicCategory, topicVersion, customTopic, goal, persona, selectedKeywordsJson,
+                originLanguage, learningLanguage, practiceMode,
+                SpeakingResultKind.SCORED_EVALUATION, "speaking-evaluation-policy-v2",
+                requestedStartMode, resolvedStartMode, correctionMode, targetMinutes, maxTurns,
+                voiceId, playbackSpeed, policySnapshotJson, profileSnapshotJson);
+    }
+
+    public static SpeakingSession create(
+            User user,
+            SpeakingTopic topic,
+            String createIdempotencyKey,
+            LocalDate learningDate,
+            String topicTitle,
+            String topicCategory,
+            Integer topicVersion,
+            String customTopic,
+            String goal,
+            String persona,
+            String selectedKeywordsJson,
+            String originLanguage,
+            String learningLanguage,
+            SpeakingPracticeMode practiceMode,
+            SpeakingResultKind resultKind,
+            String resultPolicyVersion,
+            ConversationStartMode requestedStartMode,
+            ConversationStartMode resolvedStartMode,
+            CorrectionMode correctionMode,
+            int targetMinutes,
+            int maxTurns,
+            String voiceId,
+            String playbackSpeed,
+            String policySnapshotJson,
+            String profileSnapshotJson
+    ) {
         return new SpeakingSession(
                 user,
                 topic,
@@ -334,6 +383,8 @@ public class SpeakingSession extends BaseAuditable {
                 originLanguage,
                 learningLanguage,
                 practiceMode,
+                resultKind,
+                resultPolicyVersion,
                 requestedStartMode,
                 resolvedStartMode,
                 correctionMode,

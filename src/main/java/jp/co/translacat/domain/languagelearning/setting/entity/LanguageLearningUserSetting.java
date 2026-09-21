@@ -24,7 +24,7 @@ import java.time.LocalDate;
 public class LanguageLearningUserSetting extends BaseAuditable {
 
     private static final String DEFAULT_TIMEZONE = "Asia/Tokyo";
-    private static final String DEFAULT_SPEAKING_VOICE = "Kore";
+    private static final String DEFAULT_SPEAKING_VOICE = "marin";
     private static final String DEFAULT_PLAYBACK_SPEED = "NORMAL";
     private static final int DEFAULT_DAILY_LISTENING_GOAL_COUNT = 5;
     private static final String DEFAULT_LISTENING_TASK_TYPES_JSON =

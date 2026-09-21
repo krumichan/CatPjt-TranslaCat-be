@@ -46,6 +46,19 @@ public class SecurityUtil {
         return SecurityUtil.getPrincipal().getUsername();
     }
 
+    /** Keep audit columns bounded without truncating distinct user identities. */
+    public static String getAuditorIdentity() {
+        UserDetails principal = SecurityUtil.getPrincipal();
+        String username = principal.getUsername();
+        if (username != null && username.length() <= 50) {
+            return username;
+        }
+        if (principal instanceof UserPrincipal userPrincipal && userPrincipal.getId() != null) {
+            return "USER:" + userPrincipal.getId();
+        }
+        throw new IllegalStateException("Authenticated auditor lacks a bounded stable identity");
+    }
+
     /**
      * 현재 인증된 사용자의 권한 가져오기
      *

@@ -44,6 +44,7 @@ public class SpeakingAiUsageCommandService {
                 usage.evaluation(),
                 manualRetryAttempt
         );
+        save(session, turnId, SpeakingStage.COACHING, usage.coaching(), manualRetryAttempt);
     }
 
     private void save(

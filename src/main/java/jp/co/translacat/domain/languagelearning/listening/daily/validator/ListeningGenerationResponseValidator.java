@@ -49,8 +49,8 @@ public class ListeningGenerationResponseValidator {
                     || !sized(item.referenceMeanings(), 2, 3)
                     || !sized(item.keyMeaningUnits(), 1, 30)
                     || !sized(item.targetKeywords(), 0, 20)
-                    || item.estimatedAudioSeconds() < minAudioSeconds
-                    || item.estimatedAudioSeconds() > maxAudioSeconds
+                    || !Double.isFinite(item.estimatedAudioSeconds())
+                    || item.estimatedAudioSeconds() <= 0
                     || item.safety() == null
                     || !item.safety().passed()
                     || !validModePayload(item, learningMode)) {

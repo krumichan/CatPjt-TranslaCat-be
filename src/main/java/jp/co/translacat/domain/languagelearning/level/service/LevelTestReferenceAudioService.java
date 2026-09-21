@@ -29,7 +29,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class LevelTestReferenceAudioService {
 
-    private static final String DEFAULT_VOICE = "Kore";
+    private static final String DEFAULT_VOICE = "marin";
 
     private final ListeningAiClient aiClient;
     private final ListeningAudioStoragePort storagePort;

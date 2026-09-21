@@ -17,6 +17,7 @@ import jp.co.translacat.domain.languagelearning.practice.entity.PracticeAttempt;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeMetricScore;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeQuestion;
 import jp.co.translacat.domain.languagelearning.practice.entity.VocabularyMastery;
+import jp.co.translacat.domain.languagelearning.practice.policy.ReadingPassageExpressionPolicy;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAttemptRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeMetricScoreRepository;
@@ -190,10 +191,8 @@ public class PracticeAnswerCommandService {
             Long userId,
             PracticeQuestion question
     ) {
-        List<String> candidates = jsonCodec.read(
-                question.getVocabularyCandidatesJson(),
-                new TypeReference<List<String>>() {}
-        );
+        List<String> candidates = ReadingPassageExpressionPolicy.readCandidates(
+                jsonCodec, question.getVocabularyCandidatesJson(), question.getPassageText());
         if (candidates == null || candidates.isEmpty()) {
             return;
         }

@@ -14,6 +14,8 @@ import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeaking
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.AssistanceType;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationScope;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingCoachingRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 
@@ -33,7 +35,7 @@ import java.util.stream.Collectors;
 public class SpeakingEvaluationRequestFactory {
 
     public static final String EVALUATION_POLICY_VERSION =
-            "speaking-evaluation-policy";
+            "speaking-evaluation-policy-v2";
 
     private final LanguageLearningJsonCodec jsonCodec;
 
@@ -64,6 +66,34 @@ public class SpeakingEvaluationRequestFactory {
                 EVALUATION_POLICY_VERSION,
                 manualRetryAttempt
         );
+    }
+
+    public AiSpeakingCoachingRequestDto createCoaching(
+            SpeakingSession session, List<SpeakingTurn> turns, int manualRetryAttempt
+    ) {
+        AiSpeakingEvaluationRequestDto base = create(session, turns, manualRetryAttempt);
+        String sourceSnapshotHash = sourceSnapshotHash(base.userTurns());
+        return new AiSpeakingCoachingRequestDto(
+                "speaking-coaching-" + session.getId() + "-retry-" + manualRetryAttempt,
+                "speaking-coaching:" + session.getId() + ":" + session.getResultPolicyVersion()
+                        + ":" + sourceSnapshotHash,
+                base.sessionId(), base.topic(), base.practiceMode(), base.evaluationScope(),
+                base.goal(), base.targetLevel(), base.originLanguage(), base.learningLanguage(),
+                base.userTurns(), base.assistantTurns(), base.sessionSummary(), base.priorProfileSummary(),
+                base.evaluationPolicyVersion(), manualRetryAttempt, SpeakingResultKind.SESSION_COACHING,
+                session.getResultPolicyVersion(), sourceSnapshotHash
+        );
+    }
+
+    private String sourceSnapshotHash(List<AiSpeakingEvaluationTurnDto> turns) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(
+                    jsonCodec.write(turns).getBytes(StandardCharsets.UTF_8)
+            );
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
+        }
     }
 
     public AiSpeakingEvaluationRequestDto createReadAloudProblem(
@@ -200,7 +230,9 @@ public class SpeakingEvaluationRequestFactory {
                 turn.getUserAudioObjectKey() != null,
                 quality,
                 turn.isExcludedFromEvaluation(),
-                assistance
+                assistance,
+                metadata,
+                turn.getRecordingRevision()
         );
     }
 

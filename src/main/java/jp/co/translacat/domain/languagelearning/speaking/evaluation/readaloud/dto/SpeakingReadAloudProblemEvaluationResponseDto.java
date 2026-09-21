@@ -3,6 +3,8 @@ package jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.d
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.entity.SpeakingReadAloudProblemEvaluation;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvidenceMetadata;
 
 public record SpeakingReadAloudProblemEvaluationResponseDto(
         int problemIndex,
@@ -14,10 +16,20 @@ public record SpeakingReadAloudProblemEvaluationResponseDto(
         LocalDateTime submittedAt,
         LocalDateTime evaluatedAt,
         int manualRetryCount,
-        int manualRetryLimit
+        int manualRetryLimit,
+        List<String> evaluatedAxes,
+        Double evaluationCoverage,
+        String evidencePolicyVersion,
+        String evidenceSource
 ) {
     public static SpeakingReadAloudProblemEvaluationResponseDto from(
             SpeakingReadAloudProblemEvaluation entity
+    ) {
+        return from(entity, new SpeakingEvidenceMetadata(null, null, null, null));
+    }
+
+    public static SpeakingReadAloudProblemEvaluationResponseDto from(
+            SpeakingReadAloudProblemEvaluation entity, SpeakingEvidenceMetadata evidence
     ) {
         return new SpeakingReadAloudProblemEvaluationResponseDto(
                 entity.getProblemIndex(),
@@ -29,7 +41,8 @@ public record SpeakingReadAloudProblemEvaluationResponseDto(
                 entity.getSubmittedAt(),
                 entity.getEvaluatedAt(),
                 entity.getManualRetryCount(),
-                entity.getManualRetryLimit()
+                entity.getManualRetryLimit(),
+                evidence.evaluatedAxes(), evidence.evaluationCoverage(), evidence.evidencePolicyVersion(), evidence.evidenceSource()
         );
     }
 }

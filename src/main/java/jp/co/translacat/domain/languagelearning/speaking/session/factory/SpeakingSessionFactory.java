@@ -3,6 +3,7 @@ package jp.co.translacat.domain.languagelearning.speaking.session.factory;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.SelectedKeywordDto;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCreateRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionCreationContext;
@@ -52,6 +53,8 @@ public class SpeakingSessionFactory {
                 setting.getOriginLanguage(),
                 setting.getLearningLanguage(),
                 request.practiceMode(),
+                freeSpeaking ? SpeakingResultKind.SESSION_COACHING : SpeakingResultKind.SCORED_EVALUATION,
+                freeSpeaking ? "free-session-coaching-v1" : "speaking-evaluation-policy-v2",
                 request.conversationStartMode(),
                 context.resolvedStartMode(),
                 request.correctionMode(),
@@ -60,9 +63,9 @@ public class SpeakingSessionFactory {
                         request.practiceMode(),
                         context.policySnapshot().maxTurns()
                 ),
-                request.voiceId() == null
+                resolveNewSessionVoice(request.voiceId() == null
                         ? setting.getSpeakingVoiceId()
-                        : request.voiceId(),
+                        : request.voiceId()),
                 request.playbackSpeed() == null
                         ? setting.getSpeakingPlaybackSpeed()
                         : request.playbackSpeed(),
@@ -85,5 +88,15 @@ public class SpeakingSessionFactory {
 
     private String clean(String value) {
         return value == null ? null : value.trim();
+    }
+
+    private String resolveNewSessionVoice(String requested) {
+        // Existing settings may still contain a Gemini voice. Resolve only when
+        // creating a NEW session; stored sessions/audio retain their provenance.
+        if (requested == null || requested.isBlank()
+                || List.of("Kore", "Aoede", "Puck").contains(requested)) {
+            return "marin";
+        }
+        return requested;
     }
 }

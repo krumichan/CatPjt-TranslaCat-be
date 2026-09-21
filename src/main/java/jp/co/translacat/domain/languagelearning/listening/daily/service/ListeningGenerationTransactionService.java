@@ -11,6 +11,7 @@ import jp.co.translacat.domain.languagelearning.listening.common.enums.Listening
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
 import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningGenerationCommand;
+import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningDurationPolicy;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
@@ -68,6 +69,24 @@ public class ListeningGenerationTransactionService {
             command = ListeningGenerationCommand.item(1, command.manualRetryAttempt());
         }
         int expectedCount = 1;
+        AiListeningContract.DurationDemand durationDemand = ListeningDurationPolicy.effective(
+                set.getDifficulty(), 1.0, (double) policy.getReferenceAudioMaxSeconds());
+        ListeningItem correctionSource = null;
+        if (command.durationCorrection() != null) {
+            ListeningItem previous = itemRepository.findById(command.replacementForItemId()).orElseThrow();
+            var metadata = jsonCodec.read(previous.getGenerationMetadataJson(), AiListeningContract.GeneratedItem.class);
+            if (metadata == null || metadata.durationDemand() == null
+                    || metadata.qualityCorrectionCount() != 1
+                    || previous.getStatus() != ListeningItemStatus.NOT_EVALUABLE
+                    || previous.getAudioObjectKey() != null
+                    || !previous.getSourceText().equals(command.durationCorrection().previousSourceText())
+                    || command.durationCorrection().qualityCorrectionCount() != 1
+                    || !previous.getDailySet().getId().equals(set.getId())) {
+                throw new IllegalStateException("LISTENING_DURATION_CORRECTION_AUTHORITY_INVALID");
+            }
+            durationDemand = metadata.durationDemand();
+            correctionSource = previous;
+        }
 
         if (set.getPhysicalItemCount() + expectedCount
                 > policy.getHardItemLimit()) {
@@ -82,6 +101,10 @@ public class ListeningGenerationTransactionService {
                         set.getUser().getId(),
                         set.getLearningLanguage()
                 );
+        if (correctionSource != null) {
+            Long correctionId = correctionSource.getId();
+            recent = recent.stream().filter(value -> !value.getId().equals(correctionId)).toList();
+        }
         List<SelectedKeywordDto> keywordDtos = jsonCodec.read(
                 set.getKeywordSnapshotJson(),
                 new TypeReference<List<SelectedKeywordDto>>() {
@@ -120,8 +143,8 @@ public class ListeningGenerationTransactionService {
                                 set.getDifficulty()
                         ),
                         new AiListeningContract.GenerationConstraints(
-                                1.0,
-                                (double) policy.getReferenceAudioMaxSeconds(),
+                                durationDemand.minSeconds(),
+                                durationDemand.maxSeconds(),
                                 recent.stream()
                                         .map(ListeningItem::getContentHash)
                                         .distinct()
@@ -137,8 +160,10 @@ public class ListeningGenerationTransactionService {
                         policy.getModelConfigVersion(),
                         command.manualRetryAttempt(),
                         listeningComplexity(set),
-                        diversityContext(set),
-                        GenerationFingerprintCommandService.POLICY_VERSION
+                        diversityContext(set, correctionSource),
+                        GenerationFingerprintCommandService.POLICY_VERSION,
+                        command.durationCorrection(),
+                        new AiListeningContract.Voice(set.getLearningLanguage(), "marin", "openai-speech-v1", "STANDARD")
                 );
 
         return new GenerationWork(
@@ -183,7 +208,8 @@ public class ListeningGenerationTransactionService {
             ).orElseThrow();
             // A recovered/manual TTS result or another replacement wins over late AI.
             if (replaced.getStatus() != ListeningItemStatus.NOT_EVALUABLE
-                    || !replaced.getDailySet().getId().equals(set.getId())) {
+                    || !replaced.getDailySet().getId().equals(set.getId())
+                    || replaced.getAudioObjectKey() != null) {
                 outboxTransactionService.succeed(work.event().id(), LocalDateTime.now());
                 return;
             }
@@ -197,6 +223,17 @@ public class ListeningGenerationTransactionService {
         }
 
         for (AiListeningContract.GeneratedItem generated : response.items()) {
+            var expectedDemand = ListeningDurationPolicy.effective(set.getDifficulty(),
+                    work.request().constraints().audioSecondsMin(), work.request().constraints().audioSecondsMax());
+            int correctionCount = work.command().durationCorrection() == null ? 0 : 1;
+            if (generated.durationDemand() != null && !expectedDemand.equals(generated.durationDemand())) {
+                throw new IllegalStateException("LISTENING_DURATION_DEMAND_MISMATCH");
+            }
+            if (work.command().durationCorrection() != null
+                    && generated.sourceText().equals(work.command().durationCorrection().previousSourceText())) {
+                throw new IllegalStateException("LISTENING_DURATION_CORRECTION_UNCHANGED");
+            }
+            generated = ListeningDurationPolicy.withDuration(generated, expectedDemand, correctionCount);
             if (fingerprintRepository
                     .existsByUserIdAndLearningLanguageAndContentHashAndGeneratedAtGreaterThanEqual(
                             set.getUser().getId(),
@@ -226,6 +263,7 @@ public class ListeningGenerationTransactionService {
                     work.command().replacementForItemId(),
                     work.command().replacementSequence()
             );
+            item.bindPendingVoice(jsonCodec.write(work.request().referenceVoice()));
             item = itemRepository.saveAndFlush(item);
             fingerprintCommandService.register(
                     set.getUser().getId(),
@@ -335,12 +373,13 @@ public class ListeningGenerationTransactionService {
         );
     }
 
-    private DiversityContext diversityContext(ListeningDailySet set) {
+    private DiversityContext diversityContext(ListeningDailySet set, ListeningItem correctionSource) {
         DiversityContext history = diversityContextService.context(set.getUser().getId(),
                 set.getLearningLanguage(), LanguageLearningContentSource.LISTENING);
         List<DiversityHistoryItem> current = itemRepository
                 .findAllByDailySetIdOrderByItemIndexAscReplacementSequenceAsc(set.getId())
-                .stream().limit(40).map(item -> {
+                .stream().filter(item -> correctionSource == null
+                        || !item.getId().equals(correctionSource.getId())).limit(40).map(item -> {
                     var generated = jsonCodec.read(item.getGenerationMetadataJson(),
                             AiListeningContract.GeneratedItem.class);
                     var metadata = generated == null ? null : generated.diversityMetadata();
@@ -352,8 +391,17 @@ public class ListeningGenerationTransactionService {
                             metadata == null ? List.of() : metadata.grammarFocusCodes(),
                             metadata == null ? null : metadata.semanticSummary(), 0);
                 }).toList();
-        return new DiversityContext(current, history.sameFeatureRecent(),
-                history.crossFeatureRecent(), history.exactContentHashes90d());
+        if (correctionSource == null) {
+            return new DiversityContext(current, history.sameFeatureRecent(),
+                    history.crossFeatureRecent(), history.exactContentHashes90d());
+        }
+        // The unexposed source is being length-corrected, not offered as a new
+        // exercise. Keep every other history exclusion; exact unchanged text is
+        // independently rejected by both generation and apply.
+        return new DiversityContext(current, history.sameFeatureRecent().stream()
+                .filter(value -> !correctionSource.getContentHash().equals(value.contentHash())).toList(),
+                history.crossFeatureRecent(), history.exactContentHashes90d().stream()
+                .filter(hash -> !correctionSource.getContentHash().equals(hash)).toList());
     }
 
     private List<String> profileFocus(String snapshotJson) {

@@ -2,6 +2,7 @@ package jp.co.translacat.domain.languagelearning.speaking.evaluation.job.service
 
 import jp.co.translacat.domain.languagelearning.speaking.ai.port.SpeakingAiClient;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.model.SpeakingEvaluationClaim;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,8 +19,11 @@ public class SpeakingEvaluationJobWorker {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void execute(SpeakingEvaluationClaim claim) {
         try {
-            var response = aiClient.evaluate(claim.request());
-            commandService.complete(claim, response);
+            if (claim.resultKind() == SpeakingResultKind.SESSION_COACHING) {
+                commandService.complete(claim, aiClient.coach(claim.coachingRequest()));
+            } else {
+                commandService.complete(claim, aiClient.evaluate(claim.request()));
+            }
         } catch (RuntimeException failure) {
             log.error("Speaking evaluation failed. jobId={} sessionId={} problemIndex={}",
                     claim.key().jobId(), claim.key().sessionId(), claim.problemIndex(), failure);

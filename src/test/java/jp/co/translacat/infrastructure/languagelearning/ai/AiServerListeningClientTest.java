@@ -105,6 +105,46 @@ class AiServerListeningClientTest {
         assertThat(mapped).isNotNull();
         assertThat(mapped.isRetryable()).isTrue();
         assertThat(mapped.getRetryAfter()).isEqualTo(Duration.ofSeconds(12));
+        assertThat(mapped.getErrorCode()).isEqualTo("PROVIDER_RATE_LIMITED");
     }
 
+    @Test
+    void structuredDailyQuotaDelayIsPreservedWithoutParsingProviderMessage() {
+        AiServerListeningClient client = new AiServerListeningClient(
+                mock(ExternalApiClient.class), new ObjectMapper());
+        String body = """
+                {"detail":{"code":"PROVIDER_RATE_LIMITED","failedStage":"TTS",
+                "message":"not an authority","retryable":true,
+                "details":{"retryAfterSeconds":36661.2}}}
+                """;
+        WebClientResponseException error = WebClientResponseException.create(
+                502, "Bad Gateway", HttpHeaders.EMPTY,
+                body.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8);
+        ListeningAiException mapped = ReflectionTestUtils.invokeMethod(
+                client, "map", error, "TTS", 99L);
+
+        assertThat(mapped).isNotNull();
+        assertThat(mapped.getRetryAfter()).isEqualTo(Duration.ofSeconds(36662));
+        assertThat(mapped.getErrorCode()).isEqualTo("PROVIDER_RATE_LIMITED");
+        assertThat(mapped.getMessage()).doesNotContain("not an authority");
+    }
+
+    @Test
+    void malformedCooldownNeverReplacesSafeFallbackAndLargeValueIsBounded() {
+        AiServerListeningClient client = new AiServerListeningClient(
+                mock(ExternalApiClient.class), new ObjectMapper());
+        for (String value : new String[]{"true", "\"36661\"", "-1", "null", "1e100"}) {
+            String body = """
+                    {"detail":{"retryable":true,"details":{"retryAfterSeconds":%s}}}
+                    """.formatted(value);
+            WebClientResponseException error = WebClientResponseException.create(
+                    429, "Too Many Requests", HttpHeaders.EMPTY,
+                    body.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8);
+            ListeningAiException mapped = ReflectionTestUtils.invokeMethod(
+                    client, "map", error, "TTS", 99L);
+            assertThat(mapped).isNotNull();
+            assertThat(mapped.getRetryAfter()).isEqualTo(
+                    Duration.ofSeconds(value.equals("1e100") ? 86_400 : 1));
+        }
+    }
 }

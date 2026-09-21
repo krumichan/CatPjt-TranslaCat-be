@@ -9,7 +9,11 @@ import jp.co.translacat.domain.languagelearning.profile.service.SpeakingProfileS
 import jp.co.translacat.domain.languagelearning.profile.repository.LearningProfileEvidenceRepository;
 import jp.co.translacat.domain.languagelearning.setting.service.*;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingEvaluationResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingCoachingRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingCoachingResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.port.SpeakingAiClient;
+import jp.co.translacat.domain.languagelearning.speaking.coaching.repository.SpeakingCoachingResultRepository;
+import jp.co.translacat.domain.languagelearning.speaking.coaching.service.SpeakingCoachingResultService;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.*;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.factory.SpeakingEvaluationRequestFactory;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.entity.SpeakingEvaluationJob;
@@ -74,6 +78,7 @@ import static jp.co.translacat.domain.languagelearning.speaking.evaluation.relea
         SpeakingEvaluationJobEventListener.class, SpeakingEvaluationJobWorker.class,
         SpeakingEvaluationResultCommandService.class, SpeakingEvaluationResponseValidator.class,
         SpeakingEvaluationEligibilityPolicy.class, SpeakingAiUsageCommandService.class,
+        SpeakingCoachingResultService.class,
         SpeakingSessionQueryService.class, SpeakingEvaluationRetryCommandService.class,
         SpeakingReadAloudProblemEvaluationService.class, SpeakingSessionLifecycleService.class})
 class SpeakingEvaluationJobIntegrationTest {
@@ -86,6 +91,8 @@ class SpeakingEvaluationJobIntegrationTest {
     @Autowired LearningActivityRepository activities;
     @Autowired SpeakingEvaluationJobRepository jobs;
     @Autowired SpeakingEvaluationRepository evaluations;
+    @Autowired SpeakingCoachingResultRepository coachingResults;
+    @Autowired SpeakingCoachingResultService coachingResultService;
     @Autowired SpeakingEvaluationMetricRepository metrics;
     @Autowired EvaluationMetricHistoryRepository history;
     @Autowired LearningProfileEvidenceRepository evidence;
@@ -134,6 +141,48 @@ class SpeakingEvaluationJobIntegrationTest {
     private SpeakingEvaluationJob.Status jobStatus(Seed seed) {
         return tx.execute(status -> jobs.findById(seed.key().jobId()).orElseThrow().getStatus());
     }
+
+    private Seed seedCoaching() {
+        return tx.execute(status -> {
+            String uid = UUID.randomUUID().toString().replace("-", "");
+            User user = users.save(User.createLocalUser(uid + "@coaching.test", "pw", "coaching", Role.USER,
+                    uid.substring(0, 20)));
+            SpeakingSession session = SpeakingSession.create(
+                    user, null, UUID.randomUUID().toString(), LocalDate.of(2026, 9, 21),
+                    "Free Talk", "FREE_TALK", 1, "Free Talk", null, null, "[]", "ko", "ja",
+                    SpeakingPracticeMode.FREE, SpeakingResultKind.SESSION_COACHING,
+                    "free-session-coaching-v1", ConversationStartMode.USER_FIRST,
+                    ConversationStartMode.USER_FIRST, CorrectionMode.CONVERSATION,
+                    5, 20, "Kore", "NORMAL", "{}", "{}");
+            session.complete(false);
+            sessions.saveAndFlush(session);
+            var activity = activities.saveAndFlush(LearningActivity.create(
+                    user, LearningSource.SPEAKING, session.getId().toString(), LocalDate.of(2026, 9, 21),
+                    "Free coaching", 60, LocalDateTime.now(), LocalDateTime.now(),
+                    LearningActivityStatus.COMPLETED));
+            var request = coachingRequest(session.getId());
+            var job = jobs.saveAndFlush(SpeakingEvaluationJob.pending(
+                    session, 0, SpeakingResultKind.SESSION_COACHING, "free-session-coaching-v1",
+                    request.sourceSnapshotHash(), codec.write(request), LocalDateTime.now().minusSeconds(1)));
+            return new Seed(user.getId(), new SpeakingEvaluationJobKey(job.getId(), session.getId()), activity.getId());
+        });
+    }
+
+    private AiSpeakingCoachingRequestDto coachingRequest(long sessionId) {
+        return new AiSpeakingCoachingRequestDto(
+                "coaching-request", "coaching-idempotency", String.valueOf(sessionId), "Free Talk",
+                SpeakingPracticeMode.FREE, SpeakingEvaluationScope.SESSION, null, "B3", "ko", "ja",
+                java.util.List.of(), java.util.List.of(), null, null, "speaking-evidence-v2", 0,
+                SpeakingResultKind.SESSION_COACHING, "free-session-coaching-v1", "source-hash");
+    }
+
+    private AiSpeakingCoachingResponseDto coachingResponse(long sessionId) {
+        return new AiSpeakingCoachingResponseDto(
+                "coaching-request", String.valueOf(sessionId), SpeakingResultKind.SESSION_COACHING,
+                "free-session-coaching-v1", "speaking-session-coaching-schema-v1", "source-hash",
+                "NO_USABLE_EVIDENCE", java.util.List.of("NO_USABLE_TRANSCRIPT"), java.util.List.of(),
+                "speaking-session-coaching-prompt-v1", null);
+    }
     private void expire(Seed seed) {
         tx.executeWithoutResult(status -> ReflectionTestUtils.setField(jobs.findById(seed.key().jobId()).orElseThrow(),
                 "availableAt", LocalDateTime.now().minusMinutes(1)));
@@ -152,6 +201,77 @@ class SpeakingEvaluationJobIntegrationTest {
         assertThat(activities.findById(seed.activityId()).orElseThrow().getStatus())
                 .isEqualTo(LearningActivityStatus.EVALUATION_FAILED);
         assertThat(evaluations.findFirstBySessionIdOrderByEvaluatedAtDesc(seed.key().sessionId())).isEmpty();
+    }
+
+    @Test void coachingJobNeverTouchesLegacyEvaluationStateAndPersistsTypedResultOnce() {
+        var seed = seedCoaching();
+        var claim = command.claim(seed.key()).orElseThrow();
+        assertThat(claim.resultKind()).isEqualTo(SpeakingResultKind.SESSION_COACHING);
+        assertThat(sessionStatus(seed)).isEqualTo(SpeakingEvaluationStatus.NOT_REQUESTED);
+        assertThat(activities.findById(seed.activityId()).orElseThrow().getStatus())
+                .isEqualTo(LearningActivityStatus.COMPLETED);
+
+        when(aiClient.coach(claim.coachingRequest())).thenReturn(coachingResponse(seed.key().sessionId()));
+        worker.execute(claim);
+
+        assertThat(jobStatus(seed)).isEqualTo(SpeakingEvaluationJob.Status.SUCCEEDED);
+        assertThat(coachingResults.findBySessionId(seed.key().sessionId()))
+                .get().extracting(value -> value.getResultPolicyVersion(), value -> value.getContentStatus())
+                .containsExactly("free-session-coaching-v1", "NO_USABLE_EVIDENCE");
+        assertThat(evaluations.findFirstBySessionIdOrderByEvaluatedAtDesc(seed.key().sessionId())).isEmpty();
+        assertThat(metrics.findAll()).isEmpty();
+        verifyNoInteractions(profile);
+        assertThat(sessionStatus(seed)).isEqualTo(SpeakingEvaluationStatus.NOT_REQUESTED);
+        assertThat(activities.findById(seed.activityId()).orElseThrow().getStatus())
+                .isEqualTo(LearningActivityStatus.COMPLETED);
+    }
+
+    @Test void coachingHistoryIsBoundToOwnerLanguageDateAndPolicy() {
+        var included = seedCoaching();
+        var excludedOwner = seedCoaching();
+        when(aiClient.coach(any())).thenAnswer(invocation -> {
+            AiSpeakingCoachingRequestDto request = invocation.getArgument(0);
+            return coachingResponse(Long.parseLong(request.sessionId()));
+        });
+        worker.execute(command.claim(included.key()).orElseThrow());
+        worker.execute(command.claim(excludedOwner.key()).orElseThrow());
+
+        assertThat(coachingResultService.findHistory(
+                included.userId(), "ja", LocalDate.of(2026, 9, 21), LocalDate.of(2026, 9, 21),
+                "free-session-coaching-v1"))
+                .singleElement()
+                .satisfies(result -> {
+                    assertThat(result.resultKind()).isEqualTo("SESSION_COACHING");
+                    assertThat(result.resultPolicyVersion()).isEqualTo("free-session-coaching-v1");
+                    assertThat(result.contentStatus()).isEqualTo("NO_USABLE_EVIDENCE");
+                });
+        assertThat(coachingResultService.findHistory(
+                included.userId(), "ko", LocalDate.of(2026, 9, 21), LocalDate.of(2026, 9, 21),
+                "free-session-coaching-v1")).isEmpty();
+        assertThat(coachingResultService.findHistory(
+                included.userId(), "ja", LocalDate.of(2026, 9, 20), LocalDate.of(2026, 9, 20),
+                "free-session-coaching-v1")).isEmpty();
+        assertThat(coachingResultService.findHistory(
+                included.userId(), "ja", LocalDate.of(2026, 9, 21), LocalDate.of(2026, 9, 21),
+                "legacy-score-v1")).isEmpty();
+    }
+
+    @Test void coachingReleaseAndFailureRemainJobStateNotLearnerEvidenceState() {
+        var seed = seedCoaching();
+        var first = command.claim(seed.key()).orElseThrow();
+        command.release(first);
+        assertThat(jobStatus(seed)).isEqualTo(SpeakingEvaluationJob.Status.PENDING);
+        assertThat(sessionStatus(seed)).isEqualTo(SpeakingEvaluationStatus.NOT_REQUESTED);
+        assertThat(activities.findById(seed.activityId()).orElseThrow().getStatus())
+                .isEqualTo(LearningActivityStatus.COMPLETED);
+        expire(seed);
+        command.fail(command.claim(seed.key()).orElseThrow());
+        assertThat(jobStatus(seed)).isEqualTo(SpeakingEvaluationJob.Status.FAILED);
+        assertThat(jobs.findById(seed.key().jobId()).orElseThrow().getLastError())
+                .isEqualTo("SPEAKING_COACHING_FAILED");
+        assertThat(sessionStatus(seed)).isEqualTo(SpeakingEvaluationStatus.NOT_REQUESTED);
+        assertThat(activities.findById(seed.activityId()).orElseThrow().getStatus())
+                .isEqualTo(LearningActivityStatus.COMPLETED);
     }
 
     @Test void resultMetricAndProfileFailureRollBackBeforeFailureStateIsSaved() {

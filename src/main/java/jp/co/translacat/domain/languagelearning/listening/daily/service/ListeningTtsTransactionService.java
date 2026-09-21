@@ -8,6 +8,7 @@ import jp.co.translacat.domain.languagelearning.listening.common.enums.Listening
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
 import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningGenerationCommand;
+import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningDurationPolicy;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
@@ -27,12 +28,15 @@ import org.springframework.transaction.annotation.Isolation;
 
 import java.time.LocalDateTime;
 import java.time.Duration;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class ListeningTtsTransactionService {
 
-    private static final String DEFAULT_LISTENING_VOICE_ID = "Kore";
+    private static final Set<String> SOURCE_INDEPENDENT_FAILURES = Set.of(
+            "PROVIDER_RATE_LIMITED", "PROVIDER_UNAVAILABLE", "PROVIDER_TIMEOUT"
+    );
 
     private final ListeningItemRepository itemRepository;
     private final ListeningDailySetRepository dailySetRepository;
@@ -51,13 +55,24 @@ public class ListeningTtsTransactionService {
         ListeningItem item = itemRepository.findById(event.aggregateId())
                 .orElseThrow();
         ListeningPolicySetting policy = policySettingService.get();
+        var metadata = metadata(item);
+        var demand = metadata != null && metadata.durationDemand() != null
+                ? metadata.durationDemand()
+                : ListeningDurationPolicy.effective(item.getDailySet().getDifficulty(),
+                        1.0, (double) policy.getReferenceAudioMaxSeconds());
         String requestId = "be-listening-tts-" + event.id();
-        AiListeningContract.Voice voice = new AiListeningContract.Voice(
-                item.getDailySet().getLearningLanguage(),
-                DEFAULT_LISTENING_VOICE_ID,
-                "current",
-                "STANDARD"
-        );
+        // The source item owns its synthesis identity. Older pending items lack
+        // this snapshot and require an explicit migration; never silently turn
+        // their Gemini work into OpenAI audio during a lease retry.
+        if (item.getVoiceSnapshotJson() == null || item.getVoiceSnapshotJson().isBlank()) {
+            throw new IllegalStateException("LEGACY_TTS_MIGRATION_REQUIRED");
+        }
+        AiListeningContract.Voice voice = jsonCodec.read(
+                item.getVoiceSnapshotJson(), AiListeningContract.Voice.class);
+        if (!"openai-speech-v1".equals(voice.version())
+                || !java.util.Set.of("marin", "cedar").contains(voice.voiceKey())) {
+            throw new IllegalStateException("LEGACY_TTS_MIGRATION_REQUIRED");
+        }
         AiListeningContract.TtsRequest request =
                 new AiListeningContract.TtsRequest(
                         requestId,
@@ -72,7 +87,8 @@ public class ListeningTtsTransactionService {
                         policy.getProfilePolicyVersion(),
                         policy.getModelConfigVersion(),
                         policy.getAutomaticRetryLimit(),
-                        item.getManualTtsRetryCount()
+                        item.getManualTtsRetryCount(),
+                        demand
                 );
         String objectKey = audioKeyFactory.reference(
                 item.getDailySet().getUser().getId(),
@@ -80,6 +96,10 @@ public class ListeningTtsTransactionService {
                 item.getId(),
                 "wav"
         );
+        // Every lease writes an immutable object: a late worker cannot overwrite
+        // bytes already published by another claim before the DB fence is checked.
+        objectKey = objectKey.substring(0, objectKey.length() - 4)
+                + "-claim-" + event.id() + "-" + event.attemptCount() + ".wav";
 
         return new TtsWork(
                 event,
@@ -103,7 +123,10 @@ public class ListeningTtsTransactionService {
         }
 
         if (item.getStatus() != ListeningItemStatus.TTS_PENDING
-                || item.getManualTtsRetryCount() != work.request().manualRetryAttempt()) {
+                || item.getManualTtsRetryCount() != work.request().manualRetryAttempt()
+                || (work.request().contentHash() != null
+                && !item.getContentHash().equals(work.request().contentHash()))
+                || item.getAudioObjectKey() != null) {
             outboxTransactionService.succeed(
                     work.event().id(),
                     LocalDateTime.now()
@@ -127,11 +150,67 @@ public class ListeningTtsTransactionService {
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void recordDurationFailure(TtsWork work, double measuredSeconds, String code) {
+        ListeningItem item = lockedItem(work.event().aggregateId());
+        if (!outboxTransactionService.ownsClaim(work.event())) {
+            return;
+        }
+        if (item.getStatus() != ListeningItemStatus.TTS_PENDING
+                || item.getManualTtsRetryCount() != work.request().manualRetryAttempt()
+                || !item.getContentHash().equals(work.request().contentHash())
+                || item.getAudioObjectKey() != null) {
+            outboxTransactionService.succeed(work.event().id(), LocalDateTime.now());
+            return;
+        }
+        var generated = metadata(item);
+        ListeningDailySet set = item.getDailySet();
+        boolean canCorrect = generated != null && generated.qualityCorrectionCount() == 0
+                && work.request().durationDemand() != null && Double.isFinite(measuredSeconds)
+                && measuredSeconds > 0 && item.getReplacementSequence() == 0;
+        int missing = 0;
+        for (int index = 1; index <= set.getTargetItemCount(); index++) {
+            if (!itemRepository.existsByDailySetIdAndItemIndex(set.getId(), index)) {
+                missing++;
+            }
+        }
+        canCorrect &= set.getPhysicalItemCount() + missing
+                < policySettingService.get().getHardItemLimit();
+        if (canCorrect) {
+            // Reserve before enqueue, in this transaction. Manual retry/restart
+            // cannot reset the quality budget or enqueue a second source version.
+            item.reserveDurationCorrection(jsonCodec.write(
+                    ListeningDurationPolicy.withDuration(generated, work.request().durationDemand(), 1)));
+            item.markNotEvaluable(code);
+            var correction = new AiListeningContract.DurationCorrection(item.getSourceText(), measuredSeconds, 1);
+            outboxCommandService.enqueue(ListeningOutboxType.GENERATE_SET, set.getId(),
+                    new ListeningGenerationCommand(item.getId(), item.getItemIndex(),
+                            item.getReplacementSequence() + 1, 0, correction),
+                    "listening:set:" + set.getId() + ":duration-correction:" + item.getItemIndex());
+        } else {
+            item.markNotEvaluable(code);
+            set.fail(code);
+        }
+        outboxTransactionService.succeed(work.event().id(), LocalDateTime.now());
+        refreshSetState(set);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void recordFailure(
             ListeningOutboxTransactionService.ClaimedEvent event,
             String reason,
             boolean retryable,
             Duration retryAfter
+    ) {
+        recordFailure(event, reason, retryable, retryAfter, null);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void recordFailure(
+            ListeningOutboxTransactionService.ClaimedEvent event,
+            String reason,
+            boolean retryable,
+            Duration retryAfter,
+            String failureCode
     ) {
         ListeningItem item = lockedItem(event.aggregateId());
         if (!outboxTransactionService.ownsClaim(event)) {
@@ -141,18 +220,29 @@ public class ListeningTtsTransactionService {
             outboxTransactionService.succeed(event.id(), LocalDateTime.now());
             return;
         }
-        var result = outboxTransactionService.fail(event, reason, retryable,
+        boolean infrastructureFailure = failureCode != null
+                && SOURCE_INDEPENDENT_FAILURES.contains(failureCode);
+        String safeReason = infrastructureFailure ? failureCode : reason;
+        var result = outboxTransactionService.fail(event, safeReason, retryable,
                 retryAfter, policySettingService.get().getAutomaticRetryLimit(),
                 LocalDateTime.now());
 
         if (retryable && !result.exhausted()) {
-            item.registerAutomaticTtsRetry(reason);
+            item.registerAutomaticTtsRetry(safeReason);
         }
 
         if (!result.exhausted()) {
             return;
         }
 
+        if (infrastructureFailure) {
+            // Changing valid source text cannot repair quota, timeout or availability.
+            // Preserve it for the existing bounded manual TTS retry instead.
+            item.markNotEvaluable(safeReason);
+            item.getDailySet().fail(safeReason);
+            refreshSetState(item.getDailySet());
+            return;
+        }
         markNotEvaluableAndScheduleReplacement(item, reason);
     }
 
@@ -196,6 +286,15 @@ public class ListeningTtsTransactionService {
         item.markNotEvaluable(reason);
         ListeningDailySet set = item.getDailySet();
         ListeningPolicySetting policy = policySettingService.get();
+        var generated = metadata(item);
+        if (item.getReplacementSequence() >= 1
+                || (generated != null && generated.qualityCorrectionCount() > 0)) {
+            // Persisted source lineage bounds legacy replacement after any failure.
+            // Neither worker restart nor manual TTS retry grants a third version.
+            set.fail(reason == null || reason.isBlank() ? "LISTENING_AUDIO_FAILED" : reason);
+            refreshSetState(set);
+            return;
+        }
 
         int missingSlots = 0;
         for (int index = 1; index <= set.getTargetItemCount(); index++) {
@@ -244,6 +343,10 @@ public class ListeningTtsTransactionService {
         // The parent lock may have waited while another callback changed this item.
         entityManager.refresh(item, LockModeType.PESSIMISTIC_WRITE);
         return item;
+    }
+
+    private AiListeningContract.GeneratedItem metadata(ListeningItem item) {
+        return jsonCodec.read(item.getGenerationMetadataJson(), AiListeningContract.GeneratedItem.class);
     }
 
     public record TtsWork(

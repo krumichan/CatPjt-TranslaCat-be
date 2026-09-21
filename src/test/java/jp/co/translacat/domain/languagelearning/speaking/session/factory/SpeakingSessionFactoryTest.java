@@ -10,6 +10,7 @@ import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningU
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.ConversationStartMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.CorrectionMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCreateRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionCreationContext;
@@ -53,6 +54,17 @@ class SpeakingSessionFactoryTest {
 
         assertThat(session.getGoal()).isEqualTo("목표");
         assertThat(session.getPersona()).isEqualTo("호텔 직원");
+        assertThat(session.getResultKind()).isEqualTo(SpeakingResultKind.SESSION_COACHING);
+        assertThat(session.getResultPolicyVersion()).isEqualTo("free-session-coaching-v1");
+    }
+
+    @Test
+    void pinsNonFreeSessionsToLegacyScoredPolicy() {
+        SpeakingSession session = factory.create(
+                request(SpeakingPracticeMode.GUIDED, null, null), context()
+        );
+        assertThat(session.getResultKind()).isEqualTo(SpeakingResultKind.SCORED_EVALUATION);
+        assertThat(session.getResultPolicyVersion()).isEqualTo("speaking-evaluation-policy-v2");
     }
 
 

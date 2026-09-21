@@ -34,7 +34,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LevelTestReviewAudioService {
 
-    private static final String DEFAULT_VOICE = "Kore";
+    private static final String DEFAULT_VOICE = "marin";
 
     private final LevelTestItemRepository itemRepository;
     private final LevelTestResponseRepository responseRepository;

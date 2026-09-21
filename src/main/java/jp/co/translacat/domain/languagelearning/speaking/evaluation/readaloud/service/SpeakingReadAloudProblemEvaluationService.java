@@ -22,6 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvidenceMetadata;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +36,7 @@ public class SpeakingReadAloudProblemEvaluationService {
     private final SpeakingReadAloudProblemEvaluationRepository evaluationRepository;
     private final SpeakingEvaluationJobQueueService queueService;
     private final SpeakingSessionPolicySnapshotService snapshotService;
+    private final LanguageLearningJsonCodec jsonCodec;
 
     @Transactional
     public SpeakingReadAloudProblemEvaluationResponseDto submit(
@@ -49,7 +52,7 @@ public class SpeakingReadAloudProblemEvaluationService {
         validateProblemIndex(problemIndex);
         // A replay of the final submit remains valid after the session is completed.
         var submitted = evaluationRepository.findBySessionIdAndProblemIndex(sessionId, problemIndex);
-        if (submitted.isPresent()) return SpeakingReadAloudProblemEvaluationResponseDto.from(submitted.get());
+        if (submitted.isPresent()) return toResponse(submitted.get());
         lifecycleService.expireIfNeeded(session);
         lifecycleService.requireActive(session);
         validateSubmissionOrder(sessionId, problemIndex);
@@ -80,7 +83,7 @@ public class SpeakingReadAloudProblemEvaluationService {
             completionCommandService.complete(userId, sessionId, false);
         }
 
-        return SpeakingReadAloudProblemEvaluationResponseDto.from(evaluation);
+        return toResponse(evaluation);
     }
 
     /** Only failed submitted evaluations may retry after completion; recording is never reopened. */
@@ -92,11 +95,11 @@ public class SpeakingReadAloudProblemEvaluationService {
         var evaluation = evaluationRepository.findBySessionIdAndProblemIndex(sessionId, problemIndex)
                 .orElseThrow(() -> invalid("제출한 듣고 리피트 평가가 없습니다."));
         if ("PENDING".equals(evaluation.getStatus()) || "EVALUATING".equals(evaluation.getStatus()))
-            return SpeakingReadAloudProblemEvaluationResponseDto.from(evaluation);
+            return toResponse(evaluation);
         if (!"FAILED".equals(evaluation.getStatus())) throw invalid("실패한 문제 평가만 재시도할 수 있습니다.");
         int retryCount = queueService.retry(session, problemIndex);
         evaluation.acceptRetry(retryCount);
-        return SpeakingReadAloudProblemEvaluationResponseDto.from(evaluation);
+        return toResponse(evaluation);
     }
 
     @Transactional(readOnly = true)
@@ -111,7 +114,7 @@ public class SpeakingReadAloudProblemEvaluationService {
         return evaluationRepository
                 .findAllBySessionIdOrderByProblemIndexAsc(sessionId)
                 .stream()
-                .map(SpeakingReadAloudProblemEvaluationResponseDto::from)
+                .map(this::toResponse)
                 .toList();
     }
 
@@ -133,6 +136,11 @@ public class SpeakingReadAloudProblemEvaluationService {
         if (ratio < 0.80) {
             throw invalid("듣고 리피트 문제의 유효 STT 비율이 80% 미만입니다.");
         }
+    }
+
+    private SpeakingReadAloudProblemEvaluationResponseDto toResponse(SpeakingReadAloudProblemEvaluation entity) {
+        return SpeakingReadAloudProblemEvaluationResponseDto.from(entity,
+                SpeakingEvidenceMetadata.read(entity.getMetricsJson(), jsonCodec));
     }
 
     private void validateSubmissionOrder(Long sessionId, int problemIndex) {

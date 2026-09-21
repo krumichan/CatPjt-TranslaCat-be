@@ -2,6 +2,8 @@ package jp.co.translacat.domain.languagelearning.practice.service;
 
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PersonalizedVocabularyPlanDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingPassageBundleDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingSlotTargetDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.VocabularyPlanItemDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
@@ -9,6 +11,7 @@ import jp.co.translacat.domain.languagelearning.ai.port.LanguageLearningAiClient
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDifficulty;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeQuestionType;
+import jp.co.translacat.domain.languagelearning.practice.policy.PracticeAvailabilityPolicy;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.global.exception.AiServerCommunicationException;
@@ -19,10 +22,14 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -97,11 +104,35 @@ public class PracticeGenerationWorker {
         );
         if (claimed.isEmpty()) return;
         var claim = claimed.get();
+        if (PracticeAvailabilityPolicy.needsAnyNewB5Structure(
+                claim.request(), claim.request().readingSlotTargets(), claim.order())) {
+            persistenceService.fail(claim, PracticeAvailabilityPolicy.B5_STRUCTURE_DEFERRED);
+            return;
+        }
+        if (!PracticeAvailabilityPolicy.generationAllowed(claim.request().domain())) {
+            // Defense in depth for an already-issued claim; fail() checks its token.
+            persistenceService.fail(claim, PracticeAvailabilityPolicy.VOCABULARY_RETIRED);
+            return;
+        }
+        generateClaim(claim);
+    }
+
+    private void generateClaim(PracticePersistenceService.GenerationClaim claim) {
+        Long setId = claim.setId();
         String stage = "CLAIMED";
         String activeRequestId = claim.request().requestId();
         try {
             // No database transaction is held during the remote AI request.
             AiPracticeGenerationRequestDto generationRequest = claim.request();
+            ReadingPassageBundleDto persistedReading = readingBundleFor(generationRequest, claim.order());
+            if (persistedReading != null) {
+                stage = "READING_BUNDLE_REUSED";
+                AiPracticeGenerationResponseDto generated = readingItemResponse(
+                        generationRequest, persistedReading, claim.order());
+                validateGenerated(generationRequest, generated);
+                persistenceService.append(claim, generated);
+                return;
+            }
             if (isContextualChoice(generationRequest)
                     && generationRequest.vocabularyPlan() == null) {
                 AiPracticeGenerationRequestDto planRequest = planOnlyRequest(generationRequest);
@@ -134,6 +165,11 @@ public class PracticeGenerationWorker {
                     setId, claim.order(), generationRequest.requestId(), stage);
             var generated = aiClient.generatePractice(generationRequest);
             validateGenerated(generationRequest, generated);
+            if (isNewReadingBundleRequest(generationRequest)) {
+                stage = "READING_BUNDLE_VALIDATED";
+                if (!persistenceService.persistReadingBundle(claim, generated.readingBundle())) return;
+                stage = "READING_BUNDLE_PERSISTED";
+            }
             if (isContextualChoice(generationRequest)
                     && !generationRequest.vocabularyPlan().items().get(claim.order() - 1)
                         .equals(generated.vocabularyPlan().items().get(claim.order() - 1))) {
@@ -209,10 +245,16 @@ public class PracticeGenerationWorker {
         if (response == null || response.domain() != request.domain()
                 || !Objects.equals(request.requestId(), response.requestId())
                 || !Objects.equals(request.mode(), response.mode())
-                || response.questions() == null || response.questions().size() != 1
+                || response.questions() == null || response.questions().size() !=
+                    (isNewReadingBundleRequest(request) ? request.questionCount() : 1)
                 || response.questions().getFirst() == null) {
             throw invalidResponse();
         }
+        if (isNewReadingBundleRequest(request)) {
+            validateReadingBundle(request, response);
+            return;
+        }
+        if (response.readingBundle() != null) throw invalidResponse();
         var item = response.questions().getFirst();
         PracticeDifficulty expected = request.easierCount() == 1 ? PracticeDifficulty.EASIER
                 : request.currentCount() == 1 ? PracticeDifficulty.CURRENT : PracticeDifficulty.CHALLENGE;
@@ -230,6 +272,118 @@ public class PracticeGenerationWorker {
             validateContextualChoiceQuestion(request, item, response.vocabularyPlan());
         } else if (response.vocabularyPlan() != null) {
             throw invalidResponse();
+        }
+    }
+
+    private static boolean isNewReadingBundleRequest(AiPracticeGenerationRequestDto request) {
+        return request.domain() == PracticeDomain.READING
+                && (request.questionCount() == 2 || request.questionCount() == 3);
+    }
+
+    private static ReadingPassageBundleDto readingBundleFor(
+            AiPracticeGenerationRequestDto request, int globalOrder
+    ) {
+        if (request.domain() != PracticeDomain.READING || request.readingBundles() == null) return null;
+        return request.readingBundles().get(globalOrder <= 3 ? "p1" : "p2");
+    }
+
+    private static AiPracticeGenerationResponseDto readingItemResponse(
+            AiPracticeGenerationRequestDto request, ReadingPassageBundleDto bundle, int globalOrder
+    ) {
+        if (request.questionCount() > 1) {
+            // Reuse the already-verified private bundle after an interrupted append,
+            // preserving one atomic 3/2-row publication without an AI call.
+            return new AiPracticeGenerationResponseDto(
+                    request.requestId(), bundle.promptVersion(), request.domain(), request.mode(),
+                    request.complexityBand(), bundle.questions(), null, bundle);
+        }
+        int index = globalOrder <= 3 ? globalOrder - 1 : globalOrder - 4;
+        if (bundle.questions() == null || index >= bundle.questions().size()) throw invalidResponse();
+        PracticeGeneratedQuestionDto item = withOrder(bundle.questions().get(index), 1);
+        return new AiPracticeGenerationResponseDto(
+                request.requestId(), bundle.promptVersion(), request.domain(), request.mode(),
+                request.complexityBand(), List.of(item));
+    }
+
+    private static PracticeGeneratedQuestionDto withOrder(PracticeGeneratedQuestionDto item, int order) {
+        if (item == null) throw invalidResponse();
+        return new PracticeGeneratedQuestionDto(order, item.questionType(), item.difficulty(),
+                item.complexityBand(), item.passageId(), item.passageText(), item.prompt(),
+                item.options(), item.correctAnswer(), item.skillTag(), item.evidenceText(),
+                item.explanationOrigin(), item.explanationLearning(), item.targetExpression(),
+                item.canonicalKey(), item.reviewTarget(), item.vocabularyCandidates());
+    }
+
+    static void validateReadingBundle(
+            AiPracticeGenerationRequestDto request, AiPracticeGenerationResponseDto response
+    ) {
+        ReadingPassageBundleDto bundle = response.readingBundle();
+        int start = request.previousQuestions() == null ? 1 : request.previousQuestions().size() + 1;
+        String passageId = start == 1 ? "p1" : start == 4 ? "p2" : null;
+        if (passageId == null || request.readingSlotTargets() == null
+                || request.readingSlotTargets().size() != 5 || bundle == null
+                || !passageId.equals(bundle.passageId()) || bundle.questionPlans() == null
+                || isBlank(bundle.promptVersion())
+                || !bundle.promptVersion().equals(response.promptVersion())
+                || bundle.questionPlans().size() != request.questionCount()
+                || bundle.questions() == null || !bundle.questions().equals(response.questions())
+                || response.vocabularyPlan() != null) throw invalidResponse();
+        String passageText = null;
+        Set<String> focuses = new HashSet<>();
+        for (int index = 0; index < response.questions().size(); index++) {
+            int globalOrder = start + index;
+            var item = response.questions().get(index);
+            var plan = bundle.questionPlans().get(index);
+            ReadingSlotTargetDto target = request.readingSlotTargets().get(globalOrder - 1);
+            if (item == null || plan == null || target == null
+                    || target.globalOrder() != globalOrder || plan.globalOrder() != globalOrder
+                    || item.order() != index + 1 || item.questionType() != PracticeQuestionType.SINGLE_CHOICE
+                    || item.difficulty() != target.difficulty()
+                    || item.complexityBand() != target.complexityBand()
+                    || !Objects.equals(item.skillTag(), target.skillTag())
+                    || plan.difficulty() != target.difficulty()
+                    || plan.complexityBand() != target.complexityBand()
+                    || !Objects.equals(plan.skillTag(), target.skillTag())
+                    || !passageId.equals(item.passageId()) || isBlank(item.passageText())
+                    || isBlank(item.prompt()) || isBlank(item.explanationOrigin())
+                    || isBlank(item.explanationLearning()) || isBlank(plan.clueQuote())
+                    || isBlank(plan.questionFocus()) || !item.passageText().contains(plan.clueQuote())
+                    || !focuses.add(normalized(plan.questionFocus()))
+                    || item.options() == null || item.options().size() != 4
+                    || item.correctAnswer() == null || item.correctAnswer().size() != 1) {
+                throw invalidResponse();
+            }
+            if (passageText == null) passageText = item.passageText();
+            else if (!passageText.equals(item.passageText())) throw invalidResponse();
+        }
+        if (!Objects.equals(sha256(passageText), bundle.passageSha256())) throw invalidResponse();
+    }
+
+    static void validateReadingAcceptedPrefix(
+            Map<String, ReadingPassageBundleDto> bundles,
+            List<PracticeGeneratedQuestionDto> accepted
+    ) {
+        if (bundles == null || bundles.keySet().stream().anyMatch(key -> !Set.of("p1", "p2").contains(key))) {
+            throw invalidResponse();
+        }
+        for (int index = 0; index < accepted.size(); index++) {
+            int globalOrder = index + 1;
+            ReadingPassageBundleDto bundle = bundles.get(globalOrder <= 3 ? "p1" : "p2");
+            if (bundle == null) continue; // Legacy accepted rows may predate this private bundle contract.
+            int localIndex = globalOrder <= 3 ? index : index - 3;
+            if (bundle.questions() == null || localIndex >= bundle.questions().size()
+                    || !withOrder(bundle.questions().get(localIndex), globalOrder).equals(accepted.get(index))) {
+                throw invalidResponse();
+            }
+        }
+    }
+
+    private static String sha256(String text) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(text.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 is unavailable", error);
         }
     }
 

@@ -2,12 +2,14 @@ package jp.co.translacat.domain.languagelearning.speaking.ai.port;
 
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingAssistanceRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingCoachingRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingSessionStartRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingTtsRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingTurnProcessRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingAssistanceResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingConversationResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingEvaluationResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingCoachingResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingSessionStartResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingTtsResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingTurnProcessResponseDto;
@@ -40,6 +42,8 @@ public interface SpeakingAiClient {
     AiSpeakingEvaluationResponseDto evaluate(
             AiSpeakingEvaluationRequestDto request
     );
+
+    AiSpeakingCoachingResponseDto coach(AiSpeakingCoachingRequestDto request);
 
     byte[] getAudio(String audioReference);
 }

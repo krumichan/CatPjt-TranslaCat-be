@@ -58,8 +58,16 @@ public final class ListeningApiContract {
             int replacementSequence,
             ListeningItemStatus status,
             boolean playable,
-            Integer audioDurationMs
+            Integer audioDurationMs,
+            boolean ttsRetryAllowed,
+            String durationValidationStatus,
+            String durationPolicyVersion
     ) {
+        public ItemSummary(Long itemId, int itemIndex, int replacementSequence,
+                           ListeningItemStatus status, boolean playable, Integer audioDurationMs) {
+            this(itemId, itemIndex, replacementSequence, status, playable, audioDurationMs,
+                    status == ListeningItemStatus.NOT_EVALUABLE, "LEGACY_UNVALIDATED", null);
+        }
     }
 
     public record SessionCreateRequest(

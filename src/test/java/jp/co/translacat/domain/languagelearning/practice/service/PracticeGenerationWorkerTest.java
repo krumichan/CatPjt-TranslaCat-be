@@ -7,6 +7,9 @@ import jp.co.translacat.domain.languagelearning.ai.dto.model.PersonalizedVocabul
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeOptionDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingPassageBundleDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingQuestionPlanDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingSlotTargetDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.VocabularyPlanItemDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
@@ -23,8 +26,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -55,6 +60,40 @@ class PracticeGenerationWorkerTest {
     }
 
     @Test
+    void alreadyClaimedB4StructureIsStoppedBeforeFirstProviderExchange() {
+        var request = PracticePersistenceService.itemRequest(
+                ReadingB5AvailabilityTest.request(4, "STRUCTURE"), 1, List.of(), "old-token");
+        var claim = new PracticePersistenceService.GenerationClaim(12L, 1, "old-token", 0, request);
+        when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(claim));
+        worker.generateNext(12L);
+        verify(persistence).fail(claim, "READING_B5_STRUCTURE_DEFERRED");
+        verifyNoInteractions(aiClient);
+        verify(persistence, never()).append(any(), any());
+    }
+
+    @Test
+    void retiredVocabularyClaimNeverStartsPlanOrQuestionProviderWork() {
+        for (PersonalizedVocabularyPlanDto plan : java.util.Arrays.asList(null, vocabularyPlan())) {
+            var request = contextualRequest(plan);
+            var claim = new PracticePersistenceService.GenerationClaim(12L, 1, "token", 0, request);
+            when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(claim));
+            worker.generateNext(12L);
+            verify(persistence).fail(claim, "DAILY_VOCABULARY_RETIRED");
+        }
+        verifyNoInteractions(aiClient);
+        verify(persistence, never()).append(any(), any());
+        verify(persistence, never()).persistVocabularyPlan(any(), any());
+    }
+
+    /** Existing legacy pipeline assertions are offline replay, not production availability. */
+    private void legacyReplayGenerateClaim(PracticePersistenceService.GenerationClaim claim) {
+        org.assertj.core.api.Assertions.assertThat(claim.request().domain()).isEqualTo(PracticeDomain.VOCABULARY);
+        org.assertj.core.api.Assertions.assertThat(persistence.claim(12L, null, null, 3).orElseThrow())
+                .isEqualTo(claim);
+        ReflectionTestUtils.invokeMethod(worker, "generateClaim", claim);
+    }
+
+    @Test
     void publishesOneQuestionPerClaim() {
         var claim = claim(1, 0);
         when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(claim));
@@ -65,7 +104,129 @@ class PracticeGenerationWorkerTest {
     }
 
     @Test
-    void contextualChoicePersistsPlanBeforePublishingFirstQuestion() {
+    void readingGroupIsFullyValidatedAndPersistedBeforeFirstPublicationThenReusedWithoutAi() throws Exception {
+        var firstRequest = PracticePersistenceService.itemRequest(request(), 1, List.of(), "first-token");
+        var firstClaim = new PracticePersistenceService.GenerationClaim(12L, 1, "first-token", 0, firstRequest);
+        var bundle = readingBundle(firstRequest);
+        var firstResponse = new AiPracticeGenerationResponseDto(firstRequest.requestId(),
+                bundle.promptVersion(), PracticeDomain.READING, firstRequest.mode(),
+                firstRequest.complexityBand(), bundle.questions(), null, bundle);
+        when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(firstClaim));
+        when(aiClient.generatePractice(firstRequest)).thenReturn(firstResponse);
+        when(persistence.persistReadingBundle(firstClaim, bundle)).thenReturn(true);
+
+        worker.generateNext(12L);
+
+        var ordered = inOrder(aiClient, persistence);
+        ordered.verify(aiClient).generatePractice(firstRequest);
+        ordered.verify(persistence).persistReadingBundle(firstClaim, bundle);
+        ordered.verify(persistence).append(firstClaim, firstResponse);
+
+        var persisted = new AiPracticeGenerationRequestDto(
+                request().requestId(), request().domain(), request().mode(), request().originLanguage(),
+                request().learningLanguage(), 5, request().complexityBand(), 1, 3, 1,
+                List.of(), List.of(), List.of(), List.of(), 0, request().generationDate(),
+                List.of(), null, false, Map.of("p1", bundle), null);
+        var secondRequest = PracticePersistenceService.itemRequest(persisted, 2,
+                List.of(bundle.questions().getFirst()), "second-token");
+        var secondClaim = new PracticePersistenceService.GenerationClaim(12L, 2, "second-token", 0, secondRequest);
+        when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(secondClaim));
+
+        worker.generateNext(12L);
+
+        verify(aiClient, times(1)).generatePractice(any());
+        verify(persistence).append(eq(secondClaim), argThat(response ->
+                response.questions().size() == 1
+                        && response.questions().getFirst().order() == 1
+                        && response.questions().getFirst().prompt().equals(bundle.questions().get(1).prompt())));
+    }
+
+    @Test
+    void persistedReadingBundleAfterInterruptedAppendPublishesWholePassageWithoutAi() throws Exception {
+        var request = PracticePersistenceService.itemRequest(request(), 1, List.of(), "recovered-token");
+        var bundle = readingBundle(request);
+        var persisted = new AiPracticeGenerationRequestDto(
+                request.requestId(), request.domain(), request.mode(), request.originLanguage(),
+                request.learningLanguage(), request.questionCount(), request.complexityBand(),
+                request.easierCount(), request.currentCount(), request.challengeCount(),
+                request.selectedKeywords(), request.weakSignals(), request.recentMistakes(),
+                request.reviewTargets(), request.reviewQuestionCount(), request.generationDate(),
+                request.previousQuestions(), null, false, Map.of("p1", bundle), request.readingSlotTargets());
+        var claim = new PracticePersistenceService.GenerationClaim(12L, 1, "recovered-token", 1, persisted);
+        when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(claim));
+
+        worker.generateNext(12L);
+
+        verifyNoInteractions(aiClient);
+        verify(persistence, never()).persistReadingBundle(any(), any());
+        verify(persistence).append(eq(claim), argThat(response ->
+                response.questions().equals(bundle.questions()) && response.readingBundle().equals(bundle)));
+    }
+
+    @Test
+    void incompleteReadingGroupNeverPublishesAnyQuestion() throws Exception {
+        var groupRequest = PracticePersistenceService.itemRequest(request(), 1, List.of(), "token");
+        var claim = new PracticePersistenceService.GenerationClaim(12L, 1, "token", 0, groupRequest);
+        var bundle = readingBundle(groupRequest);
+        var incomplete = new AiPracticeGenerationResponseDto(groupRequest.requestId(), bundle.promptVersion(),
+                PracticeDomain.READING, groupRequest.mode(), groupRequest.complexityBand(),
+                bundle.questions().subList(0, 2), null, bundle);
+        when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(claim));
+        when(aiClient.generatePractice(groupRequest)).thenReturn(incomplete);
+
+        worker.generateNext(12L);
+
+        verify(persistence).fail(claim, "AI_SCHEMA_INVALID");
+        verify(persistence, never()).persistReadingBundle(any(), any());
+        verify(persistence, never()).append(any(), any());
+    }
+
+    @Test
+    void secondReadingPassageRequiresTwoVerifiedQuestionsAndStaleLeasePublishesNothing() throws Exception {
+        var prefix = List.of(item(1), item(2), item(3));
+        var groupRequest = PracticePersistenceService.itemRequest(request(), 4, prefix, "fourth-token");
+        var claim = new PracticePersistenceService.GenerationClaim(12L, 4, "fourth-token", 0, groupRequest);
+        var bundle = readingBundle(groupRequest);
+        var generated = new AiPracticeGenerationResponseDto(groupRequest.requestId(), bundle.promptVersion(),
+                PracticeDomain.READING, groupRequest.mode(), groupRequest.complexityBand(),
+                bundle.questions(), null, bundle);
+        when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(claim));
+        when(aiClient.generatePractice(groupRequest)).thenReturn(generated);
+        when(persistence.persistReadingBundle(claim, bundle)).thenReturn(false);
+
+        worker.generateNext(12L);
+
+        org.assertj.core.api.Assertions.assertThat(groupRequest.questionCount()).isEqualTo(2);
+        org.assertj.core.api.Assertions.assertThat(bundle.questionPlans())
+                .extracting(ReadingQuestionPlanDto::globalOrder).containsExactly(4, 5);
+        verify(persistence, never()).append(any(), any());
+        verify(persistence, never()).fail(any(), any());
+    }
+
+    private ReadingPassageBundleDto readingBundle(AiPracticeGenerationRequestDto groupRequest) throws Exception {
+        String passage = "第一段落。\n\n第二段落。";
+        int start = groupRequest.previousQuestions().size() + 1;
+        String passageId = start == 1 ? "p1" : "p2";
+        var plans = new java.util.ArrayList<ReadingQuestionPlanDto>();
+        var questions = new java.util.ArrayList<PracticeGeneratedQuestionDto>();
+        for (int index = 0; index < groupRequest.questionCount(); index++) {
+            ReadingSlotTargetDto slot = groupRequest.readingSlotTargets().get(start + index - 1);
+            plans.add(new ReadingQuestionPlanDto(start + index, slot.skillTag(), slot.difficulty(),
+                    slot.complexityBand(), "第一段落。", "focus-" + index, null));
+            questions.add(new PracticeGeneratedQuestionDto(index + 1, PracticeQuestionType.SINGLE_CHOICE,
+                    slot.difficulty(), slot.complexityBand(), passageId, passage, "問題 " + index,
+                    List.of(new PracticeOptionDto("A", "正解"), new PracticeOptionDto("B", "誤答1"),
+                            new PracticeOptionDto("C", "誤答2"), new PracticeOptionDto("D", "誤答3")),
+                    List.of("A"), slot.skillTag(), "第一段落。", "설명", "説明",
+                    null, null, false, List.of()));
+        }
+        String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(passage.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        return new ReadingPassageBundleDto(passageId, "reading-contract-test", hash, plans, questions);
+    }
+
+    @Test
+    void legacyReplayContextualChoicePersistsPlanBeforePublishingFirstQuestion() {
         var request = contextualRequest(null);
         var claim = new PracticePersistenceService.GenerationClaim(12L, 1, "token", 0, request);
         var planResponse = contextualPlanResponse();
@@ -74,7 +235,7 @@ class PracticeGenerationWorkerTest {
         when(aiClient.generatePractice(any())).thenReturn(planResponse, response);
         when(persistence.persistVocabularyPlan(claim, vocabularyPlan())).thenReturn(true);
 
-        worker.generateNext(12L);
+        legacyReplayGenerateClaim(claim);
 
         var ordered = inOrder(aiClient, persistence);
         ordered.verify(aiClient).generatePractice(argThat(planRequest ->
@@ -88,7 +249,7 @@ class PracticeGenerationWorkerTest {
     }
 
     @Test
-    void firstItemLogsSafePlanAndJitStagesAroundAiFailure() {
+    void legacyReplayFirstItemLogsSafePlanAndJitStagesAroundAiFailure() {
         var request = contextualRequest(null);
         var claim = new PracticePersistenceService.GenerationClaim(12L, 1, "token", 0, request);
         when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(claim));
@@ -104,7 +265,7 @@ class PracticeGenerationWorkerTest {
         appender.start();
         logger.addAppender(appender);
         try {
-            worker.generateNext(12L);
+            legacyReplayGenerateClaim(claim);
         } finally {
             logger.detachAppender(appender);
             appender.stop();
@@ -124,20 +285,20 @@ class PracticeGenerationWorkerTest {
     }
 
     @Test
-    void staleVocabularyPlanClaimCannotPublishQuestion() {
+    void legacyReplayStaleVocabularyPlanClaimCannotPublishQuestion() {
         var request = contextualRequest(null);
         var claim = new PracticePersistenceService.GenerationClaim(12L, 1, "stale", 0, request);
         when(persistence.claim(eq(12L), any(), any(), eq(3))).thenReturn(Optional.of(claim));
         when(aiClient.generatePractice(any())).thenReturn(contextualPlanResponse());
         when(persistence.persistVocabularyPlan(claim, vocabularyPlan())).thenReturn(false);
 
-        worker.generateNext(12L);
+        legacyReplayGenerateClaim(claim);
 
         verify(persistence, never()).append(any(), any());
     }
 
     @Test
-    void validFirstPlanIsPersistedEvenWhenQuestionContractIsRejected() {
+    void legacyReplayValidFirstPlanIsPersistedEvenWhenQuestionContractIsRejected() {
         var request = contextualRequest(null);
         var claim = new PracticePersistenceService.GenerationClaim(12L, 1, "token", 0, request);
         var invalidQuestionResponse = new AiPracticeGenerationResponseDto(
@@ -155,7 +316,7 @@ class PracticeGenerationWorkerTest {
         );
         when(persistence.persistVocabularyPlan(claim, vocabularyPlan())).thenReturn(true);
 
-        worker.generateNext(12L);
+        legacyReplayGenerateClaim(claim);
 
         var ordered = inOrder(persistence);
         ordered.verify(persistence).persistVocabularyPlan(claim, vocabularyPlan());

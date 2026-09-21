@@ -2,6 +2,7 @@ package jp.co.translacat.domain.languagelearning.speaking.evaluation.job;
 
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.entity.SpeakingEvaluationJob;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -56,5 +57,14 @@ class SpeakingEvaluationJobTest {
         var job = job();
         job.succeed(job.claim(now, Duration.ofSeconds(10), 2));
         assertThatThrownBy(() -> job.retry(1, "{}", now)).isInstanceOf(IllegalStateException.class);
+    }
+    @Test void coachingJobPinsResultPolicyAndSourceRevision() {
+        var job = SpeakingEvaluationJob.pending(
+                mock(SpeakingSession.class), 0, SpeakingResultKind.SESSION_COACHING,
+                "free-session-coaching-v1", "source-hash", "{}", now
+        );
+        assertThat(job.getResultKind()).isEqualTo(SpeakingResultKind.SESSION_COACHING);
+        assertThat(job.getResultPolicyVersion()).isEqualTo("free-session-coaching-v1");
+        assertThat(job.getSourceSnapshotHash()).isEqualTo("source-hash");
     }
 }

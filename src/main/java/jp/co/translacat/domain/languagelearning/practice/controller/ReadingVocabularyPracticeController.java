@@ -5,6 +5,7 @@ import jp.co.translacat.domain.languagelearning.practice.dto.request.PracticeAns
 import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeAnswerResultResponseDto;
 import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeSetResponseDto;
 import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeTodayModeStatusResponseDto;
+import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeModeAvailabilityResponseDto;
 import jp.co.translacat.domain.languagelearning.practice.dto.response.VocabularyMasterySummaryResponseDto;
 import jp.co.translacat.domain.languagelearning.practice.service.PracticeFacade;
 import jp.co.translacat.domain.languagelearning.practice.service.VocabularyMasteryQueryService;
@@ -44,6 +45,13 @@ public class ReadingVocabularyPracticeController {
         return ResponseUtil.ok(practiceFacade.getTodayStatus(
                 SecurityUtil.getLoginUserId(principal), domain
         ));
+    }
+
+    @GetMapping("/today/availability")
+    public ResponseDto<List<PracticeModeAvailabilityResponseDto>> availability(
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        return ResponseUtil.ok(practiceFacade.availability(SecurityUtil.getLoginUserId(principal)));
     }
 
     @GetMapping("/sets/{setId}")

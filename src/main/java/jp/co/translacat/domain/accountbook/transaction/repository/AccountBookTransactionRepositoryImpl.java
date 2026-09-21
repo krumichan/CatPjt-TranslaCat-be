@@ -90,7 +90,13 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                         accountBookTransaction.sourceType,
                         accountBookTransaction.sourceId,
                         accountBookTransaction.sourceYear,
-                        accountBookTransaction.sourceMonth
+                        accountBookTransaction.sourceMonth,
+                        accountBookTransaction.originalAmount,
+                        accountBookTransaction.originalCurrencyCode,
+                        accountBookTransaction.exchangeRate,
+                        accountBookTransaction.requestedRateDate,
+                        accountBookTransaction.effectiveRateDate,
+                        accountBookTransaction.exchangeRateProvider
                 ))
                 .from(accountBookTransaction)
                 .where(where)

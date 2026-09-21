@@ -11,6 +11,8 @@ public interface ReceiptKeywordRepository extends
         JpaRepository<ReceiptKeyword, Long>,
         ReceiptKeywordRepositoryCustom {
 
+    List<ReceiptKeyword> findByCurrencyCodeIsNullAndEnabledTrueAndDeletedFalseOrderByDisplayOrderAscIdAsc();
+
     Optional<ReceiptKeyword> findByIdAndDeletedFalse(Long id);
 
     List<ReceiptKeyword> findAllByDeletedFalseOrderByOcrLanguageAscCurrencyCodeAscKeywordTypeAscDisplayOrderAscIdAsc();

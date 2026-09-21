@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.accountbook.monthlygoal.entity;
 
 import jakarta.persistence.*;
+import jp.co.translacat.domain.currency.service.MoneyAmount;
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.global.jpa.BaseAuditable;
 import lombok.AccessLevel;
@@ -49,7 +50,7 @@ public class AccountBookMonthlyGoal extends BaseAuditable {
     /**
      * 월별 목표 지출 금액
      */
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(nullable = false, precision = 28, scale = 8)
     private BigDecimal goalAmount;
 
     private AccountBookMonthlyGoal(
@@ -61,7 +62,7 @@ public class AccountBookMonthlyGoal extends BaseAuditable {
         this.accountBook = accountBook;
         this.targetYear = targetYear;
         this.targetMonth = targetMonth;
-        this.goalAmount = goalAmount;
+        this.goalAmount = MoneyAmount.normalize(goalAmount, accountBook.getCurrency());
     }
 
     public static AccountBookMonthlyGoal create(
@@ -79,6 +80,6 @@ public class AccountBookMonthlyGoal extends BaseAuditable {
     }
 
     public void updateGoalAmount(BigDecimal goalAmount) {
-        this.goalAmount = goalAmount;
+        this.goalAmount = MoneyAmount.normalize(goalAmount, accountBook.getCurrency());
     }
 }

@@ -135,7 +135,7 @@ public class AiServerClient {
                     AiReceiptAnalysisResponse.class
             );
         } catch (Exception e) {
-            log.error("AI Server receipt analysis failed: {}", e.getMessage());
+            log.error("AI Server receipt analysis failed: type={}", e.getClass().getSimpleName());
 
             throw new AiServerCommunicationException("AI Server Receipt Analysis Error", e);
         }

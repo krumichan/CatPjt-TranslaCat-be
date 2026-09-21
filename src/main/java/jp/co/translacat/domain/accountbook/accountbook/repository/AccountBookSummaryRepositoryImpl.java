@@ -63,8 +63,8 @@ public class AccountBookSummaryRepositoryImpl implements AccountBookSummaryRepos
                 )
                 .fetchOne();
 
-        String currencyCode = queryFactory
-                .select(accountBook.currency.code)
+        var currency = queryFactory
+                .select(accountBook.currency.code, accountBook.currency.decimalPlaces)
                 .from(accountBook)
                 .where(accountBook.id.eq(accountBookId))
                 .fetchOne();
@@ -75,7 +75,8 @@ public class AccountBookSummaryRepositoryImpl implements AccountBookSummaryRepos
 
         return new AccountBookSummaryResponseDto(
                 accountBookId,
-                currencyCode,
+                currency == null ? null : currency.get(accountBook.currency.code),
+                currency == null ? null : currency.get(accountBook.currency.decimalPlaces),
                 normalizedIncomeAmount,
                 normalizedExpenseAmount,
                 normalizedIncomeAmount.subtract(normalizedExpenseAmount),

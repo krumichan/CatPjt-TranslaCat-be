@@ -1,5 +1,8 @@
 package jp.co.translacat.domain.accountbook.transaction.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
+import jp.co.translacat.domain.accountbook.common.serialization.DecimalStringSerializer;
 import jp.co.translacat.domain.accountbook.transaction.entity.AccountBookTransaction;
 import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionSourceType;
 import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionType;
@@ -15,19 +18,21 @@ public record AccountBookTransactionResponseDto(
         String title,
         String storeName,
         String category,
-        BigDecimal amount,
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal amount,
         LocalDate transactionDate,
         String memo,
         LocalDateTime createdAt,
-
         AccountBookTransactionSourceType sourceType,
         Long sourceId,
         Integer sourceYear,
-        Integer sourceMonth
-) {
-    public static AccountBookTransactionResponseDto from(
-            AccountBookTransaction transaction
-    ) {
+        Integer sourceMonth,
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal originalAmount,
+        String originalCurrencyCode,
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal exchangeRate,
+        LocalDate requestedRateDate,
+        LocalDate effectiveRateDate,
+        String exchangeRateProvider) {
+    public static AccountBookTransactionResponseDto from(AccountBookTransaction transaction) {
         return new AccountBookTransactionResponseDto(
                 transaction.getId(),
                 transaction.getAccountBook().getId(),
@@ -42,7 +47,12 @@ public record AccountBookTransactionResponseDto(
                 transaction.getSourceType(),
                 transaction.getSourceId(),
                 transaction.getSourceYear(),
-                transaction.getSourceMonth()
-        );
+                transaction.getSourceMonth(),
+                transaction.getOriginalAmount(),
+                transaction.getOriginalCurrencyCode(),
+                transaction.getExchangeRate(),
+                transaction.getRequestedRateDate(),
+                transaction.getEffectiveRateDate(),
+                transaction.getExchangeRateProvider());
     }
 }

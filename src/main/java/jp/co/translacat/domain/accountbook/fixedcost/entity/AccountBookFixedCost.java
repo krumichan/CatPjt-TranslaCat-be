@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.accountbook.fixedcost.entity;
 
 import jakarta.persistence.*;
+import jp.co.translacat.domain.currency.service.MoneyAmount;
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.global.utils.DomainStringUtil;
 import lombok.AccessLevel;
@@ -34,7 +35,7 @@ public class AccountBookFixedCost {
     @Column(nullable = false, length = 100)
     private String category;
 
-    @Column(nullable = false, precision = 19, scale = 2)
+    @Column(nullable = false, precision = 28, scale = 8)
     private BigDecimal amount;
 
     @Column(nullable = false)
@@ -73,7 +74,7 @@ public class AccountBookFixedCost {
         this.title = DomainStringUtil.normalizeRequired(title, "Title is required.");
         this.storeName = DomainStringUtil.normalizeNullable(storeName);
         this.category = DomainStringUtil.normalizeRequired(category, "Category is required.");
-        this.amount = amount;
+        this.amount = MoneyAmount.positive(amount, accountBook.getCurrency());
         this.paymentDay = paymentDay;
         this.startMonth = startMonth;
         this.endMonth = endMonth;
@@ -119,7 +120,7 @@ public class AccountBookFixedCost {
         this.title = DomainStringUtil.normalizeRequired(title, "Title is required.");
         this.storeName = DomainStringUtil.normalizeNullable(storeName);
         this.category = DomainStringUtil.normalizeRequired(category, "Category is required.");
-        this.amount = amount;
+        this.amount = MoneyAmount.positive(amount, accountBook.getCurrency());
         this.paymentDay = paymentDay;
         this.startMonth = startMonth;
         this.endMonth = endMonth;

@@ -25,7 +25,7 @@ public record AccountBookTransactionUpdateRequestDto(
         String category,
 
         @NotNull
-        @DecimalMin("0.01")
+        @DecimalMin(value = "0", inclusive = false)
         BigDecimal amount,
 
         @NotNull

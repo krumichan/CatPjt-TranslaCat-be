@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.accountbook.transaction.entity;
 
 import jakarta.persistence.*;
+import jp.co.translacat.domain.currency.service.MoneyAmount;
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionSourceType;
 import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionType;
@@ -54,8 +55,31 @@ public class AccountBookTransaction extends BaseAuditable {
     /**
      * 금액
      */
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(nullable = false, precision = 28, scale = 8)
     private BigDecimal amount;
+
+    @Column(precision = 28, scale = 8)
+    private BigDecimal originalAmount;
+    @Column(length = 3)
+    private String originalCurrencyCode;
+    @Column(precision = 38, scale = 18)
+    private BigDecimal exchangeRate;
+    private LocalDate requestedRateDate;
+    private LocalDate effectiveRateDate;
+    @Column(length = 50)
+    private String exchangeRateProvider;
+
+    public void recordReceiptConversion(jp.co.translacat.domain.accountbook.transaction.dto.ReceiptConversionResponseDto conversion) {
+        if (!conversion.registrable() || amount.compareTo(conversion.convertedAmount()) != 0) {
+            throw new IllegalArgumentException("Receipt conversion does not match transaction amount.");
+        }
+        this.originalAmount = conversion.originalAmount();
+        this.originalCurrencyCode = conversion.originalCurrencyCode();
+        this.exchangeRate = conversion.exchangeRate();
+        this.requestedRateDate = conversion.requestedRateDate();
+        this.effectiveRateDate = conversion.effectiveRateDate();
+        this.exchangeRateProvider = conversion.exchangeRateProvider();
+    }
 
     /**
      * 거래명
@@ -112,7 +136,7 @@ public class AccountBookTransaction extends BaseAuditable {
     ) {
         this.accountBook = accountBook;
         this.type = type;
-        this.amount = amount;
+        this.amount = MoneyAmount.positive(amount, accountBook.getCurrency());
         this.title = DomainStringUtil.normalizeRequired(title, "Title is required.");
         this.storeName = DomainStringUtil.normalizeNullable(storeName);
         this.category = DomainStringUtil.normalizeRequired(category, "Category is required.");
@@ -161,7 +185,7 @@ public class AccountBookTransaction extends BaseAuditable {
         transaction.title = DomainStringUtil.normalizeRequired(title, "Title is required.");
         transaction.storeName = DomainStringUtil.normalizeNullable(storeName);
         transaction.category = DomainStringUtil.normalizeRequired(category, "Category is required.");
-        transaction.amount = amount;
+        transaction.amount = MoneyAmount.positive(amount, accountBook.getCurrency());
         transaction.transactionDate = transactionDate;
         transaction.memo = DomainStringUtil.normalizeNullable(memo);
         transaction.sourceType = AccountBookTransactionSourceType.FIXED_COST;
@@ -181,8 +205,12 @@ public class AccountBookTransaction extends BaseAuditable {
             LocalDate transactionDate,
             String memo
     ) {
+        if (originalAmount != null && (this.type != type || this.amount.compareTo(amount) != 0 || !this.transactionDate.equals(transactionDate))) {
+            throw new IllegalArgumentException("A receipt transaction's converted amount and date cannot be changed through manual editing.");
+        }
         this.type = type;
-        this.amount = amount;
+        // Metadata edits preserve the recorded conversion even if an admin changes display precision.
+        if (originalAmount == null) this.amount = MoneyAmount.positive(amount, accountBook.getCurrency());
         this.title = DomainStringUtil.normalizeRequired(title, "Title is required.");
         this.storeName = DomainStringUtil.normalizeNullable(storeName);
         this.category = DomainStringUtil.normalizeRequired(category, "Category is required.");

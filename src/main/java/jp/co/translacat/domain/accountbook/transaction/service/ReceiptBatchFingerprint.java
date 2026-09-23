@@ -26,6 +26,8 @@ public class ReceiptBatchFingerprint {
             append(canonical, normalized(item.storeName()));
             append(canonical, normalized(item.branchName()));
             append(canonical, normalized(item.categoryName()));
+            append(canonical, normalized(item.categorySource()));
+            append(canonical, normalized(item.categoryReason()));
             append(canonical, item.purchaseTotal() == null
                     ? null : item.purchaseTotal().stripTrailingZeros().toPlainString());
             if (item.paymentBreakdown() == null) append(canonical, null);
@@ -56,6 +58,11 @@ public class ReceiptBatchFingerprint {
             append(canonical, normalized(item.amountPolicyVersion()));
             append(canonical, normalized(item.amountReason()));
             append(canonical, normalized(item.reviewStatus()));
+            append(canonical, normalized(item.reviewMode()));
+            append(canonical, item.draftRevision());
+            append(canonical, item.reviewedRevision());
+            append(canonical, item.sourceRegion());
+            append(canonical, item.branchOmittedByUser());
         });
         return digest(canonical.toString());
     }

@@ -10,7 +10,8 @@ public record AiReceiptAnalysisOptions(
         @JsonProperty("stop_keywords") List<String> stopKeywords,
         @JsonProperty("important_keywords") List<String> importantKeywords,
         @JsonProperty("exclude_item_keywords") List<String> excludeItemKeywords,
-        @JsonProperty("category_candidates") List<String> categoryCandidates) {
+        @JsonProperty("category_candidates") List<String> categoryCandidates,
+        @JsonProperty("default_category_candidates") List<String> defaultCategoryCandidates) {
     public AiReceiptAnalysisOptions withAnalysisMode(String mode) {
         return new AiReceiptAnalysisOptions(
                 ocrLanguage,
@@ -18,6 +19,7 @@ public record AiReceiptAnalysisOptions(
                 stopKeywords,
                 importantKeywords,
                 excludeItemKeywords,
-                categoryCandidates);
+                categoryCandidates,
+                defaultCategoryCandidates);
     }
 }

@@ -35,6 +35,7 @@ import jp.co.translacat.infrastructure.client.ai.server.dto.AiChatTranslationReq
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiChatTranslationResponse;
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptAnalysisOptions;
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptAnalysisResponse;
+import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptRuntimeIdentity;
 import jp.co.translacat.infrastructure.client.legacy.ExternalApiClient;
 import jp.co.translacat.infrastructure.client.legacy.ExternalApiClient4xxException;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -67,6 +69,12 @@ public class AiServerClient {
 
     @Value("${ai-server.api-key}")
     private String apiKey;
+
+    @Value("${receipt-runtime.expected-run-id:}")
+    private String expectedReceiptRunId;
+
+    @Value("${receipt-runtime.expected-source-fingerprint:}")
+    private String expectedReceiptSourceFingerprint;
 
     public String callFileConversion(MultipartFile file) {
         String url = aiServerUrl + "/api/v1/stt/transcribe";
@@ -117,10 +125,15 @@ public class AiServerClient {
             AiReceiptAnalysisOptions options
     ) {
         String url = aiServerUrl + "/api/v1/account-book/receipts/analyze";
+        String traceId = UUID.randomUUID().toString();
+        AiReceiptRuntimeIdentity preflight = callReceiptRuntimeIdentity();
+        assertExpectedReceiptRuntime(preflight);
 
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
         builder.part("file", file.getResource())
                 .filename(file.getOriginalFilename());
+        builder.part("trace_id", traceId)
+                .contentType(MediaType.TEXT_PLAIN);
 
         if (options != null) {
             builder.part("options", toJson(options))
@@ -128,17 +141,67 @@ public class AiServerClient {
         }
 
         try {
-            return this.apiClient.postMultipart(
+            AiReceiptAnalysisResponse response = this.apiClient.postMultipart(
                     url,
                     builder.build(),
                     this.basicHeader(),
                     AiReceiptAnalysisResponse.class
             );
+            if (response != null && (response.analysisTraceId() == null
+                    || response.analysisTraceId().isBlank())) {
+                return new AiReceiptAnalysisResponse(
+                        response.receipts(),
+                        response.receiptCount(),
+                        response.warnings(),
+                        response.ocrEngine(),
+                        response.usedAi(),
+                        traceId,
+                        response.runtimeIdentity()
+                );
+            }
+            if (response == null || response.runtimeIdentity() == null
+                    || !sameReceiptRuntime(preflight, response.runtimeIdentity())) {
+                throw new IllegalStateException("Receipt analysis runtime identity changed after preflight.");
+            }
+            return response;
         } catch (Exception e) {
             log.error("AI Server receipt analysis failed: type={}", e.getClass().getSimpleName());
 
             throw new AiServerCommunicationException("AI Server Receipt Analysis Error", e);
         }
+    }
+
+    public AiReceiptRuntimeIdentity callReceiptRuntimeIdentity() {
+        try {
+            AiReceiptRuntimeIdentity identity = apiClient.getOnce(
+                    aiServerUrl + "/api/v1/account-book/receipts/runtime-identity",
+                    basicHeader(), AiReceiptRuntimeIdentity.class);
+            if (identity == null || blank(identity.runId()) || blank(identity.sourceFingerprint()))
+                throw new IllegalStateException("AI receipt runtime identity is incomplete.");
+            return identity;
+        } catch (Exception e) {
+            throw new AiServerCommunicationException("AI Server Receipt Runtime Preflight Error", e);
+        }
+    }
+
+    private void assertExpectedReceiptRuntime(AiReceiptRuntimeIdentity identity) {
+        if (!blank(expectedReceiptRunId) && !expectedReceiptRunId.equals(identity.runId()))
+            throw new IllegalStateException("AI receipt runtime run id does not match the launcher.");
+        if (!blank(expectedReceiptSourceFingerprint)
+                && !expectedReceiptSourceFingerprint.equals(identity.sourceFingerprint()))
+            throw new IllegalStateException("AI receipt runtime source fingerprint does not match the launcher.");
+    }
+
+    private boolean sameReceiptRuntime(
+            AiReceiptRuntimeIdentity before, AiReceiptRuntimeIdentity after) {
+        return before.runId().equals(after.runId())
+                && before.sourceFingerprint().equals(after.sourceFingerprint())
+                && java.util.Objects.equals(before.processId(), after.processId())
+                && java.util.Objects.equals(before.startedAt(), after.startedAt());
+    }
+
+    private boolean blank(String value) {
+        return value == null || value.isBlank();
     }
 
     private String toJson(Object value) {

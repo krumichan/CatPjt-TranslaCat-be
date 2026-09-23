@@ -6,6 +6,7 @@ import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookStoreSugge
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionMonthResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionRequestDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionResponseDto;
+import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionType;
 import org.springframework.data.domain.Page;
 
 import java.math.BigDecimal;
@@ -29,6 +30,7 @@ public interface AccountBookTransactionRepositoryCustom {
 
     List<AccountBookStoreSuggestionResponseDto> findStoreSuggestions(
             Long accountBookId,
+            AccountBookTransactionType type,
             String keyword
     );
 

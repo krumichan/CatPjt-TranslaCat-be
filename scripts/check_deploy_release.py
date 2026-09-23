@@ -72,9 +72,37 @@ if args[0] == "logs": end(0, "simulated log")
 end(99, "unsupported probe call: " + repr(args))
 '''
 
-def main() -> None:
-    if shutil.which("bash") is None:
+def bash_executable() -> str:
+    """Prefer Git Bash on Windows; System32/bash.exe may be an unconfigured WSL shim."""
+    if os.name == "nt":
+        candidates = [
+            os.environ.get("GIT_BASH"),
+            r"C:\Program Files\Git\bin\bash.exe",
+            r"C:\Program Files\Git\usr\bin\bash.exe",
+        ]
+        for candidate in candidates:
+            if candidate and Path(candidate).is_file():
+                return candidate
+    resolved = shutil.which("bash")
+    if resolved is None:
         raise SystemExit("Bash is required (Linux/macOS or Git Bash/WSL). No live deployment is performed.")
+    return resolved
+
+def path_for_bash(bash: str, value: Path | str) -> str:
+    if os.name != "nt":
+        return str(value)
+    converted = subprocess.run(
+        [bash, "-lc", 'cygpath -u "$1"', "bash", str(value)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return converted.stdout.strip()
+
+def main() -> None:
+    bash = bash_executable()
+    script_for_bash = path_for_bash(bash, SCRIPT)
+    python_for_bash = path_for_bash(bash, sys.executable)
     results = []
     cases = [(name, True, True) for name in ("checkout", "environment", "network", "build", "stop", "rename", "run", "revision", "health", "success")]
     cases += [("health", True, False), ("success", False, False), ("health", False, False), ("rollback_start", True, True)]
@@ -88,16 +116,18 @@ def main() -> None:
             (root / "calls.jsonl").write_text("")
             for command in ("git", "docker", "curl", "sleep"):
                 executable = bins / command
-                executable.write_text(FAKE.replace("#!/usr/bin/env python3", "#!" + sys.executable + " -S"))
+                executable.write_text(FAKE.replace("#!/usr/bin/env python3", "#!" + python_for_bash + " -S"))
                 executable.chmod(0o755)
             environment = os.environ | {
-                "PATH": str(bins) + os.pathsep + os.environ["PATH"],
                 "PROBE_STATE": str(root / "state.json"), "PROBE_CALLS": str(root / "calls.jsonl"),
                 "PROBE_FAULT": fault, "PROBE_CONTAINER": NAME, "PROBE_SHA": SHA,
                 "DEPLOY_ENV_B64": "%%%bad-base64" if fault == "environment" else base64.b64encode(b"FAKE=probe\n").decode(),
                 "DEPLOY_HEALTH_ATTEMPTS": "2", "DEPLOY_HEALTH_DELAY_SECONDS": "0",
             }
-            process = subprocess.run(["bash", str(SCRIPT), SHA], cwd=root, env=environment,
+            process = subprocess.run([
+                bash, "-lc", 'export PATH="$1:$PATH"; exec "$2" "$3"',
+                "bash", path_for_bash(bash, bins), script_for_bash, SHA,
+            ], cwd=root, env=environment,
                                      capture_output=True, text=True, timeout=20)
             after = json.loads((root / "state.json").read_text())
             calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]

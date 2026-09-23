@@ -2,8 +2,10 @@ package jp.co.translacat.domain.accountbook.transaction.facade;
 
 import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookAccessService;
 import jp.co.translacat.domain.accountbook.receiptkeyword.service.ReceiptAnalysisOptionQueryService;
+import jp.co.translacat.domain.accountbook.receiptkeyword.service.ReceiptCategorySuggestionPolicy;
 import jp.co.translacat.domain.accountbook.transaction.dto.ReceiptAnalysisResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.ReceiptPaymentItemDto;
+import jp.co.translacat.domain.accountbook.transaction.dto.ReceiptRuntimeIdentityResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.enums.ReceiptAnalysisMode;
 import jp.co.translacat.domain.accountbook.transaction.service.ReceiptConversionService;
 import jp.co.translacat.domain.accountbook.transaction.service.ReceiptAmountPolicy;
@@ -39,6 +41,10 @@ public class AccountBookReceiptAnalysisFacade {
                 receiptAnalysisOptionQueryService
                         .getOptions(bookId)
                         .withAnalysisMode(ReceiptAnalysisMode.fromNullable(mode).name());
+        boolean categoryCandidatesDelivered = options.categoryCandidates() != null;
+        List<String> categoryCandidates = categoryCandidatesDelivered
+                ? options.categoryCandidates()
+                : List.of();
         var response = aiServerClient.callReceiptAnalysis(file, options);
         if (response == null)
             throw new IllegalArgumentException("Receipt analysis returned no response.");
@@ -54,7 +60,8 @@ public class AccountBookReceiptAnalysisFacade {
                 id = "receipt-" + (results.size() + 1) + "-" + UUID.randomUUID();
                 ids.add(id);
             }
-            results.add(map(item, id, book.getCurrency(), options.categoryCandidates(), bookId));
+            results.add(map(item, id, book.getCurrency(), categoryCandidates,
+                    options.defaultCategoryCandidates(), bookId));
         }
         long ready =
                 results.stream()
@@ -75,10 +82,26 @@ public class AccountBookReceiptAnalysisFacade {
                 results.size() - ready,
                 (System.nanoTime() - started) / 1_000_000);
         List<String> topWarnings = new ArrayList<>(safe(response.warnings()));
+        if (!categoryCandidatesDelivered) topWarnings.add("CATEGORY_CANDIDATES_NOT_DELIVERED");
+        else if (categoryCandidates.isEmpty()) topWarnings.add("CATEGORY_CANDIDATES_EMPTY");
         if (response.receipts() != null && response.receipts().size() > 30)
             topWarnings.add("RECEIPT_LIMIT_REACHED");
+        List<ReceiptAnalysisResponseDto.CategoryOption> categoryOptions = new ArrayList<>();
+        categoryCandidates.forEach(name -> categoryOptions.add(
+                new ReceiptAnalysisResponseDto.CategoryOption(name, "EXISTING")));
+        options.defaultCategoryCandidates().stream()
+                .filter(name -> categoryCandidates.stream().noneMatch(name::equalsIgnoreCase))
+                .forEach(name -> categoryOptions.add(
+                        new ReceiptAnalysisResponseDto.CategoryOption(name, "DEFAULT")));
         return new ReceiptAnalysisResponseDto(
-                results, results.size(), topWarnings, response.ocrEngine(), response.usedAi());
+                results, results.size(), topWarnings, response.ocrEngine(), response.usedAi(),
+                categoryOptions, response.analysisTraceId(),
+                ReceiptRuntimeIdentityResponseDto.from(response.runtimeIdentity()));
+    }
+
+    public ReceiptRuntimeIdentityResponseDto runtimeIdentity(Long bookId, Long userId) {
+        accountBookAccessService.getAccessibleAccountBook(bookId, userId);
+        return ReceiptRuntimeIdentityResponseDto.from(aiServerClient.callReceiptRuntimeIdentity());
     }
 
     private ReceiptAnalysisResponseDto.Item map(
@@ -86,6 +109,7 @@ public class AccountBookReceiptAnalysisFacade {
             String id,
             Currency target,
             List<String> categories,
+            List<String> defaultCategories,
             Long bookId) {
         if (item == null)
             item =
@@ -145,11 +169,9 @@ public class AccountBookReceiptAnalysisFacade {
                 amount, item.detectedCurrencyCode(), date, target, bookId,
                 amountDecision.fingerprint());
         warnings.addAll(conversion.warnings());
-        String category = item.categoryName();
-        if (category == null || !categories.contains(category)) {
-            category = null;
-            warnings.add("CATEGORY_REQUIRES_REVIEW");
-        }
+        var category = ReceiptCategorySuggestionPolicy.resolve(
+                item.categoryName(), item.categoryReason(), categories, defaultCategories);
+        warnings.addAll(category.warnings());
         Double confidence = item.confidence();
         if (confidence != null
                 && (!Double.isFinite(confidence) || confidence < 0 || confidence > 1)) {
@@ -162,7 +184,7 @@ public class AccountBookReceiptAnalysisFacade {
                         : ("READY".equals(item.status())
                                         && conversion.registrable()
                                         && amountDecision.ready()
-                                        && category != null
+                                        && category.name() != null
                                         && item.title() != null
                                         && !item.title().isBlank())
                                 ? "READY"
@@ -172,6 +194,13 @@ public class AccountBookReceiptAnalysisFacade {
                 item.title(),
                 item.storeName(),
                 item.branchName(),
+                item.merchantEvidence(),
+                item.branchEvidence(),
+                item.boundingBox(),
+                item.identitySourceBox(),
+                item.identityVerification(),
+                item.financialSourceBox(),
+                item.financialRecoveryProvenance(),
                 amountDecision.purchaseTotal(),
                 amountDecision.payments(),
                 amountDecision.cashTendered(),
@@ -184,7 +213,9 @@ public class AccountBookReceiptAnalysisFacade {
                 conversion.originalCurrencyCode(),
                 date,
                 transactionTime,
-                category,
+                category.name(),
+                category.source(),
+                category.reason(),
                 item.memo(),
                 confidence,
                 item.detectedLanguage(),

@@ -206,6 +206,7 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
     @Override
     public List<AccountBookStoreSuggestionResponseDto> findStoreSuggestions(
             Long accountBookId,
+            AccountBookTransactionType type,
             String keyword
     ) {
         return queryFactory
@@ -216,6 +217,7 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                 .from(accountBookTransaction)
                 .where(
                         accountBookTransaction.accountBook.id.eq(accountBookId),
+                        accountBookTransaction.type.eq(type),
                         accountBookTransaction.storeName.isNotNull(),
                         accountBookTransaction.storeName.ne(""),
                         QueryDslUtil.containsIgnoreCaseIfHasText(

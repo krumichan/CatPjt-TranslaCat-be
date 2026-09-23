@@ -4,6 +4,7 @@ import jp.co.translacat.domain.accountbook.accountbook.service.AccountBookAccess
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookStoreSuggestionResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionMonthResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.repository.AccountBookTransactionRepository;
+import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,6 +81,7 @@ public class AccountBookTransactionQueryService {
 
     public List<AccountBookStoreSuggestionResponseDto> getStoreSuggestions(
             Long accountBookId,
+            AccountBookTransactionType type,
             String keyword,
             Long userId
     ) {
@@ -87,6 +89,7 @@ public class AccountBookTransactionQueryService {
 
         return accountBookTransactionRepository.findStoreSuggestions(
                 accountBookId,
+                type,
                 keyword
         );
     }

@@ -59,6 +59,20 @@ public class ExternalApiClient {
                 .block(); // Mono<T> 형태의 값을 T 값으로 동기 방식으로 변환
     }
 
+    /** A single authenticated GET used by runtime preflight checks. */
+    public <T> T getOnce(
+            String uri,
+            Map<String, String> headers,
+            Class<T> responseType
+    ) {
+        return webClient.get()
+                .uri(uri)
+                .headers(h -> headers.forEach(h::add))
+                .retrieve()
+                .bodyToMono(responseType)
+                .block();
+    }
+
     /**
      * 외부 API POST 요청을 수행한다.
      * - 요청 실패 시 Retry를 수행한다.

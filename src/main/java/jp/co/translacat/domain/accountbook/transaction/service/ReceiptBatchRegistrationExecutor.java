@@ -54,6 +54,7 @@ public class ReceiptBatchRegistrationExecutor {
             if (item == null || item.receiptId() == null || !ids.add(item.receiptId())) {
                 throw new IllegalArgumentException("Duplicate or missing receipt identifier.");
             }
+            validateReviewCompletion(item);
             var amountDecision = ReceiptAmountPolicy.decide(
                     item.purchaseTotal(), item.paymentBreakdown(),
                     item.cashTendered(), item.change());
@@ -120,6 +121,21 @@ public class ReceiptBatchRegistrationExecutor {
             throw new IllegalStateException("Failed to snapshot the receipt batch response.", e);
         }
         return result;
+    }
+
+    private void validateReviewCompletion(ReceiptCandidateRequestDto item) {
+        if (!"ASSISTED".equals(item.reviewMode())) return;
+        if (item.draftRevision() == null || item.reviewedRevision() == null
+                || !item.draftRevision().equals(item.reviewedRevision())) {
+            throw new IllegalArgumentException(
+                    "Review-assisted receipt changed after source confirmation.");
+        }
+        List<Double> region = item.sourceRegion();
+        if (region == null || region.size() != 4
+                || region.get(0) >= region.get(2) || region.get(1) >= region.get(3)) {
+            throw new IllegalArgumentException(
+                    "Review-assisted receipt requires a valid source region.");
+        }
     }
 
     private String writePayments(List<ReceiptPaymentItemDto> payments) {

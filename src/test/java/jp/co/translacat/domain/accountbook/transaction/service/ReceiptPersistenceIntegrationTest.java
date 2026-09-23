@@ -102,6 +102,27 @@ class ReceiptPersistenceIntegrationTest {
                 id,"Purchase","Store","Food",new BigDecimal(amount),source,date,"Memo",
                 conversion.conversionQuoteId());
     }
+    ReceiptCandidateRequestDto itemWithCategory(String id, String categoryName) {
+        var base = item(id, "JPY", "10");
+        return new ReceiptCandidateRequestDto(
+                base.receiptId(), base.title(), base.storeName(), base.branchName(), categoryName,
+                "NEW", "영수증 품목에 맞는 신규 제안", base.purchaseTotal(), base.paymentBreakdown(),
+                base.cashTendered(), base.change(), base.originalAmount(), base.originalCurrencyCode(),
+                base.transactionDate(), base.transactionTime(), base.memo(), base.conversionQuoteId(),
+                base.sourceImageId(), base.analysisRevision(), base.amountPolicyVersion(),
+                base.amountReason(), base.reviewStatus(), null, null, null, null, null);
+    }
+    ReceiptCandidateRequestDto assisted(
+            ReceiptCandidateRequestDto base, int draftRevision, int reviewedRevision) {
+        return new ReceiptCandidateRequestDto(
+                base.receiptId(), base.title(), base.storeName(), base.branchName(), base.categoryName(),
+                base.categorySource(), base.categoryReason(), base.purchaseTotal(), base.paymentBreakdown(),
+                base.cashTendered(), base.change(), base.originalAmount(), base.originalCurrencyCode(),
+                base.transactionDate(), base.transactionTime(), base.memo(), base.conversionQuoteId(),
+                base.sourceImageId(), base.analysisRevision(), base.amountPolicyVersion(),
+                base.amountReason(), base.reviewStatus(), "ASSISTED", draftRevision,
+                reviewedRevision, List.of(0.1, 0.1, 0.9, 0.9), false);
+    }
     String key() { return "receipt-" + UUID.randomUUID(); }
     @Test void batchPersistsOriginalFactsAndRateAndQueryProjection() {
         var result=batch.register(bookId,userId,key(),new ReceiptBatchRequestDto(List.of(item("1","USD","12.34"),item("2","THB","10.125"))));
@@ -165,6 +186,23 @@ class ReceiptPersistenceIntegrationTest {
         tx.executeWithoutResult(status -> assertThat(em.createQuery("select count(c) from AccountBookCategory c",Long.class).getSingleResult()).isZero());
         // Published daily cache entries are intentionally independent of business batch rollback.
         assertThat(rates.count()).isEqualTo(1);
+    }
+    @Test void newSuggestionCreatesOneCategoryOnlyWhenFinalBatchCommits() {
+        tx.executeWithoutResult(status -> assertThat(em.createQuery(
+                "select count(c) from AccountBookCategory c", Long.class).getSingleResult()).isZero());
+
+        var result = batch.register(bookId, userId, key(), new ReceiptBatchRequestDto(List.of(
+                itemWithCategory("new-category-1", "반려동물"),
+                itemWithCategory("new-category-2", "반려동물"))));
+
+        assertThat(result).hasSize(2);
+        assertThat(transactions.count()).isEqualTo(2);
+        tx.executeWithoutResult(status -> {
+            em.clear();
+            assertThat(em.createQuery(
+                    "select count(c) from AccountBookCategory c where c.name = :name", Long.class)
+                    .setParameter("name", "반려동물").getSingleResult()).isEqualTo(1);
+        });
     }
     @Test void duplicateIdentifiersRollbackBatch() {
         assertThatThrownBy(() -> batch.register(bookId,userId,key(),new ReceiptBatchRequestDto(List.of(item("same","JPY","10"),item("same","JPY","20")))))
@@ -317,6 +355,28 @@ class ReceiptPersistenceIntegrationTest {
                 .hasMessageContaining("reviewed again");
         assertThat(transactions.count()).isZero();
         assertThat(registrations.count()).isZero();
+    }
+
+    @Test void reviewAssistedDraftChangedAfterConfirmationRollsBackWholeBatch() {
+        var staleReview = assisted(item("review-stale", "USD", "12.34"), 4, 3);
+
+        assertThatThrownBy(() -> batch.register(bookId, userId, key(),
+                new ReceiptBatchRequestDto(List.of(staleReview))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("changed after source confirmation");
+        assertThat(transactions.count()).isZero();
+        assertThat(registrations.count()).isZero();
+    }
+
+    @Test void reviewAssistedCurrentRevisionRegistersWithServerQuote() {
+        var reviewed = assisted(item("review-ready", "USD", "12.34"), 4, 4);
+
+        var created = batch.register(bookId, userId, key(),
+                new ReceiptBatchRequestDto(List.of(reviewed)));
+
+        assertThat(created).hasSize(1);
+        assertThat(created.getFirst().originalAmount()).isEqualByComparingTo("12.34");
+        assertThat(transactions.count()).isEqualTo(1);
     }
 
     @Test void previewQuoteCannotBeRegisteredIntoAnotherAccountBook() {

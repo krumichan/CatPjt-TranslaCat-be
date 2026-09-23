@@ -14,12 +14,24 @@ public record ReceiptAnalysisResponseDto(
         int receiptCount,
         List<String> warnings,
         String ocrEngine,
-        Boolean usedAi) {
+        Boolean usedAi,
+        List<CategoryOption> categoryOptions,
+        String analysisTraceId,
+        ReceiptRuntimeIdentityResponseDto runtimeIdentity) {
+    public record CategoryOption(String name, String source) {}
+
     public record Item(
             String receiptId,
             String title,
             String storeName,
             String branchName,
+            String merchantEvidence,
+            String branchEvidence,
+            List<Double> boundingBox,
+            List<Double> identitySourceBox,
+            String identityVerification,
+            List<Double> financialSourceBox,
+            String financialRecoveryProvenance,
             @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal purchaseTotal,
             List<ReceiptPaymentItemDto> paymentBreakdown,
             @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal cashTendered,
@@ -33,6 +45,8 @@ public record ReceiptAnalysisResponseDto(
             LocalDate transactionDate,
             String transactionTime,
             String categoryName,
+            String categorySource,
+            String categoryReason,
             String memo,
             Double confidence,
             String detectedLanguage,

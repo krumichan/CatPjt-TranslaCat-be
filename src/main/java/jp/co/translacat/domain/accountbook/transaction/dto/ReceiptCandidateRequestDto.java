@@ -13,7 +13,9 @@ public record ReceiptCandidateRequestDto(
         @NotBlank @Size(max = 100) String title,
         @Size(max = 100) String storeName,
         @Size(max = 100) String branchName,
-        @NotBlank @Size(max = 50) String categoryName,
+        @NotBlank @Size(max = 50) @Pattern(regexp = "^[^\\p{Cc}]+$") String categoryName,
+        @Pattern(regexp = "EXISTING|DEFAULT|NEW|FALLBACK|USER") String categorySource,
+        @Size(max = 160) @Pattern(regexp = "^[^\\p{Cc}]*$") String categoryReason,
         @NotNull @DecimalMin(value = "0", inclusive = false) @Digits(integer = 20, fraction = 8)
                 BigDecimal purchaseTotal,
         @Size(max = 30) List<@Valid ReceiptPaymentItemDto> paymentBreakdown,
@@ -29,7 +31,12 @@ public record ReceiptCandidateRequestDto(
         @NotNull @Positive Integer analysisRevision,
         @Size(max = 40) String amountPolicyVersion,
         @Size(max = 100) String amountReason,
-        @Size(max = 20) String reviewStatus) {
+        @Size(max = 20) String reviewStatus,
+        @Pattern(regexp = "AUTOMATIC|ASSISTED") String reviewMode,
+        @PositiveOrZero Integer draftRevision,
+        @PositiveOrZero Integer reviewedRevision,
+        @Size(min = 4, max = 4) List<@NotNull @DecimalMin("0.0") @DecimalMax("1.0") Double> sourceRegion,
+        Boolean branchOmittedByUser) {
     public ReceiptCandidateRequestDto(
             String receiptId, String title, String storeName, String branchName,
             String categoryName, BigDecimal purchaseTotal,
@@ -38,20 +45,36 @@ public record ReceiptCandidateRequestDto(
             LocalDate transactionDate, String memo, String conversionQuoteId,
             String sourceImageId, Integer analysisRevision, String amountPolicyVersion,
             String amountReason, String reviewStatus) {
-        this(receiptId, title, storeName, branchName, categoryName, purchaseTotal,
+        this(receiptId, title, storeName, branchName, categoryName, null, null, purchaseTotal,
                 paymentBreakdown, cashTendered, change, originalAmount,
                 originalCurrencyCode, transactionDate, null, memo, conversionQuoteId,
                 sourceImageId, analysisRevision, amountPolicyVersion, amountReason,
-                reviewStatus);
+                reviewStatus, null, null, null, null, null);
+    }
+
+    public ReceiptCandidateRequestDto(
+            String receiptId, String title, String storeName, String branchName,
+            String categoryName, BigDecimal purchaseTotal,
+            List<ReceiptPaymentItemDto> paymentBreakdown, BigDecimal cashTendered,
+            BigDecimal change, BigDecimal originalAmount, String originalCurrencyCode,
+            LocalDate transactionDate, String transactionTime, String memo,
+            String conversionQuoteId, String sourceImageId, Integer analysisRevision,
+            String amountPolicyVersion, String amountReason, String reviewStatus) {
+        this(receiptId, title, storeName, branchName, categoryName, null, null, purchaseTotal,
+                paymentBreakdown, cashTendered, change, originalAmount,
+                originalCurrencyCode, transactionDate, transactionTime, memo,
+                conversionQuoteId, sourceImageId, analysisRevision, amountPolicyVersion,
+                amountReason, reviewStatus, null, null, null, null, null);
     }
 
     public ReceiptCandidateRequestDto(
             String receiptId, String title, String storeName, String categoryName,
             BigDecimal originalAmount, String originalCurrencyCode, LocalDate transactionDate,
             String memo, String conversionQuoteId) {
-        this(receiptId, title, storeName, null, categoryName, originalAmount, List.of(), null,
+        this(receiptId, title, storeName, null, categoryName, null, null, originalAmount, List.of(), null,
                 null, originalAmount, originalCurrencyCode, transactionDate, null, memo,
                 conversionQuoteId, receiptId, 1, "receipt-book-amount-v1",
-                "PURCHASE_TOTAL_NO_PAYMENT_ALLOCATION", "READY");
+                "PURCHASE_TOTAL_NO_PAYMENT_ALLOCATION", "READY",
+                null, null, null, null, null);
     }
 }

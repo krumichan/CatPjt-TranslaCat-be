@@ -17,7 +17,8 @@ All routes below use the existing authenticated response wrapper and account-boo
   Recalculation does not require a title or category.
 - POST /api/v1/account-books/{id}/transactions/receipt-batch: receipts array (1–30), each with
   receiptId, sourceImageId, analysisRevision, title, optional storeName/branchName,
-  categoryName, purchaseTotal, paymentBreakdown, optional cashTendered/change, bookAmount,
+  categoryName, optional categorySource/categoryReason, purchaseTotal, paymentBreakdown,
+  optional cashTendered/change, bookAmount,
   originalCurrencyCode, transactionDate/time, optional memo and the server-issued
   conversionQuoteId that the user reviewed.
   The request requires an Idempotency-Key header (8–100 characters from A-Z, a-z, 0-9,
@@ -124,10 +125,19 @@ The migration has not been applied to a production database by this task.
 
 ## Categories, admin settings and diagnostics
 
-The backend supplies active category names from the current account book. Analysis accepts
-only exact candidate matches; an unknown category becomes null with a review warning.
-Users can still enter a category directly, and the existing find-or-create behavior runs
-inside the batch transaction.
+The backend supplies active category names from the current account book together with a
+small shared expense taxonomy: 식비, 교통비, 생활, 쇼핑, 의료, 주거 and 기타.
+These defaults are analysis options, not rows pre-created in every account book. A suggestion
+is classified as EXISTING, DEFAULT, NEW, FALLBACK or USER. Safe new names remain editable,
+non-blocking suggestions; missing or malformed names become the explicit 기타 fallback while
+unrelated amount/date/currency errors remain blocking. Names are limited to 50 characters and
+control characters are rejected at analysis and batch boundaries.
+
+Analysis, table selection and draft editing do not write categories or transactions. The
+existing find-or-create behavior runs only inside the final atomic receipt batch. Its
+account-book/name unique constraint prevents duplicates; a later failure rolls back both the
+new category and every transaction in that batch. Category source and reason participate in
+the idempotency fingerprint without becoming part of the stored category name.
 
 Currency-to-OCR admin mappings remain editable legacy data but are dormant during automatic
 global analysis. The backend no longer sends target currency or derives OCR language from

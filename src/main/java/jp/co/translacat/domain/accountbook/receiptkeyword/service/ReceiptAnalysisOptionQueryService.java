@@ -37,7 +37,8 @@ public class ReceiptAnalysisOptionQueryService {
                                 accountBookId)
                         .stream()
                         .map(AccountBookCategory::getName)
-                        .toList());
+                        .toList(),
+                ReceiptCategorySuggestionPolicy.DEFAULT_CATEGORIES);
     }
 
     private List<String> words(List<ReceiptKeyword> keywords, ReceiptKeywordType type) {

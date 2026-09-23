@@ -1,1 +1,9 @@
-src/main/resources/system_full.dic
+.git
+.github
+.gradle
+build
+out
+.env*
+.deploy-env.*
+.deploy.lock
+*.log

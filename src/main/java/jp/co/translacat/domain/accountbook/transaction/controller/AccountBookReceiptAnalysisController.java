@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.accountbook.transaction.controller;
 
 import jp.co.translacat.domain.accountbook.transaction.dto.ReceiptAnalysisResponseDto;
+import jp.co.translacat.domain.accountbook.transaction.dto.ReceiptRuntimeIdentityResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.facade.AccountBookReceiptAnalysisFacade;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
@@ -36,5 +37,14 @@ public class AccountBookReceiptAnalysisController {
         );
 
         return ResponseUtil.ok(response);
+    }
+
+    @GetMapping("/receipt-runtime-preflight")
+    public ResponseDto<ReceiptRuntimeIdentityResponseDto> receiptRuntimePreflight(
+            @PathVariable Long accountBookId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal
+    ) {
+        return ResponseUtil.ok(accountBookReceiptAnalysisFacade.runtimeIdentity(
+                accountBookId, userPrincipal.getId()));
     }
 }

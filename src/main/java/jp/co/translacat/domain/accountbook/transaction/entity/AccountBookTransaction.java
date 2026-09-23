@@ -32,6 +32,12 @@ import java.util.Locale;
                                 "source_month"
                         }
                 )
+        },
+        indexes = {
+                @Index(
+                        name = "ix_account_book_transactions_merchant_key",
+                        columnList = "account_book_id,merchant_key"
+                )
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

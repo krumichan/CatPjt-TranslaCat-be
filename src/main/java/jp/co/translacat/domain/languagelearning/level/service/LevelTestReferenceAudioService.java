@@ -11,7 +11,7 @@ import jp.co.translacat.domain.languagelearning.listening.ai.port.ListeningAiCli
 import jp.co.translacat.domain.languagelearning.listening.audio.model.ListeningAudioObject;
 import jp.co.translacat.domain.languagelearning.listening.audio.port.ListeningAudioStoragePort;
 import jp.co.translacat.domain.languagelearning.listening.audio.service.ListeningAudioKeyFactory;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -34,7 +34,7 @@ public class LevelTestReferenceAudioService {
     private final ListeningAiClient aiClient;
     private final ListeningAudioStoragePort storagePort;
     private final ListeningAudioKeyFactory keyFactory;
-    private final ListeningPolicySettingQueryService policySettingQueryService;
+    private final ListeningPolicyGateway policySettingQueryService;
     private final LevelTestQuestionPersistenceService persistenceService;
     private final LanguageLearningJsonCodec jsonCodec;
 

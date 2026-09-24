@@ -108,6 +108,7 @@ class ListeningProgressiveOutboxTest {
         return new ListeningOutboxDispatcher(transactions, generation, audio,
                 mock(ListeningEvaluationWorker.class), mock(ListeningProfileRecalculationCommandService.class),
                 mock(ListeningRecommendationExplanationWorker.class),
+                mock(ListeningSettingsSelectionWorker.class),
                 generationExecutor, audioExecutor, Runnable::run);
     }
 }

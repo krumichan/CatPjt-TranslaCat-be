@@ -17,9 +17,9 @@ import jp.co.translacat.domain.languagelearning.listening.response.repository.Li
 import jp.co.translacat.domain.languagelearning.listening.service.ListeningViewMapper;
 import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
 import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
-import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
+import jp.co.translacat.domain.languagelearning.listening.outbox.service.SettingsSelectionOutboxService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -48,8 +48,8 @@ public class ListeningSessionCommandService {
     private final ListeningDailySetQueryService dailySetQueryService;
     private final ListeningTaskSelectionPolicy taskSelectionPolicy;
     private final ListeningIdempotencyPolicy idempotencyPolicy;
-    private final ListeningPolicySettingQueryService policySettingService;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final ListeningPolicyGateway policySettingService;
+    private final SettingsSelectionOutboxService selectionOutbox;
     private final LanguageLearningJsonCodec jsonCodec;
     private final ListeningSessionLockService lockService;
     private final ListeningViewMapper viewMapper;
@@ -101,11 +101,11 @@ public class ListeningSessionCommandService {
         if (existing.isPresent()) {
             validateIdempotentSession(existing.get(), request.dailySetId(), ordered);
             synchronizeReadyItems(ownedLocked(userId, existing.get().getId()));
-            rememberSelection(userId, ordered);
+            rememberSelection(userId, existing.get().getId(), ordered);
             return existing.get().getId();
         }
 
-        ListeningPolicySetting policy = policySettingService.get();
+        ListeningPolicySnapshot policy = policySettingService.get();
         expireOrRejectActive(userId, policy);
 
         if (!dailySet.isUsable()) {
@@ -143,11 +143,11 @@ public class ListeningSessionCommandService {
                     .findByUserIdAndIdempotencyKey(userId, key)
                     .orElseThrow(() -> exception);
             validateIdempotentSession(concurrent, request.dailySetId(), ordered);
-            rememberSelection(userId, ordered);
+            rememberSelection(userId, concurrent.getId(), ordered);
             return concurrent.getId();
         }
 
-        rememberSelection(userId, ordered);
+        rememberSelection(userId, session.getId(), ordered);
 
         for (ListeningItem item : items) {
             createAttempt(session, item, ListeningEvaluationPurpose.OFFICIAL,
@@ -162,7 +162,7 @@ public class ListeningSessionCommandService {
 
     @Transactional
     public Long activeSessionId(Long userId) {
-        ListeningPolicySetting policy = policySettingService.get();
+        ListeningPolicySnapshot policy = policySettingService.get();
         var active = sessionRepository
                 .findFirstByUserIdAndStatusOrderByStartedAtDesc(
                         userId,
@@ -301,10 +301,10 @@ public class ListeningSessionCommandService {
 
     private void rememberSelection(
             Long userId,
+            Long sessionId,
             List<ListeningTaskType> ordered
     ) {
-        userSettingQueryService.getOrCreateEntity(userId)
-                .updateDefaultListeningTaskTypes(jsonCodec.write(ordered));
+        selectionOutbox.enqueue(userId, sessionId, ordered);
     }
 
     private void validateIdempotentSession(
@@ -364,7 +364,7 @@ public class ListeningSessionCommandService {
 
     private void expireOrRejectActive(
             Long userId,
-            ListeningPolicySetting policy
+            ListeningPolicySnapshot policy
     ) {
         sessionRepository.findFirstByUserIdAndStatusInOrderByStartedAtDesc(
                 userId,
@@ -409,7 +409,7 @@ public class ListeningSessionCommandService {
         return key;
     }
 
-    private Object policySnapshot(ListeningPolicySetting policy) {
+    private Object policySnapshot(ListeningPolicySnapshot policy) {
         return new Object() {
             public final int resumeHours = policy.getResumeHours();
             public final int practiceAttemptLimit = policy.getPracticeAttemptLimit();

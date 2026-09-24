@@ -5,7 +5,7 @@ import jp.co.translacat.domain.languagelearning.ai.port.LanguageLearningAiClient
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
 import jp.co.translacat.domain.languagelearning.daily.service.DailyWritingRegenerationStateCommandService.RegenerationClaim;
 import jp.co.translacat.domain.languagelearning.daily.validator.DailyWritingGenerationResponseValidator;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -22,7 +22,7 @@ public class DailyWritingRegenerationCommandService {
     private final DailyWritingRegenerationStateCommandService stateCommandService;
     private final LanguageLearningAiClient aiClient;
     private final DailyWritingGenerationResponseValidator responseValidator;
-    private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
+    private final AdminSettingsGateway adminSettingQueryService;
 
     public DailyWritingSet regenerateUnanswered(
             Long userId,
@@ -92,7 +92,7 @@ public class DailyWritingRegenerationCommandService {
 
     private void validateAdaptiveWritingEnabled() {
         if (!adminSettingQueryService
-                .getOrCreateEntity()
+                .getSnapshot()
                 .isAdaptiveWritingEnabled()) {
             throw new BusinessException(
                     "Adaptive Writing이 비활성화되어 있습니다.",

@@ -15,7 +15,7 @@ import jp.co.translacat.domain.languagelearning.listening.recommendation.reposit
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
 import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
 import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionQueryService;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.data.jpa.repository.Query;
@@ -49,9 +49,15 @@ class ListeningArchitectureTest {
             ListeningDailySetQueryService.class,
             ListeningAttemptQueryService.class,
             ListeningDashboardQueryService.class,
-            ListeningSessionQueryService.class,
-            ListeningPolicySettingQueryService.class
+            ListeningSessionQueryService.class
     );
+
+    @Test
+    void remotePolicyPortDoesNotOwnACoreTransaction() {
+        org.junit.jupiter.api.Assertions.assertNull(ListeningPolicyGateway.class.getAnnotation(Transactional.class));
+        org.junit.jupiter.api.Assertions.assertNull(
+                jp.co.translacat.infrastructure.languagelearning.gateway.RemoteListeningPolicyGateway.class.getAnnotation(Transactional.class));
+    }
 
     @Test
     void listeningRepositoriesDoNotUseStringBasedQueryAnnotations() {

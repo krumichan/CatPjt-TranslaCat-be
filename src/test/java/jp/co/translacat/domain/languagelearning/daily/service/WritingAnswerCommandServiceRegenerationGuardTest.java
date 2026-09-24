@@ -9,9 +9,9 @@ import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingIte
 import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingSetRepository;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingAnswerRepository;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -38,15 +38,15 @@ class WritingAnswerCommandServiceRegenerationGuardTest {
     @Mock private DailyWritingSetRepository dailySetRepository;
     @Mock private WritingAnswerRepository answerRepository;
     @Mock private WritingEvaluationRepository evaluationRepository;
-    @Mock private LanguageLearningAdminSettingQueryService adminSettingQueryService;
-    @Mock private LanguageLearningUserSettingQueryService userSettingQueryService;
+    @Mock private AdminSettingsGateway adminSettingQueryService;
+    @Mock private UserSettingsGateway userSettingQueryService;
     @Mock private UserRepository userRepository;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private DailyWritingItemRevisionService itemRevisionService;
     @Mock private EntityManager entityManager;
     @Mock private DailyWritingItem item;
     @Mock private DailyWritingSet dailySet;
-    @Mock private LanguageLearningAdminSetting adminSetting;
+    @Mock private AdminSettingsSnapshot adminSetting;
 
     private WritingAnswerCommandService service;
 
@@ -64,7 +64,7 @@ class WritingAnswerCommandServiceRegenerationGuardTest {
                 itemRevisionService,
                 entityManager
         );
-        when(adminSettingQueryService.getOrCreateEntity())
+        when(adminSettingQueryService.getSnapshot())
                 .thenReturn(adminSetting);
         when(adminSetting.isAiEvaluationEnabled()).thenReturn(true);
         when(itemRepository.findByIdAndDailySetUserId(30L, 10L))

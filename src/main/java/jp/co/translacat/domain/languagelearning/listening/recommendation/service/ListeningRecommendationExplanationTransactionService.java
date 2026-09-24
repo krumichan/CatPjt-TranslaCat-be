@@ -7,8 +7,8 @@ import jp.co.translacat.domain.languagelearning.listening.policy.ListeningRecomm
 import jp.co.translacat.domain.languagelearning.listening.recommendation.entity.LearningRecommendation;
 import jp.co.translacat.domain.languagelearning.listening.recommendation.model.ListeningRecommendationExplanationCommand;
 import jp.co.translacat.domain.languagelearning.listening.recommendation.repository.LearningRecommendationRepository;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -25,8 +25,8 @@ import java.util.List;
 public class ListeningRecommendationExplanationTransactionService {
 
     private final LearningRecommendationRepository recommendationRepository;
-    private final LanguageLearningUserSettingQueryService userSettingService;
-    private final ListeningPolicySettingQueryService policySettingService;
+    private final UserSettingsGateway userSettingService;
+    private final ListeningPolicyGateway policySettingService;
     private final ListeningOutboxTransactionService outboxTransactionService;
     private final LanguageLearningJsonCodec jsonCodec;
 
@@ -37,7 +37,7 @@ public class ListeningRecommendationExplanationTransactionService {
         LearningRecommendation recommendation = recommendationRepository
                 .findById(event.aggregateId())
                 .orElseThrow();
-        var setting = userSettingService.getOrCreateEntity(
+        var setting = userSettingService.getSnapshot(
                 recommendation.getUser().getId()
         );
         var policy = policySettingService.get();

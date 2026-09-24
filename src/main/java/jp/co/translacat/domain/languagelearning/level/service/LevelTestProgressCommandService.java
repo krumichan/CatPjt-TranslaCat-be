@@ -18,7 +18,7 @@ import jp.co.translacat.domain.languagelearning.level.repository.LevelTestItemRe
 import jp.co.translacat.domain.languagelearning.level.repository.LevelTestResponseRepository;
 import jp.co.translacat.domain.languagelearning.level.repository.LevelTestSessionRepository;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileCommandService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -47,7 +47,7 @@ public class LevelTestProgressCommandService {
     private final LevelTestAdaptivePolicy adaptivePolicy;
     private final LevelTestScoringPolicy scoringPolicy;
     private final LearningProfileCommandService profileCommandService;
-    private final LanguageLearningUserSettingQueryService settingQueryService;
+    private final UserSettingsGateway settingQueryService;
     private final LearningActivityCommandService activityCommandService;
     private final LanguageLearningJsonCodec jsonCodec;
 
@@ -156,7 +156,7 @@ public class LevelTestProgressCommandService {
         String proficiencyBand = scoringPolicy.band(overall);
         session.complete(overall, proficiencyBand, now);
 
-        var setting = settingQueryService.getOrCreateEntity(
+        var setting = settingQueryService.getSnapshot(
                 session.getUser().getId()
         );
         LocalDate completedDate = LocalDate.now(

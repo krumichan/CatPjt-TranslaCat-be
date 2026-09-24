@@ -6,9 +6,9 @@ import jp.co.translacat.domain.languagelearning.level.entity.LevelTestSession;
 import jp.co.translacat.domain.languagelearning.level.policy.LevelTestAdaptivePolicy;
 import jp.co.translacat.domain.languagelearning.level.repository.LevelTestSessionRepository;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileQueryService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.repository.UserRepository;
@@ -32,8 +32,8 @@ public class LevelTestSessionCommandService {
     private final LevelTestSessionRepository sessionRepository;
     private final LevelTestQueryService levelTestQueryService;
     private final LearningProfileQueryService profileQueryService;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
-    private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
+    private final UserSettingsGateway userSettingQueryService;
+    private final AdminSettingsGateway adminSettingQueryService;
     private final LevelTestAdaptivePolicy adaptivePolicy;
     private final UserRepository userRepository;
 
@@ -63,8 +63,8 @@ public class LevelTestSessionCommandService {
             return active;
         }
 
-        LanguageLearningUserSetting setting =
-                userSettingQueryService.getOrCreateEntity(userId);
+        UserSettingsSnapshot setting =
+                userSettingQueryService.getSnapshot(userId);
         userSettingQueryService.requireConfigured(setting);
 
         validateSessionType(userId, sessionType);
@@ -139,7 +139,7 @@ public class LevelTestSessionCommandService {
 
     private void validateAiEvaluationEnabled() {
         if (!adminSettingQueryService
-                .getOrCreateEntity()
+                .getSnapshot()
                 .isAiEvaluationEnabled()) {
             throw new BusinessException(
                     "AI 평가가 비활성화되어 있습니다.",

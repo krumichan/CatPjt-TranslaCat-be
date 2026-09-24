@@ -3,8 +3,8 @@ package jp.co.translacat.domain.languagelearning.speaking.session.service;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingDailyUsageResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.repository.SpeakingSessionRepository;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,8 +24,8 @@ public class SpeakingSessionUsageQueryService {
     public SpeakingDailyUsageResponseDto getDailyUsage(
             Long userId,
             LocalDate learningDate,
-            LanguageLearningAdminSetting admin,
-            LanguageLearningUserSetting userSetting
+            AdminSettingsSnapshot admin,
+            UserSettingsSnapshot userSetting
     ) {
         List<SpeakingSession> sessions = sessionRepository
                 .findAllByUserIdAndLearningDate(userId, learningDate);
@@ -46,8 +46,8 @@ public class SpeakingSessionUsageQueryService {
     public void requireRemainingLimit(
             Long userId,
             LocalDate learningDate,
-            LanguageLearningAdminSetting admin,
-            LanguageLearningUserSetting userSetting
+            AdminSettingsSnapshot admin,
+            UserSettingsSnapshot userSetting
     ) {
         SpeakingDailyUsageResponseDto usage = getDailyUsage(
                 userId,

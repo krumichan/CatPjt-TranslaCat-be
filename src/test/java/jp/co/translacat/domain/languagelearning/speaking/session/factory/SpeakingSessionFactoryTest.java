@@ -6,7 +6,7 @@ import jp.co.translacat.domain.languagelearning.ai.dto.model.SelectedKeywordDto;
 import jp.co.translacat.domain.languagelearning.common.enums.KeywordSource;
 import jp.co.translacat.domain.languagelearning.common.enums.KeywordType;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.ConversationStartMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.CorrectionMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
@@ -149,7 +149,7 @@ class SpeakingSessionFactoryTest {
     }
 
     private SpeakingSessionCreationContext context(List<SelectedKeywordDto> keywords) {
-        LanguageLearningUserSetting setting = mock(LanguageLearningUserSetting.class);
+        UserSettingsSnapshot setting = mock(UserSettingsSnapshot.class);
         when(setting.getOriginLanguage()).thenReturn("ko");
         when(setting.getLearningLanguage()).thenReturn("ja");
         when(setting.getSpeakingVoiceId()).thenReturn("Kore");

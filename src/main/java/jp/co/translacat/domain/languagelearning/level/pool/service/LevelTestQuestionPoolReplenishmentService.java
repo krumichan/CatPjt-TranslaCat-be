@@ -9,8 +9,8 @@ import jp.co.translacat.domain.languagelearning.level.pool.policy.LevelTestQuest
 import jp.co.translacat.domain.languagelearning.level.pool.support.LevelTestPoolGenerationRejectedException;
 import jp.co.translacat.domain.languagelearning.level.service.LevelTestQuestionService;
 import jp.co.translacat.domain.languagelearning.quality.dto.DiversityContext;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.repository.LanguageLearningUserSettingRepository;
+import jp.co.translacat.domain.languagelearning.setting.model.ConfiguredLanguagePair;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,7 +32,7 @@ import java.util.concurrent.Executor;
 @Service
 public class LevelTestQuestionPoolReplenishmentService {
 
-    private final LanguageLearningUserSettingRepository userSettingRepository;
+    private final UserSettingsGateway userSettingRepository;
     private final LevelTestQuestionPoolQueryService poolQueryService;
     private final LevelTestQuestionPoolCommandService poolCommandService;
     private final LevelTestQuestionPoolHealthService healthService;
@@ -45,7 +45,7 @@ public class LevelTestQuestionPoolReplenishmentService {
     private final int repairBatchSize;
 
     public LevelTestQuestionPoolReplenishmentService(
-            LanguageLearningUserSettingRepository userSettingRepository,
+            UserSettingsGateway userSettingRepository,
             LevelTestQuestionPoolQueryService poolQueryService,
             LevelTestQuestionPoolCommandService poolCommandService,
             LevelTestQuestionPoolHealthService healthService,
@@ -329,17 +329,16 @@ public class LevelTestQuestionPoolReplenishmentService {
 
     private List<LanguagePair> activeLanguagePairs() {
         Set<LanguagePair> result = new HashSet<>();
-        for (LanguageLearningUserSetting setting : userSettingRepository
-                .findAllByOriginLanguageIsNotNullAndLearningLanguageIsNotNull()) {
-            if (setting.getOriginLanguage() == null
-                    || setting.getOriginLanguage().isBlank()
-                    || setting.getLearningLanguage() == null
-                    || setting.getLearningLanguage().isBlank()) {
+        for (ConfiguredLanguagePair setting : userSettingRepository.configuredLanguagePairs()) {
+            if (setting.originLanguage() == null
+                    || setting.originLanguage().isBlank()
+                    || setting.learningLanguage() == null
+                    || setting.learningLanguage().isBlank()) {
                 continue;
             }
             result.add(new LanguagePair(
-                    setting.getOriginLanguage(),
-                    setting.getLearningLanguage()
+                    setting.originLanguage(),
+                    setting.learningLanguage()
             ));
         }
         return result.stream()

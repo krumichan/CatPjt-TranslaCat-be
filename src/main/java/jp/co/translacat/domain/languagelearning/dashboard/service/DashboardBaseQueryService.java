@@ -14,8 +14,8 @@ import jp.co.translacat.domain.languagelearning.dashboard.dto.response.RecentLea
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.StreakResponseDto;
 import jp.co.translacat.domain.languagelearning.profile.dto.response.ProfileResponseDto;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileQueryService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,7 +36,7 @@ public class DashboardBaseQueryService {
     private final WritingAnswerRepository answerRepository;
     private final WritingEvaluationRepository evaluationRepository;
     private final LearningProfileQueryService profileQueryService;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final UserSettingsGateway userSettingQueryService;
     private final DashboardScoreCalculator scoreCalculator;
     private final SpeakingDashboardQueryService speakingDashboardQueryService;
     private final LearningStreakQueryService streakQueryService;
@@ -52,8 +52,8 @@ public class DashboardBaseQueryService {
             String period,
             String sourceValue
     ) {
-        LanguageLearningUserSetting setting =
-                userSettingQueryService.getOrCreateEntity(userId);
+        UserSettingsSnapshot setting =
+                userSettingQueryService.getSnapshot(userId);
         LocalDate today = userSettingQueryService.resolveToday(setting);
         ProfileResponseDto profile = profileQueryService.getProfile(userId);
         List<WritingEvaluation> writingEvaluations = getDailyEvaluations(userId);

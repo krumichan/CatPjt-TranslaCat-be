@@ -19,9 +19,9 @@ import jp.co.translacat.domain.languagelearning.listening.response.repository.Li
 import jp.co.translacat.domain.languagelearning.listening.service.ListeningViewMapper;
 import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
 import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
-import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
+import jp.co.translacat.domain.languagelearning.listening.outbox.service.SettingsSelectionOutboxService;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -51,7 +51,7 @@ class ListeningSessionCommandServiceProgressiveTest {
     private final ListeningTaskResponseRepository responses = mock(ListeningTaskResponseRepository.class);
     private final ListeningDailySetQueryService sets = mock(ListeningDailySetQueryService.class);
     private final ListeningSessionLockService locks = mock(ListeningSessionLockService.class);
-    private final ListeningPolicySettingQueryService settings = mock(ListeningPolicySettingQueryService.class);
+    private final ListeningPolicyGateway settings = mock(ListeningPolicyGateway.class);
     private final ListeningDailySet dailySet = mock(ListeningDailySet.class);
     private final ListeningViewMapper mapper = mock(ListeningViewMapper.class);
     private final List<ListeningItemAttempt> storedAttempts = new ArrayList<>();
@@ -76,12 +76,12 @@ class ListeningSessionCommandServiceProgressiveTest {
             return attempt;
         });
         when(sets.activeItems(20L)).thenAnswer(invocation -> List.copyOf(activeItems));
-        ListeningPolicySetting policy = mock(ListeningPolicySetting.class);
+        ListeningPolicySnapshot policy = mock(ListeningPolicySnapshot.class);
         when(policy.getResumeHours()).thenReturn(24);
         when(settings.get()).thenReturn(policy);
         service = new ListeningSessionCommandService(sessions, attempts, responses, sets,
                 new ListeningTaskSelectionPolicy(), new ListeningIdempotencyPolicy(),
-                settings, mock(LanguageLearningUserSettingQueryService.class),
+                settings, mock(SettingsSelectionOutboxService.class),
                 new LanguageLearningJsonCodec(new ObjectMapper()), locks, mapper);
     }
 

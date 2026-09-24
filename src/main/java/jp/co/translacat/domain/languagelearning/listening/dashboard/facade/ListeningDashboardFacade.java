@@ -5,7 +5,7 @@ import jp.co.translacat.domain.languagelearning.listening.dashboard.service.List
 import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningDailySetQueryService;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.recommendation.service.ListeningRecommendationCommandService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,7 +21,7 @@ public class ListeningDashboardFacade {
     private final ListeningDashboardQueryService dashboardQueryService;
     private final ListeningRecommendationCommandService recommendationCommandService;
     private final ListeningDailySetQueryService dailySetQueryService;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final UserSettingsGateway userSettingQueryService;
 
     public ListeningApiContract.DashboardView dashboard(
             Long userId,
@@ -29,7 +29,7 @@ public class ListeningDashboardFacade {
             LocalDate to,
             ListeningTaskType taskType
     ) {
-        var setting = userSettingQueryService.getOrCreateEntity(userId);
+        var setting = userSettingQueryService.getSnapshot(userId);
         userSettingQueryService.requireConfigured(setting);
         LocalDate resolvedTo = to == null
                 ? userSettingQueryService.resolveToday(setting)

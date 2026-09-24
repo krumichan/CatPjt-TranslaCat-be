@@ -7,7 +7,7 @@ import jp.co.translacat.domain.languagelearning.practice.entity.PracticeAttempt;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeQuestion;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
 import jp.co.translacat.domain.languagelearning.practice.repository.*;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -23,7 +23,7 @@ class ReadingPassageExpressionQueryTest {
         var attempts = mock(PracticeAttemptRepository.class);
         var service = new PracticeQueryService(mock(PracticeSetRepository.class), questions, attempts,
                 mock(PracticeMetricScoreRepository.class), new LanguageLearningJsonCodec(new ObjectMapper()),
-                mock(LanguageLearningUserSettingQueryService.class));
+                mock(UserSettingsGateway.class));
         var set = mock(PracticeSet.class);
         when(set.getId()).thenReturn(12L);
         when(set.getDomain()).thenReturn(PracticeDomain.READING);

@@ -14,7 +14,7 @@ import jp.co.translacat.domain.languagelearning.listening.evaluation.repository.
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
 import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,7 +32,7 @@ public class ListeningViewMapper {
     private final ListeningItemAttemptRepository attemptRepository;
     private final ListeningTaskResponseRepository responseRepository;
     private final ListeningTaskEvaluationRepository evaluationRepository;
-    private final ListeningPolicySettingQueryService policySettingService;
+    private final ListeningPolicyGateway policySettingService;
     private final LanguageLearningJsonCodec jsonCodec;
     private final ListeningDailySetQueryService dailySetQueryService;
 

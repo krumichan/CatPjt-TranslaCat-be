@@ -31,6 +31,7 @@ public class ListeningOutboxDispatcher {
     private final ListeningEvaluationWorker evaluationWorker;
     private final ListeningProfileRecalculationCommandService profileRecalculationService;
     private final ListeningRecommendationExplanationWorker explanationWorker;
+    private final ListeningSettingsSelectionWorker settingsSelectionWorker;
 
     private final TaskExecutor generationExecutor;
     private final TaskExecutor audioExecutor;
@@ -47,6 +48,7 @@ public class ListeningOutboxDispatcher {
             ListeningEvaluationWorker evaluationWorker,
             ListeningProfileRecalculationCommandService profileRecalculationService,
             ListeningRecommendationExplanationWorker explanationWorker,
+            ListeningSettingsSelectionWorker settingsSelectionWorker,
             @Qualifier("listeningGenerationExecutor") TaskExecutor generationExecutor,
             @Qualifier("listeningAudioExecutor") TaskExecutor audioExecutor,
             @Qualifier("listeningEvaluationExecutor") TaskExecutor evaluationExecutor
@@ -57,6 +59,7 @@ public class ListeningOutboxDispatcher {
         this.evaluationWorker = evaluationWorker;
         this.profileRecalculationService = profileRecalculationService;
         this.explanationWorker = explanationWorker;
+        this.settingsSelectionWorker = settingsSelectionWorker;
         this.generationExecutor = generationExecutor;
         this.audioExecutor = audioExecutor;
         this.evaluationExecutor = evaluationExecutor;
@@ -142,6 +145,7 @@ public class ListeningOutboxDispatcher {
             case RECALCULATE_PROFILE ->
                     profileRecalculationService.recalculate(event);
             case EXPLAIN_RECOMMENDATION -> explanationWorker.process(event);
+            case REMEMBER_SETTINGS_SELECTION -> settingsSelectionWorker.process(event);
             default -> transactionService.fail(
                     event.id(),
                     "지원하지 않는 Listening Outbox Event입니다.",

@@ -25,8 +25,8 @@ import jp.co.translacat.domain.languagelearning.listening.response.entity.Listen
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
 import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionLockService;
 import jp.co.translacat.domain.languagelearning.listening.service.ListeningViewMapper;
-import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -53,7 +53,7 @@ public class ListeningAttemptCommandService {
     private final ListeningItemAttemptRepository attemptRepository;
     private final ListeningTaskResponseRepository responseRepository;
     private final ListeningSessionLockService lockService;
-    private final ListeningPolicySettingQueryService policySettingService;
+    private final ListeningPolicyGateway policySettingService;
     private final ListeningTaskSelectionPolicy taskSelectionPolicy;
     private final ListeningIdempotencyPolicy idempotencyPolicy;
     private final ListeningOutboxCommandService outboxCommandService;
@@ -146,7 +146,7 @@ public class ListeningAttemptCommandService {
                 attemptId,
                 ListeningTaskType.REPEAT_AFTER_AUDIO
         );
-        ListeningPolicySetting policy = policySettingService.get();
+        ListeningPolicySnapshot policy = policySettingService.get();
         byte[] bytes = bytes(file);
         String contentType = file.getContentType();
         audioValidator.validate(
@@ -592,7 +592,7 @@ public class ListeningAttemptCommandService {
     }
 
     private void requireActive(ListeningItemAttempt attempt) {
-        ListeningPolicySetting policy = policySettingService.get();
+        ListeningPolicySnapshot policy = policySettingService.get();
 
         if (!attempt.getSession().isActive()) {
             throw invalid("활성 Listening Session이 아닙니다.");

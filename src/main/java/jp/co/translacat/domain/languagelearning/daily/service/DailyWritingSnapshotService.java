@@ -10,8 +10,8 @@ import jp.co.translacat.domain.languagelearning.daily.model.DailyWritingSnapshot
 import jp.co.translacat.domain.languagelearning.keyword.facade.KeywordSelectionFacade;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileAiContextService;
 import jp.co.translacat.domain.languagelearning.profile.service.RecentWritingEvaluationQueryService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,8 +33,8 @@ public class DailyWritingSnapshotService {
     public DailyWritingSnapshot create(
             Long userId,
             LocalDate learningDate,
-            LanguageLearningUserSetting userSetting,
-            LanguageLearningAdminSetting adminSetting,
+            UserSettingsSnapshot userSetting,
+            AdminSettingsSnapshot adminSetting,
             int sentenceCount,
             DifficultyDistributionDto difficultyDistribution
     ) {

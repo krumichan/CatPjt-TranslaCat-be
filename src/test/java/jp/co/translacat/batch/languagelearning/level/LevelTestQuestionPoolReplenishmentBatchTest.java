@@ -1,7 +1,7 @@
 package jp.co.translacat.batch.languagelearning.level;
 
 import jp.co.translacat.domain.languagelearning.level.pool.service.LevelTestQuestionPoolReplenishmentService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,7 +20,7 @@ class LevelTestQuestionPoolReplenishmentBatchTest {
     private LevelTestQuestionPoolReplenishmentService replenishmentService;
 
     @Mock
-    private LanguageLearningAdminSettingQueryService adminSettingQueryService;
+    private AdminSettingsGateway adminSettingQueryService;
 
     private LevelTestQuestionPoolReplenishmentBatch batch;
 

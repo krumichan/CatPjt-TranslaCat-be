@@ -3,7 +3,7 @@ package jp.co.translacat.domain.languagelearning.level.pool.policy;
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestDomain;
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestItemType;
 import jp.co.translacat.domain.languagelearning.level.policy.LevelTestRecipe;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
 
 import org.junit.jupiter.api.Test;
 
@@ -15,8 +15,8 @@ class LevelTestQuestionPoolPolicyTest {
 
     @Test
     void reusesOnlyAfterAdminTargetAndPlannedBucketTargetAreReady() {
-        LanguageLearningAdminSettingQueryService settings =
-                mock(LanguageLearningAdminSettingQueryService.class);
+        AdminSettingsGateway settings =
+                mock(AdminSettingsGateway.class);
         when(settings.getLevelTestQuestionPoolTargetSize())
                 .thenReturn(1000);
         LevelTestQuestionPoolPolicy policy = new LevelTestQuestionPoolPolicy(

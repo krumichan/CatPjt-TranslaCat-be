@@ -13,8 +13,8 @@ import jp.co.translacat.domain.languagelearning.listening.daily.service.Listenin
 import jp.co.translacat.domain.languagelearning.listening.evaluation.repository.ListeningTaskEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
 import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
-import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.user.entity.User;
 
 import org.junit.jupiter.api.Test;
@@ -33,8 +33,8 @@ class ListeningViewMapperProgressiveTest {
     void sessionExposesLogicalOfficialSlotsAndIndependentGenerationAndTtsStates() {
         ListeningItemAttemptRepository attempts = mock(ListeningItemAttemptRepository.class);
         ListeningDailySetQueryService sets = mock(ListeningDailySetQueryService.class);
-        ListeningPolicySettingQueryService settings = mock(ListeningPolicySettingQueryService.class);
-        ListeningPolicySetting policy = mock(ListeningPolicySetting.class);
+        ListeningPolicyGateway settings = mock(ListeningPolicyGateway.class);
+        ListeningPolicySnapshot policy = mock(ListeningPolicySnapshot.class);
         when(policy.getResumeHours()).thenReturn(24);
         when(settings.get()).thenReturn(policy);
         ListeningDailySet dailySet = mock(ListeningDailySet.class);

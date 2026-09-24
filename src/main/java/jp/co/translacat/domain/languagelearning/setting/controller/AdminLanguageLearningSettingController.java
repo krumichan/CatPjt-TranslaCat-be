@@ -26,8 +26,10 @@ public class AdminLanguageLearningSettingController {
     private final AdminLanguageLearningSettingFacade settingFacade;
 
     @GetMapping
-    public ResponseDto<AdminSettingResponseDto> get() {
-        return ResponseUtil.ok(settingFacade.get());
+    public ResponseDto<AdminSettingResponseDto> get(
+            @AuthenticationPrincipal UserPrincipal userPrincipal
+    ) {
+        return ResponseUtil.ok(settingFacade.get(userPrincipal.getId()));
     }
 
     @PatchMapping

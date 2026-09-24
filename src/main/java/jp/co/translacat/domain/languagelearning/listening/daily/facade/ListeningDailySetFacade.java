@@ -13,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
 
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 
 import java.util.List;
 
@@ -26,7 +26,7 @@ public class ListeningDailySetFacade {
     private final ListeningGenerationRetryCommandService generationRetryCommandService;
     private final ListeningTtsRetryCommandService ttsRetryCommandService;
     private final ListeningAttemptQueryService attemptQueryService;
-    private final LanguageLearningUserSettingQueryService userSettingService;
+    private final UserSettingsGateway userSettingService;
 
     public ListeningApiContract.DailySetView getOrCreate(
             Long userId,
@@ -42,7 +42,7 @@ public class ListeningDailySetFacade {
     }
 
     public List<ListeningApiContract.DailyModeStatusView> todayStatuses(Long userId) {
-        var setting = userSettingService.getOrCreateEntity(userId);
+        var setting = userSettingService.getSnapshot(userId);
         userSettingService.requireConfigured(setting);
         return queryService.todayStatuses(
                 userId,

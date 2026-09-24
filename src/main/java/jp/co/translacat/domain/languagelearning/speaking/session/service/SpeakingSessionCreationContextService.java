@@ -3,10 +3,10 @@ package jp.co.translacat.domain.languagelearning.speaking.session.service;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.LearningProfileSummaryDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.SelectedKeywordDto;
 import jp.co.translacat.domain.languagelearning.keyword.facade.KeywordSelectionFacade;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.ConversationStartMode;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCreateRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionCreationContext;
@@ -35,8 +35,8 @@ public class SpeakingSessionCreationContextService {
     private final SpeakingSessionUsageQueryService usageQueryService;
     private final SpeakingSessionPolicy sessionPolicy;
     private final SpeakingTopicQueryService topicQueryService;
-    private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final AdminSettingsGateway adminSettingQueryService;
+    private final UserSettingsGateway userSettingQueryService;
     private final SpeakingProfileContextService speakingProfileContextService;
     private final KeywordSelectionFacade keywordSelectionFacade;
     private final SpeakingSessionPolicySnapshotService snapshotService;
@@ -46,10 +46,10 @@ public class SpeakingSessionCreationContextService {
             Long userId,
             SpeakingSessionCreateRequestDto request
     ) {
-        LanguageLearningAdminSetting admin =
-                adminSettingQueryService.getOrCreateEntity();
-        LanguageLearningUserSetting setting =
-                userSettingQueryService.getOrCreateEntity(userId);
+        AdminSettingsSnapshot admin =
+                adminSettingQueryService.getSnapshot();
+        UserSettingsSnapshot setting =
+                userSettingQueryService.getSnapshot(userId);
         userSettingQueryService.requireConfigured(setting);
         sessionPolicy.validateCreate(request, admin);
 
@@ -107,7 +107,7 @@ public class SpeakingSessionCreationContextService {
     private List<SelectedKeywordDto> resolveKeywords(
             Long userId,
             LocalDate learningDate,
-            LanguageLearningAdminSetting admin,
+            AdminSettingsSnapshot admin,
             SpeakingSessionCreateRequestDto request
     ) {
         // Catalog Topic은 기존 동작을 유지하고, 자유 Topic은 사용자가 지정한

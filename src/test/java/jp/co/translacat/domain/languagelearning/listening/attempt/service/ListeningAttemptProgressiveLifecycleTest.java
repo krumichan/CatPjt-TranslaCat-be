@@ -29,8 +29,8 @@ import jp.co.translacat.domain.languagelearning.listening.response.repository.Li
 import jp.co.translacat.domain.languagelearning.listening.service.ListeningViewMapper;
 import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
 import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionLockService;
-import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.user.entity.User;
 
 import org.junit.jupiter.api.Test;
@@ -51,7 +51,7 @@ class ListeningAttemptProgressiveLifecycleTest {
     private final ListeningItemAttemptRepository attempts = mock(ListeningItemAttemptRepository.class);
     private final ListeningTaskResponseRepository responses = mock(ListeningTaskResponseRepository.class);
     private final ListeningSessionLockService locks = mock(ListeningSessionLockService.class);
-    private final ListeningPolicySettingQueryService settings = mock(ListeningPolicySettingQueryService.class);
+    private final ListeningPolicyGateway settings = mock(ListeningPolicyGateway.class);
     private final ListeningDailySet dailySet = mock(ListeningDailySet.class);
     private final List<ListeningItemAttempt> stored = new ArrayList<>();
     private final ListeningSession session;
@@ -63,7 +63,7 @@ class ListeningAttemptProgressiveLifecycleTest {
         ReflectionTestUtils.setField(session, "id", 30L);
         when(attempts.findAllLockedBySessionIdOrderByItemItemIndexAscAttemptNoAsc(30L))
                 .thenAnswer(invocation -> List.copyOf(stored));
-        ListeningPolicySetting policy = mock(ListeningPolicySetting.class);
+        ListeningPolicySnapshot policy = mock(ListeningPolicySnapshot.class);
         when(policy.getResumeHours()).thenReturn(24);
         when(settings.get()).thenReturn(policy);
     }

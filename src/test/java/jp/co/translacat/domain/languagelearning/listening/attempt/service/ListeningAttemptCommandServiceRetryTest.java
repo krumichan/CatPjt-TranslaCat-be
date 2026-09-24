@@ -20,8 +20,8 @@ import jp.co.translacat.domain.languagelearning.listening.response.repository.Li
 import jp.co.translacat.domain.languagelearning.listening.service.ListeningViewMapper;
 import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
 import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionLockService;
-import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.user.entity.User;
 
 import org.junit.jupiter.api.Test;
@@ -43,7 +43,7 @@ class ListeningAttemptCommandServiceRetryTest {
         ListeningItemAttemptRepository attemptRepository = mock(ListeningItemAttemptRepository.class);
         ListeningTaskResponseRepository responseRepository = mock(ListeningTaskResponseRepository.class);
         ListeningSessionLockService lockService = mock(ListeningSessionLockService.class);
-        ListeningPolicySettingQueryService policySettingService = mock(ListeningPolicySettingQueryService.class);
+        ListeningPolicyGateway policySettingService = mock(ListeningPolicyGateway.class);
         ListeningOutboxCommandService outboxCommandService = mock(ListeningOutboxCommandService.class);
         ListeningViewMapper viewMapper = mock(ListeningViewMapper.class);
 
@@ -84,7 +84,7 @@ class ListeningAttemptCommandServiceRetryTest {
         when(response.getStatus()).thenReturn(ListeningTaskStatus.EVALUATION_FAILED);
         when(response.getManualRetryCount()).thenReturn(0, 1);
 
-        ListeningPolicySetting setting = mock(ListeningPolicySetting.class);
+        ListeningPolicySnapshot setting = mock(ListeningPolicySnapshot.class);
         when(setting.getManualRetryLimit()).thenReturn(1);
 
         ListeningApiContract.AttemptView expected = new ListeningApiContract.AttemptView(
@@ -137,7 +137,7 @@ class ListeningAttemptCommandServiceRetryTest {
         ListeningItemAttemptRepository attemptRepository = mock(ListeningItemAttemptRepository.class);
         ListeningTaskResponseRepository responseRepository = mock(ListeningTaskResponseRepository.class);
         ListeningSessionLockService lockService = mock(ListeningSessionLockService.class);
-        ListeningPolicySettingQueryService policySettingService = mock(ListeningPolicySettingQueryService.class);
+        ListeningPolicyGateway policySettingService = mock(ListeningPolicyGateway.class);
         ListeningOutboxCommandService outboxCommandService = mock(ListeningOutboxCommandService.class);
 
         ListeningAttemptCommandService service = new ListeningAttemptCommandService(
@@ -189,7 +189,7 @@ class ListeningAttemptCommandServiceRetryTest {
         when(exhaustedResponse.getStatus()).thenReturn(ListeningTaskStatus.EVALUATION_FAILED);
         when(exhaustedResponse.getManualRetryCount()).thenReturn(1);
 
-        ListeningPolicySetting setting = mock(ListeningPolicySetting.class);
+        ListeningPolicySnapshot setting = mock(ListeningPolicySnapshot.class);
         when(setting.getManualRetryLimit()).thenReturn(1);
 
         when(lockService.ownedSession(userId, sessionId)).thenReturn(session);

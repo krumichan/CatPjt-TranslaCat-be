@@ -10,8 +10,8 @@ import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordApplicatio
 import jp.co.translacat.domain.languagelearning.keyword.repository.CustomKeywordRepository;
 import jp.co.translacat.domain.languagelearning.keyword.repository.SystemKeywordRepository;
 import jp.co.translacat.domain.languagelearning.keyword.repository.UserSystemKeywordSelectionRepository;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,7 +30,7 @@ public class LanguageLearningKeywordQueryService {
     private final SystemKeywordRepository systemKeywordRepository;
     private final CustomKeywordRepository customKeywordRepository;
     private final UserSystemKeywordSelectionRepository selectionRepository;
-    private final LanguageLearningUserSettingQueryService settingQueryService;
+    private final UserSettingsGateway settingQueryService;
     private final SystemKeywordDisplayNameResolver displayNameResolver;
     private final KeywordResponseMapper responseMapper;
     private final KeywordApplicationTimingPolicy applicationTimingPolicy;
@@ -78,8 +78,8 @@ public class LanguageLearningKeywordQueryService {
     }
 
     public LocalDate resolveToday(Long userId) {
-        LanguageLearningUserSetting setting =
-                settingQueryService.getOrCreateEntity(userId);
+        UserSettingsSnapshot setting =
+                settingQueryService.getSnapshot(userId);
         return settingQueryService.resolveToday(setting);
     }
 

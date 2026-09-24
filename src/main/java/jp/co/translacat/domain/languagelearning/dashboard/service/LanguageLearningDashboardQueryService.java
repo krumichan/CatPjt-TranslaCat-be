@@ -13,7 +13,7 @@ import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContra
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAttemptRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -36,7 +36,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class LanguageLearningDashboardQueryService {
 
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final UserSettingsGateway userSettingQueryService;
     private final DashboardBaseQueryService dashboardBaseQueryService;
     private final SourceSkillTrendQueryService sourceSkillTrendQueryService;
     private final DashboardInsightQueryService insightQueryService;
@@ -53,7 +53,7 @@ public class LanguageLearningDashboardQueryService {
             String sourceValue,
             ListeningTaskType taskType
     ) {
-        var setting = userSettingQueryService.getOrCreateEntity(userId);
+        var setting = userSettingQueryService.getSnapshot(userId);
         userSettingQueryService.requireConfigured(setting);
         LocalDate today = userSettingQueryService.resolveToday(setting);
         LocalDate resolvedTo = to == null ? today : to;

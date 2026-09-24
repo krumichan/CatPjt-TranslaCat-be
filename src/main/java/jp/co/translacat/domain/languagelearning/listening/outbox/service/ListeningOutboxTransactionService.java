@@ -82,6 +82,11 @@ public class ListeningOutboxTransactionService {
         repository.findLockedById(eventId).ifPresent(value -> value.succeed(now));
     }
 
+    @Transactional
+    public void succeedIfOwned(ClaimedEvent event, LocalDateTime now) {
+        if (ownsClaim(event)) succeed(event.id(), now);
+    }
+
     /** Hold the claim lock until the caller's aggregate transaction commits. */
     @Transactional
     public boolean ownsClaim(ClaimedEvent claimed) {

@@ -30,4 +30,8 @@ public record UserSettingResponseDto(
         int maxDailyListeningGoalCount,
         boolean configured
 ) {
+    public UserSettingResponseDto {
+        // 외부 응답과 snapshot에서 같은 목록을 읽더라도 호출자가 내부 상태를 변경하지 못한다.
+        defaultListeningTaskTypes = defaultListeningTaskTypes == null ? null : List.copyOf(defaultListeningTaskTypes);
+    }
 }

@@ -15,8 +15,8 @@ import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetR
 import jp.co.translacat.domain.languagelearning.practice.repository.VocabularyMasteryRepository;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileCommandService;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileSignalService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.global.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,13 +43,13 @@ class PracticeGenerationServiceTest {
     @Mock private PracticeSetRepository setRepository;
     @Mock private PracticePersistenceService persistenceService;
     @Mock private PracticeComplexityPolicy complexityPolicy;
-    @Mock private LanguageLearningUserSettingQueryService settingQueryService;
+    @Mock private UserSettingsGateway settingQueryService;
     @Mock private LearningProfileCommandService profileCommandService;
     @Mock private LearningProfileSignalService profileSignalService;
     @Mock private KeywordCandidateQueryService keywordCandidateQueryService;
     @Mock private VocabularyMasteryRepository masteryRepository;
     @Mock private PracticeAttemptRepository attemptRepository;
-    @Mock private LanguageLearningUserSetting setting;
+    @Mock private UserSettingsSnapshot setting;
     @Mock private PracticeSet set;
 
     private PracticeGenerationService service;
@@ -72,7 +72,7 @@ class PracticeGenerationServiceTest {
     @Test
     void readingStillCreatesFiveQuestionSetWithoutVocabularyReviewTargets() {
         LocalDate today = LocalDate.of(2026, 9, 13);
-        when(settingQueryService.getOrCreateEntity(7L)).thenReturn(setting);
+        when(settingQueryService.getSnapshot(7L)).thenReturn(setting);
         when(settingQueryService.resolveToday(setting)).thenReturn(today);
         when(setting.getOriginLanguage()).thenReturn("ko");
         when(setting.getLearningLanguage()).thenReturn("ja");
@@ -111,7 +111,7 @@ class PracticeGenerationServiceTest {
     @Test
     void b4StructureChallengeIsDeferredBeforeSetCreation() {
         LocalDate today = LocalDate.of(2026, 9, 21);
-        when(settingQueryService.getOrCreateEntity(7L)).thenReturn(setting);
+        when(settingQueryService.getSnapshot(7L)).thenReturn(setting);
         when(settingQueryService.resolveToday(setting)).thenReturn(today);
         when(setRepository.findByUserIdAndLearningDateAndDomainAndMode(
                 7L, today, PracticeDomain.READING, "STRUCTURE")).thenReturn(Optional.empty());
@@ -129,7 +129,7 @@ class PracticeGenerationServiceTest {
     @Test
     void availabilityUsesEachServerModeBandAndOnlyDefersB5StructureDemand() {
         LocalDate today = LocalDate.of(2026, 9, 21);
-        when(settingQueryService.getOrCreateEntity(7L)).thenReturn(setting);
+        when(settingQueryService.getSnapshot(7L)).thenReturn(setting);
         when(settingQueryService.resolveToday(setting)).thenReturn(today);
         when(setting.getOriginLanguage()).thenReturn("ko");
         when(setting.getLearningLanguage()).thenReturn("ja");

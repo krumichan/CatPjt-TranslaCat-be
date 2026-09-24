@@ -25,8 +25,8 @@ import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
 import jp.co.translacat.domain.languagelearning.practice.service.PracticeQueryService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.entity.SpeakingEvaluation;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.service.SpeakingEvaluationQueryService;
 import jp.co.translacat.domain.languagelearning.speaking.coaching.service.SpeakingCoachingResultService;
@@ -64,7 +64,7 @@ public class LearningHistoryQueryService {
     private final ListeningItemAttemptRepository listeningAttemptRepository;
     private final ListeningTaskResponseRepository listeningResponseRepository;
     private final ListeningViewMapper listeningViewMapper;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final UserSettingsGateway userSettingQueryService;
     private final LevelTestSessionRepository levelTestSessionRepository;
     private final LevelTestResultQueryService levelTestResultQueryService;
     private final PracticeSetRepository practiceSetRepository;
@@ -86,8 +86,8 @@ public class LearningHistoryQueryService {
             String status,
             ListeningTaskType taskType
     ) {
-        LanguageLearningUserSetting setting =
-                userSettingQueryService.getOrCreateEntity(userId);
+        UserSettingsSnapshot setting =
+                userSettingQueryService.getSnapshot(userId);
         LocalDate to = userSettingQueryService.resolveToday(setting);
         LocalDate from = to.minusDays(resolveDays(period) - 1L);
         List<LearningHistoryItemResponseDto> result = new ArrayList<>();

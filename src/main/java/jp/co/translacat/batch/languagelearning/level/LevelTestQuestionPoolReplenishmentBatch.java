@@ -1,7 +1,7 @@
 package jp.co.translacat.batch.languagelearning.level;
 
 import jp.co.translacat.domain.languagelearning.level.pool.service.LevelTestQuestionPoolReplenishmentService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class LevelTestQuestionPoolReplenishmentBatch {
 
     private final LevelTestQuestionPoolReplenishmentService replenishmentService;
-    private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
+    private final AdminSettingsGateway adminSettingQueryService;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     @Scheduled(

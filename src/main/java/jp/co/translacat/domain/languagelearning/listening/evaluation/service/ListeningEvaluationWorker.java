@@ -5,7 +5,7 @@ import jp.co.translacat.domain.languagelearning.listening.ai.port.ListeningAiCli
 import jp.co.translacat.domain.languagelearning.listening.audio.port.ListeningAudioStoragePort;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.validator.ListeningEvaluationResponseValidator;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxTransactionService;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningAiException;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 
@@ -27,7 +27,7 @@ public class ListeningEvaluationWorker {
     private final ListeningAiClient aiClient;
     private final ListeningAudioStoragePort storagePort;
     private final ListeningOutboxTransactionService outboxTransactionService;
-    private final ListeningPolicySettingQueryService policySettingService;
+    private final ListeningPolicyGateway policySettingService;
 
     public void process(ListeningOutboxTransactionService.ClaimedEvent event) {
         ListeningEvaluationTransactionService.EvaluationWork work = null;

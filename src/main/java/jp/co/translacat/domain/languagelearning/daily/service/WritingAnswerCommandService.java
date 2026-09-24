@@ -11,10 +11,10 @@ import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingIte
 import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingSetRepository;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingAnswerRepository;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.repository.UserRepository;
@@ -39,8 +39,8 @@ public class WritingAnswerCommandService {
     private final DailyWritingSetRepository dailySetRepository;
     private final WritingAnswerRepository answerRepository;
     private final WritingEvaluationRepository evaluationRepository;
-    private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final AdminSettingsGateway adminSettingQueryService;
+    private final UserSettingsGateway userSettingQueryService;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final DailyWritingItemRevisionService itemRevisionService;
@@ -63,11 +63,11 @@ public class WritingAnswerCommandService {
                 ));
         lockAndValidateStableItem(item, request.contentRevision());
 
-        LanguageLearningUserSetting setting =
-                userSettingQueryService.getOrCreateEntity(userId);
+        UserSettingsSnapshot setting =
+                userSettingQueryService.getSnapshot(userId);
         LocalDate today = userSettingQueryService.resolveToday(setting);
-        LanguageLearningAdminSetting adminSetting =
-                adminSettingQueryService.getOrCreateEntity();
+        AdminSettingsSnapshot adminSetting =
+                adminSettingQueryService.getSnapshot();
 
         validateReviewPeriod(
                 item,
@@ -97,8 +97,8 @@ public class WritingAnswerCommandService {
                         "Daily Item을 찾을 수 없습니다.",
                         LanguageLearningErrorCode.DAILY_ITEM_NOT_FOUND
                 ));
-        LanguageLearningUserSetting setting =
-                userSettingQueryService.getOrCreateEntity(userId);
+        UserSettingsSnapshot setting =
+                userSettingQueryService.getSnapshot(userId);
         LocalDate today = userSettingQueryService.resolveToday(setting);
         WritingAnswer answer = answerRepository
                 .findByDailyItemIdAndAttemptDate(item.getId(), today)
@@ -239,7 +239,7 @@ public class WritingAnswerCommandService {
 
     private void validateAiEvaluationEnabled() {
         if (!adminSettingQueryService
-                .getOrCreateEntity()
+                .getSnapshot()
                 .isAiEvaluationEnabled()) {
             throw new BusinessException(
                     "AI Writing 평가가 비활성화되어 있습니다.",

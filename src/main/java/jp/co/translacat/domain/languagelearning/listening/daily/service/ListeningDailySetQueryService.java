@@ -17,7 +17,7 @@ import jp.co.translacat.domain.languagelearning.listening.daily.entity.Listening
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
@@ -41,7 +41,7 @@ public class ListeningDailySetQueryService {
 
     private final ListeningDailySetRepository dailySetRepository;
     private final ListeningItemRepository itemRepository;
-    private final ListeningPolicySettingQueryService policySettingService;
+    private final ListeningPolicyGateway policySettingService;
     private final ListeningSessionRepository sessionRepository;
     private final ListeningItemAttemptRepository attemptRepository;
     private final ListeningOutboxEventRepository outboxRepository;

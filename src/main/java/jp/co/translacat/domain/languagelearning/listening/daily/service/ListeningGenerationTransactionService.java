@@ -16,8 +16,8 @@ import jp.co.translacat.domain.languagelearning.listening.daily.repository.Liste
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxTransactionService;
-import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.quality.common.LanguageLearningContentSource;
 import jp.co.translacat.domain.languagelearning.quality.dto.LanguageComplexityContext;
 import jp.co.translacat.domain.languagelearning.quality.dto.DiversityContext;
@@ -44,7 +44,7 @@ public class ListeningGenerationTransactionService {
 
     private final ListeningDailySetRepository dailySetRepository;
     private final ListeningItemRepository itemRepository;
-    private final ListeningPolicySettingQueryService policySettingService;
+    private final ListeningPolicyGateway policySettingService;
     private final ListeningOutboxCommandService outboxCommandService;
     private final ListeningOutboxTransactionService outboxTransactionService;
     private final LanguageLearningJsonCodec jsonCodec;
@@ -59,7 +59,7 @@ public class ListeningGenerationTransactionService {
     ) {
         ListeningDailySet set = dailySetRepository.findById(event.aggregateId())
                 .orElseThrow();
-        ListeningPolicySetting policy = policySettingService.get();
+        ListeningPolicySnapshot policy = policySettingService.get();
         ListeningGenerationCommand command = jsonCodec.read(
                 event.payloadJson(),
                 ListeningGenerationCommand.class

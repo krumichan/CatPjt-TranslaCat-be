@@ -18,8 +18,8 @@ import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetR
 import jp.co.translacat.domain.languagelearning.practice.repository.VocabularyMasteryRepository;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileCommandService;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileSignalService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +47,7 @@ public class PracticeGenerationService {
     private final PracticeSetRepository setRepository;
     private final PracticePersistenceService persistenceService;
     private final PracticeComplexityPolicy complexityPolicy;
-    private final LanguageLearningUserSettingQueryService settingQueryService;
+    private final UserSettingsGateway settingQueryService;
     private final LearningProfileCommandService profileCommandService;
     private final LearningProfileSignalService profileSignalService;
     private final KeywordCandidateQueryService keywordCandidateQueryService;
@@ -61,7 +61,7 @@ public class PracticeGenerationService {
     ) {
         PracticeAvailabilityPolicy.requireGenerationAllowed(domain);
         validateMode(domain, mode);
-        LanguageLearningUserSetting setting = settingQueryService.getOrCreateEntity(userId);
+        UserSettingsSnapshot setting = settingQueryService.getSnapshot(userId);
         settingQueryService.requireConfigured(setting);
         LocalDate today = settingQueryService.resolveToday(setting);
         profileCommandService.prepareDailyLearning(userId, today);
@@ -114,7 +114,7 @@ public class PracticeGenerationService {
     }
 
     public List<PracticeModeAvailabilityResponseDto> availability(Long userId) {
-        LanguageLearningUserSetting setting = settingQueryService.getOrCreateEntity(userId);
+        UserSettingsSnapshot setting = settingQueryService.getSnapshot(userId);
         settingQueryService.requireConfigured(setting);
         LocalDate today = settingQueryService.resolveToday(setting);
         int[] mix = complexityPolicy.mix(PracticeDomain.READING);

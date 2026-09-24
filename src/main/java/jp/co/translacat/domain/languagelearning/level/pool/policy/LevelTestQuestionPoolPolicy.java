@@ -2,7 +2,7 @@ package jp.co.translacat.domain.languagelearning.level.pool.policy;
 
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestDomain;
 import jp.co.translacat.domain.languagelearning.common.enums.LevelTestItemType;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
 
 import lombok.RequiredArgsConstructor;
 
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class LevelTestQuestionPoolPolicy {
 
-    private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
+    private final AdminSettingsGateway adminSettingQueryService;
     private final LevelTestQuestionPoolTargetPlanner targetPlanner;
 
     public int targetSize() {

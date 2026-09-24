@@ -15,8 +15,8 @@ import jp.co.translacat.domain.languagelearning.listening.outbox.service.Listeni
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxTransactionService;
 import jp.co.translacat.domain.languagelearning.listening.outbox.repository.ListeningOutboxEventRepository;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxStatus;
-import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 
 import lombok.RequiredArgsConstructor;
 import jakarta.persistence.EntityManager;
@@ -40,7 +40,7 @@ public class ListeningTtsTransactionService {
 
     private final ListeningItemRepository itemRepository;
     private final ListeningDailySetRepository dailySetRepository;
-    private final ListeningPolicySettingQueryService policySettingService;
+    private final ListeningPolicyGateway policySettingService;
     private final ListeningAudioKeyFactory audioKeyFactory;
     private final ListeningOutboxCommandService outboxCommandService;
     private final ListeningOutboxTransactionService outboxTransactionService;
@@ -54,7 +54,7 @@ public class ListeningTtsTransactionService {
     ) {
         ListeningItem item = itemRepository.findById(event.aggregateId())
                 .orElseThrow();
-        ListeningPolicySetting policy = policySettingService.get();
+        ListeningPolicySnapshot policy = policySettingService.get();
         var metadata = metadata(item);
         var demand = metadata != null && metadata.durationDemand() != null
                 ? metadata.durationDemand()
@@ -285,7 +285,7 @@ public class ListeningTtsTransactionService {
     ) {
         item.markNotEvaluable(reason);
         ListeningDailySet set = item.getDailySet();
-        ListeningPolicySetting policy = policySettingService.get();
+        ListeningPolicySnapshot policy = policySettingService.get();
         var generated = metadata(item);
         if (item.getReplacementSequence() >= 1
                 || (generated != null && generated.qualityCorrectionCount() > 0)) {

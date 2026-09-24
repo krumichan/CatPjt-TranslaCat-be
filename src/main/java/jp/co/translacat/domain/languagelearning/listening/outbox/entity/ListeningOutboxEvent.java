@@ -51,7 +51,8 @@ public class ListeningOutboxEvent extends BaseAuditable {
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "event_type", nullable = false, length = 40)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
+    @Column(name = "event_type", nullable = false, length = 40, columnDefinition = "VARCHAR(40)")
     private ListeningOutboxType eventType;
 
     @Column(name = "aggregate_id", nullable = false)

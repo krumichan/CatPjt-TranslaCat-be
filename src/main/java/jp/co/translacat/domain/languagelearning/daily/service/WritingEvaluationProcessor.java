@@ -5,8 +5,8 @@ import jp.co.translacat.domain.languagelearning.daily.entity.WritingAnswer;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.daily.model.DailyWritingSnapshot;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingAnswerRepository;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.repository.UserRepository;
@@ -27,7 +27,7 @@ public class WritingEvaluationProcessor {
     private final WritingAnswerRepository answerRepository;
     private final WritingEvaluationRepository evaluationRepository;
     private final UserRepository userRepository;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final UserSettingsGateway userSettingQueryService;
     private final DailyWritingSnapshotService snapshotService;
     private final WritingEvaluationCommandService evaluationCommandService;
 
@@ -52,8 +52,8 @@ public class WritingEvaluationProcessor {
                         "사용자를 찾을 수 없습니다.",
                         LanguageLearningErrorCode.USER_NOT_FOUND
                 ));
-        LanguageLearningUserSetting setting =
-                userSettingQueryService.getOrCreateEntity(userId);
+        UserSettingsSnapshot setting =
+                userSettingQueryService.getSnapshot(userId);
         LocalDate today = userSettingQueryService.resolveToday(setting);
         DailyWritingSnapshot snapshot = snapshotService.read(
                 answer.getDailyItem().getDailySet()

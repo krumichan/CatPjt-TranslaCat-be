@@ -2,31 +2,36 @@ package jp.co.translacat.domain.languagelearning.speaking.evaluation.job;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.co.translacat.domain.languagelearning.activity.entity.LearningActivity;
-import jp.co.translacat.domain.languagelearning.activity.repository.*;
-import jp.co.translacat.domain.languagelearning.common.enums.*;
+import jp.co.translacat.domain.languagelearning.activity.repository.EvaluationMetricHistoryRepository;
+import jp.co.translacat.domain.languagelearning.activity.repository.LearningActivityRepository;
+import jp.co.translacat.domain.languagelearning.common.enums.LearningActivityStatus;
+import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
-import jp.co.translacat.domain.languagelearning.profile.service.SpeakingProfileSignalService;
 import jp.co.translacat.domain.languagelearning.profile.repository.LearningProfileEvidenceRepository;
-import jp.co.translacat.domain.languagelearning.setting.service.*;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingEvaluationResponseDto;
+import jp.co.translacat.domain.languagelearning.profile.service.SpeakingProfileSignalService;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingCoachingRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingCoachingResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.port.SpeakingAiClient;
+import jp.co.translacat.domain.languagelearning.speaking.coaching.entity.SpeakingCoachingResult;
 import jp.co.translacat.domain.languagelearning.speaking.coaching.repository.SpeakingCoachingResultRepository;
 import jp.co.translacat.domain.languagelearning.speaking.coaching.service.SpeakingCoachingResultService;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.*;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.factory.SpeakingEvaluationRequestFactory;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.entity.SpeakingEvaluationJob;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.listener.SpeakingEvaluationJobEventListener;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.model.*;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.model.SpeakingEvaluationJobKey;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.repository.SpeakingEvaluationJobRepository;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.service.*;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvaluationEligibilityPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.entity.SpeakingReadAloudProblemEvaluation;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.repository.SpeakingReadAloudProblemEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.service.SpeakingReadAloudProblemEvaluationService;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.repository.*;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.service.*;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.repository.SpeakingEvaluationMetricRepository;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.repository.SpeakingEvaluationRepository;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.service.SpeakingEvaluationResultCommandService;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.service.SpeakingEvaluationRetryCommandService;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.validator.SpeakingEvaluationResponseValidator;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.repository.SpeakingSessionRepository;
@@ -58,14 +63,20 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
-import static org.assertj.core.api.Assertions.*;
+import static jp.co.translacat.domain.languagelearning.speaking.evaluation.release.SpeakingReleaseFixtures.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-import static jp.co.translacat.domain.languagelearning.speaking.evaluation.release.SpeakingReleaseFixtures.*;
 
-/** Real H2, repositories, Spring transaction proxies and AFTER_COMMIT events; AI/provider is mocked. */
+/**
+ * Real H2, repositories, Spring transaction proxies and AFTER_COMMIT events; AI/provider is mocked.
+ */
 @DataJpaTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:speaking-release-jobs;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=USER"})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -82,62 +93,93 @@ import static jp.co.translacat.domain.languagelearning.speaking.evaluation.relea
         SpeakingSessionQueryService.class, SpeakingEvaluationRetryCommandService.class,
         SpeakingReadAloudProblemEvaluationService.class, SpeakingSessionLifecycleService.class})
 class SpeakingEvaluationJobIntegrationTest {
-    @TestConfiguration static class JsonConfiguration {
-        @Bean ObjectMapper objectMapper() { return new ObjectMapper().findAndRegisterModules(); }
-    }
-    @Autowired PlatformTransactionManager transactions;
-    @Autowired UserRepository users;
-    @Autowired SpeakingSessionRepository sessions;
-    @Autowired LearningActivityRepository activities;
-    @Autowired SpeakingEvaluationJobRepository jobs;
-    @Autowired SpeakingEvaluationRepository evaluations;
-    @Autowired SpeakingCoachingResultRepository coachingResults;
-    @Autowired SpeakingCoachingResultService coachingResultService;
-    @Autowired SpeakingEvaluationMetricRepository metrics;
-    @Autowired EvaluationMetricHistoryRepository history;
-    @Autowired LearningProfileEvidenceRepository evidence;
-    @Autowired SpeakingReadAloudProblemEvaluationRepository problems;
-    @Autowired SpeakingEvaluationJobCommandService command;
-    @Autowired SpeakingEvaluationJobWorker worker;
-    @Autowired SpeakingEvaluationJobQueueService queue;
-    @Autowired SpeakingEvaluationJobQueryService query;
-    @Autowired SpeakingEvaluationRetryCommandService retry;
-    @Autowired SpeakingReadAloudProblemEvaluationService readAloud;
-    @Autowired LanguageLearningJsonCodec codec;
-    @MockitoBean SpeakingAiClient aiClient;
-    @MockitoBean SpeakingEvaluationJobDispatcher dispatcher;
-    @MockitoBean SpeakingEvaluationRequestFactory requestFactory;
-    @MockitoBean SpeakingSessionPolicySnapshotService snapshots;
-    @MockitoBean SpeakingProfileSignalService profile;
-    @MockitoBean SpeakingSessionUsageQueryService usageQuery;
-    @MockitoBean LanguageLearningAdminSettingQueryService adminSettings;
-    @MockitoBean LanguageLearningUserSettingQueryService userSettings;
-    @MockitoBean SpeakingSessionCompletionCommandService completion;
+    @Autowired
+    PlatformTransactionManager transactions;
+    @Autowired
+    UserRepository users;
+    @Autowired
+    SpeakingSessionRepository sessions;
+    @Autowired
+    LearningActivityRepository activities;
+    @Autowired
+    SpeakingEvaluationJobRepository jobs;
+    @Autowired
+    SpeakingEvaluationRepository evaluations;
+    @Autowired
+    SpeakingCoachingResultRepository coachingResults;
+    @Autowired
+    SpeakingCoachingResultService coachingResultService;
+    @Autowired
+    SpeakingEvaluationMetricRepository metrics;
+    @Autowired
+    EvaluationMetricHistoryRepository history;
+    @Autowired
+    LearningProfileEvidenceRepository evidence;
+    @Autowired
+    SpeakingReadAloudProblemEvaluationRepository problems;
+    @Autowired
+    SpeakingEvaluationJobCommandService command;
+    @Autowired
+    SpeakingEvaluationJobWorker worker;
+    @Autowired
+    SpeakingEvaluationJobQueueService queue;
+    @Autowired
+    SpeakingEvaluationJobQueryService query;
+    @Autowired
+    SpeakingEvaluationRetryCommandService retry;
+    @Autowired
+    SpeakingReadAloudProblemEvaluationService readAloud;
+    @Autowired
+    LanguageLearningJsonCodec codec;
+    @MockitoBean
+    SpeakingAiClient aiClient;
+    @MockitoBean
+    SpeakingEvaluationJobDispatcher dispatcher;
+    @MockitoBean
+    SpeakingEvaluationRequestFactory requestFactory;
+    @MockitoBean
+    SpeakingSessionPolicySnapshotService snapshots;
+    @MockitoBean
+    SpeakingProfileSignalService profile;
+    @MockitoBean
+    SpeakingSessionUsageQueryService usageQuery;
+    @MockitoBean
+    AdminSettingsGateway adminSettings;
+    @MockitoBean
+    UserSettingsGateway userSettings;
+    @MockitoBean
+    SpeakingSessionCompletionCommandService completion;
     private TransactionTemplate tx;
 
-    @BeforeEach void setup() { tx = new TransactionTemplate(transactions); }
+    @BeforeEach
+    void setup() {
+        tx = new TransactionTemplate(transactions);
+    }
 
-    private record Seed(long userId, SpeakingEvaluationJobKey key, long activityId) { }
     private Seed seed(String fixture, int problemIndex) {
         return tx.execute(status -> {
             String uid = UUID.randomUUID().toString().replace("-", "");
             User user = users.save(User.createLocalUser(uid + "@release.test", "pw", "release", Role.USER, uid.substring(0, 20)));
             SpeakingSession session = session(user);
-            if (problemIndex > 0) ReflectionTestUtils.setField(session, "practiceMode", SpeakingPracticeMode.READ_ALOUD);
+            if (problemIndex > 0)
+                ReflectionTestUtils.setField(session, "practiceMode", SpeakingPracticeMode.READ_ALOUD);
             session.complete(true);
             sessions.saveAndFlush(session);
             var activity = activities.saveAndFlush(LearningActivity.create(user, LearningSource.SPEAKING,
                     session.getId().toString(), LocalDate.now(), "Release test", 60, LocalDateTime.now(),
                     LocalDateTime.now(), LearningActivityStatus.EVALUATING));
-            if (problemIndex > 0) problems.saveAndFlush(SpeakingReadAloudProblemEvaluation.pending(session, problemIndex, 2));
+            if (problemIndex > 0)
+                problems.saveAndFlush(SpeakingReadAloudProblemEvaluation.pending(session, problemIndex, 2));
             var job = jobs.saveAndFlush(SpeakingEvaluationJob.pending(session, problemIndex,
                     codec.write(request(fixture)), LocalDateTime.now().minusSeconds(1)));
             return new Seed(user.getId(), new SpeakingEvaluationJobKey(job.getId(), session.getId()), activity.getId());
         });
     }
+
     private SpeakingEvaluationStatus sessionStatus(Seed seed) {
         return tx.execute(status -> sessions.findById(seed.key().sessionId()).orElseThrow().getEvaluationStatus());
     }
+
     private SpeakingEvaluationJob.Status jobStatus(Seed seed) {
         return tx.execute(status -> jobs.findById(seed.key().jobId()).orElseThrow().getStatus());
     }
@@ -183,12 +225,14 @@ class SpeakingEvaluationJobIntegrationTest {
                 "NO_USABLE_EVIDENCE", java.util.List.of("NO_USABLE_TRANSCRIPT"), java.util.List.of(),
                 "speaking-session-coaching-prompt-v1", null);
     }
+
     private void expire(Seed seed) {
         tx.executeWithoutResult(status -> ReflectionTestUtils.setField(jobs.findById(seed.key().jobId()).orElseThrow(),
                 "availableAt", LocalDateTime.now().minusMinutes(1)));
     }
 
-    @Test void aiRunsOutsideTransactionAndFailurePersistsInANewTransaction() {
+    @Test
+    void aiRunsOutsideTransactionAndFailurePersistsInANewTransaction() {
         var seed = seed("evaluated", 0);
         var claim = command.claim(seed.key()).orElseThrow();
         when(aiClient.evaluate(claim.request())).thenAnswer(invocation -> {
@@ -203,7 +247,8 @@ class SpeakingEvaluationJobIntegrationTest {
         assertThat(evaluations.findFirstBySessionIdOrderByEvaluatedAtDesc(seed.key().sessionId())).isEmpty();
     }
 
-    @Test void coachingJobNeverTouchesLegacyEvaluationStateAndPersistsTypedResultOnce() {
+    @Test
+    void coachingJobNeverTouchesLegacyEvaluationStateAndPersistsTypedResultOnce() {
         var seed = seedCoaching();
         var claim = command.claim(seed.key()).orElseThrow();
         assertThat(claim.resultKind()).isEqualTo(SpeakingResultKind.SESSION_COACHING);
@@ -216,7 +261,7 @@ class SpeakingEvaluationJobIntegrationTest {
 
         assertThat(jobStatus(seed)).isEqualTo(SpeakingEvaluationJob.Status.SUCCEEDED);
         assertThat(coachingResults.findBySessionId(seed.key().sessionId()))
-                .get().extracting(value -> value.getResultPolicyVersion(), value -> value.getContentStatus())
+                .get().extracting(SpeakingCoachingResult::getResultPolicyVersion, SpeakingCoachingResult::getContentStatus)
                 .containsExactly("free-session-coaching-v1", "NO_USABLE_EVIDENCE");
         assertThat(evaluations.findFirstBySessionIdOrderByEvaluatedAtDesc(seed.key().sessionId())).isEmpty();
         assertThat(metrics.findAll()).isEmpty();
@@ -226,7 +271,8 @@ class SpeakingEvaluationJobIntegrationTest {
                 .isEqualTo(LearningActivityStatus.COMPLETED);
     }
 
-    @Test void coachingHistoryIsBoundToOwnerLanguageDateAndPolicy() {
+    @Test
+    void coachingHistoryIsBoundToOwnerLanguageDateAndPolicy() {
         var included = seedCoaching();
         var excludedOwner = seedCoaching();
         when(aiClient.coach(any())).thenAnswer(invocation -> {
@@ -256,7 +302,8 @@ class SpeakingEvaluationJobIntegrationTest {
                 "legacy-score-v1")).isEmpty();
     }
 
-    @Test void coachingReleaseAndFailureRemainJobStateNotLearnerEvidenceState() {
+    @Test
+    void coachingReleaseAndFailureRemainJobStateNotLearnerEvidenceState() {
         var seed = seedCoaching();
         var first = command.claim(seed.key()).orElseThrow();
         command.release(first);
@@ -274,7 +321,8 @@ class SpeakingEvaluationJobIntegrationTest {
                 .isEqualTo(LearningActivityStatus.COMPLETED);
     }
 
-    @Test void resultMetricAndProfileFailureRollBackBeforeFailureStateIsSaved() {
+    @Test
+    void resultMetricAndProfileFailureRollBackBeforeFailureStateIsSaved() {
         var seed = seed("evaluated", 0);
         var claim = command.claim(seed.key()).orElseThrow();
         long metricsBefore = metrics.count();
@@ -289,7 +337,8 @@ class SpeakingEvaluationJobIntegrationTest {
         assertThat(jobStatus(seed)).isEqualTo(SpeakingEvaluationJob.Status.FAILED);
     }
 
-    @Test void identicalDuplicateCompletionDoesNotWriteMetricsOrProfileTwice() {
+    @Test
+    void identicalDuplicateCompletionDoesNotWriteMetricsOrProfileTwice() {
         var seed = seed("evaluated", 0);
         var claim = command.claim(seed.key()).orElseThrow();
         assertThat(command.complete(claim, response("evaluated"))).isTrue();
@@ -301,7 +350,8 @@ class SpeakingEvaluationJobIntegrationTest {
         assertThat(sessionStatus(seed)).isEqualTo(SpeakingEvaluationStatus.EVALUATED);
     }
 
-    @Test void precheckInsufficientEvidenceIsTerminalWithoutMetricOrProfileWrites() {
+    @Test
+    void precheckInsufficientEvidenceIsTerminalWithoutMetricOrProfileWrites() {
         var seed = seed("precheck-insufficient", 0);
         var claim = command.claim(seed.key()).orElseThrow();
         assertThat(command.complete(claim, response("precheck-insufficient"))).isTrue();
@@ -313,7 +363,8 @@ class SpeakingEvaluationJobIntegrationTest {
         assertThat(jobStatus(seed)).isEqualTo(SpeakingEvaluationJob.Status.SUCCEEDED);
     }
 
-    @Test void retryCommitsPendingAndAnAfterCommitEventAndDuplicateClickDoesNotConsumeAnotherRetry() {
+    @Test
+    void retryCommitsPendingAndAnAfterCommitEventAndDuplicateClickDoesNotConsumeAnotherRetry() {
         var seed = seed("evaluated", 0);
         command.fail(command.claim(seed.key()).orElseThrow());
         when(snapshots.read(any())).thenReturn(policy(true));
@@ -330,7 +381,8 @@ class SpeakingEvaluationJobIntegrationTest {
         assertThatThrownBy(() -> retry.retry(seed.userId(), seed.key().sessionId())).isInstanceOf(BusinessException.class);
     }
 
-    @Test void rolledBackRetryDoesNotDispatchOrConsumeRetryCount() {
+    @Test
+    void rolledBackRetryDoesNotDispatchOrConsumeRetryCount() {
         var seed = seed("evaluated", 0);
         command.fail(command.claim(seed.key()).orElseThrow());
         when(snapshots.read(any())).thenReturn(policy(true));
@@ -344,7 +396,8 @@ class SpeakingEvaluationJobIntegrationTest {
         assertThat(jobs.findById(seed.key().jobId()).orElseThrow().getManualRetryCount()).isZero();
     }
 
-    @Test void unfinishedDurableJobIsDiscoverableAndStaleWorkerCannotOverwriteRecovery() {
+    @Test
+    void unfinishedDurableJobIsDiscoverableAndStaleWorkerCannotOverwriteRecovery() {
         var seed = seed("evaluated", 0);
         assertThat(query.findDue(100)).contains(seed.key());
         var first = command.claim(seed.key()).orElseThrow();
@@ -360,12 +413,17 @@ class SpeakingEvaluationJobIntegrationTest {
         assertThat(sessionStatus(seed)).isEqualTo(SpeakingEvaluationStatus.EVALUATED);
     }
 
-    @Test void concurrentClaimersObtainOnlyOneLiveLease() throws Exception {
+    @Test
+    void concurrentClaimersObtainOnlyOneLiveLease() throws Exception {
         var seed = seed("evaluated", 0);
         var ready = new CountDownLatch(2);
         var go = new CountDownLatch(1);
         try (var pool = Executors.newFixedThreadPool(2)) {
-            Callable<Boolean> task = () -> { ready.countDown(); if (!go.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("claim barrier timed out"); return command.claim(seed.key()).isPresent(); };
+            Callable<Boolean> task = () -> {
+                ready.countDown();
+                if (!go.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("claim barrier timed out");
+                return command.claim(seed.key()).isPresent();
+            };
             var first = pool.submit(task);
             var second = pool.submit(task);
             assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
@@ -374,7 +432,8 @@ class SpeakingEvaluationJobIntegrationTest {
         }
     }
 
-    @Test void failedSubmittedProblemCanRetryAfterCompletionWithoutReopeningRecording() {
+    @Test
+    void failedSubmittedProblemCanRetryAfterCompletionWithoutReopeningRecording() {
         var seed = seed("precheck-insufficient", 5);
         command.fail(command.claim(seed.key()).orElseThrow());
         when(snapshots.read(any())).thenReturn(policy(true));
@@ -388,7 +447,8 @@ class SpeakingEvaluationJobIntegrationTest {
         verify(dispatcher, times(1)).dispatch(seed.key());
     }
 
-    @Test void anotherUserCannotRetryTheSubmittedProblem() {
+    @Test
+    void anotherUserCannotRetryTheSubmittedProblem() {
         var seed = seed("precheck-insufficient", 5);
         command.fail(command.claim(seed.key()).orElseThrow());
         assertThatThrownBy(() -> readAloud.retry(seed.userId() + 100000, seed.key().sessionId(), 5))
@@ -397,7 +457,8 @@ class SpeakingEvaluationJobIntegrationTest {
         assertThat(jobStatus(seed)).isEqualTo(SpeakingEvaluationJob.Status.FAILED);
     }
 
-    @Test void disabledSessionDoesNotEnqueueAiWork() {
+    @Test
+    void disabledSessionDoesNotEnqueueAiWork() {
         var seed = seed("evaluated", 0);
         when(snapshots.read(any())).thenReturn(policy(false));
         assertThatThrownBy(() -> tx.executeWithoutResult(status ->
@@ -405,7 +466,9 @@ class SpeakingEvaluationJobIntegrationTest {
                 .isInstanceOf(BusinessException.class);
         verifyNoInteractions(dispatcher, requestFactory, aiClient);
     }
-    @Test void concurrentSessionsDoNotLoseProfileContributionsForTheSameUser() throws Exception {
+
+    @Test
+    void concurrentSessionsDoNotLoseProfileContributionsForTheSameUser() throws Exception {
         var seed = seed("evaluated", 0);
         var realProfile = new SpeakingProfileSignalService(evidence, users);
         var ready = new CountDownLatch(2);
@@ -429,6 +492,17 @@ class SpeakingEvaluationJobIntegrationTest {
         var saved = evidence.findByUserIdAndSourceAndPatternKeyAndDirection(seed.userId(), LearningSource.SPEAKING,
                 signal.patternKey(), signal.direction()).orElseThrow();
         assertThat(saved.getEvidenceCount()).isEqualTo(2);
+    }
+
+    @TestConfiguration
+    static class JsonConfiguration {
+        @Bean
+        ObjectMapper objectMapper() {
+            return new ObjectMapper().findAndRegisterModules();
+        }
+    }
+
+    private record Seed(long userId, SpeakingEvaluationJobKey key, long activityId) {
     }
 
 }

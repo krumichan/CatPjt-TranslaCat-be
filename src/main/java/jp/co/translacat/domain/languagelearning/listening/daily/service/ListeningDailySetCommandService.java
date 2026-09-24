@@ -11,13 +11,13 @@ import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningG
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
-import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileAiContextService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.repository.UserRepository;
@@ -37,9 +37,9 @@ import java.util.List;
 public class ListeningDailySetCommandService {
 
     private final ListeningDailySetRepository dailySetRepository;
-    private final ListeningPolicySettingQueryService policySettingService;
-    private final LanguageLearningUserSettingQueryService userSettingService;
-    private final LanguageLearningAdminSettingQueryService adminSettingService;
+    private final ListeningPolicyGateway policySettingService;
+    private final UserSettingsGateway userSettingService;
+    private final AdminSettingsGateway adminSettingService;
     private final KeywordSelectionFacade keywordSelectionFacade;
     private final LearningProfileAiContextService profileContextService;
     private final ListeningOutboxCommandService outboxCommandService;
@@ -51,8 +51,8 @@ public class ListeningDailySetCommandService {
             Long userId,
             ListeningApiContract.DailySetCreateRequest request
     ) {
-        LanguageLearningUserSetting userSetting =
-                userSettingService.getOrCreateEntity(userId);
+        UserSettingsSnapshot userSetting =
+                userSettingService.getSnapshot(userId);
         userSettingService.requireConfigured(userSetting);
         LocalDate today = userSettingService.resolveToday(userSetting);
         ListeningLearningMode learningMode = request == null
@@ -71,7 +71,7 @@ public class ListeningDailySetCommandService {
             return existing.get();
         }
 
-        ListeningPolicySetting policy = policySettingService.get();
+        ListeningPolicySnapshot policy = policySettingService.get();
 
         if (!policy.isEnabled()) {
             throw new BusinessException(
@@ -102,8 +102,8 @@ public class ListeningDailySetCommandService {
                 || request.difficulty() == null
                 ? ListeningDifficulty.MY_LEVEL
                 : request.difficulty();
-        LanguageLearningAdminSetting admin =
-                adminSettingService.getOrCreateEntity();
+        AdminSettingsSnapshot admin =
+                adminSettingService.getSnapshot();
         List<SelectedKeywordDto> keywords =
                 keywordSelectionFacade.selectForDailySet(userId, today, admin);
         User user = userRepository.getReferenceById(userId);

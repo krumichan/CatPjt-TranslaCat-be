@@ -16,7 +16,7 @@ import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAtte
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeMetricScoreRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeQuestionRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +37,7 @@ public class PracticeQueryService {
     private final PracticeAttemptRepository attemptRepository;
     private final PracticeMetricScoreRepository metricRepository;
     private final LanguageLearningJsonCodec jsonCodec;
-    private final LanguageLearningUserSettingQueryService settingQueryService;
+    private final UserSettingsGateway settingQueryService;
 
     public PracticeSet getOwned(Long userId, Long setId) {
         return setRepository.findByIdAndUserId(setId, userId)

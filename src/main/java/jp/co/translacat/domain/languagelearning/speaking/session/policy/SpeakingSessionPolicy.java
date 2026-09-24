@@ -1,6 +1,6 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.policy;
 
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.ConversationStartMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCreateRequestDto;
@@ -18,7 +18,7 @@ public class SpeakingSessionPolicy {
 
     public void validateCreate(
             SpeakingSessionCreateRequestDto request,
-            LanguageLearningAdminSetting admin
+            AdminSettingsSnapshot admin
     ) {
         if (!admin.isSpeakingEnabled()) {
             throw new BusinessException(

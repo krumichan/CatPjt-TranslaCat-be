@@ -1,6 +1,6 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.policy;
 
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.ConversationStartMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.CorrectionMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
@@ -18,7 +18,7 @@ class SpeakingSessionPolicyTest {
 
     @Test
     void acceptsAllThreeConversationStartModes() {
-        LanguageLearningAdminSetting admin = LanguageLearningAdminSetting.createDefault();
+        AdminSettingsSnapshot admin = jp.co.translacat.support.SettingsSnapshotFixtures.admin();
 
         for (ConversationStartMode mode : ConversationStartMode.values()) {
             policy.validateCreate(request(mode, 5), admin);
@@ -43,7 +43,7 @@ class SpeakingSessionPolicyTest {
 
     @Test
     void rejectsTargetMinutesOutsideAdminBounds() {
-        LanguageLearningAdminSetting admin = LanguageLearningAdminSetting.createDefault();
+        AdminSettingsSnapshot admin = jp.co.translacat.support.SettingsSnapshotFixtures.admin();
 
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> policy.validateCreate(
@@ -104,7 +104,7 @@ class SpeakingSessionPolicyTest {
 
     @Test
     void keywordBasedTopicRequiresAiFirstAndNoOtherTopicSource() {
-        LanguageLearningAdminSetting admin = LanguageLearningAdminSetting.createDefault();
+        AdminSettingsSnapshot admin = jp.co.translacat.support.SettingsSnapshotFixtures.admin();
 
         policy.validateCreate(
                 new SpeakingSessionCreateRequestDto(

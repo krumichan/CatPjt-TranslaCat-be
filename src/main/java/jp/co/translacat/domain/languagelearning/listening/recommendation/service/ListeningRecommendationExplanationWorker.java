@@ -2,7 +2,7 @@ package jp.co.translacat.domain.languagelearning.listening.recommendation.servic
 
 import jp.co.translacat.domain.languagelearning.listening.ai.port.ListeningAiClient;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxTransactionService;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningAiException;
 
 import lombok.RequiredArgsConstructor;
@@ -20,7 +20,7 @@ public class ListeningRecommendationExplanationWorker {
             transactionService;
     private final ListeningAiClient aiClient;
     private final ListeningOutboxTransactionService outboxTransactionService;
-    private final ListeningPolicySettingQueryService policySettingService;
+    private final ListeningPolicyGateway policySettingService;
 
     public void process(ListeningOutboxTransactionService.ClaimedEvent event) {
         try {

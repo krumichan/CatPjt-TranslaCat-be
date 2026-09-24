@@ -10,7 +10,7 @@ import jp.co.translacat.domain.languagelearning.listening.daily.repository.Liste
 import jp.co.translacat.domain.languagelearning.listening.outbox.entity.ListeningOutboxEvent;
 import jp.co.translacat.domain.languagelearning.listening.outbox.repository.ListeningOutboxEventRepository;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -25,7 +25,7 @@ public class ListeningGenerationRetryCommandService {
 
     private final ListeningDailySetRepository dailySetRepository;
     private final ListeningItemRepository itemRepository;
-    private final ListeningPolicySettingQueryService policySettingService;
+    private final ListeningPolicyGateway policySettingService;
     private final ListeningOutboxCommandService outboxCommandService;
     private final ListeningOutboxEventRepository outboxRepository;
 

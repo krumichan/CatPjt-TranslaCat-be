@@ -26,7 +26,7 @@ import jp.co.translacat.domain.languagelearning.practice.entity.PracticeMetricSc
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeMetricScoreRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 
 import lombok.RequiredArgsConstructor;
 
@@ -51,7 +51,7 @@ public class SourceSkillTrendQueryService {
     private final EvaluationMetricHistoryRepository metricHistoryRepository;
     private final LearningProfileAggregationWeightPolicy weightPolicy;
     private final ListeningTaskEvaluationRepository listeningEvaluationRepository;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final UserSettingsGateway userSettingQueryService;
     private final LanguageLearningJsonCodec jsonCodec;
     private final PracticeSetRepository practiceSetRepository;
     private final PracticeMetricScoreRepository practiceMetricScoreRepository;
@@ -106,7 +106,7 @@ public class SourceSkillTrendQueryService {
         }
 
         if (source == null || source == LearningSource.LISTENING) {
-            var setting = userSettingQueryService.getOrCreateEntity(userId);
+            var setting = userSettingQueryService.getSnapshot(userId);
             String learningLanguage = setting.getLearningLanguage();
             if (learningLanguage != null && !learningLanguage.isBlank()) {
                 List<ListeningTaskEvaluation> listening = listeningEvaluationRepository

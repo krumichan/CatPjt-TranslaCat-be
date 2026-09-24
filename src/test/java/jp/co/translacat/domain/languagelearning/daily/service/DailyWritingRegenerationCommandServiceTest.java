@@ -10,8 +10,8 @@ import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
 import jp.co.translacat.domain.languagelearning.daily.service.DailyWritingRegenerationStateCommandService.RegenerationClaim;
 import jp.co.translacat.domain.languagelearning.daily.service.DailyWritingRegenerationStateCommandService.RegenerationTarget;
 import jp.co.translacat.domain.languagelearning.daily.validator.DailyWritingGenerationResponseValidator;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,9 +38,9 @@ class DailyWritingRegenerationCommandServiceTest {
     @Mock
     private DailyWritingGenerationResponseValidator responseValidator;
     @Mock
-    private LanguageLearningAdminSettingQueryService adminSettingQueryService;
+    private AdminSettingsGateway adminSettingQueryService;
     @Mock
-    private LanguageLearningAdminSetting adminSetting;
+    private AdminSettingsSnapshot adminSetting;
     @Mock
     private AiDailyWritingGenerationRequestDto request;
     @Mock
@@ -58,7 +58,7 @@ class DailyWritingRegenerationCommandServiceTest {
                 responseValidator,
                 adminSettingQueryService
         );
-        when(adminSettingQueryService.getOrCreateEntity())
+        when(adminSettingQueryService.getSnapshot())
                 .thenReturn(adminSetting);
         when(adminSetting.isAdaptiveWritingEnabled())
                 .thenReturn(true);

@@ -9,7 +9,7 @@ import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAtte
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeMetricScoreRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeQuestionRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +30,7 @@ class PracticeQueryServiceTest {
     @Mock private PracticeAttemptRepository attemptRepository;
     @Mock private PracticeMetricScoreRepository metricRepository;
     @Mock private LanguageLearningJsonCodec jsonCodec;
-    @Mock private LanguageLearningUserSettingQueryService settingQueryService;
+    @Mock private UserSettingsGateway settingQueryService;
     @Mock private PracticeSet set;
     @Mock private PracticeSet legacySet;
 

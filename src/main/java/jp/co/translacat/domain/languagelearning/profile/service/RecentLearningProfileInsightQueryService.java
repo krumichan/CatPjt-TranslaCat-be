@@ -20,7 +20,7 @@ import jp.co.translacat.domain.languagelearning.speaking.evaluation.entity.Speak
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.repository.SpeakingEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import jp.co.translacat.domain.languagelearning.speaking.turn.repository.SpeakingTurnRepository;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 
 import lombok.RequiredArgsConstructor;
 
@@ -48,7 +48,7 @@ public class RecentLearningProfileInsightQueryService {
     private final LanguageLearningJsonCodec jsonCodec;
     private final LearningProfileAggregationWeightPolicy weightPolicy;
     private final ListeningDashboardQueryService listeningDashboardQueryService;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final UserSettingsGateway userSettingQueryService;
 
     public List<UnifiedProfileInsightResponseDto> getInsights(
             Long userId,
@@ -180,7 +180,7 @@ public class RecentLearningProfileInsightQueryService {
             Long userId,
             Map<String, Aggregated> values
     ) {
-        var setting = userSettingQueryService.getOrCreateEntity(userId);
+        var setting = userSettingQueryService.getSnapshot(userId);
         String learningLanguage = setting.getLearningLanguage();
         if (learningLanguage == null || learningLanguage.isBlank()) {
             return;

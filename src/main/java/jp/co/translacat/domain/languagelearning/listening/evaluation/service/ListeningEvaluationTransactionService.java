@@ -17,8 +17,8 @@ import jp.co.translacat.domain.languagelearning.listening.profile.entity.Listeni
 import jp.co.translacat.domain.languagelearning.listening.profile.repository.ListeningMetricHistoryRepository;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
-import jp.co.translacat.domain.languagelearning.listening.setting.entity.ListeningPolicySetting;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionLockService;
 
 import lombok.RequiredArgsConstructor;
@@ -38,7 +38,7 @@ public class ListeningEvaluationTransactionService {
     private final ListeningTaskEvaluationRepository evaluationRepository;
     private final ListeningMetricHistoryRepository historyRepository;
     private final ListeningItemAttemptRepository attemptRepository;
-    private final ListeningPolicySettingQueryService policySettingService;
+    private final ListeningPolicyGateway policySettingService;
     private final ListeningEvaluationContractPolicy contractPolicy;
     private final ListeningProfilePolicy profilePolicy;
     private final ListeningAttemptFinalizationCommandService finalizationService;
@@ -56,7 +56,7 @@ public class ListeningEvaluationTransactionService {
         ListeningItemAttempt attempt = response.getAttempt();
         var item = attempt.getItem();
         var set = item.getDailySet();
-        ListeningPolicySetting policy = policySettingService.get();
+        ListeningPolicySnapshot policy = policySettingService.get();
         List<AiListeningContract.AssistanceUsage> assistance = jsonCodec.read(
                 response.getAssistanceUsageJson(),
                 new TypeReference<List<AiListeningContract.AssistanceUsage>>() {

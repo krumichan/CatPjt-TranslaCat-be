@@ -6,7 +6,7 @@ import jp.co.translacat.domain.languagelearning.listening.report.entity.Listenin
 import jp.co.translacat.domain.languagelearning.listening.report.repository.ListeningEvaluationReportRepository;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
-import jp.co.translacat.domain.languagelearning.listening.setting.service.ListeningPolicySettingQueryService;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -23,7 +23,7 @@ public class ListeningEvaluationReportCommandService {
 
     private final ListeningEvaluationReportRepository reportRepository;
     private final ListeningTaskResponseRepository responseRepository;
-    private final ListeningPolicySettingQueryService policySettingService;
+    private final ListeningPolicyGateway policySettingService;
 
     @Transactional
     public ListeningApiContract.EvaluationReportView report(

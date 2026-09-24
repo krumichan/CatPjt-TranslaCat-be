@@ -12,7 +12,7 @@ import jp.co.translacat.domain.languagelearning.daily.entity.WritingAnswer;
 import jp.co.translacat.domain.languagelearning.daily.model.DailyWritingSnapshot;
 import jp.co.translacat.domain.languagelearning.daily.model.WritingEvaluationRequestContext;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileAiContextService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,7 +33,7 @@ public class WritingEvaluationRequestFactory {
 
     public WritingEvaluationRequestContext createDaily(
             WritingAnswer answer,
-            LanguageLearningUserSetting setting,
+            UserSettingsSnapshot setting,
             DailyWritingSnapshot snapshot,
             LocalDate learningDate
     ) {

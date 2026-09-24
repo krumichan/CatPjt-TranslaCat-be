@@ -1,9 +1,9 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.service;
 
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingConversationResultDto;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
@@ -32,8 +32,8 @@ public class SpeakingSessionQueryService {
 
     private final SpeakingSessionRepository sessionRepository;
     private final SpeakingSessionUsageQueryService usageQueryService;
-    private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
+    private final AdminSettingsGateway adminSettingQueryService;
+    private final UserSettingsGateway userSettingQueryService;
     private final LanguageLearningJsonCodec jsonCodec;
     private final SpeakingEvaluationJobRepository evaluationJobRepository;
 
@@ -134,7 +134,7 @@ public class SpeakingSessionQueryService {
     }
 
     public java.util.List<SpeakingPracticeModeStatusResponseDto> todayModeStatuses(Long userId) {
-        LanguageLearningUserSetting setting = userSettingQueryService.getOrCreateEntity(userId);
+        UserSettingsSnapshot setting = userSettingQueryService.getSnapshot(userId);
         userSettingQueryService.requireConfigured(setting);
         java.time.LocalDate today = userSettingQueryService.resolveToday(setting);
         return java.util.Arrays.stream(SpeakingPracticeMode.values())
@@ -171,10 +171,10 @@ public class SpeakingSessionQueryService {
     }
 
     public SpeakingDailyUsageResponseDto getDailyUsage(Long userId) {
-        LanguageLearningUserSetting setting =
-                userSettingQueryService.getOrCreateEntity(userId);
-        LanguageLearningAdminSetting admin =
-                adminSettingQueryService.getOrCreateEntity();
+        UserSettingsSnapshot setting =
+                userSettingQueryService.getSnapshot(userId);
+        AdminSettingsSnapshot admin =
+                adminSettingQueryService.getSnapshot();
         return usageQueryService.getDailyUsage(
                 userId,
                 userSettingQueryService.resolveToday(setting),

@@ -7,10 +7,10 @@ import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
 import jp.co.translacat.domain.languagelearning.daily.entity.WritingAnswer;
 import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingSetRepository;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingAnswerRepository;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -28,8 +28,8 @@ public class DailyWritingQueryService {
 
     private final DailyWritingSetRepository dailySetRepository;
     private final WritingAnswerRepository answerRepository;
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
-    private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
+    private final UserSettingsGateway userSettingQueryService;
+    private final AdminSettingsGateway adminSettingQueryService;
     private final DailyWritingResponseQueryService responseQueryService;
 
 
@@ -70,10 +70,10 @@ public class DailyWritingQueryService {
             Long userId,
             DailyWritingSet dailySet
     ) {
-        LanguageLearningUserSetting userSetting =
-                userSettingQueryService.getOrCreateEntity(userId);
-        LanguageLearningAdminSetting adminSetting =
-                adminSettingQueryService.getOrCreateEntity();
+        UserSettingsSnapshot userSetting =
+                userSettingQueryService.getSnapshot(userId);
+        AdminSettingsSnapshot adminSetting =
+                adminSettingQueryService.getSnapshot();
         LocalDate today = userSettingQueryService.resolveToday(userSetting);
 
         return responseQueryService.toSetResponse(

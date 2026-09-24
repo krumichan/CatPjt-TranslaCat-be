@@ -1,6 +1,7 @@
 package jp.co.translacat.global.exception;
 
 import jakarta.persistence.EntityNotFoundException;
+import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningServiceException;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningAiException;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningErrorDto;
 import jp.co.translacat.global.dto.ErrorDto;
@@ -21,6 +22,22 @@ import java.time.LocalDateTime;
 @Slf4j
 @RestControllerAdvice
 public class ApiExceptionAdvice {
+
+    @ExceptionHandler(LanguageLearningServiceException.class)
+    protected ResponseEntity<?> handleLanguageLearningServiceException(LanguageLearningServiceException e) {
+        // 내부 인증 실패는 FE 로그인 만료가 아니다. 외부 Access Token 갱신 루프를 유발하지 않는다.
+        if (e.getStatus() == HttpStatus.UNAUTHORIZED
+                || "INTERNAL_ADMIN_REQUIRED".equals(e.getErrorCode())) {
+            log.error("LL internal authentication failed. status={} code={}", e.getStatus().value(), e.getErrorCode());
+            return entity(HttpStatus.BAD_GATEWAY, "LL_INTERNAL_AUTH_FAILED", "언어학습 내부 인증 설정을 확인해 주세요.", e);
+        }
+        if (e.getStatus() == HttpStatus.BAD_REQUEST) {
+            // 기존 FE의 BusinessException/ListeningErrorDto 포장을 그대로 유지한다.
+            return handleBusinessException(new BusinessException(e.getMessage(), e.getErrorCode()));
+        }
+        log.warn("LL remote settings failed. status={} code={}", e.getStatus().value(), e.getErrorCode());
+        return entity(e.getStatus(), e.getErrorCode(), "Message <" + e.getMessage() + ">", e);
+    }
 
     @ExceptionHandler(ListeningAiException.class)
     protected ResponseEntity<ResponseDto<ListeningErrorDto>>

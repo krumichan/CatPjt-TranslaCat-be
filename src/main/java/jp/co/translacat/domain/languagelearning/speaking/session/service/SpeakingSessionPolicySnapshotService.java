@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.service;
 
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionPolicySnapshot;
 
@@ -16,7 +16,7 @@ public class SpeakingSessionPolicySnapshotService {
     private final LanguageLearningJsonCodec jsonCodec;
 
     public SpeakingSessionPolicySnapshot create(
-            LanguageLearningAdminSetting admin
+            AdminSettingsSnapshot admin
     ) {
         return new SpeakingSessionPolicySnapshot(
                 admin.isSpeakingEvaluationEnabled(),

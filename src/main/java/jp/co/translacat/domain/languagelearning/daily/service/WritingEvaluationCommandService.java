@@ -11,7 +11,7 @@ import jp.co.translacat.domain.languagelearning.daily.model.WritingEvaluationReq
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.daily.validator.WritingEvaluationResponseValidator;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileCommandService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.exception.BusinessException;
@@ -38,7 +38,7 @@ public class WritingEvaluationCommandService {
     public WritingEvaluation evaluateDaily(
             User user,
             WritingAnswer answer,
-            LanguageLearningUserSetting setting,
+            UserSettingsSnapshot setting,
             DailyWritingSnapshot snapshot,
             LocalDate learningDate
     ) {

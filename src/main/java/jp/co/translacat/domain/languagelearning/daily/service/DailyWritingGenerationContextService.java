@@ -4,10 +4,10 @@ import jp.co.translacat.domain.languagelearning.ai.dto.model.DifficultyDistribut
 import jp.co.translacat.domain.languagelearning.daily.model.DailyWritingGenerationContext;
 import jp.co.translacat.domain.languagelearning.daily.policy.DailyWritingDifficultyPolicy;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileCommandService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningAdminSettingQueryService;
-import jp.co.translacat.domain.languagelearning.setting.service.LanguageLearningUserSettingQueryService;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
@@ -22,19 +22,19 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 public class DailyWritingGenerationContextService {
 
-    private final LanguageLearningUserSettingQueryService userSettingQueryService;
-    private final LanguageLearningAdminSettingQueryService adminSettingQueryService;
+    private final UserSettingsGateway userSettingQueryService;
+    private final AdminSettingsGateway adminSettingQueryService;
     private final LearningProfileCommandService learningProfileCommandService;
     private final DailyWritingDifficultyPolicy difficultyPolicy;
 
     @Transactional
     public DailyWritingGenerationContext prepare(Long userId) {
-        LanguageLearningUserSetting userSetting =
-                userSettingQueryService.getOrCreateEntity(userId);
+        UserSettingsSnapshot userSetting =
+                userSettingQueryService.getSnapshot(userId);
         userSettingQueryService.requireConfigured(userSetting);
 
-        LanguageLearningAdminSetting adminSetting =
-                adminSettingQueryService.getOrCreateEntity();
+        AdminSettingsSnapshot adminSetting =
+                adminSettingQueryService.getSnapshot();
         validateAdaptiveWritingEnabled(adminSetting);
 
         LocalDate learningDate = userSettingQueryService.resolveToday(userSetting);
@@ -59,7 +59,7 @@ public class DailyWritingGenerationContextService {
     }
 
     private void validateAdaptiveWritingEnabled(
-            LanguageLearningAdminSetting adminSetting
+            AdminSettingsSnapshot adminSetting
     ) {
         if (!adminSetting.isAdaptiveWritingEnabled()) {
             throw new BusinessException(

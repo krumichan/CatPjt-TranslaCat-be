@@ -5,7 +5,7 @@ import jp.co.translacat.domain.languagelearning.keyword.model.SelectedKeywordCan
 import jp.co.translacat.domain.languagelearning.keyword.policy.KeywordSelectionPolicy;
 import jp.co.translacat.domain.languagelearning.keyword.service.KeywordCandidateQueryService;
 import jp.co.translacat.domain.languagelearning.keyword.service.KeywordSelectionCommandService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningAdminSetting;
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,7 +27,7 @@ public class KeywordSelectionFacade {
     public List<SelectedKeywordDto> selectForDailySet(
             Long userId,
             LocalDate learningDate,
-            LanguageLearningAdminSetting adminSetting
+            AdminSettingsSnapshot adminSetting
     ) {
         int maxCount = adminSetting.getDailyKeywordMaxCount();
         if (maxCount <= 0) {

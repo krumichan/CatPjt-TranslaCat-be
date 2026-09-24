@@ -6,8 +6,8 @@ import jp.co.translacat.domain.languagelearning.level.pool.policy.LevelTestQuest
 import jp.co.translacat.domain.languagelearning.level.pool.entity.LevelTestQuestionPool;
 import jp.co.translacat.domain.languagelearning.level.pool.policy.LevelTestQuestionPoolTargetPlanner;
 import jp.co.translacat.domain.languagelearning.level.service.LevelTestQuestionService;
-import jp.co.translacat.domain.languagelearning.setting.entity.LanguageLearningUserSetting;
-import jp.co.translacat.domain.languagelearning.setting.repository.LanguageLearningUserSettingRepository;
+import jp.co.translacat.domain.languagelearning.setting.model.ConfiguredLanguagePair;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 
 import org.junit.jupiter.api.Test;
 
@@ -26,8 +26,8 @@ class LevelTestQuestionPoolReplenishmentServiceTest {
 
     @Test
     void plansAtMostConfiguredBatchSizeFromMostDeficientBuckets() {
-        LanguageLearningUserSettingRepository userSettingRepository =
-                mock(LanguageLearningUserSettingRepository.class);
+        UserSettingsGateway userSettingRepository =
+                mock(UserSettingsGateway.class);
         LevelTestQuestionPoolQueryService poolQueryService =
                 mock(LevelTestQuestionPoolQueryService.class);
         LevelTestQuestionPoolPolicy poolPolicy =
@@ -41,12 +41,9 @@ class LevelTestQuestionPoolReplenishmentServiceTest {
         LevelTestReferenceAudioUploadService audioUploadService =
                 mock(LevelTestReferenceAudioUploadService.class);
 
-        LanguageLearningUserSetting setting =
-                mock(LanguageLearningUserSetting.class);
-        when(setting.getOriginLanguage()).thenReturn("ko");
-        when(setting.getLearningLanguage()).thenReturn("ja");
+        ConfiguredLanguagePair setting = new ConfiguredLanguagePair("ko", "ja");
         when(userSettingRepository
-                .findAllByOriginLanguageIsNotNullAndLearningLanguageIsNotNull())
+                .configuredLanguagePairs())
                 .thenReturn(List.of(setting));
         when(audioUploadService.requiresReferenceAudio(any(), any()))
                 .thenReturn(false);
@@ -87,8 +84,8 @@ class LevelTestQuestionPoolReplenishmentServiceTest {
     }
     @Test
     void quarantinedQuestionIsRegeneratedAndLinkedAsReplacement() {
-        LanguageLearningUserSettingRepository userSettingRepository =
-                mock(LanguageLearningUserSettingRepository.class);
+        UserSettingsGateway userSettingRepository =
+                mock(UserSettingsGateway.class);
         LevelTestQuestionPoolQueryService poolQueryService =
                 mock(LevelTestQuestionPoolQueryService.class);
         LevelTestQuestionPoolCommandService poolCommandService =
@@ -128,7 +125,7 @@ class LevelTestQuestionPoolReplenishmentServiceTest {
                 any()
         )).thenReturn(replacement);
         when(userSettingRepository
-                .findAllByOriginLanguageIsNotNullAndLearningLanguageIsNotNull())
+                .configuredLanguagePairs())
                 .thenReturn(List.of());
 
         LevelTestQuestionPoolReplenishmentService service =

@@ -55,7 +55,9 @@ public class LanguageLearningInternalJwtProvider {
         this.key = Keys.hmacShaKeyFor(decoded);
     }
 
-    /** 사용자 권한이 없는 BE 작업자의 Settings 조회 전용 토큰이다. */
+    /**
+     * 사용자 권한이 없는 BE 작업자의 Settings 조회 전용 토큰이다.
+     */
     public String issueSettingsServiceToken() {
         Instant now = clock.instant();
         return Jwts.builder()
@@ -65,6 +67,34 @@ public class LanguageLearningInternalJwtProvider {
                 .claim("service", callerService)
                 .claim("tokenUse", "ll-settings-service")
                 .claim("scopes", List.of("settings:read"))
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(ttlSeconds)))
+                .signWith(key, Jwts.SIG.HS256)
+                .compact();
+    }
+
+    /**
+     * Core의 학습 시작 사실은 서버가 조회하며 FE 입력을 그대로 서명하지 않는다.
+     */
+    public String issueKeywordUserToken(Long userId, boolean hasStartedLearning) {
+        return issueKeywordToken(userId, false, hasStartedLearning);
+    }
+
+    public String issueKeywordAdminToken(Long adminUserId) {
+        return issueKeywordToken(adminUserId, true, false);
+    }
+
+    private String issueKeywordToken(Long userId, boolean admin, boolean started) {
+        if (userId == null || userId <= 0) throw new IllegalArgumentException("내부 JWT userId는 양수여야 합니다.");
+        Instant now = clock.instant();
+        return Jwts.builder()
+                .issuer(issuer)
+                .audience().add(audience).and()
+                .subject(userId.toString())
+                .claim("service", callerService)
+                .claim("tokenUse", "ll-keywords")
+                .claim("roles", List.of(admin ? "ADMIN" : "USER"))
+                .claim("keywordLearningStarted", started)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(ttlSeconds)))
                 .signWith(key, Jwts.SIG.HS256)

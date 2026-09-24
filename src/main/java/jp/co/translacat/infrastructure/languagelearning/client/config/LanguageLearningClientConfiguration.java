@@ -1,6 +1,7 @@
 package jp.co.translacat.infrastructure.languagelearning.client.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningKeywordClient;
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningSettingsClient;
 import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -122,5 +123,15 @@ public class LanguageLearningClientConfiguration {
                 jwtProvider,
                 objectMapper
         );
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "language-learning.remote", name = "enabled", havingValue = "true")
+    public LanguageLearningKeywordClient languageLearningKeywordClient(
+            @Qualifier("languageLearningRestClient") RestClient restClient,
+            LanguageLearningInternalJwtProvider jwtProvider,
+            ObjectMapper objectMapper
+    ) {
+        return new LanguageLearningKeywordClient(restClient, jwtProvider, objectMapper);
     }
 }

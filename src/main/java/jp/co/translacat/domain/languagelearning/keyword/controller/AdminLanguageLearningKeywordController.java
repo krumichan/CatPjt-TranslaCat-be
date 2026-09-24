@@ -5,6 +5,9 @@ import jp.co.translacat.domain.languagelearning.keyword.dto.request.KeywordUpdat
 import jp.co.translacat.domain.languagelearning.keyword.dto.response.KeywordResponseDto;
 import jp.co.translacat.domain.languagelearning.keyword.facade.LanguageLearningKeywordFacade;
 import jp.co.translacat.global.dto.ResponseDto;
+import jp.co.translacat.global.security.UserPrincipal;
+import jp.co.translacat.global.utils.SecurityUtil;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
 
 import lombok.RequiredArgsConstructor;
@@ -29,28 +32,30 @@ public class AdminLanguageLearningKeywordController {
     private final LanguageLearningKeywordFacade keywordFacade;
 
     @GetMapping
-    public ResponseDto<List<KeywordResponseDto>> getSystemKeywords() {
+    public ResponseDto<List<KeywordResponseDto>> getSystemKeywords(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         return ResponseUtil.ok(
-                keywordFacade.getSystemKeywordsForAdmin()
+                keywordFacade.getSystemKeywordsForAdmin(SecurityUtil.getLoginUserId(userPrincipal))
         );
     }
 
     @PostMapping
     public ResponseDto<KeywordResponseDto> createSystemKeyword(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @RequestBody KeywordCreateRequestDto request
     ) {
         return ResponseUtil.created(
-                keywordFacade.createSystemKeyword(request)
+                keywordFacade.createSystemKeyword(SecurityUtil.getLoginUserId(userPrincipal), request)
         );
     }
 
     @PatchMapping("/{keywordId}")
     public ResponseDto<KeywordResponseDto> updateSystemKeyword(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long keywordId,
             @RequestBody KeywordUpdateRequestDto request
     ) {
         return ResponseUtil.ok(
-                keywordFacade.updateSystemKeyword(keywordId, request)
+                keywordFacade.updateSystemKeyword(SecurityUtil.getLoginUserId(userPrincipal), keywordId, request)
         );
     }
 }

@@ -4,124 +4,23 @@ import jp.co.translacat.domain.languagelearning.keyword.dto.request.KeywordCreat
 import jp.co.translacat.domain.languagelearning.keyword.dto.request.KeywordUpdateRequestDto;
 import jp.co.translacat.domain.languagelearning.keyword.dto.response.KeywordListResponseDto;
 import jp.co.translacat.domain.languagelearning.keyword.dto.response.KeywordResponseDto;
-import jp.co.translacat.domain.languagelearning.keyword.entity.CustomKeyword;
-import jp.co.translacat.domain.languagelearning.keyword.entity.SystemKeyword;
-import jp.co.translacat.domain.languagelearning.keyword.entity.UserSystemKeywordSelection;
-import jp.co.translacat.domain.languagelearning.keyword.mapper.KeywordResponseMapper;
-import jp.co.translacat.domain.languagelearning.keyword.service.CustomKeywordCommandService;
-import jp.co.translacat.domain.languagelearning.keyword.service.LanguageLearningKeywordQueryService;
-import jp.co.translacat.domain.languagelearning.keyword.service.SystemKeywordCommandService;
-import jp.co.translacat.domain.languagelearning.keyword.service.SystemKeywordSelectionCommandService;
-
+import jp.co.translacat.domain.languagelearning.keyword.port.KeywordCatalogGateway;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 
+/** 외부 FE 계약은 유지한다. 키워드 Entity/Repository를 조회하거나 저장하지 않는다. */
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class LanguageLearningKeywordFacade {
+    private final KeywordCatalogGateway keywords;
 
-    private final LanguageLearningKeywordQueryService keywordQueryService;
-    private final CustomKeywordCommandService customKeywordCommandService;
-    private final SystemKeywordCommandService systemKeywordCommandService;
-    private final SystemKeywordSelectionCommandService systemKeywordSelectionCommandService;
-    private final KeywordResponseMapper responseMapper;
-
-    public KeywordListResponseDto getKeywords(
-            Long userId,
-            String uiLocale
-    ) {
-        return keywordQueryService.getKeywords(userId, uiLocale);
-    }
-
-    public KeywordResponseDto createCustomKeyword(
-            Long userId,
-            KeywordCreateRequestDto request
-    ) {
-        CustomKeyword keyword = customKeywordCommandService.create(
-                userId,
-                request
-        );
-
-        return responseMapper.fromCustom(keyword);
-    }
-
-    public KeywordResponseDto updateCustomKeyword(
-            Long userId,
-            Long keywordId,
-            KeywordUpdateRequestDto request
-    ) {
-        CustomKeyword keyword = customKeywordCommandService.update(
-                userId,
-                keywordId,
-                request
-        );
-
-        return responseMapper.fromCustom(keyword);
-    }
-
-    public void deleteCustomKeyword(
-            Long userId,
-            Long keywordId
-    ) {
-        customKeywordCommandService.deactivate(
-                userId,
-                keywordId
-        );
-    }
-
-    public KeywordResponseDto updateSystemKeywordSelection(
-            Long userId,
-            Long keywordId,
-            boolean selected
-    ) {
-        UserSystemKeywordSelection selection =
-                systemKeywordSelectionCommandService.updateSelection(
-                        userId,
-                        keywordId,
-                        selected
-                );
-
-        return responseMapper.fromSystem(
-                selection.getSystemKeyword(),
-                selection.desiredActive(),
-                selection.getPendingEffectiveDate()
-        );
-    }
-
-    public List<KeywordResponseDto> getSystemKeywordsForAdmin() {
-        return keywordQueryService.getSystemKeywordsForAdmin();
-    }
-
-    public KeywordResponseDto createSystemKeyword(
-            KeywordCreateRequestDto request
-    ) {
-        SystemKeyword keyword = systemKeywordCommandService.create(request);
-
-        return responseMapper.fromSystem(
-                keyword,
-                false,
-                null
-        );
-    }
-
-    public KeywordResponseDto updateSystemKeyword(
-            Long keywordId,
-            KeywordUpdateRequestDto request
-    ) {
-        SystemKeyword keyword = systemKeywordCommandService.update(
-                keywordId,
-                request
-        );
-
-        return responseMapper.fromSystem(
-                keyword,
-                false,
-                null
-        );
-    }
+    public KeywordListResponseDto getKeywords(Long userId, String uiLocale) { return keywords.getKeywords(userId, uiLocale); }
+    public KeywordResponseDto createCustomKeyword(Long userId, KeywordCreateRequestDto request) { return keywords.createCustom(userId, request); }
+    public KeywordResponseDto updateCustomKeyword(Long userId, Long keywordId, KeywordUpdateRequestDto request) { return keywords.updateCustom(userId, keywordId, request); }
+    public void deleteCustomKeyword(Long userId, Long keywordId) { keywords.deleteCustom(userId, keywordId); }
+    public KeywordResponseDto updateSystemKeywordSelection(Long userId, Long keywordId, boolean selected) { return keywords.selectSystem(userId, keywordId, selected); }
+    public List<KeywordResponseDto> getSystemKeywordsForAdmin(Long adminUserId) { return keywords.getSystemKeywords(adminUserId); }
+    public KeywordResponseDto createSystemKeyword(Long adminUserId, KeywordCreateRequestDto request) { return keywords.createSystem(adminUserId, request); }
+    public KeywordResponseDto updateSystemKeyword(Long adminUserId, Long keywordId, KeywordUpdateRequestDto request) { return keywords.updateSystem(adminUserId, keywordId, request); }
 }

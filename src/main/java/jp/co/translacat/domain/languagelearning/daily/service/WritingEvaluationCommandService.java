@@ -16,6 +16,9 @@ import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCod
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.exception.BusinessException;
 
+import org.springframework.context.ApplicationEventPublisher;
+import jp.co.translacat.domain.languagelearning.resultjournal.model.*;
+
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
@@ -33,6 +36,7 @@ public class WritingEvaluationCommandService {
     private final WritingEvaluationRequestFactory requestFactory;
     private final WritingEvaluationResponseValidator responseValidator;
     private final LanguageLearningJsonCodec jsonCodec;
+    private final ApplicationEventPublisher resultEvents;
 
     @Transactional(noRollbackFor = BusinessException.class)
     public WritingEvaluation evaluateDaily(
@@ -69,6 +73,15 @@ public class WritingEvaluationCommandService {
                     learningDate
             );
 
+            // BEFORE_COMMIT 수신기가 같은 Core 트랜잭션에 outbox를 기록한다. 여기서 HTTP는 호출하지 않는다.
+            resultEvents.publishEvent(new LearningResultCaptured(
+                    user.getId(), "WRITING_SCORED", answer.getId().toString(),
+                    jsonCodec.write(new WritingResultFact(
+                            "SCORED_EVALUATION", evaluation.getId(), answer.getId(), answer.getDailyItem().getId(),
+                            learningDate.toString(), setting.getOriginLanguage(), setting.getLearningLanguage(),
+                            answer.getDailyItem().getDifficulty().name(), response, requestContext.relevantKeywords()
+                    ))
+            ));
             return evaluation;
         } catch (Exception e) {
             persistFailure(evaluation, e);

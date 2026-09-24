@@ -20,6 +20,9 @@ import jp.co.translacat.domain.languagelearning.speaking.session.entity.Speaking
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import jp.co.translacat.domain.languagelearning.speaking.turn.repository.SpeakingTurnRepository;
 
+import org.springframework.context.ApplicationEventPublisher;
+import jp.co.translacat.domain.languagelearning.resultjournal.model.*;
+
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
@@ -38,12 +41,16 @@ public class SpeakingEvaluationResultCommandService {
     private final SpeakingEvaluationMetricRepository metricRepository;
     private final SpeakingEvaluationEligibilityPolicy eligibilityPolicy;
     private final LanguageLearningJsonCodec jsonCodec;
+    private final ApplicationEventPublisher resultEvents;
     private final LearningActivityRepository activityRepository;
     private final EvaluationMetricHistoryRepository metricHistoryRepository;
     private final SpeakingProfileSignalService profileSignalService;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void apply(SpeakingSession session, AiSpeakingEvaluationResponseDto response) {
+        if (session.getResultKind() != jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind.SCORED_EVALUATION) {
+            throw new IllegalArgumentException("FREE 코칭은 정식 평가 저장 경로를 사용할 수 없습니다.");
+        }
         // Session is locked by the job command. A result is final regardless of the AI version label.
         // This prevents a replay from duplicating metric history and profile signals.
         var existing = evaluationRepository.findFirstBySessionIdOrderByEvaluatedAtDesc(session.getId());
@@ -70,13 +77,28 @@ public class SpeakingEvaluationResultCommandService {
         if (!formal) {
             activity.markInsufficientEvidence(response.evaluationConfidence());
             session.markInsufficientEvidence(evaluation.getEvaluationVersion());
+            publishResult(session, evaluation, activity, response, false, 0.0);
             return;
         }
         activity.markEvaluated(response.overallScore(), response.evaluationConfidence());
         saveMetricHistory(activity, response.metrics());
-        profileSignalService.apply(session.getUser().getId(), response.profileSignals(),
-                resolveActivityWeight(response, turns));
+        double activityWeight = resolveActivityWeight(response, turns);
+        profileSignalService.apply(session.getUser().getId(), response.profileSignals(), activityWeight);
         session.markEvaluated(evaluation.getEvaluationVersion());
+        publishResult(session, evaluation, activity, response, true, activityWeight);
+    }
+
+    private void publishResult(SpeakingSession session, SpeakingEvaluation evaluation, LearningActivity activity,
+                               AiSpeakingEvaluationResponseDto response, boolean formal, double activityWeight) {
+        // 기존 평가·Activity·Profile 반영 성공 뒤에만 발행한다. 기존 평가 재조회 분기에서는 발행하지 않는다.
+        resultEvents.publishEvent(new LearningResultCaptured(
+                session.getUser().getId(), formal ? "SPEAKING_SCORED" : "SPEAKING_INSUFFICIENT",
+                session.getId().toString(), jsonCodec.write(new SpeakingResultFact(
+                        session.getResultKind().name(), evaluation.getId(), session.getId(), activity.getId(),
+                        session.getLearningDate().toString(), session.getOriginLanguage(), session.getLearningLanguage(),
+                        formal, activityWeight, response
+                ))
+        ));
     }
 
     private void saveSpeakingMetrics(

@@ -101,6 +101,16 @@ public class LanguageLearningInternalJwtProvider {
                 .compact();
     }
 
+    /** 결과 수신 원장 전용 scope다. 사용자·관리자·Settings 조회 권한을 포함하지 않는다. */
+    public String issueLearningResultsToken() {
+        Instant now = clock.instant();
+        return Jwts.builder().issuer(issuer).audience().add(audience).and().subject(callerService)
+                .claim("service", callerService).claim("tokenUse", "ll-learning-results-v1")
+                .claim("scopes", List.of("learning-results:write"))
+                .issuedAt(Date.from(now)).expiration(Date.from(now.plusSeconds(ttlSeconds)))
+                .signWith(key, Jwts.SIG.HS256).compact();
+    }
+
     public String issueUserToken(Long userId) {
         return issue(userId, false);
     }

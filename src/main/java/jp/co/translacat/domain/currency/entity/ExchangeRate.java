@@ -1,49 +1,50 @@
 package jp.co.translacat.domain.currency.entity;
 
 import jakarta.persistence.*;
+
 import jp.co.translacat.global.jpa.BaseAuditable;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
+/** A daily quote: target currency units per ONE source currency unit. */
 @Getter
 @Entity
 @Table(
         name = "exchange_rate",
-        uniqueConstraints = {
+        uniqueConstraints =
                 @UniqueConstraint(
                         name = "uk_exchange_rate_daily",
                         columnNames = {
-                                "base_currency_id",
-                                "target_currency_id",
-                                "rate_date",
-                                "provider"
-                        }
-                )
-        }
-)
+                            "source_currency_code",
+                            "target_currency_code",
+                            "requested_rate_date",
+                            "provider"
+                        }))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ExchangeRate extends BaseAuditable {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 기준 통화
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "base_currency_id", nullable = false)
-    private Currency baseCurrency;
+    // ISO codes independent of the enabled account-book currency master.
+    @Column(nullable = false, length = 3)
+    private String sourceCurrencyCode;
 
-    // 대상 통화
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "target_currency_id", nullable = false)
-    private Currency targetCurrency;
+    @Column(nullable = false, length = 3)
+    private String targetCurrencyCode;
 
-    @Column(nullable = false, precision = 19, scale = 8)
+    @Column(nullable = false, precision = 38, scale = 18)
     private BigDecimal rate;
+
+    @Column(nullable = false)
+    private LocalDate requestedRateDate;
 
     @Column(nullable = false)
     private LocalDate rateDate;
@@ -51,33 +52,58 @@ public class ExchangeRate extends BaseAuditable {
     @Column(nullable = false, length = 50)
     private String provider;
 
-    private ExchangeRate(
-            Currency baseCurrency,
-            Currency targetCurrency,
+    /** UTC instant when this provider value was retrieved. Null only for legacy rows. */
+    @Column(name = "rate_fetched_at")
+    private Instant rateFetchedAt;
+
+    public static ExchangeRate create(
+            String source,
+            String target,
             BigDecimal rate,
-            LocalDate rateDate,
-            String provider
-    ) {
-        this.baseCurrency = baseCurrency;
-        this.targetCurrency = targetCurrency;
-        this.rate = rate;
-        this.rateDate = rateDate;
-        this.provider = provider;
+            LocalDate requested,
+            LocalDate effective,
+            String provider,
+            Instant fetchedAt) {
+        ExchangeRate value = new ExchangeRate();
+        value.sourceCurrencyCode = source;
+        value.targetCurrencyCode = target;
+        value.rate = rate;
+        value.requestedRateDate = requested;
+        value.rateDate = effective;
+        value.provider = provider;
+        // The schema stores TIMESTAMP(6). Canonicalize before a preview quote is hashed so a
+        // persist/read round trip cannot invalidate an otherwise identical reviewed quote.
+        value.rateFetchedAt = fetchedAt == null ? null : fetchedAt.truncatedTo(ChronoUnit.MICROS);
+        return value;
     }
 
     public static ExchangeRate create(
-            Currency baseCurrency,
-            Currency targetCurrency,
+            String source,
+            String target,
             BigDecimal rate,
-            LocalDate rateDate,
-            String provider
-    ) {
-        return new ExchangeRate(
-                baseCurrency,
-                targetCurrency,
-                rate,
-                rateDate,
-                provider
-        );
+            LocalDate requested,
+            LocalDate effective,
+            String provider) {
+        return create(source, target, rate, requested, effective, provider, Instant.now());
+    }
+
+    public static ExchangeRate identity(String currency, LocalDate requested) {
+        return create(
+                currency,
+                currency,
+                BigDecimal.ONE,
+                requested,
+                requested,
+                "IDENTITY",
+                null);
+    }
+
+    public void refresh(BigDecimal newRate, LocalDate effective, Instant fetchedAt) {
+        if (newRate == null || newRate.signum() <= 0 || effective == null || fetchedAt == null) {
+            throw new IllegalArgumentException("A refreshed exchange rate must be complete.");
+        }
+        this.rate = newRate;
+        this.rateDate = effective;
+        this.rateFetchedAt = fetchedAt.truncatedTo(ChronoUnit.MICROS);
     }
 }

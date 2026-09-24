@@ -1,5 +1,8 @@
 package jp.co.translacat.domain.accountbook.fixedcost.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
+import jp.co.translacat.domain.accountbook.common.serialization.DecimalStringSerializer;
 import jp.co.translacat.domain.accountbook.fixedcost.entity.AccountBookFixedCost;
 
 import java.math.BigDecimal;
@@ -10,7 +13,7 @@ public record AccountBookFixedCostResponseDto(
         String title,
         String storeName,
         String category,
-        BigDecimal amount,
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal amount,
         Integer paymentDay,
         Integer startYear,
         Integer startMonth,
@@ -19,8 +22,7 @@ public record AccountBookFixedCostResponseDto(
         Integer lastGeneratedYear,
         Integer lastGeneratedMonth,
         String memo,
-        Boolean active
-) {
+        Boolean active) {
     public static AccountBookFixedCostResponseDto from(AccountBookFixedCost fixedCost) {
         return new AccountBookFixedCostResponseDto(
                 fixedCost.getId(),
@@ -34,10 +36,13 @@ public record AccountBookFixedCostResponseDto(
                 fixedCost.getStartMonth().getMonthValue(),
                 fixedCost.getEndMonth() == null ? null : fixedCost.getEndMonth().getYear(),
                 fixedCost.getEndMonth() == null ? null : fixedCost.getEndMonth().getMonthValue(),
-                fixedCost.getLastGeneratedMonth() == null ? null : fixedCost.getLastGeneratedMonth().getYear(),
-                fixedCost.getLastGeneratedMonth() == null ? null : fixedCost.getLastGeneratedMonth().getMonthValue(),
+                fixedCost.getLastGeneratedMonth() == null
+                        ? null
+                        : fixedCost.getLastGeneratedMonth().getYear(),
+                fixedCost.getLastGeneratedMonth() == null
+                        ? null
+                        : fixedCost.getLastGeneratedMonth().getMonthValue(),
                 fixedCost.getMemo(),
-                fixedCost.getActive()
-        );
+                fixedCost.getActive());
     }
 }

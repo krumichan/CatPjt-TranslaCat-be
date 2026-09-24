@@ -10,6 +10,7 @@ import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactio
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionUpdateRequestDto;
 import jp.co.translacat.domain.accountbook.transaction.query.AccountBookTransactionQueryService;
 import jp.co.translacat.domain.accountbook.transaction.service.AccountBookTransactionService;
+import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionType;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
@@ -91,11 +92,13 @@ public class AccountBookTransactionController {
     public ResponseDto<List<AccountBookStoreSuggestionResponseDto>> getStoreSuggestions(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long accountBookId,
+            @RequestParam(defaultValue = "EXPENSE") AccountBookTransactionType type,
             @RequestParam(required = false) String keyword
     ) {
         return ResponseUtil.ok(
                 accountBookTransactionQueryService.getStoreSuggestions(
                         accountBookId,
+                        type,
                         keyword,
                         userPrincipal.getId()
                 )

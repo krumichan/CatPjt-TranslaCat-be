@@ -5,6 +5,7 @@ import com.querydsl.core.Tuple;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
+import com.querydsl.core.types.dsl.StringExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jp.co.translacat.domain.accountbook.chart.dto.AccountBookMonthlyTransactionAggregateDto;
 import jp.co.translacat.domain.accountbook.chart.dto.AccountBookRankingChartAggregateDto;
@@ -90,7 +91,32 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                         accountBookTransaction.sourceType,
                         accountBookTransaction.sourceId,
                         accountBookTransaction.sourceYear,
-                        accountBookTransaction.sourceMonth
+                        accountBookTransaction.sourceMonth,
+                        accountBookTransaction.originalAmount,
+                        accountBookTransaction.originalCurrencyCode,
+                        accountBookTransaction.exchangeRate,
+                        accountBookTransaction.requestedRateDate,
+                        accountBookTransaction.effectiveRateDate,
+                        accountBookTransaction.exchangeRateProvider,
+                        accountBookTransaction.targetCurrencyCode,
+                        accountBookTransaction.rateFetchedAt,
+                        accountBookTransaction.convertedAt,
+                        accountBookTransaction.roundingPrecision,
+                        accountBookTransaction.roundingMode,
+                        accountBookTransaction.conversionPolicyVersion,
+                        accountBookTransaction.conversionQuoteId,
+                        accountBookTransaction.purchaseTotal,
+                        accountBookTransaction.bookAmount,
+                        accountBookTransaction.receiptPaymentBreakdownJson,
+                        accountBookTransaction.cashTendered,
+                        accountBookTransaction.changeAmount,
+                        accountBookTransaction.amountPolicyVersion,
+                        accountBookTransaction.amountReason,
+                        accountBookTransaction.amountReviewStatus,
+                        accountBookTransaction.receiptBranchName,
+                        accountBookTransaction.receiptSourceImageId,
+                        accountBookTransaction.receiptAnalysisRevision,
+                        accountBookTransaction.receiptTransactionTime
                 ))
                 .from(accountBookTransaction)
                 .where(where)
@@ -180,6 +206,7 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
     @Override
     public List<AccountBookStoreSuggestionResponseDto> findStoreSuggestions(
             Long accountBookId,
+            AccountBookTransactionType type,
             String keyword
     ) {
         return queryFactory
@@ -190,6 +217,7 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                 .from(accountBookTransaction)
                 .where(
                         accountBookTransaction.accountBook.id.eq(accountBookId),
+                        accountBookTransaction.type.eq(type),
                         accountBookTransaction.storeName.isNotNull(),
                         accountBookTransaction.storeName.ne(""),
                         QueryDslUtil.containsIgnoreCaseIfHasText(
@@ -250,7 +278,6 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
     ) {
         NumberExpression<BigDecimal> amountSum =
                 accountBookTransaction.amount.sum();
-
         return queryFactory
                 .select(
                         Projections.constructor(
@@ -280,12 +307,14 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
     ) {
         NumberExpression<BigDecimal> amountSum =
                 accountBookTransaction.amount.sum();
+        StringExpression merchantGroup = accountBookTransaction.merchantKey
+                .coalesce(accountBookTransaction.storeName.lower());
 
         return queryFactory
                 .select(
                         Projections.constructor(
                                 AccountBookRankingChartAggregateDto.class,
-                                accountBookTransaction.storeName,
+                                accountBookTransaction.storeName.min(),
                                 amountSum.coalesce(BigDecimal.ZERO),
                                 accountBookTransaction.id.count()
                         )
@@ -299,7 +328,7 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                         QueryDslUtil.goeIfNotNull(accountBookTransaction.transactionDate, startDate),
                         QueryDslUtil.ltIfNotNull(accountBookTransaction.transactionDate, endDate)
                 )
-                .groupBy(accountBookTransaction.storeName)
+                .groupBy(merchantGroup)
                 .orderBy(amountSum.desc())
                 .fetch();
     }

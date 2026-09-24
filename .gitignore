@@ -39,4 +39,6 @@ out/
 # configuration
 default_setting.sql
 src/main/resources/application-local.properties
+.deploy-env.*
+.deploy.lock
 

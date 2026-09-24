@@ -10,12 +10,12 @@ public enum ReceiptAnalysisMode {
 
     public static ReceiptAnalysisMode fromNullable(String value) {
         if (value == null || value.isBlank()) {
-            return OCR_WITH_AI;
+            return VISION_FIRST;
         }
 
         return Arrays.stream(values())
                 .filter(mode -> mode.name().equalsIgnoreCase(value.trim()))
                 .findFirst()
-                .orElse(OCR_WITH_AI);
+                .orElse(VISION_FIRST);
     }
 }

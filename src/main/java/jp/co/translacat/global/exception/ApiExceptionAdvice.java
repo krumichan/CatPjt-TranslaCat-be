@@ -4,6 +4,7 @@ import jakarta.persistence.EntityNotFoundException;
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningServiceException;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningAiException;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningErrorDto;
+import jp.co.translacat.domain.accountbook.transaction.exception.ReceiptRegistrationException;
 import jp.co.translacat.global.dto.ErrorDto;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.utils.ExceptionUtil;
@@ -37,6 +38,14 @@ public class ApiExceptionAdvice {
         }
         log.warn("LL remote settings failed. status={} code={}", e.getStatus().value(), e.getErrorCode());
         return entity(e.getStatus(), e.getErrorCode(), "Message <" + e.getMessage() + ">", e);
+    }
+
+    @ExceptionHandler(ReceiptRegistrationException.class)
+    protected ResponseEntity<ResponseDto<ErrorDto>> handleReceiptRegistrationException(
+            ReceiptRegistrationException e) {
+        String responseMessage = this.trace(e);
+        log.warn("Receipt registration rejected: code={}, message={}", e.getErrorCode(), e.getMessage());
+        return this.entity(e.getStatus(), e.getErrorCode(), responseMessage, e);
     }
 
     @ExceptionHandler(ListeningAiException.class)

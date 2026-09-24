@@ -51,6 +51,7 @@ public class AccountBookRepositoryImpl implements AccountBookRepositoryCustom {
                                 accountBook.category,
                                 accountBook.currency.code,
                                 accountBook.currency.symbol,
+                                accountBook.currency.decimalPlaces,
                                 incomeAmountExpression,
                                 expenseAmountExpression,
                                 balanceExpression,
@@ -84,6 +85,7 @@ public class AccountBookRepositoryImpl implements AccountBookRepositoryCustom {
                         accountBook.category,
                         accountBook.currency.code,
                         accountBook.currency.symbol,
+                        accountBook.currency.decimalPlaces,
                         accountBookMember.role,
                         accountBook.createdAt
                 )

@@ -17,7 +17,7 @@ public record AccountBookFixedCostRequestDto(
         String category,
 
         @NotNull
-        @DecimalMin(value = "0.01")
+        @DecimalMin(value = "0", inclusive = false)
         BigDecimal amount,
 
         @NotNull

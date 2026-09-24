@@ -1,100 +1,51 @@
 package jp.co.translacat.domain.accountbook.receiptkeyword.service;
 
+import jp.co.translacat.domain.accountbook.category.entity.AccountBookCategory;
+import jp.co.translacat.domain.accountbook.category.repository.AccountBookCategoryRepository;
 import jp.co.translacat.domain.accountbook.receiptkeyword.entity.ReceiptKeyword;
-import jp.co.translacat.domain.accountbook.receiptkeyword.entity.ReceiptOcrSetting;
 import jp.co.translacat.domain.accountbook.receiptkeyword.enums.ReceiptKeywordType;
 import jp.co.translacat.domain.accountbook.receiptkeyword.repository.ReceiptKeywordRepository;
-import jp.co.translacat.domain.accountbook.receiptkeyword.repository.ReceiptOcrSettingRepository;
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptAnalysisOptions;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ReceiptAnalysisOptionQueryService {
-
-    private final ReceiptOcrSettingRepository receiptOcrSettingRepository;
     private final ReceiptKeywordRepository receiptKeywordRepository;
+    private final AccountBookCategoryRepository categoryRepository;
 
-    public AiReceiptAnalysisOptions getOptions(String currencyCode) {
-        String normalizedCurrencyCode = normalizeCurrencyCode(currencyCode);
-        String ocrLanguage = getOcrLanguage(normalizedCurrencyCode);
-
-        Map<ReceiptKeywordType, List<String>> keywordMap = getKeywordMap(
-                normalizedCurrencyCode,
-                ocrLanguage
-        );
-
+    public AiReceiptAnalysisOptions getOptions(Long accountBookId) {
+        // Legacy currency-specific settings stay editable, never selected from target currency.
+        var keywords =
+                receiptKeywordRepository
+                        .findByCurrencyCodeIsNullAndEnabledTrueAndDeletedFalseOrderByDisplayOrderAscIdAsc();
         return new AiReceiptAnalysisOptions(
-                normalizedCurrencyCode,
-                ocrLanguage,
                 null,
-                nullIfEmpty(keywordMap.get(ReceiptKeywordType.STOP_AFTER)),
-                nullIfEmpty(keywordMap.get(ReceiptKeywordType.IMPORTANT)),
-                nullIfEmpty(keywordMap.get(ReceiptKeywordType.EXCLUDE_ITEM))
-        );
+                null,
+                words(keywords, ReceiptKeywordType.STOP_AFTER),
+                words(keywords, ReceiptKeywordType.IMPORTANT),
+                words(keywords, ReceiptKeywordType.EXCLUDE_ITEM),
+                categoryRepository
+                        .findByAccountBookIdAndActiveTrueOrderByDisplayOrderAscNameAsc(
+                                accountBookId)
+                        .stream()
+                        .map(AccountBookCategory::getName)
+                        .toList(),
+                ReceiptCategorySuggestionPolicy.DEFAULT_CATEGORIES);
     }
 
-    private String getOcrLanguage(String currencyCode) {
-        return receiptOcrSettingRepository
-                .findFirstByCurrencyCodeAndEnabledTrueAndDeletedFalse(currencyCode)
-                .map(ReceiptOcrSetting::getOcrLanguage)
-                .orElse("en");
-    }
-
-    private Map<ReceiptKeywordType, List<String>> getKeywordMap(
-            String currencyCode,
-            String ocrLanguage
-    ) {
-        List<ReceiptKeyword> keywords = receiptKeywordRepository.findEffectiveKeywords(
-                currencyCode,
-                ocrLanguage
-        );
-
-        Map<ReceiptKeywordType, LinkedHashSet<String>> grouped = new EnumMap<>(
-                ReceiptKeywordType.class
-        );
-
-        for (ReceiptKeywordType type : ReceiptKeywordType.values()) {
-            grouped.put(type, new LinkedHashSet<>());
-        }
-
-        for (ReceiptKeyword keyword : keywords) {
-            grouped.get(keyword.getKeywordType()).add(keyword.getKeyword());
-        }
-
-        Map<ReceiptKeywordType, List<String>> result = new EnumMap<>(
-                ReceiptKeywordType.class
-        );
-
-        for (Map.Entry<ReceiptKeywordType, LinkedHashSet<String>> entry : grouped.entrySet()) {
-            result.put(entry.getKey(), new ArrayList<>(entry.getValue()));
-        }
-
-        return result;
-    }
-
-    private String normalizeCurrencyCode(String currencyCode) {
-        if (currencyCode == null || currencyCode.isBlank()) {
-            return "JPY";
-        }
-
-        return currencyCode.trim().toUpperCase();
-    }
-
-    private List<String> nullIfEmpty(List<String> values) {
-        if (values == null || values.isEmpty()) {
-            return null;
-        }
-
-        return values;
+    private List<String> words(List<ReceiptKeyword> keywords, ReceiptKeywordType type) {
+        return keywords.stream()
+                .filter(k -> k.getKeywordType() == type)
+                .map(ReceiptKeyword::getKeyword)
+                .distinct()
+                .toList();
     }
 }

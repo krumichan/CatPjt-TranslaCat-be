@@ -16,17 +16,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatPresenceChangedWebSocketEventListenerTest {
 
-    @Mock private ChatRoomMemberRepository chatRoomMemberRepository;
-    @Mock private ChatWebSocketEventPublisher eventPublisher;
-    @Mock private ChatPresenceVisibilityPolicy visibilityPolicy;
+    @Mock
+    private ChatRoomMemberRepository chatRoomMemberRepository;
+    @Mock
+    private ChatWebSocketEventPublisher eventPublisher;
+    @Mock
+    private ChatPresenceVisibilityPolicy visibilityPolicy;
 
     @Test
     void handle_UsesSafeMemberRefsAndSkipsPrivateAiRoom() {

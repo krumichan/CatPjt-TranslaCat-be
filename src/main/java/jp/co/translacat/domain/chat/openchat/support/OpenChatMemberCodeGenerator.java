@@ -55,7 +55,7 @@ public class OpenChatMemberCodeGenerator {
              i++) {
             builder.append(ALPHABET[
                     randomGenerator.nextInt(ALPHABET.length)
-            ]);
+                    ]);
         }
         return builder.toString();
     }

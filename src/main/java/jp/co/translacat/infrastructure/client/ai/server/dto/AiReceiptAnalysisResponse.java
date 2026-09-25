@@ -22,11 +22,13 @@ public record AiReceiptAnalysisResponse(
             Boolean usedAi) {
         this(receipts, receiptCount, warnings, ocrEngine, usedAi, null, null);
     }
+
     public AiReceiptAnalysisResponse(
             List<Item> receipts, Integer receiptCount, List<String> warnings,
             String ocrEngine, Boolean usedAi, String analysisTraceId) {
         this(receipts, receiptCount, warnings, ocrEngine, usedAi, analysisTraceId, null);
     }
+
     // Strings permit validation of each item without discarding the remaining receipts.
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Item(
@@ -66,7 +68,8 @@ public record AiReceiptAnalysisResponse(
                 String detectedCurrencyCode, String transactionDate, String categoryName,
                 String memo, Double confidence, String detectedLanguage, String status,
                 List<String> warnings) {
-            this(receiptId, title, storeName, null, null, null, null, null, null, null, null, originalAmount, List.of(), null, null,
+            this(receiptId, title, storeName, null, null, null, null, null, null, null, null, originalAmount, List.of(),
+                    null, null,
                     originalAmount, null, null, null, originalAmount, detectedCurrencyCode,
                     transactionDate, null, categoryName, null, null, memo, confidence, detectedLanguage, status,
                     warnings);
@@ -78,5 +81,6 @@ public record AiReceiptAnalysisResponse(
             @JsonProperty("payment_type") String paymentType,
             String amount,
             String evidence,
-            @JsonProperty("duplicate_group") String duplicateGroup) {}
+            @JsonProperty("duplicate_group") String duplicateGroup) {
+    }
 }

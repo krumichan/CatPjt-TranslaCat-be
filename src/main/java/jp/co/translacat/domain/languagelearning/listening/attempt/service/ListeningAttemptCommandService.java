@@ -1,21 +1,13 @@
 package jp.co.translacat.domain.languagelearning.listening.attempt.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
 import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
 import jp.co.translacat.domain.languagelearning.listening.audio.port.ListeningAudioStoragePort;
 import jp.co.translacat.domain.languagelearning.listening.audio.service.ListeningAudioKeyFactory;
 import jp.co.translacat.domain.languagelearning.listening.audio.validator.ListeningAudioValidator;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceLevel;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceType;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAttemptStatus;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvaluationPurpose;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskStatus;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.*;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.service.ListeningAttemptFinalizationCommandService;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
@@ -23,15 +15,13 @@ import jp.co.translacat.domain.languagelearning.listening.policy.ListeningIdempo
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningTaskSelectionPolicy;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
-import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionLockService;
 import jp.co.translacat.domain.languagelearning.listening.service.ListeningViewMapper;
+import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionLockService;
 import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
 import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,11 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -276,11 +262,11 @@ public class ListeningAttemptCommandService {
                 )
         );
         selectedResponses(attemptId).forEach(response -> {
-                response.applyAssistance(
-                        ListeningAssistanceLevel.GUIDED,
-                        jsonCodec.write(usage)
-                );
-                response.markNotEvaluable();
+            response.applyAssistance(
+                    ListeningAssistanceLevel.GUIDED,
+                    jsonCodec.write(usage)
+            );
+            response.markNotEvaluable();
         });
         touchSessionIfActive(attempt, LocalDateTime.now());
         finalizationService.finalizeIfTerminal(attemptId);
@@ -407,10 +393,10 @@ public class ListeningAttemptCommandService {
         Set<ListeningTaskType> selected = taskSelectionPolicy.validate(
                 request == null || request.selectedTaskTypes() == null
                         ? jsonCodec.read(
-                                official.getSession().getSelectedTaskTypesJson(),
-                                new TypeReference<List<ListeningTaskType>>() {
-                                }
-                        )
+                        official.getSession().getSelectedTaskTypesJson(),
+                        new TypeReference<List<ListeningTaskType>>() {
+                        }
+                )
                         : request.selectedTaskTypes()
         );
         List<ListeningTaskType> ordered = selected.stream()
@@ -471,9 +457,9 @@ public class ListeningAttemptCommandService {
         for (ListeningTaskType type : ListeningTaskType.values()) {
             responseRepository.save(ordered.contains(type)
                     ? ListeningTaskResponse.selected(
-                            practice, type, key + ":" + type.name())
+                    practice, type, key + ":" + type.name())
                     : ListeningTaskResponse.notSelected(
-                            practice, type, key + ":" + type.name()));
+                    practice, type, key + ":" + type.name()));
         }
 
         return viewMapper.attempt(practice);
@@ -752,8 +738,8 @@ public class ListeningAttemptCommandService {
         return contentType == null
                 ? "bin"
                 : contentType.toLowerCase(Locale.ROOT)
-                        .replace("audio/", "")
-                        .replace("x-", "");
+                .replace("audio/", "")
+                .replace("x-", "");
     }
 
     private String normalize(String value) {

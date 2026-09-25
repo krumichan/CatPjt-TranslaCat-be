@@ -12,7 +12,7 @@ import java.util.Collection;
 
 /**
  * SecurityUtility 클래스
- *
+ * <p>
  * Spring Security에서 현재 인증(Authentication) 정보와 사용자 정보(UserDetails, 권한 등)를
  * 가져오기 위한 유틸리티 클래스입니다.
  */
@@ -46,7 +46,9 @@ public class SecurityUtil {
         return SecurityUtil.getPrincipal().getUsername();
     }
 
-    /** Keep audit columns bounded without truncating distinct user identities. */
+    /**
+     * Keep audit columns bounded without truncating distinct user identities.
+     */
     public static String getAuditorIdentity() {
         UserDetails principal = SecurityUtil.getPrincipal();
         String username = principal.getUsername();
@@ -63,7 +65,7 @@ public class SecurityUtil {
      * 현재 인증된 사용자의 권한 가져오기
      *
      * @return 권한 문자열 (GrantedAuthority.getAuthority())
-     *         여러 권한이 있을 경우 첫 번째 권한만 반환
+     * 여러 권한이 있을 경우 첫 번째 권한만 반환
      */
     public static String getAuthority() {
         Collection<? extends GrantedAuthority> authorities = SecurityUtil.getPrincipal().getAuthorities();

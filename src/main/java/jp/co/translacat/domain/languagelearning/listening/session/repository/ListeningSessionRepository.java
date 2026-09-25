@@ -45,7 +45,6 @@ public interface ListeningSessionRepository
             Long userId
     );
 
-
     List<ListeningSession>
     findAllByUserIdAndDailySetLearningDateBetweenOrderByStartedAtDesc(
             Long userId,

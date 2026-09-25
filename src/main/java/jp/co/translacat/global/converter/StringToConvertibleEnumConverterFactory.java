@@ -8,17 +8,17 @@ import org.springframework.core.convert.converter.ConverterFactory;
 import java.util.stream.Stream;
 
 public class StringToConvertibleEnumConverterFactory
-        implements ConverterFactory <String, ConvertibleEnum> {
+        implements ConverterFactory<String, ConvertibleEnum> {
 
     @NotNull
     @Override
     public <T extends ConvertibleEnum> Converter<String, T> getConverter(@NotNull Class<T> targetType) {
         return source -> {
             return Stream.of(targetType.getEnumConstants())
-                .filter(e -> e.matches(source))
-                .findFirst()
-                .orElseThrow(()
-                    -> new IllegalArgumentException("지원하지 않는 코드입니다: " + source));
-       };
+                    .filter(e -> e.matches(source))
+                    .findFirst()
+                    .orElseThrow(()
+                            -> new IllegalArgumentException("지원하지 않는 코드입니다: " + source));
+        };
     }
 }

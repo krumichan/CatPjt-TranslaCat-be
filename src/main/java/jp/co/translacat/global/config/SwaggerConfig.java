@@ -10,11 +10,11 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * SwaggerConfig 클래스
- *
+ * <p>
  * Swagger(OpenAPI) 설정 클래스입니다.
  * 이 설정을 통해 Spring Boot에서 API 문서를 자동으로 생성하고
  * JWT 인증을 Swagger UI에서 테스트할 수 있도록 구성합니다.
- *
+ * <p>
  * Swagger UI 접속 URL: /swagger-ui/index.html
  */
 @Configuration
@@ -22,7 +22,7 @@ public class SwaggerConfig {
 
     /**
      * OpenAPI Bean 생성
-     *
+     * <p>
      * Swagger UI가 사용할 OpenAPI 객체를 생성합니다.
      * JWT 인증이 필요한 경우 SecurityRequirement를 추가하여
      * Swagger UI에서 Authorization 헤더를 입력할 수 있도록 합니다.
@@ -39,7 +39,7 @@ public class SwaggerConfig {
 
     /**
      * OpenAPI Components 생성
-     *
+     * <p>
      * Components에는 SecurityScheme(보안 스키마) 정의가 들어갑니다.
      * 여기서는 JWT Bearer Token 방식으로 인증하도록 설정합니다.
      */
@@ -55,7 +55,7 @@ public class SwaggerConfig {
 
     /**
      * API 기본 정보 설정
-     *
+     * <p>
      * Swagger UI에 표시될 API 제목, 설명, 버전을 정의합니다.
      */
     private Info apiInfo() {

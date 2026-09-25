@@ -1,13 +1,11 @@
 package jp.co.translacat.domain.languagelearning.listening.recommendation.repository;
 
+import jakarta.persistence.LockModeType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningProfileMetric;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningRecommendationStatus;
 import jp.co.translacat.domain.languagelearning.listening.recommendation.entity.LearningRecommendation;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
-
-import jakarta.persistence.LockModeType;
 
 import java.util.List;
 import java.util.Optional;

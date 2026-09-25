@@ -45,7 +45,7 @@ public class DailyWritingGenerationRequestFactory {
         DifficultyDistributionDto distribution = snapshot.difficultyDistribution();
         if (order < 1 || order > snapshot.sentenceCount()
                 || distribution.review() + distribution.normal() + distribution.challenge()
-                        != snapshot.sentenceCount()) {
+                != snapshot.sentenceCount()) {
             throw new IllegalArgumentException("Invalid writing generation slot or difficulty distribution");
         }
         if (order <= distribution.review()) {
@@ -124,7 +124,8 @@ public class DailyWritingGenerationRequestFactory {
                 snapshot.snapshotId(),
                 new LanguageComplexityContext(
                         snapshot.learningProfile() == null ? null : snapshot.learningProfile().baseLevelScore(),
-                        complexityPolicy.baseBand(snapshot.learningProfile() == null ? null : snapshot.learningProfile().baseLevelScore()),
+                        complexityPolicy.baseBand(snapshot.learningProfile() == null ? null :
+                                snapshot.learningProfile().baseLevelScore()),
                         null,
                         LanguageComplexityPolicy.VERSION
                 ),

@@ -17,6 +17,7 @@ public class RequestContextDto {
     private String remoteAddress;
     private String requestHttpMethod;
     private HttpServletRequest request;
+
     public RequestContextDto(String requestUri, String reqHttpMethod, String guid, HttpServletRequest request) {
         this.requestUri = requestUri;
         this.request = request;

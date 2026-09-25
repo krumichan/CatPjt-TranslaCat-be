@@ -22,8 +22,8 @@ public enum SyosetuNovelStatus {
 
     public static SyosetuNovelStatus of(String ja) {
         return Arrays.stream(SyosetuNovelStatus.values())
-            .filter(status -> status.getJa().equalsIgnoreCase(ja))
-            .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("Invalid novel status: [ja]"));
+                .filter(status -> status.getJa().equalsIgnoreCase(ja))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Invalid novel status: [ja]"));
     }
 }

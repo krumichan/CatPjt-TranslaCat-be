@@ -2,28 +2,21 @@ package jp.co.translacat.domain.languagelearning.listening.daily.service;
 
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
-
 import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
 import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAttemptStatus;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningLearningMode;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxStatus;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
-import jp.co.translacat.domain.languagelearning.listening.outbox.repository.ListeningOutboxEventRepository;
-import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.*;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
-import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
+import jp.co.translacat.domain.languagelearning.listening.outbox.repository.ListeningOutboxEventRepository;
+import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
 import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -134,9 +127,9 @@ public class ListeningDailySetQueryService {
                     var latestAttempts = latestSession == null
                             ? java.util.List.<ListeningItemAttempt>of()
                             : attemptRepository
-                                    .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
-                                            latestSession.getId()
-                                    );
+                            .findAllBySessionIdOrderByItemItemIndexAscAttemptNoAsc(
+                                    latestSession.getId()
+                            );
                     int submittedItemCount = (int) latestAttempts.stream()
                             .filter(value -> value.isOfficial()
                                     && value.getStatus() != ListeningAttemptStatus.READY

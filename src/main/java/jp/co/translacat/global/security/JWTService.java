@@ -16,7 +16,7 @@ import java.util.function.Function;
 
 /**
  * JWTService 클래스
- *
+ * <p>
  * JWT(JSON Web Token) 생성, 검증, 파싱 관련 서비스 클래스입니다.
  */
 @Service
@@ -45,8 +45,8 @@ public class JWTService {
     /**
      * Access Token 생성
      *
-     * @param userId   사용자 ID
-     * @param email 사용자 Email
+     * @param userId 사용자 ID
+     * @param email  사용자 Email
      * @return JWT Access Token (5분 만료)
      */
     public String generateAccessToken(Long userId, String email) {
@@ -58,8 +58,8 @@ public class JWTService {
     /**
      * Refresh Token 생성
      *
-     * @param userId   사용자 ID
-     * @param email 사용자 Email
+     * @param userId 사용자 ID
+     * @param email  사용자 Email
      * @return JWT Refresh Token (7일 만료)
      */
     public String generateRefreshToken(Long userId, String email) {
@@ -71,7 +71,7 @@ public class JWTService {
     /**
      * JWT 생성 공통 메서드
      *
-     * @param subject  subject (JWT 주체)
+     * @param subject   subject (JWT 주체)
      * @param claims    JWT payload
      * @param expiredAt 만료 시간(ms)
      * @return JWT 문자열
@@ -79,19 +79,19 @@ public class JWTService {
 
     private String generateToken(String subject, Map<String, Object> claims, Long expiredAt) {
         return Jwts.builder()
-            .claims()
-            .add(claims)
-            .subject(subject)
-            .issuedAt(new Date(System.currentTimeMillis()))
-            .expiration(new Date(System.currentTimeMillis() + expiredAt))
-            .and()
-            .signWith(getKey())
-            .compact();
+                .claims()
+                .add(claims)
+                .subject(subject)
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + expiredAt))
+                .and()
+                .signWith(getKey())
+                .compact();
     }
 
     /**
      * SecretKey 가져오기
-     *
+     * <p>
      * Base64 디코딩 후 HMAC SHA256 키 생성
      */
     private SecretKey getKey() {

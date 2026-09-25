@@ -2,11 +2,7 @@ package jp.co.translacat.domain.languagelearning.practice.controller;
 
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.practice.dto.request.PracticeAnswerSubmitRequestDto;
-import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeAnswerResultResponseDto;
-import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeSetResponseDto;
-import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeTodayModeStatusResponseDto;
-import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeModeAvailabilityResponseDto;
-import jp.co.translacat.domain.languagelearning.practice.dto.response.VocabularyMasterySummaryResponseDto;
+import jp.co.translacat.domain.languagelearning.practice.dto.response.*;
 import jp.co.translacat.domain.languagelearning.practice.service.PracticeFacade;
 import jp.co.translacat.domain.languagelearning.practice.service.VocabularyMasteryQueryService;
 import jp.co.translacat.global.dto.ResponseDto;

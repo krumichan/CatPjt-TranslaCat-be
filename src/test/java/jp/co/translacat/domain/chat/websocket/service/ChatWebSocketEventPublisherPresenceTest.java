@@ -19,7 +19,8 @@ import static org.mockito.Mockito.verify;
 @ExtendWith(MockitoExtension.class)
 class ChatWebSocketEventPublisherPresenceTest {
 
-    @Mock private SimpMessagingTemplate messagingTemplate;
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
 
     @Test
     void publishPresenceChanged_UsesRoomScopedSafeMemberContract() {

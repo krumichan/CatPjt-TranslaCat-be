@@ -2,14 +2,9 @@ package jp.co.translacat.domain.languagelearning.keyword.policy;
 
 import jp.co.translacat.domain.languagelearning.common.enums.KeywordType;
 import jp.co.translacat.domain.languagelearning.keyword.model.SelectedKeywordCandidate;
-
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 @Component
 public class KeywordSelectionPolicy {

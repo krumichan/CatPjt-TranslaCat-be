@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * QueryDslUtility 클래스
- *
+ * <p>
  * QueryDSL 관련 유틸리티 메서드를 제공하는 클래스입니다.
  */
 @UtilityClass

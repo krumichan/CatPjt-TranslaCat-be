@@ -59,7 +59,8 @@ public class EpisodeSafeSaver {
                 // [INSERT] 없다면 새로 생성
                 processedList.add(this.episodeRepository.save(
                         Episode.create(novel, context.getIdentifier(),
-                                context.getTitle().getRawJa(), context.getTitle().getJa(), context.getTitle().getKo())));
+                                context.getTitle().getRawJa(), context.getTitle().getJa(),
+                                context.getTitle().getKo())));
             }
         }
 

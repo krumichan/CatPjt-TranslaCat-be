@@ -1,7 +1,7 @@
 package jp.co.translacat.infrastructure.scraping.syosetu.strategy;
 
-import jp.co.translacat.domain.common.model.PageNumberContext;
 import jp.co.translacat.domain.common.enums.PlatformCode;
+import jp.co.translacat.domain.common.model.PageNumberContext;
 import jp.co.translacat.domain.novel.novel.model.NovelContext;
 import jp.co.translacat.domain.novel.novel.model.NovelDetailContext;
 import jp.co.translacat.domain.novel.novel.model.RawEpisodeContext;

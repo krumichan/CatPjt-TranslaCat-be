@@ -3,16 +3,17 @@ package jp.co.translacat.domain.languagelearning.speaking.evaluation.job.service
 import jp.co.translacat.domain.languagelearning.activity.repository.LearningActivityRepository;
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingCoachingRequestDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingEvaluationResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingCoachingResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.coaching.service.SpeakingCoachingResultService;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.entity.SpeakingEvaluationJob;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.model.SpeakingEvaluationClaim;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.model.SpeakingEvaluationJobKey;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.repository.SpeakingEvaluationJobRepository;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvidenceMetadata;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.entity.SpeakingReadAloudProblemEvaluation;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.repository.SpeakingReadAloudProblemEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.service.SpeakingEvaluationResultCommandService;
@@ -21,8 +22,8 @@ import jp.co.translacat.domain.languagelearning.speaking.session.entity.Speaking
 import jp.co.translacat.domain.languagelearning.speaking.session.repository.SpeakingSessionRepository;
 import jp.co.translacat.domain.languagelearning.speaking.usage.service.SpeakingAiUsageCommandService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,9 +31,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvidenceMetadata;
 
-/** Every mutation uses session -> job locks. No external I/O takes place inside these transactions. */
+/**
+ * Every mutation uses session -> job locks. No external I/O takes place inside these transactions.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -91,7 +93,9 @@ public class SpeakingEvaluationJobCommandService {
                 job.getManualRetryCount(), job.getResultKind(), request, coachingRequest));
     }
 
-    /** Validation, result/metric/profile writes and job completion either all commit or all roll back. */
+    /**
+     * Validation, result/metric/profile writes and job completion either all commit or all roll back.
+     */
     public boolean complete(SpeakingEvaluationClaim claim, AiSpeakingEvaluationResponseDto response) {
         var locked = lock(claim.key());
         if (locked.isEmpty() || !locked.get().job().owns(claim.token())) return false;
@@ -101,7 +105,8 @@ public class SpeakingEvaluationJobCommandService {
             resultCommandService.apply(state.session(), response);
         } else {
             problem(state).markEvaluated(response.status().toUpperCase(java.util.Locale.ROOT),
-                    response.overallScore(), response.evaluationConfidence(), SpeakingEvidenceMetadata.readAloudSnapshot(response, jsonCodec),
+                    response.overallScore(), response.evaluationConfidence(),
+                    SpeakingEvidenceMetadata.readAloudSnapshot(response, jsonCodec),
                     jsonCodec.write(response.strengths()), jsonCodec.write(response.improvements()),
                     jsonCodec.write(response.pronunciationPractice()));
         }
@@ -123,7 +128,9 @@ public class SpeakingEvaluationJobCommandService {
         return true;
     }
 
-    /** Invoked only AFTER the failed apply transaction has rolled back. */
+    /**
+     * Invoked only AFTER the failed apply transaction has rolled back.
+     */
     public void fail(SpeakingEvaluationClaim claim) {
         var locked = lock(claim.key());
         if (locked.isEmpty()) return;
@@ -172,5 +179,6 @@ public class SpeakingEvaluationJobCommandService {
         }
     }
 
-    private record LockedJob(SpeakingSession session, SpeakingEvaluationJob job) { }
+    private record LockedJob(SpeakingSession session, SpeakingEvaluationJob job) {
+    }
 }

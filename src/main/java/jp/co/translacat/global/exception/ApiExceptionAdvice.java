@@ -1,14 +1,14 @@
 package jp.co.translacat.global.exception;
 
 import jakarta.persistence.EntityNotFoundException;
-import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningServiceException;
+import jp.co.translacat.domain.accountbook.transaction.exception.ReceiptRegistrationException;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningAiException;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningErrorDto;
-import jp.co.translacat.domain.accountbook.transaction.exception.ReceiptRegistrationException;
 import jp.co.translacat.global.dto.ErrorDto;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.utils.ExceptionUtil;
 import jp.co.translacat.global.utils.ResponseUtil;
+import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningServiceException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,8 +17,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
-import java.util.Objects;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Slf4j
 @RestControllerAdvice
@@ -92,7 +92,8 @@ public class ApiExceptionAdvice {
     }
 
     @ExceptionHandler(AiServerCommunicationException.class)
-    protected ResponseEntity<ResponseDto<ErrorDto>> handleAiServerCommunicationException(AiServerCommunicationException e) {
+    protected ResponseEntity<ResponseDto<ErrorDto>> handleAiServerCommunicationException(
+            AiServerCommunicationException e) {
         String responseMessage = this.trace(e);
         log.error("Ai Server Communication logic error: code={}, message={}", e.getErrorCode(), e.getMessage());
 
@@ -155,14 +156,16 @@ public class ApiExceptionAdvice {
     }
 
     @ExceptionHandler(GeminiPartialProcessingException.class)
-    protected ResponseEntity<ResponseDto<ErrorDto>> handleGeminiPartialProcessingException(GeminiPartialProcessingException e) {
+    protected ResponseEntity<ResponseDto<ErrorDto>> handleGeminiPartialProcessingException(
+            GeminiPartialProcessingException e) {
         String responseMessage = this.trace(e);
         log.error("Failed to translate or save data in DB: ", e);
         return this.entity(HttpStatus.BAD_GATEWAY, "GEMINI_PARTIAL_PROCESSING_ERROR", responseMessage, e);
     }
 
     @ExceptionHandler(ExternalApiInvocationException.class)
-    protected ResponseEntity<ResponseDto<ErrorDto>> handleExternalApiInvocationException(ExternalApiInvocationException e) {
+    protected ResponseEntity<ResponseDto<ErrorDto>> handleExternalApiInvocationException(
+            ExternalApiInvocationException e) {
         String responseMessage = this.trace(e);
         log.error("External API call failed: ", e);
         return this.entity(HttpStatus.BAD_GATEWAY, "EXTERNAL_API_ERROR", responseMessage, e);
@@ -191,12 +194,12 @@ public class ApiExceptionAdvice {
                 errorMessage = "Failed to read stack trace of exception.";
             }
         }
-        return "Message <" + errorMessage +">";
+        return "Message <" + errorMessage + ">";
     }
 
     private ResponseEntity<ResponseDto<ErrorDto>> entity(
             HttpStatus status, String errorCode, String responseMessage, Exception e) {
-        ResponseDto<ErrorDto> errorVo =  ResponseUtil.error(
+        ResponseDto<ErrorDto> errorVo = ResponseUtil.error(
                 status.value(), responseMessage, errorCode, e, false);
         return new ResponseEntity<>(errorVo, null, status);
     }

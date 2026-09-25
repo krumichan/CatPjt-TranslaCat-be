@@ -10,7 +10,9 @@ import java.util.List;
 public interface EpisodeContentRepository
         extends JpaRepository<EpisodeContent, Long>, EpisodeContentBatchRepository {
     List<EpisodeContent> findAllByEpisodeIdOrderBySequenceAsc(Long episodeId);
+
     void deleteAllByEpisodeId(Long episodeId);
+
     int countByEpisodeId(Long episodeId);
 
     List<EpisodeContent> findAllByContentContains(String content);

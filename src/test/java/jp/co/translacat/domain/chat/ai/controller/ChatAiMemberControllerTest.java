@@ -14,16 +14,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatAiMemberControllerTest {
 
-    @Mock private ChatAiMemberService service;
-    @Mock private ChatAiDisplayMemberService displayMemberService;
-    @Mock private UserPrincipal userPrincipal;
+    @Mock
+    private ChatAiMemberService service;
+    @Mock
+    private ChatAiDisplayMemberService displayMemberService;
+    @Mock
+    private UserPrincipal userPrincipal;
 
     private ChatAiMemberController controller;
 

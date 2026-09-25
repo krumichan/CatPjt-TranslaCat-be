@@ -1,11 +1,7 @@
 package jp.co.translacat.domain.languagelearning.ai.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PersonalizedVocabularyPlanDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingPassageBundleDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingSlotTargetDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.*;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 
 import java.time.LocalDate;
@@ -50,6 +46,7 @@ public record AiPracticeGenerationRequestDto(
                 weakSignals, recentMistakes, reviewTargets, reviewQuestionCount, generationDate,
                 previousQuestions, vocabularyPlan, vocabularyPlanOnly, readingBundles, null);
     }
+
     public AiPracticeGenerationRequestDto(
             String requestId, PracticeDomain domain, String mode,
             String originLanguage, String learningLanguage, int questionCount,
@@ -64,6 +61,7 @@ public record AiPracticeGenerationRequestDto(
                 weakSignals, recentMistakes, reviewTargets, reviewQuestionCount, generationDate,
                 previousQuestions, vocabularyPlan, vocabularyPlanOnly, null, null);
     }
+
     public AiPracticeGenerationRequestDto(
             String requestId,
             PracticeDomain domain,

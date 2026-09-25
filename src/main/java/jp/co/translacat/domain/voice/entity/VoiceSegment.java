@@ -1,26 +1,11 @@
 package jp.co.translacat.domain.voice.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import jakarta.persistence.Version;
+import jakarta.persistence.*;
 import jp.co.translacat.domain.voice.enums.VoiceChannel;
 import jp.co.translacat.domain.voice.enums.VoiceSegmentStatus;
 import jp.co.translacat.domain.voice.support.VoiceErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.global.jpa.Base;
-
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

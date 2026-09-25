@@ -23,10 +23,10 @@ public class PlatformResponseDto {
 
     public static PlatformResponseDto of(Platform platform) {
         return PlatformResponseDto.builder()
-            .id(platform.getId())
-            .code(platform.getCode())
-            .nameJa(platform.getNameJa())
-            .nameKo(platform.getNameKo())
-            .build();
+                .id(platform.getId())
+                .code(platform.getCode())
+                .nameJa(platform.getNameJa())
+                .nameKo(platform.getNameKo())
+                .build();
     }
 }

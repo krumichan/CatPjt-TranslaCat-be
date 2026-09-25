@@ -18,7 +18,8 @@ public record ReceiptAnalysisResponseDto(
         List<CategoryOption> categoryOptions,
         String analysisTraceId,
         ReceiptRuntimeIdentityResponseDto runtimeIdentity) {
-    public record CategoryOption(String name, String source) {}
+    public record CategoryOption(String name, String source) {
+    }
 
     public record Item(
             String receiptId,
@@ -66,5 +67,6 @@ public record ReceiptAnalysisResponseDto(
             String conversionPolicyVersion,
             String conversionQuoteId,
             String conversionStatus,
-            boolean rateDateFallback) {}
+            boolean rateDateFallback) {
+    }
 }

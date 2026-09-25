@@ -1,8 +1,8 @@
 package jp.co.translacat.domain.novel.episode.entity;
 
 import jakarta.persistence.*;
-import jp.co.translacat.global.jpa.BaseAuditable;
 import jp.co.translacat.domain.novel.novel.entity.Novel;
+import jp.co.translacat.global.jpa.BaseAuditable;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -13,7 +13,7 @@ import java.util.Objects;
 @Entity
 @Getter
 @Table(name = "episode", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"novel_id", "identifier"})
+        @UniqueConstraint(columnNames = {"novel_id", "identifier"})
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Episode extends BaseAuditable {

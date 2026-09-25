@@ -1,9 +1,7 @@
 package jp.co.translacat.domain.languagelearning.speaking.turn.repository;
 
-import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
-
 import jakarta.persistence.LockModeType;
-
+import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 
@@ -51,7 +49,6 @@ public interface SpeakingTurnRepository
     Optional<SpeakingTurn> findFirstBySessionIdOrderByTurnIndexDesc(Long sessionId);
 
     List<SpeakingTurn> findAllBySessionIdOrderByTurnIndexAsc(Long sessionId);
-
 
     List<SpeakingTurn> findAllByUserAudioRetentionUntilBeforeAndUserAudioObjectKeyIsNotNull(
             LocalDateTime before

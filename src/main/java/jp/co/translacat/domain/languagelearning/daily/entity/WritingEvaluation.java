@@ -106,7 +106,10 @@ public class WritingEvaluation extends BaseAuditable {
         return new WritingEvaluation(user, WritingEvaluationContext.DAILY, answer);
     }
 
-    public void success(int overallScore, int meaningScore, int grammarScore, int vocabularyScore, int naturalnessScore, int expressionScore, String strengthsJson, String weaknessesJson, String correctionsJson, String recommendedAnswersJson, String explanationJson, String profileSignalsJson, String evaluationRubricVersion, String scoringPolicyVersion, String promptVersion) {
+    public void success(int overallScore, int meaningScore, int grammarScore, int vocabularyScore, int naturalnessScore,
+                        int expressionScore, String strengthsJson, String weaknessesJson, String correctionsJson,
+                        String recommendedAnswersJson, String explanationJson, String profileSignalsJson,
+                        String evaluationRubricVersion, String scoringPolicyVersion, String promptVersion) {
         this.overallScore = overallScore;
         this.meaningScore = meaningScore;
         this.grammarScore = grammarScore;

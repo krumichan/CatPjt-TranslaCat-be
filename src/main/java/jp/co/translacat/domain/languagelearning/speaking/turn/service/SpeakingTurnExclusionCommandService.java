@@ -1,15 +1,13 @@
 package jp.co.translacat.domain.languagelearning.speaking.turn.service;
 
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.repository.SpeakingReadAloudProblemEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionQueryService;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.repository.SpeakingReadAloudProblemEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +40,8 @@ public class SpeakingTurnExclusionCommandService {
         );
         if (session.getPracticeMode() == SpeakingPracticeMode.READ_ALOUD
                 && turn.getProblemIndex() != null
-                && problemEvaluationRepository.findBySessionIdAndProblemIndex(sessionId, turn.getProblemIndex()).isPresent()) {
+                && problemEvaluationRepository.findBySessionIdAndProblemIndex(sessionId, turn.getProblemIndex())
+                .isPresent()) {
             throw new BusinessException("제출한 문제의 평가 발화를 변경할 수 없습니다.",
                     LanguageLearningErrorCode.SESSION_NOT_ACTIVE);
         }

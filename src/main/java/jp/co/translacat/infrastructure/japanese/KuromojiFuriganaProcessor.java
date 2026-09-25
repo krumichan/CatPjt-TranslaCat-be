@@ -5,7 +5,6 @@ import com.atilika.kuromoji.ipadic.Tokenizer;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Objects;
 
 @Component
 public class KuromojiFuriganaProcessor extends AbstractFuriganaProcessor {

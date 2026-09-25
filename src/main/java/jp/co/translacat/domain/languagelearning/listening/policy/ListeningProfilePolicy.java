@@ -3,15 +3,10 @@ package jp.co.translacat.domain.languagelearning.listening.policy;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceLevel;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvidenceBand;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningWeaknessState;
-
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Component
 public class ListeningProfilePolicy {

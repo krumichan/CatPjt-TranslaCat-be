@@ -17,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 @Service
@@ -47,7 +46,8 @@ public class NovelSafeSaver {
     // 반드시 성공 시켜야 할 목록으로 별도 트랜잭션 처리.
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public CompletableFuture<List<Novel>> saveNovels(Platform platform, String genreIdentifier, List<NovelContext> contextList) {
+    public CompletableFuture<List<Novel>> saveNovels(Platform platform, String genreIdentifier,
+                                                     List<NovelContext> contextList) {
         List<Novel> processedList = new ArrayList<>();
 
         // 소설 존재 여부 확인.

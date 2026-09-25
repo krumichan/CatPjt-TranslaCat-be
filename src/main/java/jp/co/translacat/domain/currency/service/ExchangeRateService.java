@@ -97,7 +97,7 @@ public class ExchangeRateService {
                                     now));
             log.info(
                     "exchange_rate source={} target={} requested={} effective={} provider={}"
-                        + " cache={} latencyMs={}",
+                            + " cache={} latencyMs={}",
                     source,
                     target,
                     requested,

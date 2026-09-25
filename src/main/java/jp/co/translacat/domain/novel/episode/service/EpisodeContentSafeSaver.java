@@ -36,7 +36,6 @@ public class EpisodeContentSafeSaver {
         this.episodeContentRepository.batchInsertAll(contents);
     }
 
-
     @Async
     @Transactional
     public void updateAllEpisodeContentsWithNewQuery(String surface, String reading) {

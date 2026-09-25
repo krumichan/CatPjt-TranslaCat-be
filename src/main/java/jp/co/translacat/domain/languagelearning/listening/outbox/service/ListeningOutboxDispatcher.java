@@ -1,19 +1,16 @@
 package jp.co.translacat.domain.languagelearning.listening.outbox.service;
 
+import jakarta.annotation.PreDestroy;
 import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningGenerationWorker;
 import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningTtsWorker;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.service.ListeningEvaluationWorker;
 import jp.co.translacat.domain.languagelearning.listening.profile.service.ListeningProfileRecalculationCommandService;
 import jp.co.translacat.domain.languagelearning.listening.recommendation.service.ListeningRecommendationExplanationWorker;
-
-import jakarta.annotation.PreDestroy;
-
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
+import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -142,8 +139,7 @@ public class ListeningOutboxDispatcher {
             case GENERATE_SET -> generationWorker.process(event);
             case GENERATE_TTS -> ttsWorker.process(event);
             case EVALUATE_TASK -> evaluationWorker.process(event);
-            case RECALCULATE_PROFILE ->
-                    profileRecalculationService.recalculate(event);
+            case RECALCULATE_PROFILE -> profileRecalculationService.recalculate(event);
             case EXPLAIN_RECOMMENDATION -> explanationWorker.process(event);
             case REMEMBER_SETTINGS_SELECTION -> settingsSelectionWorker.process(event);
             default -> transactionService.fail(

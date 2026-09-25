@@ -10,7 +10,9 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
-/** Optional exact-surface enrichment; never a generation/completion/score gate. */
+/**
+ * Optional exact-surface enrichment; never a generation/completion/score gate.
+ */
 public final class ReadingPassageExpressionPolicy {
     private ReadingPassageExpressionPolicy() {
     }
@@ -43,7 +45,8 @@ public final class ReadingPassageExpressionPolicy {
     ) {
         if (json == null || json.isBlank() || passage == null || passage.isBlank()) return List.of();
         try {
-            List<Object> candidates = codec.read(json, new TypeReference<List<Object>>() {});
+            List<Object> candidates = codec.read(json, new TypeReference<List<Object>>() {
+            });
             if (candidates == null) return List.of();
             Set<String> result = new LinkedHashSet<>();
             for (Object candidate : candidates) {

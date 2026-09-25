@@ -15,7 +15,8 @@ public class NovelRankingPageResponseDto {
     private PageNumberResponseDto pageInfo;
     private List<NovelRankingResponseDto> rankings;
 
-    public static NovelRankingPageResponseDto of(PageNumberContext pageNumberContext, List<NovelContext> novelContexts) {
+    public static NovelRankingPageResponseDto of(PageNumberContext pageNumberContext,
+                                                 List<NovelContext> novelContexts) {
         NovelRankingPageResponseDto response = new NovelRankingPageResponseDto();
         response.setPageInfo(PageNumberResponseDto.of(pageNumberContext));
         response.setRankings(novelContexts.stream()

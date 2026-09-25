@@ -20,7 +20,8 @@ class DailyWritingGenerationRecoveryServiceTest {
 
     private final DailyWritingSetRepository sets = mock(DailyWritingSetRepository.class);
     private final DailyWritingGenerationExecutor executor = mock(DailyWritingGenerationExecutor.class);
-    private final DailyWritingGenerationRecoveryService service = new DailyWritingGenerationRecoveryService(sets, executor);
+    private final DailyWritingGenerationRecoveryService service =
+            new DailyWritingGenerationRecoveryService(sets, executor);
 
     @Test
     void scannerRecoversUnclaimedAndExpiredJobsAfterRestart() {

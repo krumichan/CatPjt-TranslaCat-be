@@ -3,7 +3,6 @@ package jp.co.translacat.domain.languagelearning.listening.policy;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceLevel;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvidenceBand;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningWeaknessState;
-
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -11,7 +10,6 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ListeningProfilePolicyTest {
 

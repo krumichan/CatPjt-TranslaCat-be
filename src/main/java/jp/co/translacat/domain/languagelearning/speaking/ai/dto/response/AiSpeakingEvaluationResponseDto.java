@@ -1,11 +1,6 @@
 package jp.co.translacat.domain.languagelearning.speaking.ai.dto.response;
 
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingEvaluationEligibilityDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingMetricDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingProfileSignalDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingPronunciationPracticeDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingRecommendedExpressionDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingUsageDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.*;
 
 import java.util.List;
 

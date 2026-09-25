@@ -11,8 +11,8 @@ import jp.co.translacat.domain.chat.openchat.profile.entity.QOpenChatMemberProfi
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 

@@ -8,14 +8,17 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
-/** Server-authoritative interpretation of receipt totals and payment allocations. */
+/**
+ * Server-authoritative interpretation of receipt totals and payment allocations.
+ */
 public final class ReceiptAmountPolicy {
     public static final String VERSION = "receipt-book-amount-v1";
     private static final Set<String> PAID_TYPES = Set.of(
             "CASH", "CREDIT_CARD", "DEBIT_CARD", "ELECTRONIC_MONEY",
             "GIFT_CARD", "VOUCHER", "OTHER_PAID");
 
-    private ReceiptAmountPolicy() {}
+    private ReceiptAmountPolicy() {
+    }
 
     public record Decision(
             BigDecimal purchaseTotal,
@@ -28,10 +31,13 @@ public final class ReceiptAmountPolicy {
             String policyVersion,
             String fingerprint,
             List<String> warnings) {
-        public boolean ready() { return "READY".equals(status); }
+        public boolean ready() {
+            return "READY".equals(status);
+        }
     }
 
-    private record PaymentKey(String type, BigDecimal amount) {}
+    private record PaymentKey(String type, BigDecimal amount) {
+    }
 
     public static Decision decide(
             BigDecimal purchaseTotal,

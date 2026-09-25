@@ -137,7 +137,8 @@ public class ChatAiSystemSetting extends BaseAuditable {
         if (maxAiMembersPerRoom != null) this.maxAiMembersPerRoom = maxAiMembersPerRoom;
         if (conversationResponseRate != null) this.conversationResponseRate = conversationResponseRate;
         if (conversationCooldownSeconds != null) this.conversationCooldownSeconds = conversationCooldownSeconds;
-        if (conversationMinHumanMessagesAfterAi != null) this.conversationMinHumanMessagesAfterAi = conversationMinHumanMessagesAfterAi;
+        if (conversationMinHumanMessagesAfterAi != null)
+            this.conversationMinHumanMessagesAfterAi = conversationMinHumanMessagesAfterAi;
         if (responseDelayEnabled != null) this.responseDelayEnabled = responseDelayEnabled;
         if (responseDelayMinMillis != null) this.responseDelayMinMillis = responseDelayMinMillis;
         if (responseDelayMaxMillis != null) this.responseDelayMaxMillis = responseDelayMaxMillis;

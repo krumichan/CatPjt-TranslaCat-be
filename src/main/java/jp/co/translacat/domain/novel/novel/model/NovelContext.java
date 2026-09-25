@@ -30,30 +30,30 @@ public class NovelContext extends BaseContext<Novel> {
     @Override
     protected List<TranslationComparison> getTranslationComparisons(Novel existing) {
         return List.of(
-            TranslationComparison.builder()
-                .unit(title)
-                .dbRawJa(Objects.isNull(existing) ? null : existing.getTitle())
-                .dbJa(Objects.isNull(existing) ? null : existing.getTitleJa())
-                .dbKo(Objects.isNull(existing) ? null : existing.getTitleKo())
-                .build(),
-            TranslationComparison.builder()
-                .unit(author)
-                .dbRawJa(Objects.isNull(existing) ? null : existing.getAuthor().getName())
-                .dbJa(Objects.isNull(existing) ? null : existing.getAuthor().getNameJa())
-                .dbKo(Objects.isNull(existing) ? null : existing.getAuthor().getNameKo())
-                .build(),
-            TranslationComparison.builder()
-                .unit(status)
-                .dbRawJa(Objects.isNull(existing) ? null : existing.getStatus())
-                .dbJa(Objects.isNull(existing) ? null : existing.getStatusJa())
-                .dbKo(Objects.isNull(existing) ? null : existing.getStatusKo())
-                .build(),
-            TranslationComparison.builder()
-                .unit(synopsis)
-                .dbRawJa(Objects.isNull(existing) ? null : existing.getSynopsis())
-                .dbJa(Objects.isNull(existing) ? null : existing.getSynopsisJa())
-                .dbKo(Objects.isNull(existing) ? null : existing.getSynopsisKo())
-                .build()
+                TranslationComparison.builder()
+                        .unit(title)
+                        .dbRawJa(Objects.isNull(existing) ? null : existing.getTitle())
+                        .dbJa(Objects.isNull(existing) ? null : existing.getTitleJa())
+                        .dbKo(Objects.isNull(existing) ? null : existing.getTitleKo())
+                        .build(),
+                TranslationComparison.builder()
+                        .unit(author)
+                        .dbRawJa(Objects.isNull(existing) ? null : existing.getAuthor().getName())
+                        .dbJa(Objects.isNull(existing) ? null : existing.getAuthor().getNameJa())
+                        .dbKo(Objects.isNull(existing) ? null : existing.getAuthor().getNameKo())
+                        .build(),
+                TranslationComparison.builder()
+                        .unit(status)
+                        .dbRawJa(Objects.isNull(existing) ? null : existing.getStatus())
+                        .dbJa(Objects.isNull(existing) ? null : existing.getStatusJa())
+                        .dbKo(Objects.isNull(existing) ? null : existing.getStatusKo())
+                        .build(),
+                TranslationComparison.builder()
+                        .unit(synopsis)
+                        .dbRawJa(Objects.isNull(existing) ? null : existing.getSynopsis())
+                        .dbJa(Objects.isNull(existing) ? null : existing.getSynopsisJa())
+                        .dbKo(Objects.isNull(existing) ? null : existing.getSynopsisKo())
+                        .build()
         );
     }
 }

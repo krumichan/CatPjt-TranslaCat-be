@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.languagelearning.practice.service;
 
-import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingPassageBundleDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.practice.policy.PracticeAvailabilityPolicy;
 import org.junit.jupiter.api.Test;

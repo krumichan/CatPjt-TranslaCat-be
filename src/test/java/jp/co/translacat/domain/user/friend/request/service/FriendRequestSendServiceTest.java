@@ -63,7 +63,8 @@ class FriendRequestSendServiceTest {
         when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(false);
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(false);
         when(friendService.areFriends(1L, 2L)).thenReturn(false);
-        when(friendRequestRepository.save(any(FriendRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(friendRequestRepository.save(any(FriendRequest.class))).thenAnswer(
+                invocation -> invocation.getArgument(0));
         when(userProfileQueryService.getSummaryByUser(receiverUser)).thenReturn(receiverProfile);
 
         // when

@@ -10,4 +10,5 @@ public record NovelPageResponseDto(
         TranslationUnit title,
         TranslationUnit author,
         TranslationUnit synopsis,
-        List<NovelResponseDto> episodes) {}
+        List<NovelResponseDto> episodes) {
+}

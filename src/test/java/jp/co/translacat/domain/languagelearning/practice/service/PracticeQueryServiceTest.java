@@ -25,14 +25,22 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PracticeQueryServiceTest {
 
-    @Mock private PracticeSetRepository setRepository;
-    @Mock private PracticeQuestionRepository questionRepository;
-    @Mock private PracticeAttemptRepository attemptRepository;
-    @Mock private PracticeMetricScoreRepository metricRepository;
-    @Mock private LanguageLearningJsonCodec jsonCodec;
-    @Mock private UserSettingsGateway settingQueryService;
-    @Mock private PracticeSet set;
-    @Mock private PracticeSet legacySet;
+    @Mock
+    private PracticeSetRepository setRepository;
+    @Mock
+    private PracticeQuestionRepository questionRepository;
+    @Mock
+    private PracticeAttemptRepository attemptRepository;
+    @Mock
+    private PracticeMetricScoreRepository metricRepository;
+    @Mock
+    private LanguageLearningJsonCodec jsonCodec;
+    @Mock
+    private UserSettingsGateway settingQueryService;
+    @Mock
+    private PracticeSet set;
+    @Mock
+    private PracticeSet legacySet;
 
     private PracticeQueryService service;
 

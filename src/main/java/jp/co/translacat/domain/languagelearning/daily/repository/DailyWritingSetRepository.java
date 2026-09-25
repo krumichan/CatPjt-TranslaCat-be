@@ -1,12 +1,11 @@
 package jp.co.translacat.domain.languagelearning.daily.repository;
 
+import jakarta.persistence.LockModeType;
 import jp.co.translacat.domain.languagelearning.common.enums.DailySetStatus;
 import jp.co.translacat.domain.languagelearning.common.enums.DailyWritingType;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
-import jakarta.persistence.LockModeType;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,7 +36,6 @@ public interface DailyWritingSetRepository extends JpaRepository<DailyWritingSet
     );
 
     List<DailyWritingSet> findAllByUserIdAndStatusOrderByLearningDateDesc(Long userId, DailySetStatus status);
-
 
     List<DailyWritingSet> findTop30ByUserIdOrderByLearningDateDesc(Long userId);
 

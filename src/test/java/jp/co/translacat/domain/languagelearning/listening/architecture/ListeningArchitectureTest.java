@@ -56,7 +56,8 @@ class ListeningArchitectureTest {
     void remotePolicyPortDoesNotOwnACoreTransaction() {
         org.junit.jupiter.api.Assertions.assertNull(ListeningPolicyGateway.class.getAnnotation(Transactional.class));
         org.junit.jupiter.api.Assertions.assertNull(
-                jp.co.translacat.infrastructure.languagelearning.gateway.RemoteListeningPolicyGateway.class.getAnnotation(Transactional.class));
+                jp.co.translacat.infrastructure.languagelearning.gateway.RemoteListeningPolicyGateway.class.getAnnotation(
+                        Transactional.class));
     }
 
     @Test

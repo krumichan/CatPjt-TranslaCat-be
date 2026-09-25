@@ -12,4 +12,5 @@ public record AccountBookMonthlyChartItemResponseDto(
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal incomeAmount,
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal expenseAmount,
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal balance,
-        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal expenseGoalAmount) {}
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal expenseGoalAmount) {
+}

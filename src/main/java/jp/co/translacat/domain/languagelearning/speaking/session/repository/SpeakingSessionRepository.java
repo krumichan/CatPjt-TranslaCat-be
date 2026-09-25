@@ -1,11 +1,9 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.repository;
 
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
-import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
-
 import jakarta.persistence.LockModeType;
-
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
+import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 
@@ -51,7 +49,6 @@ public interface SpeakingSessionRepository
             SpeakingPracticeMode practiceMode
     );
 
-
     List<SpeakingSession> findAllByUserIdAndLearningDateBetweenOrderByLearningDateDescStartedAtDesc(
             Long userId,
             LocalDate from,
@@ -61,7 +58,6 @@ public interface SpeakingSessionRepository
     List<SpeakingSession> findAllByStatus(
             SpeakingSessionStatus status
     );
-
 
     List<SpeakingSession> findAllByOpeningAssistantAudioRetentionUntilBeforeAndOpeningAssistantAudioObjectKeyIsNotNull(
             LocalDateTime before

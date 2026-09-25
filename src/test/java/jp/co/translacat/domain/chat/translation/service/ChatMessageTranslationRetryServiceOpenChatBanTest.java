@@ -15,18 +15,21 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatMessageTranslationRetryServiceOpenChatBanTest {
 
-    @Mock private ChatMessageRepository messageRepository;
-    @Mock private ChatMessageTranslationRepository translationRepository;
-    @Mock private ChatRoomMemberQueryService memberQueryService;
-    @Mock private OpenChatAccessService accessService;
-    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private ChatMessageRepository messageRepository;
+    @Mock
+    private ChatMessageTranslationRepository translationRepository;
+    @Mock
+    private ChatRoomMemberQueryService memberQueryService;
+    @Mock
+    private OpenChatAccessService accessService;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private ChatMessageTranslationRetryService service;
 

@@ -8,5 +8,6 @@ import java.util.Optional;
 
 public interface VocabularyMasteryRepository extends JpaRepository<VocabularyMastery, Long> {
     Optional<VocabularyMastery> findByUserIdAndCanonicalKey(Long userId, String canonicalKey);
+
     List<VocabularyMastery> findAllByUserIdOrderByScoreAsc(Long userId);
 }

@@ -23,7 +23,6 @@ import jp.co.translacat.domain.languagelearning.listening.session.service.Listen
 import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
 import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.user.entity.User;
-
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -32,9 +31,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class ListeningAttemptCommandServiceRetryTest {
 
@@ -132,6 +129,7 @@ class ListeningAttemptCommandServiceRetryTest {
                 eq("listening:response:90021:evaluation:1")
         );
     }
+
     @Test
     void retryFailedEvaluationsRetriesEveryRetryableOfficialTaskInOneRequest() {
         ListeningItemAttemptRepository attemptRepository = mock(ListeningItemAttemptRepository.class);

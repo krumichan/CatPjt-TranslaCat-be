@@ -100,7 +100,8 @@ class UserSearchServiceTest {
 
         verify(userBlockService, never()).isBlockedBetween(anyLong(), anyLong());
         verify(friendService, never()).areFriends(anyLong(), anyLong());
-        verify(friendRequestRepository, never()).findBetweenUsersByStatus(anyLong(), anyLong(), any(FriendRequestStatus.class));
+        verify(friendRequestRepository, never()).findBetweenUsersByStatus(anyLong(), anyLong(),
+                any(FriendRequestStatus.class));
     }
 
     @Test
@@ -124,7 +125,8 @@ class UserSearchServiceTest {
         // then
         assertThat(response.friendStatus()).isEqualTo(UserSearchFriendStatus.FRIEND);
 
-        verify(friendRequestRepository, never()).findBetweenUsersByStatus(anyLong(), anyLong(), any(FriendRequestStatus.class));
+        verify(friendRequestRepository, never()).findBetweenUsersByStatus(anyLong(), anyLong(),
+                any(FriendRequestStatus.class));
     }
 
     @Test
@@ -206,7 +208,8 @@ class UserSearchServiceTest {
         assertThat(response.friendStatus()).isEqualTo(UserSearchFriendStatus.BLOCKED);
 
         verify(friendService, never()).areFriends(anyLong(), anyLong());
-        verify(friendRequestRepository, never()).findBetweenUsersByStatus(anyLong(), anyLong(), any(FriendRequestStatus.class));
+        verify(friendRequestRepository, never()).findBetweenUsersByStatus(anyLong(), anyLong(),
+                any(FriendRequestStatus.class));
     }
 
     @Test

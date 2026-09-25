@@ -29,6 +29,7 @@ class ListeningOutboxEventTest {
         assertThat(event.getAvailableAt()).isEqualTo(now);
         assertThat(event.getAttemptCount()).isEqualTo(1);
     }
+
     @Test
     void releaseReturnsOnlyProcessingEventToPendingImmediately() {
         LocalDateTime now = LocalDateTime.now();

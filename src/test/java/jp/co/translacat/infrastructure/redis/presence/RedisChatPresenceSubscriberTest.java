@@ -1,6 +1,5 @@
 package jp.co.translacat.infrastructure.redis.presence;
 
-import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -9,19 +8,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.scheduling.TaskScheduler;
 
+import java.time.Instant;
+
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RedisChatPresenceSubscriberTest {
 
-    @Mock private RedisMessageListenerContainer listenerContainer;
-    @Mock private TaskScheduler taskScheduler;
+    @Mock
+    private RedisMessageListenerContainer listenerContainer;
+    @Mock
+    private TaskScheduler taskScheduler;
 
     @Test
     void startAfterApplicationReady_WhenRedisIsDown_DoesNotFailAndRetries() {

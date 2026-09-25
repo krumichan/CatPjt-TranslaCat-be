@@ -19,7 +19,6 @@ import jp.co.translacat.domain.languagelearning.listening.session.facade.Listeni
 import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
 import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionQueryService;
 import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,10 +28,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class ListeningLayeringConventionTest {
 
@@ -70,7 +66,8 @@ class ListeningLayeringConventionTest {
     void remotePolicyPortDoesNotOwnACoreTransaction() {
         org.junit.jupiter.api.Assertions.assertNull(ListeningPolicyGateway.class.getAnnotation(Transactional.class));
         org.junit.jupiter.api.Assertions.assertNull(
-                jp.co.translacat.infrastructure.languagelearning.gateway.RemoteListeningPolicyGateway.class.getAnnotation(Transactional.class));
+                jp.co.translacat.infrastructure.languagelearning.gateway.RemoteListeningPolicyGateway.class.getAnnotation(
+                        Transactional.class));
     }
 
     @Test

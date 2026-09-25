@@ -1,17 +1,16 @@
 package jp.co.translacat.domain.languagelearning.listening.daily.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-
-import jp.co.translacat.domain.languagelearning.ai.dto.model.SelectedKeywordDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.LearningProfileSummaryDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.SelectedKeywordDto;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
-import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningGenerationCommand;
 import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningDurationPolicy;
+import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningGenerationCommand;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
@@ -19,24 +18,22 @@ import jp.co.translacat.domain.languagelearning.listening.outbox.service.Listeni
 import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
 import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.quality.common.LanguageLearningContentSource;
-import jp.co.translacat.domain.languagelearning.quality.dto.LanguageComplexityContext;
 import jp.co.translacat.domain.languagelearning.quality.dto.DiversityContext;
 import jp.co.translacat.domain.languagelearning.quality.dto.DiversityHistoryItem;
+import jp.co.translacat.domain.languagelearning.quality.dto.LanguageComplexityContext;
 import jp.co.translacat.domain.languagelearning.quality.policy.LanguageComplexityPolicy;
 import jp.co.translacat.domain.languagelearning.quality.repository.LanguageLearningGenerationFingerprintRepository;
 import jp.co.translacat.domain.languagelearning.quality.service.GenerationDiversityContextService;
 import jp.co.translacat.domain.languagelearning.quality.service.GenerationFingerprintCommandService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -74,7 +71,8 @@ public class ListeningGenerationTransactionService {
         ListeningItem correctionSource = null;
         if (command.durationCorrection() != null) {
             ListeningItem previous = itemRepository.findById(command.replacementForItemId()).orElseThrow();
-            var metadata = jsonCodec.read(previous.getGenerationMetadataJson(), AiListeningContract.GeneratedItem.class);
+            var metadata =
+                    jsonCodec.read(previous.getGenerationMetadataJson(), AiListeningContract.GeneratedItem.class);
             if (metadata == null || metadata.durationDemand() == null
                     || metadata.qualityCorrectionCount() != 1
                     || previous.getStatus() != ListeningItemStatus.NOT_EVALUABLE
@@ -163,7 +161,8 @@ public class ListeningGenerationTransactionService {
                         diversityContext(set, correctionSource),
                         GenerationFingerprintCommandService.POLICY_VERSION,
                         command.durationCorrection(),
-                        new AiListeningContract.Voice(set.getLearningLanguage(), "marin", "openai-speech-v1", "STANDARD")
+                        new AiListeningContract.Voice(set.getLearningLanguage(), "marin", "openai-speech-v1",
+                                "STANDARD")
                 );
 
         return new GenerationWork(
@@ -190,7 +189,7 @@ public class ListeningGenerationTransactionService {
 
         if (!work.command().replacement()
                 && itemRepository.existsByDailySetIdAndItemIndex(
-                        set.getId(), work.command().logicalItemIndex())) {
+                set.getId(), work.command().logicalItemIndex())) {
             enqueueNextMissing(set);
             refreshAvailability(set);
             outboxTransactionService.succeed(

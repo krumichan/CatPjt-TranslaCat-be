@@ -1,7 +1,6 @@
 package jp.co.translacat.domain.languagelearning.daily.service;
 
 import jakarta.persistence.EntityManager;
-
 import jp.co.translacat.domain.languagelearning.daily.dto.request.AnswerSubmitRequestDto;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingItem;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
@@ -14,7 +13,6 @@ import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGatewa
 import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,26 +25,37 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class WritingAnswerCommandServiceRegenerationGuardTest {
 
-    @Mock private DailyWritingItemRepository itemRepository;
-    @Mock private DailyWritingSetRepository dailySetRepository;
-    @Mock private WritingAnswerRepository answerRepository;
-    @Mock private WritingEvaluationRepository evaluationRepository;
-    @Mock private AdminSettingsGateway adminSettingQueryService;
-    @Mock private UserSettingsGateway userSettingQueryService;
-    @Mock private UserRepository userRepository;
-    @Mock private ApplicationEventPublisher eventPublisher;
-    @Mock private DailyWritingItemRevisionService itemRevisionService;
-    @Mock private EntityManager entityManager;
-    @Mock private DailyWritingItem item;
-    @Mock private DailyWritingSet dailySet;
-    @Mock private AdminSettingsSnapshot adminSetting;
+    @Mock
+    private DailyWritingItemRepository itemRepository;
+    @Mock
+    private DailyWritingSetRepository dailySetRepository;
+    @Mock
+    private WritingAnswerRepository answerRepository;
+    @Mock
+    private WritingEvaluationRepository evaluationRepository;
+    @Mock
+    private AdminSettingsGateway adminSettingQueryService;
+    @Mock
+    private UserSettingsGateway userSettingQueryService;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private DailyWritingItemRevisionService itemRevisionService;
+    @Mock
+    private EntityManager entityManager;
+    @Mock
+    private DailyWritingItem item;
+    @Mock
+    private DailyWritingSet dailySet;
+    @Mock
+    private AdminSettingsSnapshot adminSetting;
 
     private WritingAnswerCommandService service;
 

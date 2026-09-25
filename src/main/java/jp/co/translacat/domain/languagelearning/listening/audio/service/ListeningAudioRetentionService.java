@@ -14,6 +14,7 @@ public class ListeningAudioRetentionService {
 
     private final ListeningAudioRetentionTransactionService transactionService;
     private final ListeningAudioStoragePort storagePort;
+
     public void deleteExpired() {
         LocalDateTime now = LocalDateTime.now();
 

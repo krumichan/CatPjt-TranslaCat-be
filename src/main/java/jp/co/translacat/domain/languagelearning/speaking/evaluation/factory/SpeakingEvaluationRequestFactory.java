@@ -1,26 +1,17 @@
 package jp.co.translacat.domain.languagelearning.speaking.evaluation.factory;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import jp.co.translacat.domain.languagelearning.ai.dto.model.LearningProfileSummaryDto;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingAssistanceUsageDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingAssistantEvaluationTurnDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingAudioQualitySignalsDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingEvaluationTurnDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingConversationResultDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingSttAnalysisMetadataDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingSttSegmentDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.*;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingCoachingRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.AssistanceType;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationScope;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingCoachingRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;

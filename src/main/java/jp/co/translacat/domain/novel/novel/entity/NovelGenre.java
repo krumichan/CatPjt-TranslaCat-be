@@ -1,8 +1,8 @@
 package jp.co.translacat.domain.novel.novel.entity;
 
 import jakarta.persistence.*;
-import jp.co.translacat.global.jpa.BaseAuditable;
 import jp.co.translacat.domain.novel.genre.entity.Genre;
+import jp.co.translacat.global.jpa.BaseAuditable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

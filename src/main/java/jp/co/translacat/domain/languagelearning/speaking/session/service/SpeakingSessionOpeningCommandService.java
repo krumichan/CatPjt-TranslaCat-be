@@ -68,8 +68,8 @@ public class SpeakingSessionOpeningCommandService {
                 audioObjectKey == null
                         ? null
                         : LocalDateTime.now().plusDays(
-                                context.policySnapshot().rawAudioRetentionDays()
-                        ),
+                        context.policySnapshot().rawAudioRetentionDays()
+                ),
                 response.conversation() == null ? null : jsonCodec.write(response.conversation()),
                 response.conversation() == null
                         ? null

@@ -74,7 +74,8 @@ public class SudachiFuriganaProcessor extends AbstractFuriganaProcessor {
         System.out.println(result2);
 
         System.out.println("\n3. 보물전 문장 (太刀打ちできない 테스트):");
-        String result3 = processor.convertToRuby("こんな宝物殿に本当にティノが太刀打ちできない程の幻影がいるのも想定外だし、いつの間にか救助対象が生きているのも想定外だ。");
+        String result3 = processor.convertToRuby(
+                "こんな宝物殿に本当にティノが太刀打ちできない程の幻影がいるのも想定外だし、いつの間にか救助対象が生きているのも想定外だ。");
         System.out.println(result3);
 
         // [테스트 2] 이번에 수정한 "루비 중복 방지" 테스트

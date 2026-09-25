@@ -17,7 +17,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ChatPresenceVisibilityPolicyTest {
 
-    @Mock private ChatRoomAiSettingRepository chatRoomAiSettingRepository;
+    @Mock
+    private ChatRoomAiSettingRepository chatRoomAiSettingRepository;
 
     @Test
     void isVisible_HidesPrivateAiRoom() {

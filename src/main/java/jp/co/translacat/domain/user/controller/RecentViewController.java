@@ -24,12 +24,12 @@ public class RecentViewController {
     @GetMapping("/top10")
     public ResponseDto<List<RecentViewResponseDto>> top10() {
         List<RecentViewResponseDto> response = Stream.concat(
-            recentViewService.findTop5By(RecentViewType.NOVEL).stream(),
-            recentViewService.findTop5By(RecentViewType.EPISODE).stream()
-        )
-        .sorted(Comparator.comparing(RecentView::getViewedAt).reversed())
-        .map(RecentViewResponseDto::of)
-        .toList();
+                        recentViewService.findTop5By(RecentViewType.NOVEL).stream(),
+                        recentViewService.findTop5By(RecentViewType.EPISODE).stream()
+                )
+                .sorted(Comparator.comparing(RecentView::getViewedAt).reversed())
+                .map(RecentViewResponseDto::of)
+                .toList();
         return ResponseUtil.ok(response);
     }
 

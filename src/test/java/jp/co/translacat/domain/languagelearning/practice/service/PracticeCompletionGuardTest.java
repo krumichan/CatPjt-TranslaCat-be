@@ -2,9 +2,9 @@ package jp.co.translacat.domain.languagelearning.practice.service;
 
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeSetStatus;
+import jp.co.translacat.domain.languagelearning.practice.dto.request.PracticeAnswerSubmitRequestDto;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeQuestion;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
-import jp.co.translacat.domain.languagelearning.practice.dto.request.PracticeAnswerSubmitRequestDto;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAttemptRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeQuestionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,12 +20,15 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PracticeCompletionGuardTest {
-    @Mock private PracticeQuestionRepository questionRepository;
-    @Mock private PracticeAttemptRepository attemptRepository;
+    @Mock
+    private PracticeQuestionRepository questionRepository;
+    @Mock
+    private PracticeAttemptRepository attemptRepository;
     private PracticeAnswerCommandService service;
     private PracticeSet set;
 

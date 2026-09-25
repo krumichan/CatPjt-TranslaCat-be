@@ -28,7 +28,7 @@ public class GenreService {
 
     public Genre getGenre(String identifier) {
         return this.findGenre(identifier)
-            .orElseThrow(() -> new EntityNotFoundException("해당 장르를 찾을 수 없습니다: " + identifier));
+                .orElseThrow(() -> new EntityNotFoundException("해당 장르를 찾을 수 없습니다: " + identifier));
     }
 
     public Optional<Genre> findGenre(Long platformId, String name) {
@@ -37,9 +37,9 @@ public class GenreService {
 
     public Genre getGenre(Long platformId, String name) {
         return this.findGenre(platformId, name)
-            .orElseThrow(() -> new EntityNotFoundException(
-                String.format("Genre not found for platform ID [%d] and Japanese name [%s]", platformId, name)
-            ));
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format("Genre not found for platform ID [%d] and Japanese name [%s]", platformId, name)
+                ));
     }
 
     public List<GenreResponseDto> list(PlatformCode platformCode) {

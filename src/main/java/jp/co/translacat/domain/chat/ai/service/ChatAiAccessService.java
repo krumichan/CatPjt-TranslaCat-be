@@ -1,11 +1,11 @@
 package jp.co.translacat.domain.chat.ai.service;
 
+import jp.co.translacat.domain.chat.ai.support.ChatAiErrorCode;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.chat.room.repository.ChatRoomRepository;
-import jp.co.translacat.domain.chat.ai.support.ChatAiErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

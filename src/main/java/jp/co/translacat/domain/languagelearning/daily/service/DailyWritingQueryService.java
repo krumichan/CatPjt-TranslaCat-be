@@ -32,7 +32,6 @@ public class DailyWritingQueryService {
     private final AdminSettingsGateway adminSettingQueryService;
     private final DailyWritingResponseQueryService responseQueryService;
 
-
     public DailyWritingSet getOwnedSet(
             Long userId,
             Long dailySetId

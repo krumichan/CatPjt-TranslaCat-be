@@ -8,15 +8,20 @@ import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningServiceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+
 import java.time.LocalDate;
 import java.util.List;
 
 @Component
 public class RemoteUserSettingsGateway implements UserSettingsGateway {
     private final RemoteSettingsAccess access;
-    public RemoteUserSettingsGateway(RemoteSettingsAccess access) { this.access = access; }
 
-    @Override public UserSettingsSnapshot getSnapshot(Long userId) {
+    public RemoteUserSettingsGateway(RemoteSettingsAccess access) {
+        this.access = access;
+    }
+
+    @Override
+    public UserSettingsSnapshot getSnapshot(Long userId) {
         var dto = access.forUser(userId).getUserSnapshot(userId);
         if (!userId.equals(dto.userId()) || dto.learningDate() == null) {
             throw new LanguageLearningServiceException(HttpStatus.BAD_GATEWAY, "LL_SETTINGS_CONTRACT_ERROR",
@@ -24,15 +29,25 @@ public class RemoteUserSettingsGateway implements UserSettingsGateway {
         }
         return new UserSettingsSnapshot(dto.userId(), dto.learningDate(), dto.revision(), dto.settings());
     }
-    @Override public UserSettingResponseDto get(Long userId) { return access.forUser(userId).getUserSettings(userId); }
-    @Override public UserSettingResponseDto update(Long userId, UserSettingUpdateRequestDto request) {
+
+    @Override
+    public UserSettingResponseDto get(Long userId) {
+        return access.forUser(userId).getUserSettings(userId);
+    }
+
+    @Override
+    public UserSettingResponseDto update(Long userId, UserSettingUpdateRequestDto request) {
         return access.forUser(userId).updateUserSettings(userId, request);
     }
-    @Override public LocalDate resolveToday(Long userId) {
+
+    @Override
+    public LocalDate resolveToday(Long userId) {
         // 이 호출은 Ktor에서 행을 만들거나 pending을 승격하지 않는다.
         return access.client().resolveLearningDate(userId).date();
     }
-    @Override public List<ConfiguredLanguagePair> configuredLanguagePairs() {
+
+    @Override
+    public List<ConfiguredLanguagePair> configuredLanguagePairs() {
         return List.copyOf(access.client().configuredLanguagePairs().pairs());
     }
 }

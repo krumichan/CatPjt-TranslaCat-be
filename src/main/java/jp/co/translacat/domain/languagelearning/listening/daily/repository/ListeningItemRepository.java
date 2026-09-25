@@ -1,12 +1,10 @@
 package jp.co.translacat.domain.languagelearning.listening.daily.repository;
 
+import jakarta.persistence.LockModeType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
-
-import jakarta.persistence.LockModeType;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,7 +17,6 @@ public interface ListeningItemRepository
     List<ListeningItem>
     findAllByDailySetIdOrderByItemIndexAscReplacementSequenceAsc(Long dailySetId);
 
-
     Optional<ListeningItem> findByIdAndDailySetUserId(
             Long itemId,
             Long userId
@@ -31,7 +28,6 @@ public interface ListeningItemRepository
     long countByDailySetId(Long dailySetId);
 
     boolean existsByDailySetIdAndItemIndex(Long dailySetId, int itemIndex);
-
 
     List<ListeningItem>
     findTop200ByDailySetUserIdAndDailySetLearningLanguageOrderByCreatedAtDesc(

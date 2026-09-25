@@ -21,7 +21,8 @@ import static org.mockito.Mockito.verify;
 @ExtendWith(MockitoExtension.class)
 class ChatPresenceOfflineGraceSchedulerTest {
 
-    @Mock private TaskScheduler taskScheduler;
+    @Mock
+    private TaskScheduler taskScheduler;
 
     private ChatPresenceOfflineGraceScheduler scheduler;
 

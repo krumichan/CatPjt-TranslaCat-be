@@ -277,7 +277,6 @@ class OpenChatRoomQueryServiceTest {
         );
     }
 
-
     @Test
     @DisplayName("BANNED 상세는 방 정보만 제공하고 멤버 프로필을 숨긴다")
     void bannedDetailHidesMemberData() {

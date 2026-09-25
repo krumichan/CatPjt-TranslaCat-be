@@ -39,8 +39,8 @@ public abstract class BaseContext<E> {
     public List<TranslationUnit> getAllUnit() {
         List<TranslationComparison> translationComparisons = this.getTranslationComparisons(null);
         return translationComparisons.stream()
-            .map(TranslationComparison::getUnit)
-            .toList();
+                .map(TranslationComparison::getUnit)
+                .toList();
     }
 
     /**

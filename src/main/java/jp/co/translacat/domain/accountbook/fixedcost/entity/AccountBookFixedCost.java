@@ -1,8 +1,8 @@
 package jp.co.translacat.domain.accountbook.fixedcost.entity;
 
 import jakarta.persistence.*;
-import jp.co.translacat.domain.currency.service.MoneyAmount;
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
+import jp.co.translacat.domain.currency.service.MoneyAmount;
 import jp.co.translacat.global.utils.DomainStringUtil;
 import lombok.AccessLevel;
 import lombok.Getter;

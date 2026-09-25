@@ -31,13 +31,20 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ChatAiMemberServiceTest {
 
-    @Mock private ChatAiAccessService accessService;
-    @Mock private ChatAiAgentRepository agentRepository;
-    @Mock private ChatRoomAiMemberRepository aiMemberRepository;
-    @Mock private ChatRoomAiSettingService roomSettingService;
-    @Mock private ChatAiSystemSettingService systemSettingService;
-    @Mock private ChatAiProfileImageUrlResolver imageUrlResolver;
-    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private ChatAiAccessService accessService;
+    @Mock
+    private ChatAiAgentRepository agentRepository;
+    @Mock
+    private ChatRoomAiMemberRepository aiMemberRepository;
+    @Mock
+    private ChatRoomAiSettingService roomSettingService;
+    @Mock
+    private ChatAiSystemSettingService systemSettingService;
+    @Mock
+    private ChatAiProfileImageUrlResolver imageUrlResolver;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private ChatAiMemberService service;
     private ChatRoom room;

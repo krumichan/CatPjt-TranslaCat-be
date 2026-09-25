@@ -12,13 +12,11 @@ import jp.co.translacat.domain.chat.openchat.ban.repository.OpenChatBanRepositor
 import jp.co.translacat.domain.chat.openchat.dto.request.OpenChatJoinRequestDto;
 import jp.co.translacat.domain.chat.openchat.dto.request.OpenChatOwnerTransferRequestDto;
 import jp.co.translacat.domain.chat.openchat.dto.request.OpenChatProfileRequestDto;
-import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatMemberProfileResponseDto;
 import jp.co.translacat.domain.chat.openchat.dto.response.OpenChatRoomDetailResponseDto;
 import jp.co.translacat.domain.chat.openchat.entity.OpenChatRoom;
-import jp.co.translacat.domain.chat.openchat.event.OpenChatMemberRoleUpdatedApplicationEvent;
-import jp.co.translacat.domain.chat.openchat.event.OpenChatProfileUpdatedApplicationEvent;
-import jp.co.translacat.domain.chat.openchat.event.OpenChatRoomClosedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.enums.OpenChatVisibility;
+import jp.co.translacat.domain.chat.openchat.event.OpenChatMemberRoleUpdatedApplicationEvent;
+import jp.co.translacat.domain.chat.openchat.event.OpenChatRoomClosedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.profile.entity.OpenChatMemberProfile;
 import jp.co.translacat.domain.chat.openchat.profile.repository.OpenChatMemberProfileRepository;
 import jp.co.translacat.domain.chat.openchat.profile.service.OpenChatProfileResponseMapper;
@@ -41,7 +39,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,19 +49,32 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class OpenChatMembershipServiceTest {
 
-    @Mock private OpenChatRoomRepository openChatRoomRepository;
-    @Mock private OpenChatBanRepository banRepository;
-    @Mock private ChatRoomRepository chatRoomRepository;
-    @Mock private ChatRoomMemberRepository memberRepository;
-    @Mock private OpenChatMemberProfileRepository profileRepository;
-    @Mock private ChatMessageRepository messageRepository;
-    @Mock private UserService userService;
-    @Mock private UserChatLanguageSettingService languageSettingService;
-    @Mock private OpenChatMemberCodeGenerator memberCodeGenerator;
-    @Mock private OpenChatProfileValidator profileValidator;
-    @Mock private OpenChatProfileResponseMapper profileResponseMapper;
-    @Mock private OpenChatRoomQueryService roomQueryService;
-    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private OpenChatRoomRepository openChatRoomRepository;
+    @Mock
+    private OpenChatBanRepository banRepository;
+    @Mock
+    private ChatRoomRepository chatRoomRepository;
+    @Mock
+    private ChatRoomMemberRepository memberRepository;
+    @Mock
+    private OpenChatMemberProfileRepository profileRepository;
+    @Mock
+    private ChatMessageRepository messageRepository;
+    @Mock
+    private UserService userService;
+    @Mock
+    private UserChatLanguageSettingService languageSettingService;
+    @Mock
+    private OpenChatMemberCodeGenerator memberCodeGenerator;
+    @Mock
+    private OpenChatProfileValidator profileValidator;
+    @Mock
+    private OpenChatProfileResponseMapper profileResponseMapper;
+    @Mock
+    private OpenChatRoomQueryService roomQueryService;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private OpenChatMembershipService service;
     private User owner;

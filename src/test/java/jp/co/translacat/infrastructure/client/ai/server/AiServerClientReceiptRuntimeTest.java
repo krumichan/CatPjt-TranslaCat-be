@@ -5,8 +5,8 @@ import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptAnalysisRes
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptRuntimeIdentity;
 import jp.co.translacat.infrastructure.client.legacy.ExternalApiClient;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.util.List;

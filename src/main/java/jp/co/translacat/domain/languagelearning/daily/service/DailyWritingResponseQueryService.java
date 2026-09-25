@@ -184,7 +184,7 @@ public class DailyWritingResponseQueryService {
     ) {
         return !today.isBefore(learningDate)
                 && !today.isAfter(
-                        learningDate.plusDays(reviewAvailableDays - 1L)
-                );
+                learningDate.plusDays(reviewAvailableDays - 1L)
+        );
     }
 }

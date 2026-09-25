@@ -13,15 +13,15 @@ import java.util.concurrent.ScheduledFuture;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatPresenceRefreshBatchTest {
 
-    @Mock private TaskScheduler taskScheduler;
-    @Mock private ChatPresenceSessionLifecycleService lifecycleService;
+    @Mock
+    private TaskScheduler taskScheduler;
+    @Mock
+    private ChatPresenceSessionLifecycleService lifecycleService;
 
     @Test
     void start_UsesConfiguredRefreshIntervalAndRefreshNowDelegates() {

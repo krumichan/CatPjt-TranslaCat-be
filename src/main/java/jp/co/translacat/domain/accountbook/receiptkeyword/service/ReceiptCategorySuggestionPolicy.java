@@ -1,14 +1,13 @@
 package jp.co.translacat.domain.accountbook.receiptkeyword.service;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
-/** Keeps category suggestions stable without pre-creating categories in every account book. */
+/**
+ * Keeps category suggestions stable without pre-creating categories in every account book.
+ */
 public final class ReceiptCategorySuggestionPolicy {
-    private ReceiptCategorySuggestionPolicy() {}
+    private ReceiptCategorySuggestionPolicy() {
+    }
 
     public static final List<String> DEFAULT_CATEGORIES = List.of(
             "식비", "교통비", "생활", "쇼핑", "의료", "주거", "기타");
@@ -73,5 +72,6 @@ public final class ReceiptCategorySuggestionPolicy {
         return value.toLowerCase(Locale.ROOT);
     }
 
-    public record Resolution(String name, String source, String reason, List<String> warnings) {}
+    public record Resolution(String name, String source, String reason, List<String> warnings) {
+    }
 }

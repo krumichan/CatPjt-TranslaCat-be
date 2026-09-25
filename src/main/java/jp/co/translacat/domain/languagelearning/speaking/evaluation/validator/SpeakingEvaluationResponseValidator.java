@@ -7,13 +7,12 @@ import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingMe
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import org.springframework.stereotype.Component;
 
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
@@ -28,7 +27,9 @@ public class SpeakingEvaluationResponseValidator {
         validateResponse(response, turnIds);
     }
 
-    /** Compare against the immutable submitted request, not later mutable entity state. */
+    /**
+     * Compare against the immutable submitted request, not later mutable entity state.
+     */
     public void validate(AiSpeakingEvaluationResponseDto response, AiSpeakingEvaluationRequestDto request) {
         if (response == null || request == null
                 || !Objects.equals(response.sessionId(), request.sessionId())
@@ -78,7 +79,8 @@ public class SpeakingEvaluationResponseValidator {
             throw invalid("Speaking 평가 Version이 없거나 너무 깁니다.");
     }
 
-    private void validateEvidencePolicy(AiSpeakingEvaluationResponseDto response, AiSpeakingEvaluationRequestDto request) {
+    private void validateEvidencePolicy(AiSpeakingEvaluationResponseDto response,
+                                        AiSpeakingEvaluationRequestDto request) {
         // A durable job can contain an older request created before evidence-v2.
         // Only the new request policy may require v2; it must not silently fall
         // back to legacy validation when a new AI response omits metadata.
@@ -108,7 +110,8 @@ public class SpeakingEvaluationResponseValidator {
         if (evaluated.contains("PRONUNCIATION") || evaluated.contains("FLUENCY")
                 || response.pronunciationPractice() != null && !response.pronunciationPractice().isEmpty())
             throw invalid("텍스트 평가에는 음향 분석 근거가 없습니다.");
-        boolean readAloud = request.practiceMode() == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode.READ_ALOUD;
+        boolean readAloud = request.practiceMode()
+                == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode.READ_ALOUD;
         if (readAloud && (evaluated.stream().anyMatch(axis -> !"MEANING".equals(axis))
                 || response.profileSignals() != null && !response.profileSignals().isEmpty()))
             throw invalid("따라 읽기에서 자발적 언어 능력 Profile을 생성할 수 없습니다.");

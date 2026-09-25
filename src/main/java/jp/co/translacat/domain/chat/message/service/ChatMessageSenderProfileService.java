@@ -7,16 +7,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
  * 채팅 메시지 응답에 표시할 발신자의 현재 프로필 이미지를 조회한다.
- *
+ * <p>
  * 메시지 이력에는 이미지 URL/Object Key를 저장하지 않는다.
  * 응답을 생성하는 시점에 UserProfile의 현재 Object Key로 공개 URL을 만든다.
  */

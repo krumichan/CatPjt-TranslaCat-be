@@ -27,6 +27,7 @@ public record AiPracticeGenerationResponseDto(
         this(requestId, promptVersion, domain, mode, complexityBand,
                 questions, vocabularyPlan, null);
     }
+
     public AiPracticeGenerationResponseDto(
             String requestId,
             String promptVersion,

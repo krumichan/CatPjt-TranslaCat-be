@@ -48,9 +48,9 @@ public class ListeningSessionQueryService {
         double coverage = official.isEmpty()
                 ? 0
                 : official.stream()
-                        .mapToDouble(ListeningItemAttempt::getCoverage)
-                        .average()
-                        .orElse(0);
+                .mapToDouble(ListeningItemAttempt::getCoverage)
+                .average()
+                .orElse(0);
 
         return new ListeningApiContract.SessionResultView(
                 session.getId(),

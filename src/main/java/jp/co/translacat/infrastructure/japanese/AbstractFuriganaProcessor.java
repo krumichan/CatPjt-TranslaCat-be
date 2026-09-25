@@ -148,12 +148,20 @@ public abstract class AbstractFuriganaProcessor {
                         sb.append("<ruby>").append(kanjiPart).append("<rt>").append(readingPart).append("</rt></ruby>");
                         rIdx = nextRIdx;
                     } else {
-                        sb.append("<ruby>").append(kanjiPart).append("<rt>").append(reading.substring(rIdx)).append("</rt></ruby>");
+                        sb.append("<ruby>")
+                                .append(kanjiPart)
+                                .append("<rt>")
+                                .append(reading.substring(rIdx))
+                                .append("</rt></ruby>");
                         rIdx = reading.length();
                     }
                 } else {
                     // 단어 끝이 한자인 경우
-                    sb.append("<ruby>").append(kanjiPart).append("<rt>").append(reading.substring(rIdx)).append("</rt></ruby>");
+                    sb.append("<ruby>")
+                            .append(kanjiPart)
+                            .append("<rt>")
+                            .append(reading.substring(rIdx))
+                            .append("</rt></ruby>");
                     rIdx = reading.length();
                 }
             } else {

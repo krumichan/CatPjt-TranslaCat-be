@@ -8,6 +8,8 @@ import java.util.Optional;
 
 public interface PracticeQuestionRepository extends JpaRepository<PracticeQuestion, Long> {
     long countByPracticeSetId(Long practiceSetId);
+
     List<PracticeQuestion> findAllByPracticeSetIdOrderByOrderNoAsc(Long practiceSetId);
+
     Optional<PracticeQuestion> findByIdAndPracticeSetUserId(Long id, Long userId);
 }

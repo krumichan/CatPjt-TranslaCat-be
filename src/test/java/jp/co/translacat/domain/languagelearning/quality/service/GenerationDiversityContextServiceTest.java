@@ -5,13 +5,12 @@ import jp.co.translacat.domain.languagelearning.quality.common.LanguageLearningC
 import jp.co.translacat.domain.languagelearning.quality.dto.DiversityContext;
 import jp.co.translacat.domain.languagelearning.quality.entity.LanguageLearningGenerationFingerprint;
 import jp.co.translacat.domain.languagelearning.quality.repository.LanguageLearningGenerationFingerprintRepository;
-
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.LinkedHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyCollection;

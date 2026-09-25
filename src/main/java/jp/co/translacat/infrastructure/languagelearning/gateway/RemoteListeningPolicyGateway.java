@@ -7,6 +7,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class RemoteListeningPolicyGateway implements ListeningPolicyGateway {
     private final RemoteSettingsAccess access;
-    public RemoteListeningPolicyGateway(RemoteSettingsAccess access) { this.access = access; }
-    @Override public ListeningPolicySnapshot get() { return access.client().getListeningPolicy(); }
+
+    public RemoteListeningPolicyGateway(RemoteSettingsAccess access) {
+        this.access = access;
+    }
+
+    @Override
+    public ListeningPolicySnapshot get() {
+        return access.client().getListeningPolicy();
+    }
 }

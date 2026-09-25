@@ -15,4 +15,5 @@ public record AccountBookFixedCostGenerationTargetResponseDto(
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal amount,
         Integer paymentDay,
         LocalDate transactionDate,
-        String memo) {}
+        String memo) {
+}

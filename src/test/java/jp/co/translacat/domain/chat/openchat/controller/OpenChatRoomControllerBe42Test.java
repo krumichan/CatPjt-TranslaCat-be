@@ -19,18 +19,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OpenChatRoomControllerBe42Test {
 
-    @Mock private OpenChatRoomCommandService commandService;
-    @Mock private OpenChatRoomQueryService queryService;
-    @Mock private OpenChatMembershipService membershipService;
-    @Mock private OpenChatProfileService profileService;
-    @Mock private UserPrincipal userPrincipal;
+    @Mock
+    private OpenChatRoomCommandService commandService;
+    @Mock
+    private OpenChatRoomQueryService queryService;
+    @Mock
+    private OpenChatMembershipService membershipService;
+    @Mock
+    private OpenChatProfileService profileService;
+    @Mock
+    private UserPrincipal userPrincipal;
 
     private OpenChatRoomController controller;
 

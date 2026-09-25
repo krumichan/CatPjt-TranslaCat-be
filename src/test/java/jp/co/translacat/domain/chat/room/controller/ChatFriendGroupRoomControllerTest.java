@@ -118,7 +118,8 @@ class ChatFriendGroupRoomControllerTest {
                         assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
                 );
 
-        verify(chatRoomFacade, never()).createFriendGroupRoom(anyLong(), any(FriendGroupChatRoomCreateRequestDto.class));
+        verify(chatRoomFacade, never()).createFriendGroupRoom(anyLong(),
+                any(FriendGroupChatRoomCreateRequestDto.class));
     }
 
     private void setAuthentication(Long userId) {

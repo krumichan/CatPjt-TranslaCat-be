@@ -6,37 +6,54 @@ import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.en
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.repository.SpeakingReadAloudProblemEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.service.SpeakingReadAloudProblemEvaluationService;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
-import jp.co.translacat.domain.languagelearning.speaking.session.service.*;
+import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionCompletionCommandService;
+import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionLifecycleService;
+import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionPolicySnapshotService;
+import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionQueryService;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import jp.co.translacat.domain.languagelearning.speaking.turn.repository.SpeakingTurnRepository;
-import jp.co.translacat.domain.languagelearning.speaking.turn.service.*;
+import jp.co.translacat.domain.languagelearning.speaking.turn.service.SpeakingTurnExclusionCommandService;
+import jp.co.translacat.domain.languagelearning.speaking.turn.service.SpeakingTurnQueryService;
 import jp.co.translacat.global.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import java.util.List;
 import java.util.Optional;
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
+
 import static jp.co.translacat.domain.languagelearning.speaking.evaluation.release.SpeakingReleaseFixtures.policy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class SpeakingReadAloudReleasePolicyTest {
-    @Mock SpeakingSessionQueryService sessions;
-    @Mock SpeakingSessionLifecycleService lifecycle;
-    @Mock SpeakingSessionCompletionCommandService completion;
-    @Mock SpeakingTurnRepository turns;
-    @Mock SpeakingReadAloudProblemEvaluationRepository problems;
-    @Mock SpeakingEvaluationJobQueueService queue;
-    @Mock SpeakingSessionPolicySnapshotService snapshots;
-    @Mock SpeakingTurnQueryService turnQuery;
-    @InjectMocks SpeakingReadAloudProblemEvaluationService service;
-    @InjectMocks SpeakingTurnExclusionCommandService exclusion;
+    @Mock
+    SpeakingSessionQueryService sessions;
+    @Mock
+    SpeakingSessionLifecycleService lifecycle;
+    @Mock
+    SpeakingSessionCompletionCommandService completion;
+    @Mock
+    SpeakingTurnRepository turns;
+    @Mock
+    SpeakingReadAloudProblemEvaluationRepository problems;
+    @Mock
+    SpeakingEvaluationJobQueueService queue;
+    @Mock
+    SpeakingSessionPolicySnapshotService snapshots;
+    @Mock
+    SpeakingTurnQueryService turnQuery;
+    @InjectMocks
+    SpeakingReadAloudProblemEvaluationService service;
+    @InjectMocks
+    SpeakingTurnExclusionCommandService exclusion;
 
-    @Test void disabledEvaluationStillSubmitsTheProblemButDoesNotQueueAiWork() {
+    @Test
+    void disabledEvaluationStillSubmitsTheProblemButDoesNotQueueAiWork() {
         var session = mock(SpeakingSession.class);
         when(sessions.getOwnedEntityForUpdate(1L, 2L)).thenReturn(session);
         when(session.getPracticeMode()).thenReturn(SpeakingPracticeMode.READ_ALOUD);
@@ -54,7 +71,9 @@ class SpeakingReadAloudReleasePolicyTest {
         verify(problems).save(any(SpeakingReadAloudProblemEvaluation.class));
         verifyNoInteractions(queue, completion);
     }
-    @Test void replayOfTheFinalSubmissionDoesNotReopenOrRequeueTheSession() {
+
+    @Test
+    void replayOfTheFinalSubmissionDoesNotReopenOrRequeueTheSession() {
         var session = mock(SpeakingSession.class);
         when(sessions.getOwnedEntityForUpdate(1L, 2L)).thenReturn(session);
         when(session.getPracticeMode()).thenReturn(SpeakingPracticeMode.READ_ALOUD);
@@ -64,13 +83,17 @@ class SpeakingReadAloudReleasePolicyTest {
         assertThat(service.submit(1L, 2L, 5).status()).isEqualTo("FAILED");
         verifyNoInteractions(lifecycle, queue, turns, completion, snapshots);
     }
-    @Test void completedSessionCannotChangeExcludedEvidence() {
+
+    @Test
+    void completedSessionCannotChangeExcludedEvidence() {
         var session = mock(SpeakingSession.class);
         when(sessions.getOwnedEntityForUpdate(1L, 2L)).thenReturn(session);
         assertThatThrownBy(() -> exclusion.exclude(1L, 2L, 3L)).isInstanceOf(BusinessException.class);
         verifyNoInteractions(turnQuery, problems);
     }
-    @Test void submittedProblemEvidenceCannotBeExcludedEvenWhileNextProblemIsActive() {
+
+    @Test
+    void submittedProblemEvidenceCannotBeExcludedEvenWhileNextProblemIsActive() {
         var session = mock(SpeakingSession.class);
         var turn = mock(SpeakingTurn.class);
         when(sessions.getOwnedEntityForUpdate(1L, 2L)).thenReturn(session);

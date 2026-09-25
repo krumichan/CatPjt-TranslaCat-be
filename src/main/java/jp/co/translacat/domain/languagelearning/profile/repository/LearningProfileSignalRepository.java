@@ -10,5 +10,6 @@ import java.util.Optional;
 
 public interface LearningProfileSignalRepository extends JpaRepository<LearningProfileSignal, Long> {
     Optional<LearningProfileSignal> findByUserIdAndTypeAndKey(Long userId, ProfileSignalType type, String key);
+
     List<LearningProfileSignal> findAllByUserIdAndTypeOrderByOccurrenceCountDesc(Long userId, ProfileSignalType type);
 }

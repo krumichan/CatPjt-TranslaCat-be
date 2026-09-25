@@ -7,15 +7,9 @@ import jp.co.translacat.domain.languagelearning.dashboard.dto.response.SourceSki
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 @Component
 public class DashboardProjectionPolicy {
@@ -152,9 +146,9 @@ public class DashboardProjectionPolicy {
         Double overall = measured.isEmpty()
                 ? null
                 : round(measured.stream()
-                        .mapToDouble(DashboardResponseDto.AbilityMetricView::score)
-                        .average()
-                        .orElse(0));
+                .mapToDouble(DashboardResponseDto.AbilityMetricView::score)
+                .average()
+                .orElse(0));
         String confidence = aggregateConfidence(measured);
         return new DashboardResponseDto.IntegratedAbilityView(
                 overall,

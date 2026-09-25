@@ -18,9 +18,12 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class OpenChatModerationControllerTest {
 
-    @Mock private OpenChatModerationService moderationService;
-    @Mock private OpenChatBanQueryService banQueryService;
-    @Mock private UserPrincipal userPrincipal;
+    @Mock
+    private OpenChatModerationService moderationService;
+    @Mock
+    private OpenChatBanQueryService banQueryService;
+    @Mock
+    private UserPrincipal userPrincipal;
 
     private OpenChatModerationController controller;
 

@@ -8,9 +8,11 @@ import java.util.List;
 
 public interface AiTranslationProvider {
     <T extends Translatable> List<T> executeTranslation(List<T> batch, AiRuleType rule);
+
     TranslationType getSupportedType();
 
-    default <T extends Translatable> List<T> executeTranslation(List<T> batch, AiRuleType rule, Comparator<T> comparator) {
+    default <T extends Translatable> List<T> executeTranslation(List<T> batch, AiRuleType rule,
+                                                                Comparator<T> comparator) {
         if (comparator != null) {
             batch.sort(comparator);
         }

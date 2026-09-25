@@ -10,4 +10,5 @@ public record AccountBookRankingChartItemResponseDto(
         String name,
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal amount,
         Long transactionCount,
-        BigDecimal percentage) {}
+        BigDecimal percentage) {
+}

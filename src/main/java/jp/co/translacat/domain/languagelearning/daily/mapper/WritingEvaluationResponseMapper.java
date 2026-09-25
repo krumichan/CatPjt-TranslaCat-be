@@ -1,19 +1,13 @@
 package jp.co.translacat.domain.languagelearning.daily.mapper;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import jp.co.translacat.domain.languagelearning.ai.dto.model.BilingualMessageDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.WritingCorrectionDto;
 import jp.co.translacat.domain.languagelearning.common.enums.EvaluationStatus;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.daily.dto.response.WritingEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.daily.entity.WritingEvaluation;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 @Component
 @RequiredArgsConstructor

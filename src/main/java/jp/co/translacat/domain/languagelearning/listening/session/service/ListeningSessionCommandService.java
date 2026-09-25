@@ -10,6 +10,7 @@ import jp.co.translacat.domain.languagelearning.listening.daily.entity.Listening
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
 import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningDailySetQueryService;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
+import jp.co.translacat.domain.languagelearning.listening.outbox.service.SettingsSelectionOutboxService;
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningIdempotencyPolicy;
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningTaskSelectionPolicy;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
@@ -19,12 +20,9 @@ import jp.co.translacat.domain.languagelearning.listening.session.entity.Listeni
 import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
 import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
 import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
-import jp.co.translacat.domain.languagelearning.listening.outbox.service.SettingsSelectionOutboxService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -32,11 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -237,8 +231,10 @@ public class ListeningSessionCommandService {
             throw invalid("완료되지 않은 Listening 문항이 있습니다.");
         }
 
-        if (session.getStatus() == jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus.IN_PROGRESS
-                || session.getStatus() == jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus.EVALUATING) {
+        if (session.getStatus()
+                == jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus.IN_PROGRESS
+                || session.getStatus()
+                == jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus.EVALUATING) {
             session.complete(LocalDateTime.now());
         }
 
@@ -274,7 +270,8 @@ public class ListeningSessionCommandService {
                 .map(value -> value.getItem().getItemIndex()).toList());
         List<ListeningTaskType> selected = jsonCodec.read(
                 session.getSelectedTaskTypesJson(),
-                new com.fasterxml.jackson.core.type.TypeReference<List<ListeningTaskType>>() { }
+                new com.fasterxml.jackson.core.type.TypeReference<List<ListeningTaskType>>() {
+                }
         );
         LocalDateTime now = LocalDateTime.now();
         boolean changed = false;
@@ -284,7 +281,7 @@ public class ListeningSessionCommandService {
                     || attachedIndices.contains(item.getItemIndex())
                     || !item.isPlayable(now)
                     || attemptRepository.existsByItemIdAndEvaluationPurpose(
-                            item.getId(), ListeningEvaluationPurpose.OFFICIAL)) {
+                    item.getId(), ListeningEvaluationPurpose.OFFICIAL)) {
                 continue;
             }
             createAttempt(session, item, ListeningEvaluationPurpose.OFFICIAL, selected, 1, now);
@@ -349,15 +346,15 @@ public class ListeningSessionCommandService {
         for (ListeningTaskType taskType : ListeningTaskType.values()) {
             ListeningTaskResponse response = selected.contains(taskType)
                     ? ListeningTaskResponse.selected(
-                            attempt,
-                            taskType,
-                            prefix + ":" + taskType.name()
-                    )
+                    attempt,
+                    taskType,
+                    prefix + ":" + taskType.name()
+            )
                     : ListeningTaskResponse.notSelected(
-                            attempt,
-                            taskType,
-                            prefix + ":" + taskType.name()
-                    );
+                    attempt,
+                    taskType,
+                    prefix + ":" + taskType.name()
+            );
             responseRepository.save(response);
         }
     }

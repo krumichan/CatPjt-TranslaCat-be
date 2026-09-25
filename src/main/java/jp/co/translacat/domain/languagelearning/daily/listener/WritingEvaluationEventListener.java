@@ -1,13 +1,11 @@
 package jp.co.translacat.domain.languagelearning.daily.listener;
 
 import jp.co.translacat.domain.languagelearning.daily.event.WritingEvaluationRequestedEvent;
+import jp.co.translacat.domain.languagelearning.daily.service.DailyWritingCompletionCommandService;
 import jp.co.translacat.domain.languagelearning.daily.service.WritingEvaluationProcessor;
 import jp.co.translacat.domain.languagelearning.daily.service.WritingEvaluationStateCommandService;
-import jp.co.translacat.domain.languagelearning.daily.service.DailyWritingCompletionCommandService;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;

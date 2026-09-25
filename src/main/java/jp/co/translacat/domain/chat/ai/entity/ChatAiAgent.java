@@ -1,11 +1,6 @@
 package jp.co.translacat.domain.chat.ai.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import jp.co.translacat.domain.chat.ai.support.ChatAiErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.global.jpa.BaseAuditable;

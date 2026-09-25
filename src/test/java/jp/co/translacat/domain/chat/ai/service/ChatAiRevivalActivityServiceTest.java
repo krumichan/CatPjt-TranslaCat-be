@@ -20,16 +20,18 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ChatAiRevivalActivityServiceTest {
 
-    @Mock private ChatRoomAiActivityRepository activityRepository;
-    @Mock private ChatRoomRepository roomRepository;
-    @Mock private ChatAiSystemSettingService systemSettingService;
+    @Mock
+    private ChatRoomAiActivityRepository activityRepository;
+    @Mock
+    private ChatRoomRepository roomRepository;
+    @Mock
+    private ChatAiSystemSettingService systemSettingService;
 
     private ChatAiRevivalActivityService service;
     private ChatAiRevivalScheduleCalculator calculator;

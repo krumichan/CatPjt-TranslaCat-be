@@ -1,8 +1,8 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.dto.response;
 
+import jp.co.translacat.domain.languagelearning.speaking.coaching.dto.SpeakingCoachingResultResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.dto.SpeakingReadAloudProblemEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.turn.dto.response.SpeakingTurnResponseDto;
-import jp.co.translacat.domain.languagelearning.speaking.coaching.dto.SpeakingCoachingResultResponseDto;
 
 import java.util.List;
 

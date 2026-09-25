@@ -1,12 +1,19 @@
 package jp.co.translacat.domain.languagelearning.listening.audio.validator;
 
 import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDifficulty;
 import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningDurationPolicy;
 import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningReferenceDurationException;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDifficulty;
 import org.junit.jupiter.api.Test;
-import java.io.*;
-import javax.sound.sampled.*;
+
+import javax.sound.sampled.AudioFileFormat;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+
 import static org.assertj.core.api.Assertions.*;
 
 class ListeningReferenceDurationTest {

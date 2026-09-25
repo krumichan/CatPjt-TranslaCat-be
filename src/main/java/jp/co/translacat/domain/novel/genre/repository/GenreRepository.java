@@ -10,6 +10,8 @@ import java.util.Optional;
 @Repository
 public interface GenreRepository extends JpaRepository<Genre, Long> {
     List<Genre> findAllByPlatformId(Long platformId);
+
     Optional<Genre> findByIdentifier(String identifier);
+
     Optional<Genre> findByPlatformIdAndNameEndsWith(Long platformId, String name);
 }

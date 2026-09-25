@@ -14,7 +14,7 @@ public record UserSummaryProfileResponseDto(
     /**
      * 프로필 배경 이미지와 상태 메시지가 추가되기 전의
      * 기존 4개 인자 생성자와의 호환성을 유지한다.
-     *
+     * <p>
      * 기존 테스트 및 호출부에서는 새 필드가 null로 설정된다.
      */
     public UserSummaryProfileResponseDto(

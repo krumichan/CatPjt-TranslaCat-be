@@ -18,4 +18,5 @@ public record AiSpeakingCoachingResponseDto(
         List<AiSpeakingCoachingItemDto> items,
         String promptVersion,
         AiSpeakingUsageDto usage
-) { }
+) {
+}

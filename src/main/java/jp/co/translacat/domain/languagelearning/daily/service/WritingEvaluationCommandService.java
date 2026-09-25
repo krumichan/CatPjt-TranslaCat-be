@@ -11,16 +11,14 @@ import jp.co.translacat.domain.languagelearning.daily.model.WritingEvaluationReq
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.daily.validator.WritingEvaluationResponseValidator;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileCommandService;
+import jp.co.translacat.domain.languagelearning.resultjournal.model.LearningResultCaptured;
+import jp.co.translacat.domain.languagelearning.resultjournal.model.WritingResultFact;
 import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.exception.BusinessException;
-
-import org.springframework.context.ApplicationEventPublisher;
-import jp.co.translacat.domain.languagelearning.resultjournal.model.*;
-
 import lombok.RequiredArgsConstructor;
-
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -89,7 +87,6 @@ public class WritingEvaluationCommandService {
         }
     }
 
-
     private WritingEvaluation getOrCreateDailyEvaluation(
             User user,
             WritingAnswer answer
@@ -99,7 +96,6 @@ public class WritingEvaluationCommandService {
                         WritingEvaluation.pendingDaily(user, answer)
                 ));
     }
-
 
     private void persistSuccess(
             WritingEvaluation evaluation,

@@ -1,25 +1,23 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.service;
 
+import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
 import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
 import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
 import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingConversationResultDto;
-import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.repository.SpeakingEvaluationJobRepository;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingDailyUsageResponseDto;
-import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingSessionResponseDto;
-import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingPromptGuideResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingPracticeModeStatusResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingPromptGuideResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingSessionResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.repository.SpeakingSessionRepository;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.repository.SpeakingEvaluationJobRepository;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -147,8 +145,10 @@ public class SpeakingSessionQueryService {
                             boolean completed = session.getResultKind()
                                     == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind.SESSION_COACHING
                                     ? session.getCompletedAt() != null
-                                    : session.getEvaluationStatus() == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus.EVALUATED
-                                    || session.getEvaluationStatus() == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus.INSUFFICIENT_EVIDENCE;
+                                    : session.getEvaluationStatus()
+                                    == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus.EVALUATED
+                                    || session.getEvaluationStatus()
+                                    == jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus.INSUFFICIENT_EVIDENCE;
                             return new SpeakingPracticeModeStatusResponseDto(
                                     mode, session.getId(), session.getStatus(), session.getEvaluationStatus(),
                                     session.getResultKind(), session.getResultPolicyVersion(), resultStatus,

@@ -1,7 +1,6 @@
 package jp.co.translacat.domain.languagelearning.profile.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import jp.co.translacat.domain.languagelearning.ai.dto.model.ProfileSignalsDto;
 import jp.co.translacat.domain.languagelearning.common.enums.EvaluationStatus;
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
@@ -9,10 +8,11 @@ import jp.co.translacat.domain.languagelearning.common.enums.WritingEvaluationCo
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.daily.entity.WritingEvaluation;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
-import jp.co.translacat.domain.languagelearning.profile.dto.response.UnifiedProfileInsightResponseDto;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningWeaknessState;
 import jp.co.translacat.domain.languagelearning.listening.dashboard.service.ListeningDashboardQueryService;
+import jp.co.translacat.domain.languagelearning.profile.dto.response.UnifiedProfileInsightResponseDto;
 import jp.co.translacat.domain.languagelearning.profile.policy.LearningProfileAggregationWeightPolicy;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingEvaluationEligibilityDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingProfileSignalDto;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.AssistanceType;
@@ -20,22 +20,12 @@ import jp.co.translacat.domain.languagelearning.speaking.evaluation.entity.Speak
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.repository.SpeakingEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import jp.co.translacat.domain.languagelearning.speaking.turn.repository.SpeakingTurnRepository;
-import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.EnumMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -186,10 +176,10 @@ public class RecentLearningProfileInsightQueryService {
             return;
         }
         listeningDashboardQueryService.profiles(
-                userId,
-                learningLanguage,
-                null
-        ).stream()
+                        userId,
+                        learningLanguage,
+                        null
+                ).stream()
                 .filter(value -> value.score() != null)
                 .forEach(value -> {
                     String direction = value.weaknessState()

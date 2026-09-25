@@ -11,7 +11,10 @@ import org.springframework.stereotype.Service;
 public class LanguageLearningSettingFacade {
     private final UserSettingsGateway settings;
 
-    public UserSettingResponseDto get(Long userId) { return settings.get(userId); }
+    public UserSettingResponseDto get(Long userId) {
+        return settings.get(userId);
+    }
+
     public UserSettingResponseDto update(Long userId, UserSettingUpdateRequestDto request) {
         return settings.update(userId, request);
     }

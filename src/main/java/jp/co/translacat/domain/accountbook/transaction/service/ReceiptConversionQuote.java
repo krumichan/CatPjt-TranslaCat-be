@@ -8,12 +8,15 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
-/** Deterministic proof of the exact source facts and server-side monetary decision reviewed by a user. */
+/**
+ * Deterministic proof of the exact source facts and server-side monetary decision reviewed by a user.
+ */
 final class ReceiptConversionQuote {
     static final String POLICY_VERSION = "receipt-fx-v1";
     static final String ROUNDING_MODE = "HALF_UP";
 
-    private ReceiptConversionQuote() {}
+    private ReceiptConversionQuote() {
+    }
 
     static String id(ReceiptConversionResponseDto value, Long accountBookId) {
         return id(value, accountBookId, null);

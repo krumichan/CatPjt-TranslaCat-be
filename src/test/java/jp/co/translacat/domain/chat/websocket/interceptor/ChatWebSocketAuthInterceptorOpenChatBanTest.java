@@ -13,9 +13,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.Message;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,11 +25,16 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ChatWebSocketAuthInterceptorOpenChatBanTest {
 
-    @Mock private JWTService jwtService;
-    @Mock private MyUserDetailsService myUserDetailsService;
-    @Mock private ChatRoomMemberQueryService memberQueryService;
-    @Mock private OpenChatAccessService accessService;
-    @Mock private UserPrincipal userPrincipal;
+    @Mock
+    private JWTService jwtService;
+    @Mock
+    private MyUserDetailsService myUserDetailsService;
+    @Mock
+    private ChatRoomMemberQueryService memberQueryService;
+    @Mock
+    private OpenChatAccessService accessService;
+    @Mock
+    private UserPrincipal userPrincipal;
 
     private ChatWebSocketAuthInterceptor interceptor;
 

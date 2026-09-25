@@ -4,18 +4,13 @@ import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.repository.ChatMessageRepository;
-import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationActivityItemResponseDto;
-import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationActivityListResponseDto;
-import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationChatItemResponseDto;
-import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationChatListResponseDto;
-import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationLatestMessageResponseDto;
-import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationSummaryResponseDto;
+import jp.co.translacat.domain.chat.notification.dto.response.*;
 import jp.co.translacat.domain.chat.notification.entity.ChatNotification;
 import jp.co.translacat.domain.chat.notification.repository.ChatNotificationChatQueryRepository;
 import jp.co.translacat.domain.chat.notification.repository.ChatNotificationRepository;
-import jp.co.translacat.domain.chat.notification.support.ChatNotificationErrorCode;
 import jp.co.translacat.domain.chat.notification.repository.projection.ChatNotificationRoomQueryRow;
 import jp.co.translacat.domain.chat.notification.repository.projection.ChatNotificationUnreadSummary;
+import jp.co.translacat.domain.chat.notification.support.ChatNotificationErrorCode;
 import jp.co.translacat.domain.chat.openchat.profile.entity.OpenChatMemberProfile;
 import jp.co.translacat.domain.chat.openchat.profile.repository.OpenChatMemberProfileRepository;
 import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
@@ -28,13 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -98,7 +87,7 @@ public class ChatNotificationQueryService {
                 .toList();
 
         Long nextCursorId = hasNext && !page.isEmpty()
-                ? page.get(page.size() - 1).getId()
+                ? page.getLast().getId()
                 : null;
 
         return ChatNotificationActivityListResponseDto.of(
@@ -170,7 +159,7 @@ public class ChatNotificationQueryService {
                 .toList();
 
         Long nextCursorMessageId = hasNext && !pageRows.isEmpty()
-                ? pageRows.get(pageRows.size() - 1).latestMessageId()
+                ? pageRows.getLast().latestMessageId()
                 : null;
 
         return ChatNotificationChatListResponseDto.of(
@@ -370,7 +359,7 @@ public class ChatNotificationQueryService {
                 : fallbackUserName(partner);
         String avatarUrl = profile != null
                 ? userProfileImageUrlResolver
-                        .resolveProfileImageUrl(profile)
+                .resolveProfileImageUrl(profile)
                 : null;
         return new RoomDisplay(name, avatarUrl);
     }

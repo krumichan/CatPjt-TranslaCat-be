@@ -17,11 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
@@ -119,8 +119,10 @@ public class SpeakingCoachingResultService {
                 value.getId(), SpeakingResultKind.SESSION_COACHING.name(),
                 value.getResultPolicyVersion(), value.getSchemaVersion(), value.getSourceSnapshotHash(),
                 value.getContentStatus(),
-                jsonCodec.read(value.getLimitationReasonsJson(), new TypeReference<List<String>>() {}),
-                jsonCodec.read(value.getItemsJson(), new TypeReference<List<AiSpeakingCoachingItemDto>>() {}),
+                jsonCodec.read(value.getLimitationReasonsJson(), new TypeReference<List<String>>() {
+                }),
+                jsonCodec.read(value.getItemsJson(), new TypeReference<List<AiSpeakingCoachingItemDto>>() {
+                }),
                 value.getPromptVersion(), value.getCreatedAt()
         );
     }

@@ -11,23 +11,20 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatPresenceSessionLifecycleServiceTest {
 
-    @Mock private ChatPresenceStore presenceStore;
-    @Mock private ChatPresenceOfflineGraceScheduler offlineGraceScheduler;
-    @Mock private ChatPresenceTransitionPublisher transitionPublisher;
+    @Mock
+    private ChatPresenceStore presenceStore;
+    @Mock
+    private ChatPresenceOfflineGraceScheduler offlineGraceScheduler;
+    @Mock
+    private ChatPresenceTransitionPublisher transitionPublisher;
 
     private ChatPresenceLocalSessionRegistry localSessionRegistry;
     private ChatPresenceSessionLifecycleService service;

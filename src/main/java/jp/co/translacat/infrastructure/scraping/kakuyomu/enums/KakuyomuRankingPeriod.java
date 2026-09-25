@@ -1,7 +1,7 @@
 package jp.co.translacat.infrastructure.scraping.kakuyomu.enums;
 
-import jp.co.translacat.domain.common.enums.RankingPeriod;
 import jp.co.translacat.domain.common.enums.ConvertibleEnum;
+import jp.co.translacat.domain.common.enums.RankingPeriod;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 

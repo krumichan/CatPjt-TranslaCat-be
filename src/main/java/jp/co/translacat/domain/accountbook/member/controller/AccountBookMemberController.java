@@ -1,7 +1,5 @@
 package jp.co.translacat.domain.accountbook.member.controller;
 
-import jakarta.validation.Valid;
-import jp.co.translacat.domain.accountbook.member.dto.AccountBookMemberInviteRequestDto;
 import jp.co.translacat.domain.accountbook.member.dto.AccountBookMemberResponseDto;
 import jp.co.translacat.domain.accountbook.member.service.AccountBookMemberService;
 import jp.co.translacat.global.dto.ResponseDto;

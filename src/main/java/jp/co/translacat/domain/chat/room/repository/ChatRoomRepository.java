@@ -1,8 +1,7 @@
 package jp.co.translacat.domain.chat.room.repository;
 
-import jp.co.translacat.domain.chat.room.entity.ChatRoom;
-
 import jakarta.persistence.LockModeType;
+import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -27,6 +26,5 @@ public interface ChatRoomRepository
               and room.deletedAt is null
             """)
     Optional<ChatRoom> findActiveByIdForUpdate(@Param("id") Long id);
-
 
 }

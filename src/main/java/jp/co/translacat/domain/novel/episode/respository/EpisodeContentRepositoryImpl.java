@@ -19,14 +19,14 @@ public class EpisodeContentRepositoryImpl implements EpisodeContentBatchReposito
         if (contents.isEmpty()) return;
 
         String sql = """
-            INSERT INTO episode_content (
-                episode_id, sequence, content, content_ja, content_ko, 
-                created_at, updated_at, created_by, updated_by
-            ) VALUES (
-                :episode.id, :sequence, :content, :contentJa, :contentKo, 
-                NOW(), NOW(), :createdBy, :updatedBy
-            )
-            """;
+                INSERT INTO episode_content (
+                    episode_id, sequence, content, content_ja, content_ko,
+                    created_at, updated_at, created_by, updated_by
+                ) VALUES (
+                    :episode.id, :sequence, :content, :contentJa, :contentKo,
+                    NOW(), NOW(), :createdBy, :updatedBy
+                )
+                """;
 
         SqlParameterSource[] batch = SqlParameterSourceUtils.createBatch(contents);
 
@@ -38,13 +38,13 @@ public class EpisodeContentRepositoryImpl implements EpisodeContentBatchReposito
         if (contents.isEmpty()) return;
 
         String sql = """
-        UPDATE episode_content 
-        SET 
-            content_ja = :contentJa,
-            updated_at = NOW(),
-            updated_by = :updatedBy
-        WHERE id = :id
-        """;
+                UPDATE episode_content
+                SET
+                    content_ja = :contentJa,
+                    updated_at = NOW(),
+                    updated_by = :updatedBy
+                WHERE id = :id
+                """;
 
         SqlParameterSource[] batch = SqlParameterSourceUtils.createBatch(contents);
 

@@ -3,13 +3,6 @@ package jp.co.translacat.domain.novel.episode.service;
 import jakarta.persistence.EntityNotFoundException;
 import jp.co.translacat.domain.common.enums.PlatformCode;
 import jp.co.translacat.domain.novel.episode.dto.EpisodeResponseDto;
-import jp.co.translacat.domain.user.enums.RecentViewType;
-import jp.co.translacat.domain.user.service.RecentViewService;
-import jp.co.translacat.global.utils.TransactionUtil;
-import jp.co.translacat.infrastructure.client.ai.TranslationExecutor;
-import jp.co.translacat.infrastructure.client.ai.common.TranslationType;
-import jp.co.translacat.infrastructure.client.ai.server.AiRuleType;
-import jp.co.translacat.infrastructure.japanese.FuriganaProcessor;
 import jp.co.translacat.domain.novel.episode.entity.Episode;
 import jp.co.translacat.domain.novel.episode.entity.EpisodeContent;
 import jp.co.translacat.domain.novel.episode.model.EpisodeContentContext;
@@ -19,6 +12,13 @@ import jp.co.translacat.domain.novel.episode.respository.EpisodeRepository;
 import jp.co.translacat.domain.novel.novel.entity.Novel;
 import jp.co.translacat.domain.novel.novel.model.RawEpisodeContext;
 import jp.co.translacat.domain.novel.translation.model.TranslationUnit;
+import jp.co.translacat.domain.user.enums.RecentViewType;
+import jp.co.translacat.domain.user.service.RecentViewService;
+import jp.co.translacat.global.utils.TransactionUtil;
+import jp.co.translacat.infrastructure.client.ai.TranslationExecutor;
+import jp.co.translacat.infrastructure.client.ai.common.TranslationType;
+import jp.co.translacat.infrastructure.client.ai.server.AiRuleType;
+import jp.co.translacat.infrastructure.japanese.FuriganaProcessor;
 import jp.co.translacat.infrastructure.scraping.common.strategy.EpisodeStrategy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -69,13 +69,13 @@ public class EpisodeService {
 
     private Optional<EpisodeStrategy> strategy(PlatformCode platformCode) {
         return strategies.stream()
-            .filter(s -> s.getPlatformCode() == platformCode)
-            .findFirst();
+                .filter(s -> s.getPlatformCode() == platformCode)
+                .findFirst();
     }
 
     public EpisodeDetailContext scrapeEpisodeDetail(PlatformCode platformCode, String pattern, String... urlArgs) {
         EpisodeStrategy strategy = this.strategy(platformCode)
-            .orElseThrow(() -> new EntityNotFoundException("지원하지 않는 플랫폼입니다: " + platformCode));
+                .orElseThrow(() -> new EntityNotFoundException("지원하지 않는 플랫폼입니다: " + platformCode));
 
         String url = strategy.getUrl(pattern, urlArgs);
         return strategy.scrape(url);
@@ -83,34 +83,35 @@ public class EpisodeService {
 
     @Transactional
     public EpisodeResponseDto processEpisodeTranslation(
-        PlatformCode platformCode,
-        Novel existingNovel,
-        EpisodeDetailContext scrappedEpisodeDetail) {
+            PlatformCode platformCode,
+            Novel existingNovel,
+            EpisodeDetailContext scrappedEpisodeDetail) {
 
         // 해당 에피소드 정보가 없으면 저장 후 흭득.
         // ( 타 트랜잭션을 이용하여 즉시 저장 )
-        List<RawEpisodeContext> rawEpisodeContexts = scrappedEpisodeDetail.getNovelDetailContext().getRawEpisodeContexts();
+        List<RawEpisodeContext> rawEpisodeContexts =
+                scrappedEpisodeDetail.getNovelDetailContext().getRawEpisodeContexts();
         RawEpisodeContext rawEpisodeContext = rawEpisodeContexts.getFirst();
         Episode maybeEpisode = this.findEpisode(existingNovel.getId(), rawEpisodeContext.getIdentifier()).orElse(null);
         Episode existingEpisode = this.saveAndGetEpisode(existingNovel, maybeEpisode, rawEpisodeContext);
 
         // 최근 본 목록에 기록 남기기
         this.recentViewService.save(
-            platformCode,
-            RecentViewType.EPISODE,
-            existingNovel.getIdentifier(),
-            existingEpisode.getIdentifier(),
-            existingEpisode.getTitle(),
-            existingEpisode.getTitleJa(),
-            existingEpisode.getTitleKo()
+                platformCode,
+                RecentViewType.EPISODE,
+                existingNovel.getIdentifier(),
+                existingEpisode.getIdentifier(),
+                existingEpisode.getTitle(),
+                existingEpisode.getTitleJa(),
+                existingEpisode.getTitleKo()
         );
 
         // 스크랩 한 데이터들 중 DB에 이미 존재하는 데이터 조회.
         // 이미 존재할 경우, 번역된 내용이 있는 것으로, Gemini 요청이 필요 없음.
         List<EpisodeContent> existingEpisodeContents = this.findEpisodeContents(existingEpisode.getId());
         Map<String, EpisodeContent> existingEpisodeContentsMap = existingEpisodeContents.stream()
-            .filter(content -> !content.getContent().trim().isEmpty())
-            .collect(Collectors.toMap(EpisodeContent::getContent, r -> r, (oldValue, newValue) -> oldValue));
+                .filter(content -> !content.getContent().trim().isEmpty())
+                .collect(Collectors.toMap(EpisodeContent::getContent, r -> r, (oldValue, newValue) -> oldValue));
 
         // 번역이 필요한 유닛들.
         List<TranslationUnit> dirtyUnits = new ArrayList<>();
@@ -148,9 +149,9 @@ public class EpisodeService {
         // 변경된 조각들만 벌크로 Gemini 번역 요청.
         if (!dirtyUnits.isEmpty()) {
             this.translationExecutor.execute(
-                dirtyUnits,
-                AiRuleType.EPISODE,
-                TranslationType.AI_SERVER
+                    dirtyUnits,
+                    AiRuleType.EPISODE,
+                    TranslationType.AI_SERVER
             );
         }
 
@@ -158,24 +159,26 @@ public class EpisodeService {
         int existingEpisodeContentsCount = this.countEpisodeContents(existingEpisode.getId());
         if (!dirtyUnits.isEmpty() || existingEpisodeContentsCount != scrappedEpisodeContents.size()) {
             List<EpisodeContent> contents = scrappedEpisodeContents.stream()
-                .map(ctx -> EpisodeContent.create(
-                    existingEpisode, ctx.getSequence(),
-                    ctx.getContent().getRawJa(), ctx.getContent().getJa(), ctx.getContent().getKo()))
-                .toList();
-            TransactionUtil.runAfterCompletion(() -> this.episodeContentSafeSaver.saveEpisodeContents(existingEpisode, contents));
+                    .map(ctx -> EpisodeContent.create(
+                            existingEpisode, ctx.getSequence(),
+                            ctx.getContent().getRawJa(), ctx.getContent().getJa(), ctx.getContent().getKo()))
+                    .toList();
+            TransactionUtil.runAfterCompletion(
+                    () -> this.episodeContentSafeSaver.saveEpisodeContents(existingEpisode, contents));
         }
 
         return EpisodeResponseDto.of(
-            scrappedEpisodeDetail.getEpisodePagerContext(),
-            TranslationUnit.of(existingEpisode.getTitle(), existingEpisode.getTitleJa(), existingEpisode.getTitleKo())
-            , scrappedEpisodeContents);
+                scrappedEpisodeDetail.getEpisodePagerContext(),
+                TranslationUnit.of(existingEpisode.getTitle(), existingEpisode.getTitleJa(),
+                        existingEpisode.getTitleKo())
+                , scrappedEpisodeContents);
     }
 
     public Episode saveAndGetEpisode(Novel novel, Episode episode, RawEpisodeContext ctx) {
 
         // 번역 조각 선별.
         List<TranslationUnit> dirtyUnits = new ArrayList<>(
-            Objects.isNull(episode) ? ctx.getAllUnit() : ctx.compareAndGetDirtyUnits(episode)
+                Objects.isNull(episode) ? ctx.getAllUnit() : ctx.compareAndGetDirtyUnits(episode)
         );
 
         // ja ruby 설정.

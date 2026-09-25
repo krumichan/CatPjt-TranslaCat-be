@@ -2,9 +2,9 @@ package jp.co.translacat.domain.novel.novel.entity;
 
 import jakarta.persistence.*;
 import jp.co.translacat.domain.novel.author.entity.Author;
-import jp.co.translacat.global.jpa.BaseAuditable;
 import jp.co.translacat.domain.novel.genre.entity.Genre;
 import jp.co.translacat.domain.novel.platform.entity.Platform;
+import jp.co.translacat.global.jpa.BaseAuditable;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -17,7 +17,7 @@ import java.util.Objects;
 @Entity
 @Getter
 @Table(name = "novel", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"platform_id", "identifier"})
+        @UniqueConstraint(columnNames = {"platform_id", "identifier"})
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Novel extends BaseAuditable {
@@ -173,10 +173,10 @@ public class Novel extends BaseAuditable {
 
         if (changed) {
             this.update(genre, author,
-                title, titleJa, titleKo,
-                status, statusJa, statusKo,
-                synopsis, synopsisJa, synopsisKo,
-                isShortStory);
+                    title, titleJa, titleKo,
+                    status, statusJa, statusKo,
+                    synopsis, synopsisJa, synopsisKo,
+                    isShortStory);
         }
 
         return changed;

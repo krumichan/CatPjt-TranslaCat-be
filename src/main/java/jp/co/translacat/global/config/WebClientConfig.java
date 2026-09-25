@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * WebClientConfig 클래스
- *
+ * <p>
  * Spring WebFlux의 WebClient를 설정하는 구성 클래스입니다.
  * WebClient는 비동기/논블로킹 HTTP 요청을 보낼 때 사용됩니다.
  */
@@ -32,7 +32,7 @@ public class WebClientConfig {
 
     /**
      * WebClient Bean 생성
-     *
+     * <p>
      * WebClient.Builder를 이용하여 WebClient 인스턴스를 생성합니다.
      * 아래 옵션을 설정합니다:
      * 1. Reactor Netty HttpClient 사용

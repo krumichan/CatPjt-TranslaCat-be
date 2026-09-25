@@ -1,11 +1,13 @@
 package jp.co.translacat.infrastructure.languagelearning.gateway;
 
 import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingSetRepository;
-import jp.co.translacat.domain.languagelearning.speaking.session.repository.SpeakingSessionRepository;
 import jp.co.translacat.domain.languagelearning.keyword.port.KeywordLearningFacts;
+import jp.co.translacat.domain.languagelearning.speaking.session.repository.SpeakingSessionRepository;
 import org.springframework.stereotype.Component;
 
-/** 원본 판정 범위를 유지한다. Reading/Listening/Level Test까지 임의로 확대하지 않는다. */
+/**
+ * 원본 판정 범위를 유지한다. Reading/Listening/Level Test까지 임의로 확대하지 않는다.
+ */
 @Component
 public class CoreKeywordLearningFacts implements KeywordLearningFacts {
     private final DailyWritingSetRepository writing;

@@ -36,8 +36,8 @@ public class VoiceUsageQueryService {
 
         return session.getProcessedAudioMs() >= policy.getMaxSessionMs()
                 || usageRepository.sumProcessedAudioMs(
-                        userId,
-                        LocalDate.now()
-                ) >= policy.getDailyLimitMs();
+                userId,
+                LocalDate.now()
+        ) >= policy.getDailyLimitMs();
     }
 }

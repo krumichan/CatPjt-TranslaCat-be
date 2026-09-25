@@ -1,16 +1,11 @@
 package jp.co.translacat.domain.languagelearning.dashboard.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import jp.co.translacat.domain.languagelearning.activity.entity.EvaluationMetricHistory;
 import jp.co.translacat.domain.languagelearning.activity.entity.LearningActivity;
 import jp.co.translacat.domain.languagelearning.activity.repository.EvaluationMetricHistoryRepository;
 import jp.co.translacat.domain.languagelearning.activity.repository.LearningActivityRepository;
-import jp.co.translacat.domain.languagelearning.common.enums.EvaluationStatus;
-import jp.co.translacat.domain.languagelearning.common.enums.LearningActivityStatus;
-import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
-import jp.co.translacat.domain.languagelearning.common.enums.MetricEvaluationState;
-import jp.co.translacat.domain.languagelearning.common.enums.WritingEvaluationContext;
+import jp.co.translacat.domain.languagelearning.common.enums.*;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.daily.entity.WritingEvaluation;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
@@ -19,27 +14,18 @@ import jp.co.translacat.domain.languagelearning.dashboard.dto.response.SourceSki
 import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.entity.ListeningTaskEvaluation;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.repository.ListeningTaskEvaluationRepository;
-import jp.co.translacat.domain.languagelearning.profile.policy.LearningProfileAggregationWeightPolicy;
-import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
-import jp.co.translacat.domain.languagelearning.common.enums.PracticeSetStatus;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeMetricScore;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeMetricScoreRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
+import jp.co.translacat.domain.languagelearning.profile.policy.LearningProfileAggregationWeightPolicy;
 import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -259,7 +245,6 @@ public class SourceSkillTrendQueryService {
             }
         }
     }
-
 
     private List<PracticeSet> completedPracticeSets(
             Long userId,

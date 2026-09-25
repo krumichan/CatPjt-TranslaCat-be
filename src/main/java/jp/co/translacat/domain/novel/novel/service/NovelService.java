@@ -4,6 +4,9 @@ import jakarta.persistence.EntityNotFoundException;
 import jp.co.translacat.domain.common.dto.PageNumberResponseDto;
 import jp.co.translacat.domain.common.enums.PlatformCode;
 import jp.co.translacat.domain.common.enums.PlatformUrlType;
+import jp.co.translacat.domain.novel.episode.entity.Episode;
+import jp.co.translacat.domain.novel.episode.service.EpisodeSafeSaver;
+import jp.co.translacat.domain.novel.episode.service.EpisodeService;
 import jp.co.translacat.domain.novel.novel.dto.NovelPageResponseDto;
 import jp.co.translacat.domain.novel.novel.dto.NovelResponseDto;
 import jp.co.translacat.domain.novel.novel.entity.Novel;
@@ -11,19 +14,16 @@ import jp.co.translacat.domain.novel.novel.model.NovelContext;
 import jp.co.translacat.domain.novel.novel.model.NovelDetailContext;
 import jp.co.translacat.domain.novel.novel.model.RawEpisodeContext;
 import jp.co.translacat.domain.novel.novel.repository.NovelRepository;
+import jp.co.translacat.domain.novel.platform.entity.Platform;
+import jp.co.translacat.domain.novel.platform.entity.PlatformUrlTemplate;
+import jp.co.translacat.domain.novel.platform.service.PlatformService;
+import jp.co.translacat.domain.novel.translation.model.TranslationUnit;
 import jp.co.translacat.domain.user.enums.RecentViewType;
 import jp.co.translacat.domain.user.service.RecentViewService;
 import jp.co.translacat.global.utils.TransactionUtil;
 import jp.co.translacat.infrastructure.client.ai.TranslationExecutor;
 import jp.co.translacat.infrastructure.client.ai.server.AiRuleType;
 import jp.co.translacat.infrastructure.japanese.FuriganaProcessor;
-import jp.co.translacat.domain.novel.episode.entity.Episode;
-import jp.co.translacat.domain.novel.episode.service.EpisodeSafeSaver;
-import jp.co.translacat.domain.novel.episode.service.EpisodeService;
-import jp.co.translacat.domain.novel.platform.entity.Platform;
-import jp.co.translacat.domain.novel.platform.entity.PlatformUrlTemplate;
-import jp.co.translacat.domain.novel.platform.service.PlatformService;
-import jp.co.translacat.domain.novel.translation.model.TranslationUnit;
 import jp.co.translacat.infrastructure.scraping.common.strategy.NovelStrategy;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -64,8 +64,8 @@ public class NovelService {
 
     private Optional<NovelStrategy> strategy(PlatformCode platformCode) {
         return strategies.stream()
-            .filter(s -> s.getPlatformCode() == platformCode)
-            .findFirst();
+                .filter(s -> s.getPlatformCode() == platformCode)
+                .findFirst();
     }
 
     @Transactional
@@ -89,12 +89,12 @@ public class NovelService {
 
         // 최근 본 목록에 기록 남기기
         this.recentViewService.save(
-            platform.getCode(),
-            existingNovel.getIsShortStory() ? RecentViewType.SHORT : RecentViewType.NOVEL,
-            existingNovel.getIdentifier(), null,
-            existingNovel.getTitle(),
-            existingNovel.getTitleJa(),
-            existingNovel.getTitleKo()
+                platform.getCode(),
+                existingNovel.getIsShortStory() ? RecentViewType.SHORT : RecentViewType.NOVEL,
+                existingNovel.getIdentifier(), null,
+                existingNovel.getTitle(),
+                existingNovel.getTitleJa(),
+                existingNovel.getTitleKo()
         );
 
         // 스크랩 한 데이터들 중 DB에 이미 존재하는 데이터 조회.
@@ -103,7 +103,7 @@ public class NovelService {
         List<String> EpisodesIdentifier = scrappedEpisodes.stream().map(RawEpisodeContext::getIdentifier).toList();
         List<Episode> existingEpisodes = episodeService.findEpisodes(existingNovel.getId(), EpisodesIdentifier);
         Map<String, Episode> existingEpisodesMap = existingEpisodes.stream()
-            .collect(Collectors.toMap(Episode::getIdentifier, r -> r, (oldValue, newValue) -> oldValue));
+                .collect(Collectors.toMap(Episode::getIdentifier, r -> r, (oldValue, newValue) -> oldValue));
 
         // 번역이 필요한 유닛들.
         List<TranslationUnit> dirtyUnits = new ArrayList<>();
@@ -114,7 +114,7 @@ public class NovelService {
 
             // 번역이 필요한 데이터 수집.
             List<TranslationUnit> currentUnits =
-                Objects.isNull(existing) ? ctx.getAllUnit() : ctx.compareAndGetDirtyUnits(existing);
+                    Objects.isNull(existing) ? ctx.getAllUnit() : ctx.compareAndGetDirtyUnits(existing);
 
             // ja ruby 설정.
             currentUnits.forEach(unit -> unit.setJa(furiganaProcessor.convertToRuby(unit.getRawJa())));
@@ -128,8 +128,8 @@ public class NovelService {
 
             // Gemini 요청 - 한글 번역.
             this.translationExecutor.executeDirect(
-                dirtyUnits,
-                AiRuleType.NOVEL
+                    dirtyUnits,
+                    AiRuleType.NOVEL
             );
         }
 
@@ -137,15 +137,17 @@ public class NovelService {
         TransactionUtil.runAfterCompletion(() -> this.episodeSafeSaver.saveEpisodes(existingNovel, scrappedEpisodes));
 
         List<NovelResponseDto> episodes = scrappedEpisodes.stream()
-            .sorted(Comparator.comparingInt(RawEpisodeContext::getSequence))
-            .map(NovelResponseDto::of)
-            .toList();
+                .sorted(Comparator.comparingInt(RawEpisodeContext::getSequence))
+                .map(NovelResponseDto::of)
+                .toList();
 
         return new NovelPageResponseDto(
-            PageNumberResponseDto.of(scrappedNovelDetail.getPageNumberContext()),
-            TranslationUnit.of(existingNovel.getTitle(), existingNovel.getTitleJa(), existingNovel.getTitleKo()),
-            TranslationUnit.of(existingNovel.getAuthor().getName(), existingNovel.getAuthor().getNameJa(), existingNovel.getAuthor().getNameKo()),
-            TranslationUnit.of(existingNovel.getSynopsis(), existingNovel.getSynopsisJa(), existingNovel.getSynopsisKo()),
+                PageNumberResponseDto.of(scrappedNovelDetail.getPageNumberContext()),
+                TranslationUnit.of(existingNovel.getTitle(), existingNovel.getTitleJa(), existingNovel.getTitleKo()),
+                TranslationUnit.of(existingNovel.getAuthor().getName(), existingNovel.getAuthor().getNameJa(),
+                        existingNovel.getAuthor().getNameKo()),
+                TranslationUnit.of(existingNovel.getSynopsis(), existingNovel.getSynopsisJa(),
+                        existingNovel.getSynopsisKo()),
                 episodes);
     }
 
@@ -153,7 +155,7 @@ public class NovelService {
 
         // 번역 조각 선별.
         List<TranslationUnit> dirtyUnits = new ArrayList<>(
-            Objects.isNull(novel) ? ctx.getAllUnit() : ctx.compareAndGetDirtyUnits(novel));
+                Objects.isNull(novel) ? ctx.getAllUnit() : ctx.compareAndGetDirtyUnits(novel));
 
         // ja ruby 설정.
         dirtyUnits.forEach(unit -> unit.setJa(furiganaProcessor.convertToRuby(unit.getRawJa())));

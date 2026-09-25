@@ -97,11 +97,11 @@ public class ListeningRecommendationExplanationTransactionService {
                 || !request.requestId().equals(response.requestId())
                 || !request.targetMetric().equals(response.targetMetric())
                 || !request.recommendedActivity().equals(
-                        response.recommendedActivity()
-                )
+                response.recommendedActivity()
+        )
                 || !request.recommendedTask().equals(
-                        response.recommendedTask()
-                )
+                response.recommendedTask()
+        )
                 || response.explanation() == null
                 || response.explanation().isBlank()
                 || response.explanation().length() > 1000

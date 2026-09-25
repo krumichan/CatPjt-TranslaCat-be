@@ -1,8 +1,8 @@
 package jp.co.translacat.domain.chat.presence.scheduler;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import jp.co.translacat.domain.chat.presence.config.ChatPresenceProperties;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 
@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Keeps the 30-second logical ONLINE grace window after the last session disconnects.
- *
+ * <p>
  * A reconnect invalidates the pending token. The already scheduled Runnable may still
  * wake up, but it becomes a no-op when the token is no longer current.
  */

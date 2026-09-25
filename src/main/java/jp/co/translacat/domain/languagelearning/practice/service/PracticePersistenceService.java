@@ -1,16 +1,11 @@
 package jp.co.translacat.domain.languagelearning.practice.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PersonalizedVocabularyPlanDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingPassageBundleDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingSlotTargetDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeOptionDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.*;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
-import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDifficulty;
+import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeQuestion;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
@@ -30,11 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Stream;
 
 @Service
@@ -77,7 +68,7 @@ public class PracticePersistenceService {
         PracticeAvailabilityPolicy.requireGenerationAllowed(set.getDomain());
         if (set.getDomain() == PracticeDomain.READING && "STRUCTURE".equals(set.getMode())
                 && (set.getGenerationStatus() == PracticeGenerationStatus.PARTIAL
-                    || set.getGenerationStatus() == PracticeGenerationStatus.FAILED)) {
+                || set.getGenerationStatus() == PracticeGenerationStatus.FAILED)) {
             AiPracticeGenerationRequestDto original = storedRequest(set);
             int missing = firstMissingOrder(
                     questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(setId), set.getQuestionCount());
@@ -159,7 +150,7 @@ public class PracticePersistenceService {
         }
         if (original.domain() == PracticeDomain.READING && "STRUCTURE".equals(original.mode())
                 && PracticeAvailabilityPolicy.needsAnyNewB5Structure(
-                    original, readingSlotTargets(original), order)) {
+                original, readingSlotTargets(original), order)) {
             set.failGeneration(PracticeAvailabilityPolicy.B5_STRUCTURE_DEFERRED, !questions.isEmpty());
             return Optional.empty();
         }
@@ -264,7 +255,7 @@ public class PracticePersistenceService {
         if (firstMissingOrder(existing, set.getQuestionCount()) != claim.order()) return false;
         if (set.getDomain() == PracticeDomain.READING
                 && (claim.request().questionCount() == 2 || claim.request().questionCount() == 3
-                    || claim.request().readingBundles() != null)) {
+                || claim.request().readingBundles() != null)) {
             String passageId = claim.order() <= 3 ? "p1" : "p2";
             Map<String, ReadingPassageBundleDto> bundles = storedRequest(set).readingBundles();
             ReadingPassageBundleDto bundle = bundles == null ? null : bundles.get(passageId);
@@ -274,7 +265,7 @@ public class PracticePersistenceService {
                 int localIndex = claim.order() <= 3 ? claim.order() - 1 : claim.order() - 4;
                 if (localIndex >= bundle.questions().size()
                         || !withOrder(bundle.questions().get(localIndex), claim.order()).equals(
-                            withOrder(generated.questions().getFirst(), claim.order()))) {
+                        withOrder(generated.questions().getFirst(), claim.order()))) {
                     throw invalidAiResponse();
                 }
                 if (claim.request().questionCount() > 1) {
@@ -286,7 +277,7 @@ public class PracticePersistenceService {
             PersonalizedVocabularyPlanDto persistedPlan = storedRequest(set).vocabularyPlan();
             if (persistedPlan == null || generated.vocabularyPlan() == null
                     || (claim.request().vocabularyPlan() != null
-                        && !claim.request().vocabularyPlan().equals(persistedPlan))) {
+                    && !claim.request().vocabularyPlan().equals(persistedPlan))) {
                 throw invalidAiResponse();
             }
             PracticeGenerationWorker.validateContextualChoiceAcceptedPrefix(
@@ -359,7 +350,7 @@ public class PracticePersistenceService {
         int count = claim.request().questionCount();
         if (bundle.questions().size() != count || generated.questions().size() != count
                 || existing.stream().anyMatch(question ->
-                    question.getOrderNo() >= claim.order() && question.getOrderNo() < claim.order() + count)) {
+                question.getOrderNo() >= claim.order() && question.getOrderNo() < claim.order() + count)) {
             throw invalidAiResponse();
         }
         for (int index = 0; index < count; index++) {
@@ -439,8 +430,8 @@ public class PracticePersistenceService {
         boolean newReadingBundle = original.domain() == PracticeDomain.READING
                 && (order == 1 || order == 4)
                 && (original.readingBundles() == null
-                    || !original.readingBundles().containsKey(passageId)
-                    || replayStoredPassage);
+                || !original.readingBundles().containsKey(passageId)
+                || replayStoredPassage);
         int count = newReadingBundle ? (order == 1 ? 3 : 2) : 1;
         int easier = 0;
         int current = 0;
@@ -513,7 +504,15 @@ public class PracticePersistenceService {
         String[][] skills = switch (original.mode()) {
             case "COMPREHENSION" -> new String[][]{{"CONTENT", "DETAIL", "INFERENCE", "DETAIL", "INFERENCE"}};
             case "STRUCTURE" -> new String[][]{{"GIST", "STRUCTURE", "STRUCTURE", "GIST", "STRUCTURE"}};
-            case "CONTEXT_INFERENCE" -> new String[][]{{"CONTEXT_INFERENCE", "INFERENCE", "CONTEXT_INFERENCE", "INFERENCE", "CONTEXT_INFERENCE"}};
+            case "CONTEXT_INFERENCE" -> new String[][]{
+                    {
+                            "CONTEXT_INFERENCE",
+                            "INFERENCE",
+                            "CONTEXT_INFERENCE",
+                            "INFERENCE",
+                            "CONTEXT_INFERENCE"
+                    }
+            };
             default -> throw new IllegalArgumentException("Unsupported Reading mode");
         };
         var targets = new java.util.ArrayList<ReadingSlotTargetDto>();
@@ -572,12 +571,15 @@ public class PracticePersistenceService {
         return new PracticeGeneratedQuestionDto(
                 question.getOrderNo(), question.getQuestionType(), question.getDifficulty(),
                 question.getComplexityBand(), question.getPassageId(), question.getPassageText(), question.getPrompt(),
-                jsonCodec.read(question.getOptionsJson(), new TypeReference<List<PracticeOptionDto>>() {}),
-                jsonCodec.read(question.getCorrectAnswerJson(), new TypeReference<List<String>>() {}),
+                jsonCodec.read(question.getOptionsJson(), new TypeReference<List<PracticeOptionDto>>() {
+                }),
+                jsonCodec.read(question.getCorrectAnswerJson(), new TypeReference<List<String>>() {
+                }),
                 question.getSkillTag(), question.getEvidenceText(), question.getExplanationOrigin(),
                 question.getExplanationLearning(), question.getTargetExpression(), question.getCanonicalKey(),
                 question.isReviewTarget(),
-                jsonCodec.read(question.getVocabularyCandidatesJson(), new TypeReference<List<String>>() {})
+                jsonCodec.read(question.getVocabularyCandidatesJson(), new TypeReference<List<String>>() {
+                })
         );
     }
 
@@ -601,5 +603,6 @@ public class PracticePersistenceService {
             String token,
             int infrastructureRetryCount,
             AiPracticeGenerationRequestDto request
-    ) {}
+    ) {
+    }
 }

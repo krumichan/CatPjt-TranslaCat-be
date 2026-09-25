@@ -1,11 +1,7 @@
 package jp.co.translacat.domain.chat.notification.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
-import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationActivityItemResponseDto;
-import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationActivityListResponseDto;
-import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationActivityReadAllResponseDto;
-import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationChatListResponseDto;
-import jp.co.translacat.domain.chat.notification.dto.response.ChatNotificationSummaryResponseDto;
+import jp.co.translacat.domain.chat.notification.dto.response.*;
 import jp.co.translacat.domain.chat.notification.service.ChatNotificationActivityCommandService;
 import jp.co.translacat.domain.chat.notification.service.ChatNotificationQueryService;
 import jp.co.translacat.global.dto.ResponseDto;
@@ -13,12 +9,7 @@ import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/chat/notifications")

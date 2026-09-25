@@ -3,16 +3,16 @@ package jp.co.translacat.domain.languagelearning.practice.service;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
-import jp.co.translacat.domain.languagelearning.common.enums.ProfileSignalType;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeQuestionType;
+import jp.co.translacat.domain.languagelearning.common.enums.ProfileSignalType;
 import jp.co.translacat.domain.languagelearning.keyword.model.SelectedKeywordCandidate;
 import jp.co.translacat.domain.languagelearning.keyword.service.KeywordCandidateQueryService;
+import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeModeAvailabilityResponseDto;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeAttempt;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
-import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeModeAvailabilityResponseDto;
 import jp.co.translacat.domain.languagelearning.practice.entity.VocabularyMastery;
-import jp.co.translacat.domain.languagelearning.practice.policy.PracticeComplexityPolicy;
 import jp.co.translacat.domain.languagelearning.practice.policy.PracticeAvailabilityPolicy;
+import jp.co.translacat.domain.languagelearning.practice.policy.PracticeComplexityPolicy;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAttemptRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.VocabularyMasteryRepository;
@@ -26,13 +26,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor

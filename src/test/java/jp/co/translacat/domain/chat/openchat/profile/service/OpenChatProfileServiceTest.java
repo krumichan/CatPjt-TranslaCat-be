@@ -12,9 +12,9 @@ import jp.co.translacat.domain.chat.openchat.profile.entity.OpenChatMemberProfil
 import jp.co.translacat.domain.chat.openchat.profile.repository.OpenChatMemberProfileRepository;
 import jp.co.translacat.domain.chat.openchat.service.OpenChatAccessService;
 import jp.co.translacat.domain.chat.openchat.support.OpenChatProfileValidator;
-import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.chat.presence.service.ChatPresenceQueryService;
 import jp.co.translacat.domain.chat.presence.service.ChatPresenceVisibilityPolicy;
+import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.enums.Role;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,21 +31,27 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OpenChatProfileServiceTest {
 
-    @Mock private OpenChatAccessService accessService;
-    @Mock private ChatAiDisplayMemberService chatAiDisplayMemberService;
-    @Mock private OpenChatMemberProfileRepository profileRepository;
-    @Mock private OpenChatProfileResponseMapper responseMapper;
-    @Mock private OpenChatProfileValidator profileValidator;
-    @Mock private ApplicationEventPublisher eventPublisher;
-    @Mock private ChatPresenceQueryService chatPresenceQueryService;
-    @Mock private ChatPresenceVisibilityPolicy chatPresenceVisibilityPolicy;
+    @Mock
+    private OpenChatAccessService accessService;
+    @Mock
+    private ChatAiDisplayMemberService chatAiDisplayMemberService;
+    @Mock
+    private OpenChatMemberProfileRepository profileRepository;
+    @Mock
+    private OpenChatProfileResponseMapper responseMapper;
+    @Mock
+    private OpenChatProfileValidator profileValidator;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private ChatPresenceQueryService chatPresenceQueryService;
+    @Mock
+    private ChatPresenceVisibilityPolicy chatPresenceVisibilityPolicy;
 
     private OpenChatProfileService service;
     private ChatRoom chatRoom;
@@ -121,7 +127,6 @@ class OpenChatProfileServiceTest {
         assertThat(result.members()).containsExactly(mapped);
         verify(responseMapper).toResponse(profile, true);
     }
-
 
     @Test
     void privateAiRoomHidesHumanPresenceSnapshot() {

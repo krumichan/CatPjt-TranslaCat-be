@@ -12,15 +12,15 @@ import java.util.Optional;
 @Repository
 public interface RecentViewRepository extends JpaRepository<RecentView, Long> {
     Optional<RecentView> findByUserIdAndPlatformIdAndRecentViewTypeAndNovelIdAndEpisodeIdIsNull(
-        Long userId, Long platformId, RecentViewType recentViewType, String novelId
+            Long userId, Long platformId, RecentViewType recentViewType, String novelId
     );
 
     Optional<RecentView> findByUserIdAndPlatformIdAndRecentViewTypeAndNovelIdAndEpisodeId(
-        Long userId, Long platformId, RecentViewType recentViewType, String novelId, String episodeId
+            Long userId, Long platformId, RecentViewType recentViewType, String novelId, String episodeId
     );
 
     @EntityGraph(attributePaths = {"platform"})
     List<RecentView> findTop5ByUserIdAndRecentViewTypeOrderByViewedAtDesc(
-        Long userId, RecentViewType recentViewType
+            Long userId, RecentViewType recentViewType
     );
 }

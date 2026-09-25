@@ -213,7 +213,6 @@ public class SpeakingTurn extends BaseAuditable {
         );
     }
 
-
     public void renewUploadGrant(
             String uploadToken,
             LocalDateTime uploadExpiresAt

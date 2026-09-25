@@ -1,11 +1,11 @@
 package jp.co.translacat.domain.chat.notification.listener;
 
+import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.member.event.ChatRoomMemberInvitedApplicationEvent;
 import jp.co.translacat.domain.chat.notification.service.ChatNotificationActivityCreationService;
 import jp.co.translacat.domain.chat.openchat.event.OpenChatMemberBannedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.event.OpenChatMemberRoleUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.event.OpenChatRoomClosedApplicationEvent;
-import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;

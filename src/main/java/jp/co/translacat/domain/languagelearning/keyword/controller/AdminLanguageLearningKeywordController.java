@@ -6,20 +6,12 @@ import jp.co.translacat.domain.languagelearning.keyword.dto.response.KeywordResp
 import jp.co.translacat.domain.languagelearning.keyword.facade.LanguageLearningKeywordFacade;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
-import jp.co.translacat.global.utils.SecurityUtil;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
-
+import jp.co.translacat.global.utils.SecurityUtil;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -32,7 +24,8 @@ public class AdminLanguageLearningKeywordController {
     private final LanguageLearningKeywordFacade keywordFacade;
 
     @GetMapping
-    public ResponseDto<List<KeywordResponseDto>> getSystemKeywords(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+    public ResponseDto<List<KeywordResponseDto>> getSystemKeywords(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
         return ResponseUtil.ok(
                 keywordFacade.getSystemKeywordsForAdmin(SecurityUtil.getLoginUserId(userPrincipal))
         );

@@ -10,5 +10,6 @@ import java.util.Optional;
 @Repository
 public interface EpisodeRepository extends JpaRepository<Episode, Long> {
     Optional<Episode> findByNovelIdAndIdentifier(Long novelId, String identifier);
+
     List<Episode> findAllByNovelIdAndIdentifierInOrderByIdentifierAsc(Long novelId, List<String> identifiers);
 }

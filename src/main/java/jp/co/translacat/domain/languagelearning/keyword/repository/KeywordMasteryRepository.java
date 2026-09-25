@@ -9,5 +9,6 @@ import java.util.Optional;
 
 public interface KeywordMasteryRepository extends JpaRepository<KeywordMastery, Long> {
     Optional<KeywordMastery> findByUserIdAndCanonicalKey(Long userId, String canonicalKey);
+
     List<KeywordMastery> findAllByUserIdOrderByScoreAsc(Long userId);
 }

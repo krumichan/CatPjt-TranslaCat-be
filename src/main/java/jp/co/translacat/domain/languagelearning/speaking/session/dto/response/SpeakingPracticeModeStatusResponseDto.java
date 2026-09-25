@@ -2,8 +2,8 @@ package jp.co.translacat.domain.languagelearning.speaking.session.dto.response;
 
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
 
 public record SpeakingPracticeModeStatusResponseDto(
         SpeakingPracticeMode practiceMode,

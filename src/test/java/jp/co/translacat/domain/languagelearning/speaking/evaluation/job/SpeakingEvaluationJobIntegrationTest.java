@@ -78,12 +78,14 @@ import static org.mockito.Mockito.*;
  * Real H2, repositories, Spring transaction proxies and AFTER_COMMIT events; AI/provider is mocked.
  */
 @DataJpaTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:speaking-release-jobs;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=USER"})
+        "spring.datasource.url=jdbc:h2:mem:speaking-release-jobs;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=USER"
+})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-@Import({QueryDslConfig.class, SpeakingEvaluationJobIntegrationTest.JsonConfiguration.class,
+@Import({
+        QueryDslConfig.class, SpeakingEvaluationJobIntegrationTest.JsonConfiguration.class,
         LanguageLearningJsonCodec.class, SpeakingEvaluationJobCommandService.class,
         SpeakingEvaluationJobQueryService.class, SpeakingEvaluationJobQueueService.class,
         SpeakingEvaluationJobEventListener.class, SpeakingEvaluationJobWorker.class,
@@ -91,7 +93,8 @@ import static org.mockito.Mockito.*;
         SpeakingEvaluationEligibilityPolicy.class, SpeakingAiUsageCommandService.class,
         SpeakingCoachingResultService.class,
         SpeakingSessionQueryService.class, SpeakingEvaluationRetryCommandService.class,
-        SpeakingReadAloudProblemEvaluationService.class, SpeakingSessionLifecycleService.class})
+        SpeakingReadAloudProblemEvaluationService.class, SpeakingSessionLifecycleService.class
+})
 class SpeakingEvaluationJobIntegrationTest {
     @Autowired
     PlatformTransactionManager transactions;
@@ -159,7 +162,8 @@ class SpeakingEvaluationJobIntegrationTest {
     private Seed seed(String fixture, int problemIndex) {
         return tx.execute(status -> {
             String uid = UUID.randomUUID().toString().replace("-", "");
-            User user = users.save(User.createLocalUser(uid + "@release.test", "pw", "release", Role.USER, uid.substring(0, 20)));
+            User user = users.save(
+                    User.createLocalUser(uid + "@release.test", "pw", "release", Role.USER, uid.substring(0, 20)));
             SpeakingSession session = session(user);
             if (problemIndex > 0)
                 ReflectionTestUtils.setField(session, "practiceMode", SpeakingPracticeMode.READ_ALOUD);
@@ -261,7 +265,8 @@ class SpeakingEvaluationJobIntegrationTest {
 
         assertThat(jobStatus(seed)).isEqualTo(SpeakingEvaluationJob.Status.SUCCEEDED);
         assertThat(coachingResults.findBySessionId(seed.key().sessionId()))
-                .get().extracting(SpeakingCoachingResult::getResultPolicyVersion, SpeakingCoachingResult::getContentStatus)
+                .get()
+                .extracting(SpeakingCoachingResult::getResultPolicyVersion, SpeakingCoachingResult::getContentStatus)
                 .containsExactly("free-session-coaching-v1", "NO_USABLE_EVIDENCE");
         assertThat(evaluations.findFirstBySessionIdOrderByEvaluatedAtDesc(seed.key().sessionId())).isEmpty();
         assertThat(metrics.findAll()).isEmpty();
@@ -328,7 +333,8 @@ class SpeakingEvaluationJobIntegrationTest {
         long metricsBefore = metrics.count();
         long historyBefore = history.count();
         when(aiClient.evaluate(claim.request())).thenReturn(response("evaluated"));
-        doThrow(new IllegalStateException("profile write failed")).when(profile).apply(eq(seed.userId()), anyList(), anyDouble());
+        doThrow(new IllegalStateException("profile write failed")).when(profile)
+                .apply(eq(seed.userId()), anyList(), anyDouble());
         worker.execute(claim);
         assertThat(evaluations.findFirstBySessionIdOrderByEvaluatedAtDesc(seed.key().sessionId())).isEmpty();
         assertThat(metrics.count()).isEqualTo(metricsBefore);
@@ -378,7 +384,8 @@ class SpeakingEvaluationJobIntegrationTest {
         assertThat(next.manualRetryAttempt()).isEqualTo(1);
         assertThat(next.request().userTurns()).isEqualTo(request("evaluated").userTurns());
         command.fail(next);
-        assertThatThrownBy(() -> retry.retry(seed.userId(), seed.key().sessionId())).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> retry.retry(seed.userId(), seed.key().sessionId())).isInstanceOf(
+                BusinessException.class);
     }
 
     @Test
@@ -428,7 +435,9 @@ class SpeakingEvaluationJobIntegrationTest {
             var second = pool.submit(task);
             assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
             go.countDown();
-            assertThat((first.get(10, TimeUnit.SECONDS) ? 1 : 0) + (second.get(10, TimeUnit.SECONDS) ? 1 : 0)).isEqualTo(1);
+            assertThat(
+                    (first.get(10, TimeUnit.SECONDS) ? 1 : 0) + (second.get(10, TimeUnit.SECONDS) ? 1 : 0)).isEqualTo(
+                    1);
         }
     }
 

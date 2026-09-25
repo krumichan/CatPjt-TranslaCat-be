@@ -29,21 +29,25 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatMessageQueryServiceOpenChatTest {
 
-    @Mock private ChatMessageRepository messageRepository;
-    @Mock private ChatMessageTranslationRepository translationRepository;
-    @Mock private ChatRoomMemberQueryService memberQueryService;
-    @Mock private ChatMessageSenderProfileService ordinaryProfileService;
-    @Mock private ChatMessageUnreadMemberCountRepository unreadRepository;
-    @Mock private OpenChatMessageProfileService openProfileService;
-    @Mock private OpenChatAccessService openChatAccessService;
+    @Mock
+    private ChatMessageRepository messageRepository;
+    @Mock
+    private ChatMessageTranslationRepository translationRepository;
+    @Mock
+    private ChatRoomMemberQueryService memberQueryService;
+    @Mock
+    private ChatMessageSenderProfileService ordinaryProfileService;
+    @Mock
+    private ChatMessageUnreadMemberCountRepository unreadRepository;
+    @Mock
+    private OpenChatMessageProfileService openProfileService;
+    @Mock
+    private OpenChatAccessService openChatAccessService;
 
     private ChatMessageQueryService service;
     private ChatRoom room;

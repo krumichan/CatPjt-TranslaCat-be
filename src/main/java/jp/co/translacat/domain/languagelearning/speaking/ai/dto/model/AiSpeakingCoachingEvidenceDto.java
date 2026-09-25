@@ -12,4 +12,5 @@ public record AiSpeakingCoachingEvidenceDto(
         List<AiSpeakingAssistanceUsageDto> assistanceUsage,
         String sourceProvenance,
         boolean verbatimAccuracyVerified
-) { }
+) {
+}

@@ -1,10 +1,10 @@
 package jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.dto;
 
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvidenceMetadata;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.entity.SpeakingReadAloudProblemEvaluation;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvidenceMetadata;
 
 public record SpeakingReadAloudProblemEvaluationResponseDto(
         int problemIndex,
@@ -42,7 +42,8 @@ public record SpeakingReadAloudProblemEvaluationResponseDto(
                 entity.getEvaluatedAt(),
                 entity.getManualRetryCount(),
                 entity.getManualRetryLimit(),
-                evidence.evaluatedAxes(), evidence.evaluationCoverage(), evidence.evidencePolicyVersion(), evidence.evidenceSource()
+                evidence.evaluatedAxes(), evidence.evaluationCoverage(), evidence.evidencePolicyVersion(),
+                evidence.evidenceSource()
         );
     }
 }

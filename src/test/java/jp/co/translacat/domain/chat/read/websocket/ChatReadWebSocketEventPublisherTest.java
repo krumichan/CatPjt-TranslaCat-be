@@ -101,6 +101,7 @@ class ChatReadWebSocketEventPublisherTest {
         assertThat(payload.lastReadMessageId())
                 .isEqualTo(100L);
     }
+
     @Test
     void publishesOpenMemberReadEventWithoutGlobalUserId() {
         LocalDateTime readAt = LocalDateTime.now();

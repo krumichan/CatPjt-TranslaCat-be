@@ -1,17 +1,15 @@
 package jp.co.translacat.domain.languagelearning.speaking.evaluation.service;
 
+import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.dto.response.SpeakingEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.dto.response.SpeakingMetricResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.entity.SpeakingEvaluation;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvidenceMetadata;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.repository.SpeakingEvaluationMetricRepository;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.repository.SpeakingEvaluationRepository;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvidenceMetadata;
 
 @Service
 @RequiredArgsConstructor
@@ -67,7 +65,8 @@ public class SpeakingEvaluationQueryService {
                 evaluation.getScoringPolicyVersion(),
                 evaluation.getPromptVersion(),
                 evaluation.getEvaluatedAt(),
-                evidence.evaluatedAxes(), evidence.evaluationCoverage(), evidence.evidencePolicyVersion(), evidence.evidenceSource()
+                evidence.evaluatedAxes(), evidence.evaluationCoverage(), evidence.evidencePolicyVersion(),
+                evidence.evidenceSource()
         );
     }
 }

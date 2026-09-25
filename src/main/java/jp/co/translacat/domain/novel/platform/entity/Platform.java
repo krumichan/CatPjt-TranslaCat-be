@@ -2,8 +2,8 @@ package jp.co.translacat.domain.novel.platform.entity;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
-import jp.co.translacat.global.jpa.BaseAuditable;
 import jp.co.translacat.domain.common.enums.PlatformCode;
+import jp.co.translacat.global.jpa.BaseAuditable;
 import lombok.Getter;
 
 import java.util.ArrayList;

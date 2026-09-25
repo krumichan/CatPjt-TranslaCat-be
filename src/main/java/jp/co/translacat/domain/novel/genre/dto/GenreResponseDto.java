@@ -14,7 +14,8 @@ public class GenreResponseDto {
     @Schema(description = "장르 식별 ID", example = "_101")
     private String identifier;
 
-    @Schema(description = "장르의 일어명", example = "<ruby>異世界<rt>いせかい</rt></ruby>〔<ruby>恋愛<rt>れんあい</rt></ruby>〕")
+    @Schema(description = "장르의 일어명",
+            example = "<ruby>異世界<rt>いせかい</rt></ruby>〔<ruby>恋愛<rt>れんあい</rt></ruby>〕")
     private String nameJa;
 
     @Schema(description = "장르의 한글명", example = "이세계〔연애〕")

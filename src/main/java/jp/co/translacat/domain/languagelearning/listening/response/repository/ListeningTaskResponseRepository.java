@@ -27,7 +27,6 @@ public interface ListeningTaskResponseRepository
             Long attemptId, ListeningTaskType taskType
     );
 
-
     Optional<ListeningTaskResponse> findByAttemptIdAndTaskType(
             Long attemptId,
             ListeningTaskType taskType

@@ -10,7 +10,8 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class ReadingPassageExpressionPolicyTest {
     private final LanguageLearningJsonCodec codec = new LanguageLearningJsonCodec(new ObjectMapper());
@@ -38,7 +39,8 @@ class ReadingPassageExpressionPolicyTest {
         assertThat(ReadingPassageExpressionPolicy.completedPassages(questions,
                 q -> Set.of(1, 2, 3).contains(q.getOrderNo()))).containsExactly("p1");
         assertThat(ReadingPassageExpressionPolicy.completedPassages(questions.subList(0, 2), q -> true)).isEmpty();
-        assertThat(ReadingPassageExpressionPolicy.completedPassages(questions, q -> true)).containsExactlyInAnyOrder("p1", "p2");
+        assertThat(ReadingPassageExpressionPolicy.completedPassages(questions, q -> true)).containsExactlyInAnyOrder(
+                "p1", "p2");
     }
 
     private PracticeQuestion question(int order) {

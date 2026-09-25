@@ -1,13 +1,16 @@
 package jp.co.translacat.infrastructure.languagelearning.gateway;
 
-import jp.co.translacat.domain.languagelearning.level.port.LevelTestGateway;
-import jp.co.translacat.domain.languagelearning.level.dto.request.*;
+import jp.co.translacat.domain.languagelearning.level.dto.request.LevelAnswerRequestDto;
+import jp.co.translacat.domain.languagelearning.level.dto.request.LevelTestStartRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.*;
-import jp.co.translacat.domain.languagelearning.level.model.*;
-import jp.co.translacat.domain.user.repository.UserRepository;
-import jp.co.translacat.infrastructure.languagelearning.client.*;
-import jp.co.translacat.global.exception.BusinessException;
+import jp.co.translacat.domain.languagelearning.level.model.LevelCompletionSnapshot;
+import jp.co.translacat.domain.languagelearning.level.model.LevelTestAudioData;
+import jp.co.translacat.domain.languagelearning.level.port.LevelTestGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
+import jp.co.translacat.domain.user.repository.UserRepository;
+import jp.co.translacat.global.exception.BusinessException;
+import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningLevelTestClient;
+import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningServiceException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;

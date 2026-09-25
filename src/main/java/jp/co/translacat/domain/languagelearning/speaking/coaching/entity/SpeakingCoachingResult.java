@@ -16,7 +16,8 @@ import java.util.Objects;
         uniqueConstraints = @UniqueConstraint(name = "uk_ll_speaking_coaching_session", columnNames = "session_id"),
         indexes = @Index(name = "idx_ll_speaking_coaching_policy", columnList = "result_policy_version,id"))
 public class SpeakingCoachingResult extends BaseAuditable {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "session_id", nullable = false, updatable = false)
@@ -29,13 +30,16 @@ public class SpeakingCoachingResult extends BaseAuditable {
     private String sourceSnapshotHash;
     @Column(name = "content_status", nullable = false, length = 40)
     private String contentStatus;
-    @Lob @Column(name = "limitation_reasons_json", nullable = false, columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "limitation_reasons_json", nullable = false, columnDefinition = "TEXT")
     private String limitationReasonsJson;
-    @Lob @Column(name = "items_json", nullable = false, columnDefinition = "LONGTEXT")
+    @Lob
+    @Column(name = "items_json", nullable = false, columnDefinition = "LONGTEXT")
     private String itemsJson;
     @Column(name = "prompt_version", nullable = false, length = 100)
     private String promptVersion;
-    @Lob @Column(name = "usage_json", nullable = false, columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "usage_json", nullable = false, columnDefinition = "TEXT")
     private String usageJson;
 
     public static SpeakingCoachingResult create(

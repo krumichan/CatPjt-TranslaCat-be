@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.languagelearning.practice.service;
 
-import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.common.enums.ProfileSignalType;
 import jp.co.translacat.domain.languagelearning.keyword.service.KeywordCandidateQueryService;
@@ -33,24 +33,32 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PracticeGenerationServiceTest {
-    @Mock private PracticeSetRepository setRepository;
-    @Mock private PracticePersistenceService persistenceService;
-    @Mock private PracticeComplexityPolicy complexityPolicy;
-    @Mock private UserSettingsGateway settingQueryService;
-    @Mock private LearningProfileCommandService profileCommandService;
-    @Mock private LearningProfileSignalService profileSignalService;
-    @Mock private KeywordCandidateQueryService keywordCandidateQueryService;
-    @Mock private VocabularyMasteryRepository masteryRepository;
-    @Mock private PracticeAttemptRepository attemptRepository;
-    @Mock private UserSettingsSnapshot setting;
-    @Mock private PracticeSet set;
+    @Mock
+    private PracticeSetRepository setRepository;
+    @Mock
+    private PracticePersistenceService persistenceService;
+    @Mock
+    private PracticeComplexityPolicy complexityPolicy;
+    @Mock
+    private UserSettingsGateway settingQueryService;
+    @Mock
+    private LearningProfileCommandService profileCommandService;
+    @Mock
+    private LearningProfileSignalService profileSignalService;
+    @Mock
+    private KeywordCandidateQueryService keywordCandidateQueryService;
+    @Mock
+    private VocabularyMasteryRepository masteryRepository;
+    @Mock
+    private PracticeAttemptRepository attemptRepository;
+    @Mock
+    private UserSettingsSnapshot setting;
+    @Mock
+    private PracticeSet set;
 
     private PracticeGenerationService service;
 

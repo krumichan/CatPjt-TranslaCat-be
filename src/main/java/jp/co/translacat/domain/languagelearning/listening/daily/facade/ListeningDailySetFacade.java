@@ -8,12 +8,9 @@ import jp.co.translacat.domain.languagelearning.listening.daily.service.Listenin
 import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningGenerationRetryCommandService;
 import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningTtsRetryCommandService;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
-
-import lombok.RequiredArgsConstructor;
-
-import org.springframework.stereotype.Service;
-
 import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 

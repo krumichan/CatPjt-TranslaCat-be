@@ -1,33 +1,31 @@
 package jp.co.translacat.domain.languagelearning.listening.daily.service;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
 import jp.co.translacat.domain.languagelearning.listening.audio.service.ListeningAudioKeyFactory;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
-import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningGenerationCommand;
 import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningDurationPolicy;
+import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningGenerationCommand;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
+import jp.co.translacat.domain.languagelearning.listening.outbox.repository.ListeningOutboxEventRepository;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxTransactionService;
-import jp.co.translacat.domain.languagelearning.listening.outbox.repository.ListeningOutboxEventRepository;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxStatus;
 import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
 import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
-
 import lombok.RequiredArgsConstructor;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.LockModeType;
-
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Set;
 
 @Service
@@ -59,7 +57,7 @@ public class ListeningTtsTransactionService {
         var demand = metadata != null && metadata.durationDemand() != null
                 ? metadata.durationDemand()
                 : ListeningDurationPolicy.effective(item.getDailySet().getDifficulty(),
-                        1.0, (double) policy.getReferenceAudioMaxSeconds());
+                1.0, (double) policy.getReferenceAudioMaxSeconds());
         String requestId = "be-listening-tts-" + event.id();
         // The source item owns its synthesis identity. Older pending items lack
         // this snapshot and require an explicit migration; never silently turn

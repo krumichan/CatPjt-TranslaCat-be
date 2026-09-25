@@ -3,11 +3,6 @@ package jp.co.translacat.domain.novel.ranking.novel.service;
 import jakarta.persistence.EntityNotFoundException;
 import jp.co.translacat.domain.common.enums.PlatformCode;
 import jp.co.translacat.domain.common.enums.PlatformUrlType;
-import jp.co.translacat.global.utils.TransactionUtil;
-import jp.co.translacat.infrastructure.client.ai.TranslationExecutor;
-import jp.co.translacat.infrastructure.client.ai.common.TranslationType;
-import jp.co.translacat.infrastructure.client.ai.server.AiRuleType;
-import jp.co.translacat.infrastructure.japanese.FuriganaProcessor;
 import jp.co.translacat.domain.novel.novel.entity.Novel;
 import jp.co.translacat.domain.novel.novel.model.NovelContext;
 import jp.co.translacat.domain.novel.novel.service.NovelSafeSaver;
@@ -19,6 +14,11 @@ import jp.co.translacat.domain.novel.ranking.novel.dto.NovelRankingPageResponseD
 import jp.co.translacat.domain.novel.ranking.novel.dto.NovelRankingPeriodResponseDto;
 import jp.co.translacat.domain.novel.ranking.novel.model.NovelRankingContext;
 import jp.co.translacat.domain.novel.translation.model.TranslationUnit;
+import jp.co.translacat.global.utils.TransactionUtil;
+import jp.co.translacat.infrastructure.client.ai.TranslationExecutor;
+import jp.co.translacat.infrastructure.client.ai.common.TranslationType;
+import jp.co.translacat.infrastructure.client.ai.server.AiRuleType;
+import jp.co.translacat.infrastructure.japanese.FuriganaProcessor;
 import jp.co.translacat.infrastructure.scraping.common.strategy.NovelRankingStrategy;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -48,14 +48,14 @@ public class NovelRankingService {
 
     private Optional<NovelRankingStrategy> strategy(PlatformCode platformCode) {
         return strategies.stream()
-            .filter(s -> s.getPlatformCode() == platformCode)
-            .findFirst();
+                .filter(s -> s.getPlatformCode() == platformCode)
+                .findFirst();
     }
 
     public List<NovelRankingPeriodResponseDto> periods(PlatformCode platformCode) {
         return this.strategy(platformCode)
-            .map(NovelRankingStrategy::getPeriods)
-            .orElseThrow(() -> new EntityNotFoundException("지원하지 않는 플랫폼입니다: " + platformCode));
+                .map(NovelRankingStrategy::getPeriods)
+                .orElseThrow(() -> new EntityNotFoundException("지원하지 않는 플랫폼입니다: " + platformCode));
     }
 
     @Transactional
@@ -89,7 +89,7 @@ public class NovelRankingService {
 
             // 번역 필요 데이터 수집.
             List<TranslationUnit> currentUnits =
-                Objects.isNull(existing) ? ctx.getAllUnit() : ctx.compareAndGetDirtyUnits(existing);
+                    Objects.isNull(existing) ? ctx.getAllUnit() : ctx.compareAndGetDirtyUnits(existing);
 
             // ja ruby 설정.
             currentUnits.forEach(unit -> unit.setJa(furiganaProcessor.convertToRuby(unit.getRawJa())));
@@ -103,9 +103,9 @@ public class NovelRankingService {
 
             // Gemini 요청 - 한글 번역.
             this.translationExecutor.execute(
-                dirtyUnits,
-                AiRuleType.RANK,
-                TranslationType.AI_SERVER
+                    dirtyUnits,
+                    AiRuleType.RANK,
+                    TranslationType.AI_SERVER
             );
         }
 

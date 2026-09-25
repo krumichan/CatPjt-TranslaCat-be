@@ -9,16 +9,19 @@ import jp.co.translacat.global.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
 import java.util.List;
-import static org.assertj.core.api.Assertions.*;
+
 import static jp.co.translacat.domain.languagelearning.speaking.evaluation.release.SpeakingReleaseFixtures.*;
+import static org.assertj.core.api.Assertions.*;
 
 class SpeakingEvidencePolicyTest {
     private final LanguageLearningJsonCodec codec = new LanguageLearningJsonCodec(JSON);
     private final SpeakingEvaluationResponseValidator validator = new SpeakingEvaluationResponseValidator();
 
     @ParameterizedTest
-    @ValueSource(strings = {"evaluated", "precheck-insufficient", "model-insufficient", "read-aloud-script-observation"})
+    @ValueSource(
+            strings = {"evaluated", "precheck-insufficient", "model-insufficient", "read-aloud-script-observation"})
     void actualNewAiServiceV2FixturesAreAcceptedWithoutRewritingLegacy(String name) throws Exception {
         try (var stream = getClass().getResourceAsStream("/speaking-release-v2/" + name + ".json")) {
             var fixture = JSON.readTree(stream);
@@ -44,11 +47,14 @@ class SpeakingEvidencePolicyTest {
             var metric = (ObjectNode) item;
             String type = metric.get("type").asText();
             if (List.of("PRONUNCIATION", "FLUENCY").contains(type)) {
-                metric.put("state", "NOT_EVALUABLE"); metric.putNull("score");
-                metric.putArray("evidence"); metric.put("notEvaluableReason", "NO_ACOUSTIC_SCORER");
+                metric.put("state", "NOT_EVALUABLE");
+                metric.putNull("score");
+                metric.putArray("evidence");
+                metric.put("notEvaluableReason", "NO_ACOUSTIC_SCORER");
             } else axes.add(type);
         }
-        value.putArray("profileSignals"); value.putArray("pronunciationPractice");
+        value.putArray("profileSignals");
+        value.putArray("pronunciationPractice");
         return value;
     }
 
@@ -75,7 +81,8 @@ class SpeakingEvidencePolicyTest {
             assertThat(restored.evidencePolicyVersion()).isNull();
             assertThat(restored.evaluationCoverage()).isNull();
         }
-        assertThatCode(() -> validator.validate(response("evaluated"), request("evaluated"))).doesNotThrowAnyException();
+        assertThatCode(
+                () -> validator.validate(response("evaluated"), request("evaluated"))).doesNotThrowAnyException();
     }
 
     @Test
@@ -91,9 +98,10 @@ class SpeakingEvidencePolicyTest {
     @ValueSource(strings = {"PRONUNCIATION", "FLUENCY"})
     void v2RejectsUnsupportedAcousticScore(String type) throws Exception {
         var node = textOnly();
-        for (var item : node.get("metrics")) if (item.get("type").asText().equals(type)) {
-            ((ObjectNode) item).put("state", "EVALUATED").put("score", 90);
-        }
+        for (var item : node.get("metrics"))
+            if (item.get("type").asText().equals(type)) {
+                ((ObjectNode) item).put("state", "EVALUATED").put("score", 90);
+            }
         var value = JSON.treeToValue(node, AiSpeakingEvaluationResponseDto.class);
         assertThatThrownBy(() -> validator.validate(value, request("evaluated"))).isInstanceOf(BusinessException.class);
     }

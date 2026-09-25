@@ -1,30 +1,24 @@
 package jp.co.translacat.domain.languagelearning.listening.evaluation.service;
 
-import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
-import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
 import jp.co.translacat.domain.languagelearning.activity.service.LearningActivityCommandService;
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskStatus;
+import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
+import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.*;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.entity.ListeningTaskEvaluation;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.repository.ListeningTaskEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
-import jp.co.translacat.domain.languagelearning.listening.policy.ListeningProgressPolicy;
-import jp.co.translacat.domain.languagelearning.listening.policy.ListeningIndependencePolicy;
 import jp.co.translacat.domain.languagelearning.listening.playback.repository.ListeningPlaybackEventRepository;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningPlaybackType;
-import jp.co.translacat.domain.languagelearning.listening.profile.repository.ListeningMetricHistoryRepository;
-import jp.co.translacat.domain.languagelearning.listening.profile.entity.ListeningMetricHistory;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningProfileMetric;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceLevel;
+import jp.co.translacat.domain.languagelearning.listening.policy.ListeningIndependencePolicy;
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningProfilePolicy;
+import jp.co.translacat.domain.languagelearning.listening.policy.ListeningProgressPolicy;
+import jp.co.translacat.domain.languagelearning.listening.profile.entity.ListeningMetricHistory;
+import jp.co.translacat.domain.languagelearning.listening.profile.repository.ListeningMetricHistoryRepository;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
 import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
 import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionLockService;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,8 +67,8 @@ public class ListeningAttemptFinalizationCommandService {
 
         if (selected.isEmpty()
                 || selected.stream().anyMatch(value -> !TERMINAL.contains(
-                        value.getStatus()
-                ))) {
+                value.getStatus()
+        ))) {
             return false;
         }
 
@@ -87,9 +81,9 @@ public class ListeningAttemptFinalizationCommandService {
         Double average = evaluated.isEmpty()
                 ? null
                 : evaluated.stream()
-                        .mapToDouble(ListeningTaskEvaluation::getScore)
-                        .average()
-                        .orElse(0);
+                .mapToDouble(ListeningTaskEvaluation::getScore)
+                .average()
+                .orElse(0);
         String evaluationVersion = evaluations.stream()
                 .map(ListeningTaskEvaluation::getEvaluationVersion)
                 .filter(value -> value != null && !value.isBlank())
@@ -209,7 +203,7 @@ public class ListeningAttemptFinalizationCommandService {
                     .map(value -> value.getItem().getItemIndex()).toList())
                     && official.stream().allMatch(ListeningItemAttempt::isFinalized)
                     && (session.isActive() || session.getStatus()
-                        == jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus.EVALUATING)) {
+                    == jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus.EVALUATING)) {
                 session.complete(now);
             }
         }

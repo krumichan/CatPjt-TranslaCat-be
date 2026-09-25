@@ -171,7 +171,7 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
 
                     boolean currentMonth =
                             Integer.valueOf(currentYearMonth.getYear()).equals(year) &&
-                            Integer.valueOf(currentYearMonth.getMonthValue()).equals(month);
+                                    Integer.valueOf(currentYearMonth.getMonthValue()).equals(month);
 
                     return AccountBookTransactionMonthResponseDto.of(
                             year,

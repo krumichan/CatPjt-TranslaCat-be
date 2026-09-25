@@ -1,20 +1,6 @@
 package jp.co.translacat.domain.languagelearning.listening.dto;
 
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceLevel;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceType;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAttemptStatus;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDailySetStatus;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDifficulty;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvaluationPurpose;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningLearningMode;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningProfileMetric;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningPlaybackType;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningRecommendationStatus;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskStatus;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningWeaknessState;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

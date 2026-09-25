@@ -1,8 +1,8 @@
 package jp.co.translacat.domain.languagelearning.speaking.evaluation.job.entity;
 
 import jakarta.persistence.*;
-import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
+import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.global.jpa.BaseAuditable;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -13,7 +13,9 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
-/** A durable evaluation intent. Problem 0 is the session aggregate; 1..5 are Read Aloud. */
+/**
+ * A durable evaluation intent. Problem 0 is the session aggregate; 1..5 are Read Aloud.
+ */
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -22,24 +24,28 @@ import java.util.UUID;
                 columnNames = {"session_id", "problem_index"}),
         indexes = @Index(name = "idx_ll_speaking_job_due", columnList = "status,available_at,id"))
 public class SpeakingEvaluationJob extends BaseAuditable {
-    public enum Status { PENDING, RUNNING, SUCCEEDED, FAILED }
+    public enum Status {PENDING, RUNNING, SUCCEEDED, FAILED}
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "session_id", nullable = false, updatable = false)
     private SpeakingSession session;
     @Column(name = "problem_index", nullable = false, updatable = false)
     private int problemIndex;
-    @Enumerated(EnumType.STRING) @Column(name = "result_kind", nullable = false, length = 40)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "result_kind", nullable = false, length = 40)
     private SpeakingResultKind resultKind;
     @Column(name = "result_policy_version", nullable = false, length = 100)
     private String resultPolicyVersion;
     @Column(name = "source_snapshot_hash", length = 128)
     private String sourceSnapshotHash;
-    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
     private Status status;
-    @Lob @Column(name = "request_json", nullable = false, columnDefinition = "LONGTEXT")
+    @Lob
+    @Column(name = "request_json", nullable = false, columnDefinition = "LONGTEXT")
     private String requestJson;
     @Column(name = "claim_token", length = 36)
     private String claimToken;
@@ -53,14 +59,14 @@ public class SpeakingEvaluationJob extends BaseAuditable {
     private String lastError;
 
     public static SpeakingEvaluationJob pending(SpeakingSession session, int problemIndex,
-                                                 String requestJson, LocalDateTime now) {
+                                                String requestJson, LocalDateTime now) {
         return pending(session, problemIndex, SpeakingResultKind.SCORED_EVALUATION,
                 "speaking-evaluation-policy-v2", null, requestJson, now);
     }
 
     public static SpeakingEvaluationJob pending(SpeakingSession session, int problemIndex,
-                                                 SpeakingResultKind resultKind, String resultPolicyVersion,
-                                                 String sourceSnapshotHash, String requestJson, LocalDateTime now) {
+                                                SpeakingResultKind resultKind, String resultPolicyVersion,
+                                                String sourceSnapshotHash, String requestJson, LocalDateTime now) {
         if (problemIndex < 0 || problemIndex > 5) throw new IllegalArgumentException("Invalid problem index");
         SpeakingEvaluationJob job = new SpeakingEvaluationJob();
         job.session = Objects.requireNonNull(session);
@@ -78,7 +84,9 @@ public class SpeakingEvaluationJob extends BaseAuditable {
         return (status == Status.PENDING || status == Status.RUNNING) && !availableAt.isAfter(now);
     }
 
-    /** Must be called under the session -> job database locks. A stale worker loses its token. */
+    /**
+     * Must be called under the session -> job database locks. A stale worker loses its token.
+     */
     public String claim(LocalDateTime now, Duration lease, int maxRecoveries) {
         if (!isDue(now)) return null;
         if (lease.isNegative() || lease.isZero()) throw new IllegalArgumentException("Positive lease required");

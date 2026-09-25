@@ -36,7 +36,6 @@ public class ChatRoomMemberRepositoryImpl
         return Optional.ofNullable(result);
     }
 
-
     @Override
     public Optional<ChatRoomMember> findActiveByIdAndRoomIdForUpdate(
             Long memberId,

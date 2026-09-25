@@ -21,11 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -111,9 +107,9 @@ public class OpenChatRoomQueryService {
                 .toList();
 
         Long nextCursorId = hasNext && !pageRooms.isEmpty()
-                ? pageRooms.get(pageRooms.size() - 1)
-                        .getChatRoom()
-                        .getId()
+                ? pageRooms.getLast()
+                .getChatRoom()
+                .getId()
                 : null;
 
         return OpenChatRoomListResponseDto.of(
@@ -243,7 +239,6 @@ public class OpenChatRoomQueryService {
                 aiSummary
         );
     }
-
 
     private Map<Long, ChatAiRoomSummaryResponseDto> resolveAiSummaries(
             List<Long> roomIds

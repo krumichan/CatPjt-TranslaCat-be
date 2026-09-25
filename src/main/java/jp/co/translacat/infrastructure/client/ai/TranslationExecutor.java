@@ -30,7 +30,8 @@ public class TranslationExecutor {
         return this.execute(batch, rule, type, null);
     }
 
-    public <T extends Translatable> List<T> execute(List<T> batch, AiRuleType rule, TranslationType type, Comparator<T> comparator) {
+    public <T extends Translatable> List<T> execute(List<T> batch, AiRuleType rule, TranslationType type,
+                                                    Comparator<T> comparator) {
         log.info("Request to translate to AI Server.");
         log.info("Targets: {}", batch);
 

@@ -21,8 +21,10 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class OpenChatWebSocketEventListenerTest {
 
-    @Mock private ChatWebSocketEventPublisher publisher;
-    @Mock private OpenChatProfileImageUrlResolver imageUrlResolver;
+    @Mock
+    private ChatWebSocketEventPublisher publisher;
+    @Mock
+    private OpenChatProfileImageUrlResolver imageUrlResolver;
 
     private OpenChatWebSocketEventListener listener;
 
@@ -101,7 +103,6 @@ class OpenChatWebSocketEventListenerTest {
                 occurredAt
         );
     }
-
 
     @Test
     void publishesRoleUpdatedPayload() {

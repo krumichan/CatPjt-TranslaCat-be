@@ -11,4 +11,5 @@ public record AccountBookRankingChartResponseDto(
         Integer year,
         Integer month,
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal totalAmount,
-        List<AccountBookRankingChartItemResponseDto> items) {}
+        List<AccountBookRankingChartItemResponseDto> items) {
+}

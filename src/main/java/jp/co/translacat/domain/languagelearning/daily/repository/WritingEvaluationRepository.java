@@ -14,7 +14,6 @@ public interface WritingEvaluationRepository extends JpaRepository<WritingEvalua
 
     Optional<WritingEvaluation> findByAnswerId(Long answerId);
 
-
     List<WritingEvaluation> findTop20ByUserIdAndContextAndStatusOrderByEvaluatedAtDesc(
             Long userId,
             WritingEvaluationContext context,

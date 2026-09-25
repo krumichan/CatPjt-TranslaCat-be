@@ -4,8 +4,8 @@ import jp.co.translacat.domain.chat.language.dto.ChatLanguageSettingResult;
 import jp.co.translacat.domain.chat.language.service.ChatLanguageSettingResolver;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
-import jp.co.translacat.domain.chat.presence.service.ChatPresenceQueryService;
 import jp.co.translacat.domain.chat.openchat.repository.OpenChatRoomRepository;
+import jp.co.translacat.domain.chat.presence.service.ChatPresenceQueryService;
 import jp.co.translacat.domain.chat.read.repository.ChatUnreadCountRepository;
 import jp.co.translacat.domain.chat.room.dto.response.ChatRoomResponseDto;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
@@ -31,20 +31,33 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ChatRoomQueryServicePresenceTest {
 
-    @Mock private ChatRoomRepository chatRoomRepository;
-    @Mock private ChatRoomMemberRepository chatRoomMemberRepository;
-    @Mock private OpenChatRoomRepository openChatRoomRepository;
-    @Mock private ChatLanguageSettingResolver chatLanguageSettingResolver;
-    @Mock private UserProfileRepository userProfileRepository;
-    @Mock private UserProfileImageUrlResolver imageUrlResolver;
-    @Mock private ChatUnreadCountRepository chatUnreadCountRepository;
-    @Mock private ChatPresenceQueryService chatPresenceQueryService;
+    @Mock
+    private ChatRoomRepository chatRoomRepository;
+    @Mock
+    private ChatRoomMemberRepository chatRoomMemberRepository;
+    @Mock
+    private OpenChatRoomRepository openChatRoomRepository;
+    @Mock
+    private ChatLanguageSettingResolver chatLanguageSettingResolver;
+    @Mock
+    private UserProfileRepository userProfileRepository;
+    @Mock
+    private UserProfileImageUrlResolver imageUrlResolver;
+    @Mock
+    private ChatUnreadCountRepository chatUnreadCountRepository;
+    @Mock
+    private ChatPresenceQueryService chatPresenceQueryService;
 
-    @Mock private ChatRoom room;
-    @Mock private ChatRoomMember loginMember;
-    @Mock private ChatRoomMember partnerMember;
-    @Mock private User loginUser;
-    @Mock private User partnerUser;
+    @Mock
+    private ChatRoom room;
+    @Mock
+    private ChatRoomMember loginMember;
+    @Mock
+    private ChatRoomMember partnerMember;
+    @Mock
+    private User loginUser;
+    @Mock
+    private User partnerUser;
 
     private ChatRoomQueryService service;
 

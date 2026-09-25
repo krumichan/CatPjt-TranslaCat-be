@@ -1,8 +1,8 @@
 package jp.co.translacat.domain.chat.openchat.profile.entity;
 
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
-import jp.co.translacat.domain.chat.openchat.enums.OpenChatVisibility;
 import jp.co.translacat.domain.chat.openchat.entity.OpenChatRoom;
+import jp.co.translacat.domain.chat.openchat.enums.OpenChatVisibility;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.enums.Role;

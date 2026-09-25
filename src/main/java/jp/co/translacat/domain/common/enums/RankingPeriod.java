@@ -4,7 +4,9 @@ import jp.co.translacat.domain.novel.ranking.novel.dto.NovelRankingPeriodRespons
 
 public interface RankingPeriod {
     String getCode();
+
     String getLabel();
+
     String getUrlParam();
 
     default NovelRankingPeriodResponseDto toResponseDto() {

@@ -3,18 +3,21 @@ package jp.co.translacat.domain.novel.episode.entity;
 import jakarta.persistence.*;
 import jp.co.translacat.global.jpa.BaseAuditable;
 import jp.co.translacat.global.utils.ValidationUtil;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
 @Table(
-    name = "episode_content",
-    uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"episode_id", "sequence"})
-    },
-    indexes = {
-        @Index(columnList = "episode_id")
-})
+        name = "episode_content",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"episode_id", "sequence"})
+        },
+        indexes = {
+                @Index(columnList = "episode_id")
+        })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class EpisodeContent extends BaseAuditable {
 
@@ -47,14 +50,15 @@ public class EpisodeContent extends BaseAuditable {
     @Column(columnDefinition = "TEXT")
     private String contentKo;
 
-    public static EpisodeContent create(Episode episode, int sequence, String content, String contentJa, String contentKo) {
+    public static EpisodeContent create(Episode episode, int sequence, String content, String contentJa,
+                                        String contentKo) {
         return EpisodeContent.builder()
-            .episode(episode)
-            .sequence(sequence)
-            .content(content)
-            .contentJa(contentJa)
-            .contentKo(contentKo)
-            .build();
+                .episode(episode)
+                .sequence(sequence)
+                .content(content)
+                .contentJa(contentJa)
+                .contentKo(contentKo)
+                .build();
     }
 
     public void updateContentJa(String contentJa) {
@@ -68,7 +72,9 @@ public class EpisodeContent extends BaseAuditable {
         }
 
         // 2. 한국어 번역본이 없으면 번역 필요
-        if (!this.getContent().trim().isEmpty() && (this.getContentKo() == null || this.getContentKo().trim().isEmpty())) {
+        if (!this.getContent().trim().isEmpty() && (this.getContentKo() == null || this.getContentKo()
+                .trim()
+                .isEmpty())) {
             return true;
         }
 

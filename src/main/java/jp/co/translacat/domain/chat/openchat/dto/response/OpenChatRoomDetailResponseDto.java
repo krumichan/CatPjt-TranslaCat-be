@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.chat.openchat.dto.response;
 
-import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.ai.dto.response.ChatAiRoomSummaryResponseDto;
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.openchat.enums.OpenChatJoinBlockedReason;
 import jp.co.translacat.domain.chat.openchat.enums.OpenChatRoomStatus;

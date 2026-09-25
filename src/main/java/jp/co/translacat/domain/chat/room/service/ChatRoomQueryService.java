@@ -5,8 +5,8 @@ import jp.co.translacat.domain.chat.language.service.ChatLanguageSettingResolver
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.openchat.repository.OpenChatRoomRepository;
-import jp.co.translacat.domain.chat.read.repository.ChatUnreadCountRepository;
 import jp.co.translacat.domain.chat.presence.service.ChatPresenceQueryService;
+import jp.co.translacat.domain.chat.read.repository.ChatUnreadCountRepository;
 import jp.co.translacat.domain.chat.room.dto.response.ChatRoomListItemResponseDto;
 import jp.co.translacat.domain.chat.room.dto.response.ChatRoomListResponseDto;
 import jp.co.translacat.domain.chat.room.dto.response.ChatRoomResponseDto;
@@ -24,11 +24,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -67,8 +63,8 @@ public class ChatRoomQueryService {
                 .filter(chatRoom ->
                         chatRoom.getRoomType() != ChatRoomType.OPEN
                                 || activeOpenRoomIds.contains(
-                                        chatRoom.getId()
-                                ))
+                                chatRoom.getId()
+                        ))
                 .sorted(Comparator.comparing(
                         ChatRoom::getUpdatedAt
                 ).reversed())
@@ -161,7 +157,6 @@ public class ChatRoomQueryService {
                 directPartner
         );
     }
-
 
     private Map<Long, List<ChatRoomMember>> findMembersByRoomId(
             List<Long> chatRoomIds

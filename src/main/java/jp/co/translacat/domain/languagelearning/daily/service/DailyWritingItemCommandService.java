@@ -10,19 +10,11 @@ import jp.co.translacat.domain.languagelearning.quality.common.LanguageLearningC
 import jp.co.translacat.domain.languagelearning.quality.service.GenerationFingerprintCommandService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Deque;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -68,8 +60,8 @@ public class DailyWritingItemCommandService {
 
         Map<DailyWritingDifficulty, Deque<DailyWritingGeneratedItemDto>>
                 generatedByDifficulty = new EnumMap<>(
-                        DailyWritingDifficulty.class
-                );
+                DailyWritingDifficulty.class
+        );
         List<DailyWritingGeneratedItemDto> sortedGenerated =
                 new ArrayList<>(generatedItems);
         sortedGenerated.sort(Comparator.comparingInt(

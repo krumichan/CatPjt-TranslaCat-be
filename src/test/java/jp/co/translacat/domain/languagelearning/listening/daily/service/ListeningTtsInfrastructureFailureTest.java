@@ -14,7 +14,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import java.time.Duration;
 import java.util.Map;
 
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 class ListeningTtsInfrastructureFailureTest {

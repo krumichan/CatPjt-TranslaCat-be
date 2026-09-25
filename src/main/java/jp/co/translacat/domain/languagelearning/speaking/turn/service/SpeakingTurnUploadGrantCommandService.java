@@ -1,22 +1,20 @@
 package jp.co.translacat.domain.languagelearning.speaking.turn.service;
 
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.repository.SpeakingReadAloudProblemEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionPolicySnapshot;
+import jp.co.translacat.domain.languagelearning.speaking.session.policy.SpeakingSessionPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionLifecycleService;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionPolicySnapshotService;
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionQueryService;
-import jp.co.translacat.domain.languagelearning.speaking.session.policy.SpeakingSessionPolicy;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.repository.SpeakingReadAloudProblemEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.turn.dto.request.SpeakingTurnUploadGrantRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.turn.dto.response.SpeakingTurnUploadGrantResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import jp.co.translacat.domain.languagelearning.speaking.turn.repository.SpeakingTurnRepository;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,9 +57,9 @@ public class SpeakingTurnUploadGrantCommandService {
         }
 
         return turnRepository.findBySessionIdAndIdempotencyKey(
-                sessionId,
-                request.idempotencyKey()
-        ).map(this::toResponse)
+                        sessionId,
+                        request.idempotencyKey()
+                ).map(this::toResponse)
                 .orElseGet(() -> createNew(session, request));
     }
 
@@ -110,8 +108,8 @@ public class SpeakingTurnUploadGrantCommandService {
         }
         int expected = session.getPracticeMode() == SpeakingPracticeMode.READ_ALOUD
                 ? turnRepository.findFirstBySessionIdOrderByTurnIndexDesc(
-                        session.getId()
-                ).map(turn -> turn.getTurnIndex() + 1).orElse(1)
+                session.getId()
+        ).map(turn -> turn.getTurnIndex() + 1).orElse(1)
                 : session.getCompletedTurns() + 1;
         if (request.turnIndex() != expected
                 || request.turnIndex() > session.getMaxTurns()) {
@@ -161,9 +159,9 @@ public class SpeakingTurnUploadGrantCommandService {
                 ));
         if (turn.getProblemIndex() != null
                 && readAloudEvaluationRepository.findBySessionIdAndProblemIndex(
-                        sessionId,
-                        turn.getProblemIndex()
-                ).isPresent()) {
+                sessionId,
+                turn.getProblemIndex()
+        ).isPresent()) {
             throw new BusinessException(
                     "평가를 요청한 문제의 발화는 재녹음할 수 없습니다.",
                     LanguageLearningErrorCode.TURN_PROCESSING

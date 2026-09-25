@@ -9,7 +9,7 @@ import java.util.Objects;
 
 /**
  * SortUtility 클래스
- *
+ * <p>
  * Spring Data JPA에서 사용하는 Sort 객체를 생성하는 유틸리티 클래스입니다.
  * Order 객체 리스트를 받아 Sort로 변환하며, 기본 정렬 컬럼과 방향도 제공합니다.
  */

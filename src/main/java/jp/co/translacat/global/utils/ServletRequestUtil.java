@@ -10,7 +10,7 @@ import java.util.Optional;
 
 /**
  * ServletRequestUtility 클래스
- *
+ * <p>
  * 현재 서블릿 요청(HttpServletRequest)과 관련된 정보를 가져오는 유틸리티 클래스입니다.
  * Spring Web 환경에서 RequestContextHolder를 사용하여 현재 요청을 가져옵니다.
  */
@@ -45,9 +45,7 @@ public class ServletRequestUtil {
      * 현재 요청의 RequestContextVo 가져오기
      *
      * @return RequestContextVo 객체, 없으면 null
-     *
-     * @implNote
-     * RequestContextVo는 요청마다 세팅되는 커스텀 컨텍스트 정보로,
+     * @implNote RequestContextVo는 요청마다 세팅되는 커스텀 컨텍스트 정보로,
      * 서블릿 request attribute "_REQUEST_CONTEXT_VO"에 저장되어 있어야 합니다.
      */
     public RequestContextDto getServletRequestContextVo() {

@@ -17,7 +17,8 @@ import static org.mockito.Mockito.verify;
 @ExtendWith(MockitoExtension.class)
 class ChatWebSocketEventPublisherOpenChatBanTest {
 
-    @Mock private SimpMessagingTemplate messagingTemplate;
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
 
     @Test
     void publishesBanEventToRoomAndTargetUserPrivateQueue() {

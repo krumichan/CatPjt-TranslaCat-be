@@ -20,7 +20,8 @@ class DailyWritingGenerationCommandServiceTest {
     private final DailySetClaimCommandService claims = mock(DailySetClaimCommandService.class);
     private final DailyWritingGenerationContextService contexts = mock(DailyWritingGenerationContextService.class);
     private final DailyWritingSnapshotService snapshots = mock(DailyWritingSnapshotService.class);
-    private final DailyWritingGenerationStateCommandService state = mock(DailyWritingGenerationStateCommandService.class);
+    private final DailyWritingGenerationStateCommandService state =
+            mock(DailyWritingGenerationStateCommandService.class);
     private final DailyWritingGenerationRecoveryService recovery = mock(DailyWritingGenerationRecoveryService.class);
     private final DailyWritingCompletionCommandService completion = mock(DailyWritingCompletionCommandService.class);
     private final DailyWritingGenerationCommandService service =

@@ -34,7 +34,7 @@ public class SpeakingAudioSignatureValidator {
         if (startsWith(bytes, "OggS".getBytes(StandardCharsets.US_ASCII))) {
             return AudioFormat.OGG;
         }
-        if (startsWith(bytes, new byte[] {
+        if (startsWith(bytes, new byte[]{
                 0x1A,
                 0x45,
                 (byte) 0xDF,

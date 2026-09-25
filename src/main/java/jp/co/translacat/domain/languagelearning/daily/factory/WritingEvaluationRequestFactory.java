@@ -68,7 +68,6 @@ public class WritingEvaluationRequestFactory {
         );
     }
 
-
     private List<String> readGuidance(String json) {
         if (json == null || json.isBlank()) {
             return List.of();
@@ -145,7 +144,7 @@ public class WritingEvaluationRequestFactory {
 
         return keyword.canonicalKey() != null
                 && usedKeywords.contains(
-                        keyword.canonicalKey().toLowerCase(Locale.ROOT)
-                );
+                keyword.canonicalKey().toLowerCase(Locale.ROOT)
+        );
     }
 }

@@ -10,9 +10,9 @@ import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberProfileRes
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberResponseDto;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
-import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.chat.presence.service.ChatPresenceQueryService;
 import jp.co.translacat.domain.chat.presence.service.ChatPresenceVisibilityPolicy;
+import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.user.block.service.UserBlockService;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.friend.request.repository.FriendRequestRepository;
@@ -22,9 +22,7 @@ import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
 import jp.co.translacat.domain.user.search.enums.UserSearchFriendStatus;
 import jp.co.translacat.domain.user.search.service.UserFriendStatusResolver;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,11 +62,11 @@ public class ChatRoomMemberQueryService {
         Map<Long, Boolean> onlineByUserId =
                 chatPresenceVisibilityPolicy.isVisible(chatRoomId)
                         ? chatPresenceQueryService.resolveOnlineByUserIds(
-                                activeMembers.stream()
-                                        .map(ChatRoomMember::getUser)
-                                        .map(User::getId)
-                                        .toList()
-                        )
+                        activeMembers.stream()
+                                .map(ChatRoomMember::getUser)
+                                .map(User::getId)
+                                .toList()
+                )
                         : Map.of();
 
         List<ChatRoomMemberResponseDto> members = activeMembers.stream()

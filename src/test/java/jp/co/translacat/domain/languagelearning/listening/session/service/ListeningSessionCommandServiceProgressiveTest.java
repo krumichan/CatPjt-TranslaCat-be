@@ -1,7 +1,6 @@
 package jp.co.translacat.domain.languagelearning.listening.session.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
 import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
@@ -13,6 +12,7 @@ import jp.co.translacat.domain.languagelearning.listening.daily.entity.Listening
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
 import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningDailySetQueryService;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
+import jp.co.translacat.domain.languagelearning.listening.outbox.service.SettingsSelectionOutboxService;
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningIdempotencyPolicy;
 import jp.co.translacat.domain.languagelearning.listening.policy.ListeningTaskSelectionPolicy;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
@@ -21,10 +21,8 @@ import jp.co.translacat.domain.languagelearning.listening.session.entity.Listeni
 import jp.co.translacat.domain.languagelearning.listening.session.repository.ListeningSessionRepository;
 import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
 import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
-import jp.co.translacat.domain.languagelearning.listening.outbox.service.SettingsSelectionOutboxService;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.exception.BusinessException;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -38,11 +36,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class ListeningSessionCommandServiceProgressiveTest {
 

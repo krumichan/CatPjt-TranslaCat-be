@@ -16,17 +16,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatAiTriggerProcessorTest {
 
-    @Mock private ChatAiTriggerPlanner planner;
-    @Mock private ChatAiReplyClient replyClient;
-    @Mock private ChatAiMessageCommandService messageCommandService;
-    @Mock private ChatAiResponseDelayService responseDelayService;
+    @Mock
+    private ChatAiTriggerPlanner planner;
+    @Mock
+    private ChatAiReplyClient replyClient;
+    @Mock
+    private ChatAiMessageCommandService messageCommandService;
+    @Mock
+    private ChatAiResponseDelayService responseDelayService;
 
     private ChatAiTriggerProcessor processor;
     private ChatAiResponsePlan plan;

@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.chat.ai.dto.response;
 
-import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiMember;
+import jp.co.translacat.domain.chat.common.json.ChatUtcTimestamp;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 
 import java.time.LocalDateTime;

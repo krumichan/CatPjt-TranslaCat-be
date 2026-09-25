@@ -77,8 +77,6 @@ public class SpeakingSessionPolicy {
         validateCustomTopic(request.customTopic());
     }
 
-
-
     public int resolveMaxTurns(
             SpeakingPracticeMode practiceMode,
             int configuredMaxTurns

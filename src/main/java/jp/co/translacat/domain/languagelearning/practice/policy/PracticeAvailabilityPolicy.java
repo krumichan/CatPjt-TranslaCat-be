@@ -7,7 +7,9 @@ import jp.co.translacat.global.exception.BusinessException;
 
 import java.util.List;
 
-/** Reading-first product policy. Historical Vocabulary data/contracts remain readable. */
+/**
+ * Reading-first product policy. Historical Vocabulary data/contracts remain readable.
+ */
 public final class PracticeAvailabilityPolicy {
     public static final String POLICY_VERSION = "reading-first-v1";
     public static final String VOCABULARY_RETIRED = "DAILY_VOCABULARY_RETIRED";
@@ -29,7 +31,9 @@ public final class PracticeAvailabilityPolicy {
         }
     }
 
-    /** Only a new B5 STRUCTURE passage is deferred; verified private bundles remain publishable. */
+    /**
+     * Only a new B5 STRUCTURE passage is deferred; verified private bundles remain publishable.
+     */
     public static boolean needsNewB5Structure(
             AiPracticeGenerationRequestDto request, List<ReadingSlotTargetDto> targets, int order
     ) {

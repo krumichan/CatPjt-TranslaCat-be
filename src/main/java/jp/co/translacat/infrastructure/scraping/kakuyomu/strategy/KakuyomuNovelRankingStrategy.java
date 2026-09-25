@@ -27,8 +27,8 @@ public class KakuyomuNovelRankingStrategy implements NovelRankingStrategy {
     @Override
     public List<NovelRankingPeriodResponseDto> getPeriods() {
         return Stream.of(KakuyomuRankingPeriod.values())
-            .map(RankingPeriod::toResponseDto)
-            .toList();
+                .map(RankingPeriod::toResponseDto)
+                .toList();
     }
 
     @Override

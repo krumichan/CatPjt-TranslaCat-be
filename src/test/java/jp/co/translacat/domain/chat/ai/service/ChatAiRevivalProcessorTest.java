@@ -23,9 +23,12 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ChatAiRevivalProcessorTest {
 
-    @Mock private ChatAiRevivalClaimService claimService;
-    @Mock private ChatAiTriggerPlanner triggerPlanner;
-    @Mock private ChatAiTriggerProcessor triggerProcessor;
+    @Mock
+    private ChatAiRevivalClaimService claimService;
+    @Mock
+    private ChatAiTriggerPlanner triggerPlanner;
+    @Mock
+    private ChatAiTriggerProcessor triggerProcessor;
 
     private ChatAiRevivalProcessor processor;
     private ChatAiRevivalClaim claim;

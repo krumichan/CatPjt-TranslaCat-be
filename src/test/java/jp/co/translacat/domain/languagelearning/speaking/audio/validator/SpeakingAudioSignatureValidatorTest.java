@@ -16,7 +16,7 @@ class SpeakingAudioSignatureValidatorTest {
 
     @Test
     void acceptsWebmSignatureForWebmContentType() {
-        byte[] webm = new byte[] {
+        byte[] webm = new byte[]{
                 0x1A,
                 0x45,
                 (byte) 0xDF,
@@ -39,7 +39,7 @@ class SpeakingAudioSignatureValidatorTest {
 
     @Test
     void acceptsMp4SignatureForM4aContentType() {
-        byte[] mp4 = new byte[] {
+        byte[] mp4 = new byte[]{
                 0x00,
                 0x00,
                 0x00,
@@ -58,10 +58,9 @@ class SpeakingAudioSignatureValidatorTest {
                 .doesNotThrowAnyException();
     }
 
-
     @Test
     void acceptsAacAdtsSignatureForAacContentType() {
-        byte[] aac = new byte[] {
+        byte[] aac = new byte[]{
                 (byte) 0xFF,
                 (byte) 0xF1,
                 0x50,

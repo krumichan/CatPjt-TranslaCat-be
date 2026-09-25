@@ -8,7 +8,6 @@ import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingSet;
 import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingItemRepository;
 import jp.co.translacat.domain.languagelearning.quality.service.GenerationFingerprintCommandService;
 import jp.co.translacat.domain.user.entity.User;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,22 +16,27 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DailyWritingItemCommandServiceRegenerationTest {
 
-    @Mock private DailyWritingItemRepository itemRepository;
-    @Mock private LanguageLearningJsonCodec jsonCodec;
-    @Mock private GenerationFingerprintCommandService fingerprintCommandService;
-    @Mock private DailyWritingItem normalItem;
-    @Mock private DailyWritingItem reviewItem;
-    @Mock private DailyWritingSet dailySet;
-    @Mock private User user;
+    @Mock
+    private DailyWritingItemRepository itemRepository;
+    @Mock
+    private LanguageLearningJsonCodec jsonCodec;
+    @Mock
+    private GenerationFingerprintCommandService fingerprintCommandService;
+    @Mock
+    private DailyWritingItem normalItem;
+    @Mock
+    private DailyWritingItem reviewItem;
+    @Mock
+    private DailyWritingSet dailySet;
+    @Mock
+    private User user;
 
     private DailyWritingItemCommandService service;
 

@@ -1,10 +1,10 @@
 package jp.co.translacat.domain.chat.presence.listener;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import jp.co.translacat.domain.chat.presence.service.ChatPresenceSessionLifecycleService;
 import jp.co.translacat.global.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.security.core.Authentication;

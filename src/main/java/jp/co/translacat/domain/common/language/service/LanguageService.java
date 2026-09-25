@@ -14,6 +14,6 @@ public class LanguageService {
 
     public List<RespLanguageDto> languages() {
         return this.languageRepository.findAll()
-            .stream().map(RespLanguageDto::of).toList();
+                .stream().map(RespLanguageDto::of).toList();
     }
 }

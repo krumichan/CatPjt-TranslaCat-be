@@ -23,16 +23,17 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OpenChatAccessServiceTest {
 
-    @Mock private ChatRoomMemberRepository memberRepository;
-    @Mock private OpenChatRoomRepository openChatRoomRepository;
-    @Mock private OpenChatBanRepository banRepository;
+    @Mock
+    private ChatRoomMemberRepository memberRepository;
+    @Mock
+    private OpenChatRoomRepository openChatRoomRepository;
+    @Mock
+    private OpenChatBanRepository banRepository;
 
     private OpenChatAccessService service;
     private ChatRoom openRoomEntity;
@@ -116,7 +117,6 @@ class OpenChatAccessServiceTest {
         assertThat(service.getActiveOpenMember(10L, 100L))
                 .isSameAs(openMember);
     }
-
 
     @Test
     void rejectsBannedUserBeforeMemberLookup() {

@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.languagelearning.listening.report.service;
 
-import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskStatus;
+import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.report.entity.ListeningEvaluationReport;
 import jp.co.translacat.domain.languagelearning.listening.report.repository.ListeningEvaluationReportRepository;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
@@ -9,9 +9,7 @@ import jp.co.translacat.domain.languagelearning.listening.response.repository.Li
 import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -91,7 +89,7 @@ public class ListeningEvaluationReportCommandService {
                     || response.getAudioDeletedAt() != null
                     || (response.getAudioRetentionUntil() != null
                     && response.getAudioRetentionUntil()
-                            .isBefore(now))) {
+                    .isBefore(now))) {
                 throw new BusinessException(
                         "신고 Audio의 보관 기간이 만료되었습니다.",
                         LanguageLearningErrorCode.LISTENING_REPORT_AUDIO_EXPIRED

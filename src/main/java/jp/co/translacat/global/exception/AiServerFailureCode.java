@@ -1,6 +1,8 @@
 package jp.co.translacat.global.exception;
 
-/** Safe, bounded classifications for AI server transport and protocol failures. */
+/**
+ * Safe, bounded classifications for AI server transport and protocol failures.
+ */
 public enum AiServerFailureCode {
     CIRCUIT_OPEN(true),
     CONNECT_FAILURE(true),

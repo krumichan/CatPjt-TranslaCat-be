@@ -3,23 +3,16 @@ package jp.co.translacat.domain.languagelearning.practice.service;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PersonalizedVocabularyPlanDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeOptionDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingPassageBundleDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingQuestionPlanDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingSlotTargetDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.VocabularyPlanItemDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.*;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.port.LanguageLearningAiClient;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDifficulty;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeQuestionType;
-import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.global.exception.AiServerCommunicationException;
 import jp.co.translacat.global.exception.AiServerFailureCode;
+import jp.co.translacat.global.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,11 +21,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 import static jp.co.translacat.domain.languagelearning.practice.service.PracticePersistenceServiceTest.*;
@@ -42,8 +35,10 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PracticeGenerationWorkerTest {
-    @Mock private PracticePersistenceService persistence;
-    @Mock private LanguageLearningAiClient aiClient;
+    @Mock
+    private PracticePersistenceService persistence;
+    @Mock
+    private LanguageLearningAiClient aiClient;
     private PracticeGenerationWorker worker;
 
     @BeforeEach
@@ -85,7 +80,9 @@ class PracticeGenerationWorkerTest {
         verify(persistence, never()).persistVocabularyPlan(any(), any());
     }
 
-    /** Existing legacy pipeline assertions are offline replay, not production availability. */
+    /**
+     * Existing legacy pipeline assertions are offline replay, not production availability.
+     */
     private void legacyReplayGenerateClaim(PracticePersistenceService.GenerationClaim claim) {
         org.assertj.core.api.Assertions.assertThat(claim.request().domain()).isEqualTo(PracticeDomain.VOCABULARY);
         org.assertj.core.api.Assertions.assertThat(persistence.claim(12L, null, null, 3).orElseThrow())
@@ -378,7 +375,9 @@ class PracticeGenerationWorkerTest {
     @Test
     void busyExecutorLeavesDurableWorkPendingForNextTick() {
         worker = new PracticeGenerationWorker(persistence, aiClient,
-                task -> { throw new java.util.concurrent.RejectedExecutionException(); },
+                task -> {
+                    throw new java.util.concurrent.RejectedExecutionException();
+                },
                 1800, 3, 10, 120);
         when(persistence.pendingIds(any(), any())).thenReturn(List.of(12L));
         worker.dispatch();

@@ -3,11 +3,11 @@ package jp.co.translacat.domain.novel.platform.service;
 import jakarta.persistence.EntityNotFoundException;
 import jp.co.translacat.domain.common.enums.PlatformCode;
 import jp.co.translacat.domain.common.enums.PlatformUrlType;
-import jp.co.translacat.domain.novel.platform.repository.PlatformRepository;
-import jp.co.translacat.domain.novel.platform.repository.PlatformUrlTemplateRepository;
 import jp.co.translacat.domain.novel.platform.dto.PlatformResponseDto;
 import jp.co.translacat.domain.novel.platform.entity.Platform;
 import jp.co.translacat.domain.novel.platform.entity.PlatformUrlTemplate;
+import jp.co.translacat.domain.novel.platform.repository.PlatformRepository;
+import jp.co.translacat.domain.novel.platform.repository.PlatformUrlTemplateRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,7 +33,7 @@ public class PlatformService {
 
     public Platform getPlatformByCode(PlatformCode code) {
         return this.findPlatformByCode(code)
-            .orElseThrow(() -> new EntityNotFoundException("해당 플랫폼을 찾을 수 없습니다: " + code));
+                .orElseThrow(() -> new EntityNotFoundException("해당 플랫폼을 찾을 수 없습니다: " + code));
     }
 
     public Optional<PlatformUrlTemplate> findUrlTemplate(Long platformId, PlatformUrlType urlType) {
@@ -42,6 +42,7 @@ public class PlatformService {
 
     public PlatformUrlTemplate getUrlTemplate(Long platformId, PlatformUrlType urlType) {
         return this.findUrlTemplate(platformId, urlType)
-                .orElseThrow(() -> new EntityNotFoundException("해당 타입의 URL을 찾을 수 없습니다: " + platformId + ", " + urlType));
+                .orElseThrow(
+                        () -> new EntityNotFoundException("해당 타입의 URL을 찾을 수 없습니다: " + platformId + ", " + urlType));
     }
 }

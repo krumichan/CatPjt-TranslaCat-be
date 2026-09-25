@@ -13,17 +13,14 @@ public interface ChatMessageTranslationRepository extends JpaRepository<ChatMess
 
     Optional<ChatMessageTranslation> findByIdAndDeletedAtIsNull(Long id);
 
-
     Optional<ChatMessageTranslation> findByChatMessageIdAndLanguageCodeAndDeletedAtIsNull(
             Long chatMessageId,
             String languageCode
     );
 
-
     List<ChatMessageTranslation> findByChatMessageIdInAndDeletedAtIsNull(
             Collection<Long> chatMessageIds
     );
-
 
     List<ChatMessageTranslation> findByStatusAndDeletedAtIsNullOrderByIdAsc(
             ChatMessageTranslationStatus status,

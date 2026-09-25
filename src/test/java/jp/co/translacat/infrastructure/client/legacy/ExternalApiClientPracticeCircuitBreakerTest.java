@@ -11,9 +11,9 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -30,8 +30,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ExternalApiClientPracticeCircuitBreakerTest {
     private static final AtomicInteger EXCHANGES = new AtomicInteger();
 
-    @Autowired private ExternalApiClient client;
-    @Autowired private CircuitBreakerRegistry circuitBreakers;
+    @Autowired
+    private ExternalApiClient client;
+    @Autowired
+    private CircuitBreakerRegistry circuitBreakers;
 
     @BeforeEach
     void resetBreakers() {

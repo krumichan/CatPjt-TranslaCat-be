@@ -9,7 +9,6 @@ import java.util.List;
 public interface EvaluationMetricHistoryRepository
         extends JpaRepository<EvaluationMetricHistory, Long> {
 
-
     List<EvaluationMetricHistory> findAllByActivityUserIdAndActivityLearningDateBetween(
             Long userId,
             java.time.LocalDate from,

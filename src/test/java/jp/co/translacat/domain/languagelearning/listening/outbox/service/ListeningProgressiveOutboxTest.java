@@ -1,7 +1,9 @@
 package jp.co.translacat.domain.languagelearning.listening.outbox.service;
 
-import jp.co.translacat.domain.languagelearning.listening.common.enums.*;
-import jp.co.translacat.domain.languagelearning.listening.daily.service.*;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxStatus;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
+import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningGenerationWorker;
+import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningTtsWorker;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.service.ListeningEvaluationWorker;
 import jp.co.translacat.domain.languagelearning.listening.outbox.entity.ListeningOutboxEvent;
 import jp.co.translacat.domain.languagelearning.listening.outbox.repository.ListeningOutboxEventRepository;
@@ -10,8 +12,13 @@ import jp.co.translacat.domain.languagelearning.listening.recommendation.service
 import org.junit.jupiter.api.Test;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
-import java.time.*;
-import java.util.*;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -86,7 +93,9 @@ class ListeningProgressiveOutboxTest {
     @Test
     void saturatedGenerationLaneDoesNotClaimOrBlockAudioLane() {
         var transactions = mock(ListeningOutboxTransactionService.class);
-        TaskExecutor full = task -> { throw new TaskRejectedException("busy"); };
+        TaskExecutor full = task -> {
+            throw new TaskRejectedException("busy");
+        };
         List<Runnable> audioTasks = new ArrayList<>();
         var dispatcher = dispatcher(transactions, mock(ListeningGenerationWorker.class),
                 mock(ListeningTtsWorker.class), full, audioTasks::add);

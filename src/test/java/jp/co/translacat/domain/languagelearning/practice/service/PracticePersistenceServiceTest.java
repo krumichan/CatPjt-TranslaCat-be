@@ -3,12 +3,7 @@ package jp.co.translacat.domain.languagelearning.practice.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeOptionDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeReviewTargetDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingPassageBundleDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PersonalizedVocabularyPlanDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.VocabularyPlanItemDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.*;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDifficulty;
@@ -36,9 +31,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.ArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -47,11 +42,16 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PracticePersistenceServiceTest {
-    @Mock private PracticeSetRepository setRepository;
-    @Mock private PracticeQuestionRepository questionRepository;
-    @Mock private UserRepository userRepository;
-    @Mock private VocabularyMasteryRepository masteryRepository;
-    @Mock private User user;
+    @Mock
+    private PracticeSetRepository setRepository;
+    @Mock
+    private PracticeQuestionRepository questionRepository;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private VocabularyMasteryRepository masteryRepository;
+    @Mock
+    private User user;
 
     private final ObjectMapper objectMapper = new ObjectMapper()
             .findAndRegisterModules()
@@ -226,7 +226,8 @@ class PracticePersistenceServiceTest {
         var stale = new PracticePersistenceService.GenerationClaim(12L, 1, "old-owned-token", 0,
                 PracticePersistenceService.itemRequest(contextualChoiceRequest(), 1, List.of(), "old-owned-token"));
         assertThat(service.persistVocabularyPlan(stale, vocabularyPlan())).isFalse();
-        assertThat(service.append(stale, contextualChoiceResponse(stale.request().requestId(), vocabularyPlan()))).isFalse();
+        assertThat(service.append(stale,
+                contextualChoiceResponse(stale.request().requestId(), vocabularyPlan()))).isFalse();
         verify(questionRepository, never()).save(any());
     }
 
@@ -933,7 +934,8 @@ class PracticePersistenceServiceTest {
                 3, 2, 6, 2, List.of(), List.of(), List.of(), List.of(), 0,
                 original.generationDate(), List.of()
         );
-        var item = PracticePersistenceService.itemRequest(longIdentity, 10, List.of(), java.util.UUID.randomUUID().toString());
+        var item = PracticePersistenceService.itemRequest(longIdentity, 10, List.of(),
+                java.util.UUID.randomUUID().toString());
         assertThat(item.requestId()).hasSizeLessThanOrEqualTo(120);
     }
 
@@ -1269,7 +1271,9 @@ class PracticePersistenceServiceTest {
         verify(questionRepository, never()).save(any());
     }
 
-    /** Offline legacy contract replay, deliberately not the retired public claim entry. */
+    /**
+     * Offline legacy contract replay, deliberately not the retired public claim entry.
+     */
     private Optional<PracticePersistenceService.GenerationClaim> legacyReplayClaim(
             PracticeSet legacySet, LocalDateTime at
     ) {

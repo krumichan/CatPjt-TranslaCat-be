@@ -25,7 +25,6 @@ public class CurrencyService {
                 .orElseThrow(() -> new IllegalArgumentException("사용할 수 없는 통화입니다."));
     }
 
-
     public List<CurrencyResponseDto> listEnabledCurrencies() {
         return currencyRepository.findAllByEnabledTrueOrderByCodeAsc()
                 .stream()

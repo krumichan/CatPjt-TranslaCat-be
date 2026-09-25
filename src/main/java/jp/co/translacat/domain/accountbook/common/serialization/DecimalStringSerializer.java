@@ -7,7 +7,9 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.math.BigDecimal;
 
-/** Exact monetary wire format, including zero and currencies with tiny minor units. */
+/**
+ * Exact monetary wire format, including zero and currencies with tiny minor units.
+ */
 public final class DecimalStringSerializer extends JsonSerializer<BigDecimal> {
     @Override
     public void serialize(BigDecimal value, JsonGenerator generator, SerializerProvider provider)

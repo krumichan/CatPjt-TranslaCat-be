@@ -4,12 +4,7 @@ import jp.co.translacat.domain.languagelearning.activity.entity.LearningActivity
 import jp.co.translacat.domain.languagelearning.activity.service.LearningActivityCommandService;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingEvaluationEligibilityDto;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.ConversationStartMode;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.CorrectionMode;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.*;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.service.SpeakingEvaluationJobQueueService;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvaluationEligibilityPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
@@ -18,7 +13,6 @@ import jp.co.translacat.domain.languagelearning.speaking.turn.service.SpeakingTu
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.global.exception.BusinessException;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,13 +24,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.lenient;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class SpeakingSessionCompletionCommandServiceTest {

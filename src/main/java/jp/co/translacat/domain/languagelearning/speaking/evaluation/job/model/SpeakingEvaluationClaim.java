@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.languagelearning.speaking.evaluation.job.model;
 
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingCoachingRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 
 public record SpeakingEvaluationClaim(SpeakingEvaluationJobKey key, int problemIndex,

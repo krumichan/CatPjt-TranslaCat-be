@@ -1,10 +1,6 @@
 package jp.co.translacat.domain.languagelearning.practice.service;
 
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PersonalizedVocabularyPlanDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeGeneratedQuestionDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingPassageBundleDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.ReadingSlotTargetDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.model.VocabularyPlanItemDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.model.*;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.port.LanguageLearningAiClient;
@@ -13,27 +9,21 @@ import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeQuestionType;
 import jp.co.translacat.domain.languagelearning.practice.policy.PracticeAvailabilityPolicy;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
-import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.global.exception.AiServerCommunicationException;
+import jp.co.translacat.global.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.text.Normalizer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.HexFormat;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
@@ -172,7 +162,7 @@ public class PracticeGenerationWorker {
             }
             if (isContextualChoice(generationRequest)
                     && !generationRequest.vocabularyPlan().items().get(claim.order() - 1)
-                        .equals(generated.vocabularyPlan().items().get(claim.order() - 1))) {
+                    .equals(generated.vocabularyPlan().items().get(claim.order() - 1))) {
                 stage = "PLAN_ITEM_REPAIRED";
                 log.info("Practice generation stage. setId={} order={} requestId={} stage={}",
                         setId, claim.order(), generationRequest.requestId(), stage);
@@ -246,7 +236,7 @@ public class PracticeGenerationWorker {
                 || !Objects.equals(request.requestId(), response.requestId())
                 || !Objects.equals(request.mode(), response.mode())
                 || response.questions() == null || response.questions().size() !=
-                    (isNewReadingBundleRequest(request) ? request.questionCount() : 1)
+                (isNewReadingBundleRequest(request) ? request.questionCount() : 1)
                 || response.questions().getFirst() == null) {
             throw invalidResponse();
         }
@@ -395,7 +385,7 @@ public class PracticeGenerationWorker {
                 || !Objects.equals(request.requestId(), response.requestId())
                 || !Objects.equals(request.mode(), response.mode())
                 || (request.vocabularyPlanOnly()
-                    && response.questions() != null && !response.questions().isEmpty())) {
+                && response.questions() != null && !response.questions().isEmpty())) {
             throw invalidResponse();
         }
         validateVocabularyPlan(request, response.vocabularyPlan());
@@ -486,7 +476,7 @@ public class PracticeGenerationWorker {
             }
             if (before.reviewTarget()
                     && (!Objects.equals(before.targetExpression(), after.targetExpression())
-                        || !Objects.equals(before.canonicalKey(), after.canonicalKey()))) {
+                    || !Objects.equals(before.canonicalKey(), after.canonicalKey()))) {
                 throw invalidResponse();
             }
             if (!before.reviewTarget()

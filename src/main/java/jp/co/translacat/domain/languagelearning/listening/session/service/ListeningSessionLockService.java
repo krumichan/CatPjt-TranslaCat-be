@@ -18,7 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Serializes mutations in Daily Set, Session, Attempt, then Response order. */
+/**
+ * Serializes mutations in Daily Set, Session, Attempt, then Response order.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(propagation = Propagation.MANDATORY)

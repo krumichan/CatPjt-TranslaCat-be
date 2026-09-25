@@ -24,12 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -353,9 +348,9 @@ public class ChatMessageQueryService {
         Map<Long, OpenChatMessageSenderResponseDto> openChatSenderMap =
                 openRoom
                         ? getOpenChatSenderMap(
-                                chatRoomId,
-                                pageMessages
-                        )
+                        chatRoomId,
+                        pageMessages
+                )
                         : Map.of();
 
         return pageMessages.stream()
@@ -398,8 +393,8 @@ public class ChatMessageQueryService {
                     message.getSenderUser() == null
                             ? null
                             : openChatSenderMap.get(
-                                    message.getSenderUser().getId()
-                            );
+                            message.getSenderUser().getId()
+                    );
             return ChatMessageResponseDto.fromOpenChat(
                     message,
                     sender,
@@ -508,8 +503,8 @@ public class ChatMessageQueryService {
                 || message.getCreatedAt() == null
                 || currentMember.getJoinedAt() == null
                 || message.getCreatedAt().isBefore(
-                        currentMember.getJoinedAt()
-                )) {
+                currentMember.getJoinedAt()
+        )) {
             throw new BusinessException(
                     errorMessage,
                     errorCode

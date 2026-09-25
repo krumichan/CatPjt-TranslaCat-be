@@ -1,21 +1,19 @@
 package jp.co.translacat.domain.currency.repository;
 
+import jakarta.persistence.LockModeType;
 import jp.co.translacat.domain.currency.entity.ExchangeRate;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
-import jakarta.persistence.LockModeType;
 
 import java.time.LocalDate;
 import java.util.Optional;
 
 public interface ExchangeRateRepository extends JpaRepository<ExchangeRate, Long> {
     Optional<ExchangeRate>
-            findBySourceCurrencyCodeAndTargetCurrencyCodeAndRequestedRateDateAndProvider(
-                    String source, String target, LocalDate date, String provider);
+    findBySourceCurrencyCodeAndTargetCurrencyCodeAndRequestedRateDateAndProvider(
+            String source, String target, LocalDate date, String provider);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

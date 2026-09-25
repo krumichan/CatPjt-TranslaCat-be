@@ -12,7 +12,7 @@ public class ChatAiMentionParser {
     /**
      * 한국어에서는 멘션 직후 조사를 붙여 쓰는 경우가 자연스럽다.
      * 예: {@code @Mika는}, {@code @Mi도}.
-     *
+     * <p>
      * 모든 한글 문자를 경계로 허용하면 {@code @Mikaela} 같은 부분 닉네임까지
      * 오인할 수 있으므로, 자주 사용하는 조사만 명시적으로 허용한다.
      */

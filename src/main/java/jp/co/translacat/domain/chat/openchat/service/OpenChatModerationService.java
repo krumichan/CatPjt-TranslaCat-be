@@ -325,9 +325,9 @@ public class OpenChatModerationService {
         if (actor.getId().equals(target.getId())
                 || !target.isMember()
                 || banRepository.existsActiveByRoomIdAndTargetUserId(
-                        roomId,
-                        target.getUser().getId()
-                )) {
+                roomId,
+                target.getUser().getId()
+        )) {
             throw new BusinessException(
                     "활성 MEMBER만 ADMIN으로 지정할 수 있습니다.",
                     OpenChatErrorCode.ADMIN_TARGET_INVALID

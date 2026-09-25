@@ -2,15 +2,15 @@ package jp.co.translacat.domain.languagelearning.practice.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeOptionDto;
-import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
+import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.practice.dto.response.*;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeAttempt;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeQuestion;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
-import jp.co.translacat.domain.languagelearning.practice.policy.PracticeAvailabilityPolicy;
 import jp.co.translacat.domain.languagelearning.practice.enums.PracticeGenerationStatus;
+import jp.co.translacat.domain.languagelearning.practice.policy.PracticeAvailabilityPolicy;
 import jp.co.translacat.domain.languagelearning.practice.policy.ReadingPassageExpressionPolicy;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAttemptRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeMetricScoreRepository;
@@ -69,7 +69,8 @@ public class PracticeQueryService {
                         set.getOfficialScore(),
                         set.getGenerationStatus(),
                         Math.toIntExact(questionRepository.countByPracticeSetId(set.getId())),
-                        generationFailureReason(set, questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(set.getId()))
+                        generationFailureReason(set,
+                                questionRepository.findAllByPracticeSetIdOrderByOrderNoAsc(set.getId()))
                 ))
                 .toList();
     }
@@ -83,7 +84,7 @@ public class PracticeQueryService {
         ));
         Set<String> completedPassages = set.getDomain() == PracticeDomain.READING
                 ? ReadingPassageExpressionPolicy.completedPassages(
-                        storedQuestions, question -> !attemptsByQuestion.get(question.getId()).isEmpty())
+                storedQuestions, question -> !attemptsByQuestion.get(question.getId()).isEmpty())
                 : Set.of();
         List<PracticeQuestionResponseDto> questions = storedQuestions.stream()
                 .map(question -> questionResponse(question, attemptsByQuestion.get(question.getId()),
@@ -124,7 +125,7 @@ public class PracticeQueryService {
     private String generationFailureReason(PracticeSet set, List<PracticeQuestion> questions) {
         if (set.getDomain() != PracticeDomain.READING || !"STRUCTURE".equals(set.getMode())
                 || (set.getGenerationStatus() != PracticeGenerationStatus.PARTIAL
-                    && set.getGenerationStatus() != PracticeGenerationStatus.FAILED)
+                && set.getGenerationStatus() != PracticeGenerationStatus.FAILED)
                 || set.getGenerationRequestJson() == null) return set.getGenerationFailureMessage();
         try {
             var original = jsonCodec.read(set.getGenerationRequestJson(), AiPracticeGenerationRequestDto.class);
@@ -145,7 +146,8 @@ public class PracticeQueryService {
         boolean answered = !attempts.isEmpty();
         PracticeAttempt latest = answered ? attempts.get(attempts.size() - 1) : null;
         List<String> correctAnswer = answered
-                ? jsonCodec.read(question.getCorrectAnswerJson(), new TypeReference<List<String>>() {})
+                ? jsonCodec.read(question.getCorrectAnswerJson(), new TypeReference<List<String>>() {
+        })
                 : List.of();
         return new PracticeQuestionResponseDto(
                 question.getId(),
@@ -156,7 +158,8 @@ public class PracticeQueryService {
                 question.getPassageId(),
                 question.getPassageText(),
                 question.getPrompt(),
-                jsonCodec.read(question.getOptionsJson(), new TypeReference<List<PracticeOptionDto>>() {})
+                jsonCodec.read(question.getOptionsJson(), new TypeReference<List<PracticeOptionDto>>() {
+                        })
                         .stream()
                         .map(value -> new PracticeOptionResponseDto(value.key(), value.text()))
                         .toList(),
@@ -181,7 +184,8 @@ public class PracticeQueryService {
         return new PracticeAttemptResponseDto(
                 attempt.getId(),
                 attempt.getAttemptNo(),
-                jsonCodec.read(attempt.getAnswerJson(), new TypeReference<List<String>>() {}),
+                jsonCodec.read(attempt.getAnswerJson(), new TypeReference<List<String>>() {
+                }),
                 attempt.isCorrect(),
                 attempt.isOfficial(),
                 attempt.getSubmittedAt()

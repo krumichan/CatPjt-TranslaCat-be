@@ -22,12 +22,14 @@ public class ListeningAudioRetentionTransactionService {
     public List<ExpiredAudio> expired(LocalDateTime now) {
         List<ExpiredAudio> values = new java.util.ArrayList<>();
         itemRepository
-                .findTop100ByAudioObjectKeyIsNotNullAndAudioDeletedAtIsNullAndAudioRetentionUntilBeforeOrderByAudioRetentionUntilAsc(now)
+                .findTop100ByAudioObjectKeyIsNotNullAndAudioDeletedAtIsNullAndAudioRetentionUntilBeforeOrderByAudioRetentionUntilAsc(
+                        now)
                 .forEach(item -> values.add(new ExpiredAudio(
                         true, item.getId(), item.getAudioObjectKey()
                 )));
         responseRepository
-                .findTop100ByUserAudioObjectKeyIsNotNullAndAudioDeletedAtIsNullAndAudioRetentionUntilBeforeOrderByAudioRetentionUntilAsc(now)
+                .findTop100ByUserAudioObjectKeyIsNotNullAndAudioDeletedAtIsNullAndAudioRetentionUntilBeforeOrderByAudioRetentionUntilAsc(
+                        now)
                 .forEach(response -> values.add(new ExpiredAudio(
                         false, response.getId(), response.getUserAudioObjectKey()
                 )));

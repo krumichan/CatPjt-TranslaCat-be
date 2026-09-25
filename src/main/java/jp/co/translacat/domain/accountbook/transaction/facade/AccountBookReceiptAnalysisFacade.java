@@ -7,15 +7,13 @@ import jp.co.translacat.domain.accountbook.transaction.dto.ReceiptAnalysisRespon
 import jp.co.translacat.domain.accountbook.transaction.dto.ReceiptPaymentItemDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.ReceiptRuntimeIdentityResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.enums.ReceiptAnalysisMode;
-import jp.co.translacat.domain.accountbook.transaction.service.ReceiptConversionService;
 import jp.co.translacat.domain.accountbook.transaction.service.ReceiptAmountPolicy;
+import jp.co.translacat.domain.accountbook.transaction.service.ReceiptConversionService;
 import jp.co.translacat.domain.currency.entity.Currency;
 import jp.co.translacat.infrastructure.client.ai.server.AiServerClient;
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptAnalysisResponse;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -69,12 +67,12 @@ public class AccountBookReceiptAnalysisFacade {
                                 i ->
                                         "READY".equals(i.status())
                                                 && ("CONVERTED".equals(i.conversionStatus())
-                                                        || "NOT_REQUIRED"
-                                                                .equals(i.conversionStatus())))
+                                                || "NOT_REQUIRED"
+                                                .equals(i.conversionStatus())))
                         .count();
         log.info(
                 "receipt_analysis accountBookId={} mode={} count={} ready={} review={}"
-                    + " latencyMs={}",
+                        + " latencyMs={}",
                 bookId,
                 options.analysisMode(),
                 results.size(),
@@ -182,13 +180,13 @@ public class AccountBookReceiptAnalysisFacade {
                 "UNREADABLE".equals(item.status())
                         ? "UNREADABLE"
                         : ("READY".equals(item.status())
-                                        && conversion.registrable()
-                                        && amountDecision.ready()
-                                        && category.name() != null
-                                        && item.title() != null
-                                        && !item.title().isBlank())
-                                ? "READY"
-                                : "NEEDS_REVIEW";
+                        && conversion.registrable()
+                        && amountDecision.ready()
+                        && category.name() != null
+                        && item.title() != null
+                        && !item.title().isBlank())
+                        ? "READY"
+                        : "NEEDS_REVIEW";
         return new ReceiptAnalysisResponseDto.Item(
                 id,
                 item.title(),

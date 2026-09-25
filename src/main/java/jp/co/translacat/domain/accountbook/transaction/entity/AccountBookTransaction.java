@@ -1,10 +1,10 @@
 package jp.co.translacat.domain.accountbook.transaction.entity;
 
 import jakarta.persistence.*;
-import jp.co.translacat.domain.currency.service.MoneyAmount;
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionSourceType;
 import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionType;
+import jp.co.translacat.domain.currency.service.MoneyAmount;
 import jp.co.translacat.global.jpa.BaseAuditable;
 import jp.co.translacat.global.utils.DomainStringUtil;
 import lombok.AccessLevel;
@@ -12,9 +12,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.text.Normalizer;
 import java.util.Locale;
 
 @Getter
@@ -116,7 +116,8 @@ public class AccountBookTransaction extends BaseAuditable {
     @Column(length = 8)
     private String receiptTransactionTime;
 
-    public void recordReceiptConversion(jp.co.translacat.domain.accountbook.transaction.dto.ReceiptConversionResponseDto conversion) {
+    public void recordReceiptConversion(
+            jp.co.translacat.domain.accountbook.transaction.dto.ReceiptConversionResponseDto conversion) {
         if (!conversion.registrable() || amount.compareTo(conversion.convertedAmount()) != 0) {
             throw new IllegalArgumentException("Receipt conversion does not match transaction amount.");
         }
@@ -293,8 +294,11 @@ public class AccountBookTransaction extends BaseAuditable {
             LocalDate transactionDate,
             String memo
     ) {
-        if (originalAmount != null && (this.type != type || this.amount.compareTo(amount) != 0 || !this.transactionDate.equals(transactionDate))) {
-            throw new IllegalArgumentException("A receipt transaction's converted amount and date cannot be changed through manual editing.");
+        if (originalAmount != null && (this.type != type
+                || this.amount.compareTo(amount) != 0
+                || !this.transactionDate.equals(transactionDate))) {
+            throw new IllegalArgumentException(
+                    "A receipt transaction's converted amount and date cannot be changed through manual editing.");
         }
         this.type = type;
         // Metadata edits preserve the recorded conversion even if an admin changes display precision.

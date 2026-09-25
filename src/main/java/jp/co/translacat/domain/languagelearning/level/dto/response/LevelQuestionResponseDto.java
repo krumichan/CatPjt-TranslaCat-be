@@ -1,10 +1,6 @@
 package jp.co.translacat.domain.languagelearning.level.dto.response;
 
-import jp.co.translacat.domain.languagelearning.common.enums.LevelTestAnswerMode;
-import jp.co.translacat.domain.languagelearning.common.enums.LevelTestDomain;
-import jp.co.translacat.domain.languagelearning.common.enums.LevelTestItemStatus;
-import jp.co.translacat.domain.languagelearning.common.enums.LevelTestItemType;
-import jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionType;
+import jp.co.translacat.domain.languagelearning.common.enums.*;
 
 import java.util.List;
 

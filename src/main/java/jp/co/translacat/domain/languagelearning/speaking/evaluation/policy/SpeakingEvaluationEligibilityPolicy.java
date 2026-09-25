@@ -3,9 +3,8 @@ package jp.co.translacat.domain.languagelearning.speaking.evaluation.policy;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingEvaluationEligibilityDto;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingTurnStatus;
-import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import jp.co.translacat.domain.languagelearning.speaking.session.policy.SpeakingSessionPolicy;
-
+import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;

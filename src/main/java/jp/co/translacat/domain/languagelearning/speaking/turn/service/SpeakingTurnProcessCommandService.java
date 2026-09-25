@@ -1,7 +1,6 @@
 package jp.co.translacat.domain.languagelearning.speaking.turn.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingTurnProcessResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.port.SpeakingAiClient;
@@ -9,24 +8,18 @@ import jp.co.translacat.domain.languagelearning.speaking.common.enums.Assistance
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingStage;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingTurnStatus;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.repository.SpeakingReadAloudProblemEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionPolicySnapshot;
-import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionCompletionCommandService;
-import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionLifecycleService;
-import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionPolicySnapshotService;
-import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionQueryService;
-import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionUsageQueryService;
+import jp.co.translacat.domain.languagelearning.speaking.session.service.*;
 import jp.co.translacat.domain.languagelearning.speaking.turn.dto.request.SpeakingTurnProcessRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.repository.SpeakingReadAloudProblemEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.turn.factory.SpeakingTurnAiRequestFactory;
 import jp.co.translacat.domain.languagelearning.speaking.turn.policy.SpeakingTurnCompletionPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.turn.repository.SpeakingTurnRepository;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -270,7 +263,8 @@ public class SpeakingTurnProcessCommandService {
 
     private void requireUnsubmittedProblem(SpeakingSession session, SpeakingTurn turn) {
         if (session.getPracticeMode() == SpeakingPracticeMode.READ_ALOUD && turn.getProblemIndex() != null
-                && problemEvaluationRepository.findBySessionIdAndProblemIndex(session.getId(), turn.getProblemIndex()).isPresent()) {
+                && problemEvaluationRepository.findBySessionIdAndProblemIndex(session.getId(), turn.getProblemIndex())
+                .isPresent()) {
             throw new BusinessException("평가를 요청한 문제의 발화는 변경할 수 없습니다.",
                     LanguageLearningErrorCode.TURN_PROCESSING);
         }

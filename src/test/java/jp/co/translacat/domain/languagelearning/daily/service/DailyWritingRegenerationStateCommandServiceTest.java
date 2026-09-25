@@ -18,7 +18,6 @@ import jp.co.translacat.domain.languagelearning.daily.service.DailyWritingRegene
 import jp.co.translacat.domain.languagelearning.quality.dto.DiversityContext;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.exception.BusinessException;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,27 +31,34 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class DailyWritingRegenerationStateCommandServiceTest {
 
-    @Mock private DailyWritingSetRepository dailySetRepository;
-    @Mock private DailyWritingItemRepository itemRepository;
-    @Mock private WritingAnswerRepository answerRepository;
-    @Mock private DailyWritingSnapshotService snapshotService;
-    @Mock private DailyWritingGenerationRequestFactory requestFactory;
-    @Mock private DailyWritingItemCommandService itemCommandService;
-    @Mock private DailyWritingItemRevisionService itemRevisionService;
-    @Mock private DailyWritingSet dailySet;
-    @Mock private DailyWritingItem item;
-    @Mock private User user;
-    @Mock private DailyWritingSnapshot snapshot;
+    @Mock
+    private DailyWritingSetRepository dailySetRepository;
+    @Mock
+    private DailyWritingItemRepository itemRepository;
+    @Mock
+    private WritingAnswerRepository answerRepository;
+    @Mock
+    private DailyWritingSnapshotService snapshotService;
+    @Mock
+    private DailyWritingGenerationRequestFactory requestFactory;
+    @Mock
+    private DailyWritingItemCommandService itemCommandService;
+    @Mock
+    private DailyWritingItemRevisionService itemRevisionService;
+    @Mock
+    private DailyWritingSet dailySet;
+    @Mock
+    private DailyWritingItem item;
+    @Mock
+    private User user;
+    @Mock
+    private DailyWritingSnapshot snapshot;
 
     private DailyWritingRegenerationStateCommandService service;
 

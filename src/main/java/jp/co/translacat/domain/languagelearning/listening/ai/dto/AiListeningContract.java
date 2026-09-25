@@ -2,11 +2,7 @@ package jp.co.translacat.domain.languagelearning.listening.ai.dto;
 
 import jp.co.translacat.domain.languagelearning.common.enums.KeywordSource;
 import jp.co.translacat.domain.languagelearning.common.enums.KeywordType;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningAssistanceType;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDifficulty;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningEvaluationPurpose;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningLearningMode;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.*;
 import jp.co.translacat.domain.languagelearning.quality.dto.DiversityContext;
 import jp.co.translacat.domain.languagelearning.quality.dto.DiversityMetadata;
 import jp.co.translacat.domain.languagelearning.quality.dto.DiversitySummary;

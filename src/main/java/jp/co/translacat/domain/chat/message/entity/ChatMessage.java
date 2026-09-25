@@ -114,7 +114,6 @@ public class ChatMessage extends BaseAuditable {
         );
     }
 
-
     public static ChatMessage createAiTextMessage(
             ChatRoom chatRoom,
             ChatRoomAiMember senderAiMember,

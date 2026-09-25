@@ -43,25 +43,25 @@ public class BatchProcessor {
 
         // 2. 병렬 실행
         List<CompletableFuture<List<R>>> futures = batches.stream()
-            .map(batch -> CompletableFuture.supplyAsync(() -> task.apply(batch), aiExecutor))
-            .toList();
+                .map(batch -> CompletableFuture.supplyAsync(() -> task.apply(batch), aiExecutor))
+                .toList();
 
         // 3. 취합 및 정렬
         Stream<R> stream = futures.stream()
-            .map(CompletableFuture::join)
-            .flatMap(List::stream);
+                .map(CompletableFuture::join)
+                .flatMap(List::stream);
 
         return (Objects.isNull(sortComparator))
-            ? stream.toList()
-            : stream.sorted(sortComparator).toList();
+                ? stream.toList()
+                : stream.sorted(sortComparator).toList();
     }
 
     /**
      * 리스트를 분할하여 병렬 처리한다.
      *
-     * @param source         원본 리스트
-     * @param batchSize      분할할 크기
-     * @param task           병렬로 수행할 작업 (비즈니스 로직)
+     * @param source    원본 리스트
+     * @param batchSize 분할할 크기
+     * @param task      병렬로 수행할 작업 (비즈니스 로직)
      */
     public <T, R> List<R> processParallel(
             List<T> source,

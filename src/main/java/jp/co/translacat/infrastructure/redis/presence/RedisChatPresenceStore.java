@@ -230,7 +230,8 @@ public class RedisChatPresenceStore implements ChatPresenceStore {
 
     private long requireScriptResult(Long result, String operation) {
         if (result == null) {
-            throw new IllegalStateException("Redis presence script returned null while attempting to " + operation + ".");
+            throw new IllegalStateException(
+                    "Redis presence script returned null while attempting to " + operation + ".");
         }
         return result;
     }

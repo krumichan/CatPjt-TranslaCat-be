@@ -9,7 +9,7 @@ import lombok.Getter;
 public class NovelRankingPeriodResponseDto {
     @Schema(description = "period code", example = "weekly")
     private String code;
-    
+
     @Schema(description = "period label", example = "주간")
     private String label;
 }

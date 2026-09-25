@@ -15,15 +15,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatAiResponseDelayServiceTest {
 
-    @Mock private ChatAiSystemSettingService systemSettingService;
-    @Mock private TaskScheduler taskScheduler;
+    @Mock
+    private ChatAiSystemSettingService systemSettingService;
+    @Mock
+    private TaskScheduler taskScheduler;
 
     private ChatAiResponseDelayService service;
 
@@ -39,7 +39,8 @@ class ChatAiResponseDelayServiceTest {
     void mentionSchedulesDeliveryInConfiguredWindow() {
         ChatAiSystemSetting setting = ChatAiSystemSetting.createDefault();
         when(systemSettingService.getOrCreateEntity()).thenReturn(setting);
-        Runnable delivery = () -> { };
+        Runnable delivery = () -> {
+        };
         Instant before = Instant.now();
 
         service.execute(ChatAiTriggerType.MENTION, "こんにちは！", delivery);

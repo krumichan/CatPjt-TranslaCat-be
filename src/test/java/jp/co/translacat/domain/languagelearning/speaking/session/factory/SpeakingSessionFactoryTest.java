@@ -67,7 +67,6 @@ class SpeakingSessionFactoryTest {
         assertThat(session.getResultPolicyVersion()).isEqualTo("speaking-evaluation-policy-v2");
     }
 
-
     @Test
     void readAloudUsesFiveItemsWithTwoRequiredAndAtMostThreeAttemptsEach() {
         SpeakingSession session = factory.create(

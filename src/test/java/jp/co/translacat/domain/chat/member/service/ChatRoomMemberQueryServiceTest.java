@@ -7,10 +7,10 @@ import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberListRespon
 import jp.co.translacat.domain.chat.member.dto.response.ChatRoomMemberProfileResponseDto;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
-import jp.co.translacat.domain.chat.room.entity.ChatRoom;
-import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.chat.presence.service.ChatPresenceQueryService;
 import jp.co.translacat.domain.chat.presence.service.ChatPresenceVisibilityPolicy;
+import jp.co.translacat.domain.chat.room.entity.ChatRoom;
+import jp.co.translacat.domain.chat.room.enums.ChatRoomType;
 import jp.co.translacat.domain.user.block.service.UserBlockService;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.friend.request.enums.FriendRequestStatus;
@@ -23,7 +23,6 @@ import jp.co.translacat.global.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -34,7 +33,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ChatRoomMemberQueryServiceTest {
@@ -210,6 +210,7 @@ class ChatRoomMemberQueryServiceTest {
                 .isEqualTo(UserSearchFriendStatus.NONE);
         assertThat(result.online()).isTrue();
     }
+
     @Test
     void getMemberProfileRejectsNonMemberRequester() {
         when(chatRoomMemberRepository
@@ -234,6 +235,7 @@ class ChatRoomMemberQueryServiceTest {
                 chatPresenceVisibilityPolicy
         );
     }
+
     @Test
     void getMemberProfileRejectsTargetOutsideRoom() {
         stubGeneralProfileRoom();

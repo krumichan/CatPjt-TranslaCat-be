@@ -361,12 +361,10 @@ public class AiServerListeningClient implements ListeningAiClient {
 
     private String errorCode(String stage) {
         return switch (stage) {
-            case "GENERATION" ->
-                    LanguageLearningErrorCode.AI_GENERATION_FAILED;
+            case "GENERATION" -> LanguageLearningErrorCode.AI_GENERATION_FAILED;
             case "TTS" -> LanguageLearningErrorCode.AI_TTS_FAILED;
             case "STT" -> LanguageLearningErrorCode.AI_STT_FAILED;
-            case "EXPLANATION" ->
-                    LanguageLearningErrorCode.AI_EXPLANATION_FAILED;
+            case "EXPLANATION" -> LanguageLearningErrorCode.AI_EXPLANATION_FAILED;
             default -> LanguageLearningErrorCode.AI_EVALUATION_FAILED;
         };
     }

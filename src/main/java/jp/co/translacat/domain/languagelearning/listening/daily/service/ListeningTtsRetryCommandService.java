@@ -1,20 +1,18 @@
 package jp.co.translacat.domain.languagelearning.listening.daily.service;
 
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
-import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
-import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
-import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
-import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
+import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
+import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
+import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
+import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
 import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

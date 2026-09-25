@@ -15,14 +15,13 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
 import java.util.List;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatPresenceWebSocketSessionListenerTest {
 
-    @Mock private ChatPresenceSessionLifecycleService lifecycleService;
+    @Mock
+    private ChatPresenceSessionLifecycleService lifecycleService;
 
     private ChatPresenceWebSocketSessionListener listener;
 

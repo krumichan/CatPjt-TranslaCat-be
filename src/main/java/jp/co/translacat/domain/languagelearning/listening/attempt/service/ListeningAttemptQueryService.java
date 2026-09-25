@@ -1,13 +1,12 @@
 package jp.co.translacat.domain.languagelearning.listening.attempt.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import jp.co.translacat.domain.languagelearning.ai.dto.model.SelectedKeywordDto;
 import jp.co.translacat.domain.languagelearning.common.enums.KeywordType;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
+import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
 import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
 import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
-import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
 import jp.co.translacat.domain.languagelearning.listening.audio.model.ListeningAudioObject;
 import jp.co.translacat.domain.languagelearning.listening.audio.port.ListeningAudioStoragePort;
 import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
@@ -17,9 +16,7 @@ import jp.co.translacat.domain.languagelearning.listening.response.repository.Li
 import jp.co.translacat.domain.languagelearning.listening.service.ListeningViewMapper;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,10 +77,10 @@ public class ListeningAttemptQueryService {
                 reveal ? item.getSourceText() : null,
                 reveal
                         ? jsonCodec.read(
-                                item.getReferenceMeaningsJson(),
-                                new TypeReference<List<String>>() {
-                                }
-                        )
+                        item.getReferenceMeaningsJson(),
+                        new TypeReference<List<String>>() {
+                        }
+                )
                         : List.of(),
                 viewMapper.attempt(attempt)
         );
@@ -107,7 +104,6 @@ public class ListeningAttemptQueryService {
                 item.getAudioContentType()
         );
     }
-
 
     public ListeningAudioObject userAudio(
             Long userId,
@@ -156,10 +152,10 @@ public class ListeningAttemptQueryService {
 
     private String topicHint(ListeningItem item) {
         return jsonCodec.read(
-                item.getDailySet().getKeywordSnapshotJson(),
-                new TypeReference<List<SelectedKeywordDto>>() {
-                }
-        ).stream()
+                        item.getDailySet().getKeywordSnapshotJson(),
+                        new TypeReference<List<SelectedKeywordDto>>() {
+                        }
+                ).stream()
                 .filter(value -> value.type() == KeywordType.TOPIC)
                 .map(SelectedKeywordDto::text)
                 .filter(value -> value != null && !value.isBlank())
@@ -169,10 +165,10 @@ public class ListeningAttemptQueryService {
 
     private List<String> keywordHints(ListeningItem item) {
         return jsonCodec.read(
-                item.getTargetKeywordsJson(),
-                new TypeReference<List<String>>() {
-                }
-        ).stream()
+                        item.getTargetKeywordsJson(),
+                        new TypeReference<List<String>>() {
+                        }
+                ).stream()
                 .filter(value -> value != null && !value.isBlank())
                 .distinct()
                 .limit(5)

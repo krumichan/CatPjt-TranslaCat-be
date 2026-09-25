@@ -8,7 +8,7 @@ import java.util.Objects;
 
 /**
  * ExceptionUtility 클래스
- *
+ * <p>
  * 예외 처리 관련 유틸리티 메서드를 제공하는 클래스입니다.
  */
 @UtilityClass
@@ -19,7 +19,7 @@ public class ExceptionUtil {
      *
      * @param th Throwable 객체 (예외)
      * @return StackTrace를 문자열로 변환한 결과.
-     *         th가 null이면 빈 문자열("") 반환
+     * th가 null이면 빈 문자열("") 반환
      */
     public String convertStackTrace(Throwable th) {
         if (Objects.isNull(th)) return "";

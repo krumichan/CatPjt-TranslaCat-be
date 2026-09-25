@@ -31,7 +31,7 @@ public class FrankfurterExchangeRateProvider implements ExchangeRateProvider {
 
     public FrankfurterExchangeRateProvider(
             @Value("${exchange-rate.frankfurter.base-url:https://api.frankfurter.dev}")
-                    String baseUrl,
+            String baseUrl,
             @Value("${exchange-rate.connect-timeout-ms:3000}") int connectTimeout,
             @Value("${exchange-rate.read-timeout-ms:5000}") int readTimeout,
             @Value("${exchange-rate.max-lookback-days:31}") int lookbackDays,
@@ -85,5 +85,6 @@ public class FrankfurterExchangeRateProvider implements ExchangeRateProvider {
         }
     }
 
-    public record RateRow(LocalDate date, String base, String quote, BigDecimal rate) {}
+    public record RateRow(LocalDate date, String base, String quote, BigDecimal rate) {
+    }
 }

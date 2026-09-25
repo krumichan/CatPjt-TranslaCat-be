@@ -14,4 +14,5 @@ public record AiReceiptRuntimeIdentity(
         @JsonProperty("working_directory") String workingDirectory,
         @JsonProperty("command_fingerprint") String commandFingerprint,
         @JsonProperty("git_head") String gitHead,
-        @JsonProperty("provider_call_count") Long providerCallCount) {}
+        @JsonProperty("provider_call_count") Long providerCallCount) {
+}

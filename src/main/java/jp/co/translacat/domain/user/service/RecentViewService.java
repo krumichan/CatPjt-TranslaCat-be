@@ -5,10 +5,10 @@ import jp.co.translacat.domain.common.enums.PlatformCode;
 import jp.co.translacat.domain.novel.platform.entity.Platform;
 import jp.co.translacat.domain.novel.platform.service.PlatformService;
 import jp.co.translacat.domain.user.dto.RecentViewSaveRequestDto;
-import jp.co.translacat.domain.user.repository.RecentViewRepository;
 import jp.co.translacat.domain.user.entity.RecentView;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.enums.RecentViewType;
+import jp.co.translacat.domain.user.repository.RecentViewRepository;
 import jp.co.translacat.global.utils.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -33,14 +33,15 @@ public class RecentViewService {
         return this.findBy(userId, platformId, recentViewType, novelId, null);
     }
 
-    public Optional<RecentView> findBy(Long userId, Long platformId, RecentViewType recentViewType, String novelId, String episodeId) {
+    public Optional<RecentView> findBy(Long userId, Long platformId, RecentViewType recentViewType, String novelId,
+                                       String episodeId) {
         if (Objects.isNull(episodeId)) {
             return this.recentViewRepository.findByUserIdAndPlatformIdAndRecentViewTypeAndNovelIdAndEpisodeIdIsNull(
-                userId, platformId, recentViewType, novelId
+                    userId, platformId, recentViewType, novelId
             );
         }
         return this.recentViewRepository.findByUserIdAndPlatformIdAndRecentViewTypeAndNovelIdAndEpisodeId(
-            userId, platformId, recentViewType, novelId, episodeId
+                userId, platformId, recentViewType, novelId, episodeId
         );
     }
 
@@ -63,7 +64,7 @@ public class RecentViewService {
     public List<RecentView> findTop5By(RecentViewType recentViewType) {
         User user = userService.findByEmail(SecurityUtil.getUsername());
         return this.recentViewRepository.findTop5ByUserIdAndRecentViewTypeOrderByViewedAtDesc(
-            user.getId(), recentViewType);
+                user.getId(), recentViewType);
     }
 
     @Transactional
@@ -81,11 +82,11 @@ public class RecentViewService {
         Platform platform = platformService.getPlatformByCode(platformCode);
 
         this.findBy(user.getId(), platform.getId(), recentViewType, novelId, episodeId)
-            .ifPresentOrElse(
-                recentView -> recentView.update(title, titleJa, titleKo),
-                () -> recentViewRepository.save(RecentView.create(
-                    user, platform, recentViewType, novelId, episodeId, title, titleJa, titleKo
-                ))
-            );
+                .ifPresentOrElse(
+                        recentView -> recentView.update(title, titleJa, titleKo),
+                        () -> recentViewRepository.save(RecentView.create(
+                                user, platform, recentViewType, novelId, episodeId, title, titleJa, titleKo
+                        ))
+                );
     }
 }

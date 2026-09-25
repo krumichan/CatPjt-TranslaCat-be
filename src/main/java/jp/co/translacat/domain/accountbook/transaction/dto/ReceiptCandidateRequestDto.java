@@ -1,13 +1,15 @@
 package jp.co.translacat.domain.accountbook.transaction.dto;
 
-import jakarta.validation.constraints.*;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-/** Source facts only. Rates and converted amounts supplied by clients are never authoritative. */
+/**
+ * Source facts only. Rates and converted amounts supplied by clients are never authoritative.
+ */
 public record ReceiptCandidateRequestDto(
         @NotBlank @Size(max = 100) String receiptId,
         @NotBlank @Size(max = 100) String title,
@@ -17,7 +19,7 @@ public record ReceiptCandidateRequestDto(
         @Pattern(regexp = "EXISTING|DEFAULT|NEW|FALLBACK|USER") String categorySource,
         @Size(max = 160) @Pattern(regexp = "^[^\\p{Cc}]*$") String categoryReason,
         @NotNull @DecimalMin(value = "0", inclusive = false) @Digits(integer = 20, fraction = 8)
-                BigDecimal purchaseTotal,
+        BigDecimal purchaseTotal,
         @Size(max = 30) List<@Valid ReceiptPaymentItemDto> paymentBreakdown,
         @DecimalMin(value = "0") @Digits(integer = 20, fraction = 8) BigDecimal cashTendered,
         @DecimalMin(value = "0") @Digits(integer = 20, fraction = 8) BigDecimal change,

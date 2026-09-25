@@ -2,15 +2,13 @@ package jp.co.translacat.domain.user.controller;
 
 import jakarta.validation.Valid;
 import jp.co.translacat.domain.user.dto.*;
+import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.service.OAuth2AuthenticationService;
+import jp.co.translacat.domain.user.service.UserService;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.utils.ResponseUtil;
-import jp.co.translacat.domain.user.entity.User;
-import jp.co.translacat.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor

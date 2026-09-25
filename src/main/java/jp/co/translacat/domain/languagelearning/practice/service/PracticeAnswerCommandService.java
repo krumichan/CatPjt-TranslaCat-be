@@ -5,25 +5,13 @@ import jp.co.translacat.domain.languagelearning.activity.entity.LearningActivity
 import jp.co.translacat.domain.languagelearning.activity.repository.LearningActivityRepository;
 import jp.co.translacat.domain.languagelearning.activity.service.LearningActivityCommandService;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.PracticeOptionDto;
-import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
-import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
-import jp.co.translacat.domain.languagelearning.common.enums.PracticeQuestionType;
-import jp.co.translacat.domain.languagelearning.common.enums.PracticeSetStatus;
-import jp.co.translacat.domain.languagelearning.common.enums.ProfileSignalType;
+import jp.co.translacat.domain.languagelearning.common.enums.*;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.practice.dto.request.PracticeAnswerSubmitRequestDto;
 import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeAnswerResultResponseDto;
-import jp.co.translacat.domain.languagelearning.practice.entity.PracticeAttempt;
-import jp.co.translacat.domain.languagelearning.practice.entity.PracticeMetricScore;
-import jp.co.translacat.domain.languagelearning.practice.entity.PracticeQuestion;
-import jp.co.translacat.domain.languagelearning.practice.entity.VocabularyMastery;
+import jp.co.translacat.domain.languagelearning.practice.entity.*;
 import jp.co.translacat.domain.languagelearning.practice.policy.ReadingPassageExpressionPolicy;
-import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
-import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAttemptRepository;
-import jp.co.translacat.domain.languagelearning.practice.repository.PracticeMetricScoreRepository;
-import jp.co.translacat.domain.languagelearning.practice.repository.PracticeQuestionRepository;
-import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
-import jp.co.translacat.domain.languagelearning.practice.repository.VocabularyMasteryRepository;
+import jp.co.translacat.domain.languagelearning.practice.repository.*;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileSignalService;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.domain.user.entity.User;
@@ -76,7 +64,8 @@ public class PracticeAnswerCommandService {
         List<String> submitted = normalize(request.answer());
         List<String> correctAnswer = jsonCodec.read(
                 question.getCorrectAnswerJson(),
-                new TypeReference<List<String>>() {}
+                new TypeReference<List<String>>() {
+                }
         );
         boolean correct = submitted.equals(correctAnswer);
         int attemptNo = existing.size() + 1;
@@ -121,10 +110,12 @@ public class PracticeAnswerCommandService {
         }
         List<String> answer = normalize(request.answer());
         List<String> correct = jsonCodec.read(
-                question.getCorrectAnswerJson(), new TypeReference<List<String>>() {}
+                question.getCorrectAnswerJson(), new TypeReference<List<String>>() {
+                }
         );
         List<String> optionKeys = jsonCodec.read(
-                question.getOptionsJson(), new TypeReference<List<PracticeOptionDto>>() {}
+                question.getOptionsJson(), new TypeReference<List<PracticeOptionDto>>() {
+                }
         ).stream().map(PracticeOptionDto::key).toList();
         if (answer.size() != answer.stream().distinct().count()) {
             throw new BusinessException(
@@ -185,7 +176,6 @@ public class PracticeAnswerCommandService {
         }
         return List.copyOf(result);
     }
-
 
     private void applyReadingVocabularyCandidates(
             Long userId,

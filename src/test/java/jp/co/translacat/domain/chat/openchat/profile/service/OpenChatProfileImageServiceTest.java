@@ -31,20 +31,25 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OpenChatProfileImageServiceTest {
 
-    @Mock private OpenChatAccessService accessService;
-    @Mock private OpenChatMemberProfileRepository profileRepository;
-    @Mock private OpenChatProfileResponseMapper responseMapper;
-    @Mock private ProfileImageValidator imageValidator;
-    @Mock private OpenChatProfileImageKeyFactory imageKeyFactory;
-    @Mock private ImageStoragePort imageStoragePort;
-    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private OpenChatAccessService accessService;
+    @Mock
+    private OpenChatMemberProfileRepository profileRepository;
+    @Mock
+    private OpenChatProfileResponseMapper responseMapper;
+    @Mock
+    private ProfileImageValidator imageValidator;
+    @Mock
+    private OpenChatProfileImageKeyFactory imageKeyFactory;
+    @Mock
+    private ImageStoragePort imageStoragePort;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private OpenChatProfileImageService service;
     private ChatRoomMember member;

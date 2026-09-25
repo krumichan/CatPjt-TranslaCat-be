@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.languagelearning.daily.service;
 
+import jakarta.persistence.EntityManager;
 import jp.co.translacat.domain.languagelearning.common.enums.EvaluationStatus;
 import jp.co.translacat.domain.languagelearning.daily.dto.request.AnswerSubmitRequestDto;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingItem;
@@ -19,11 +20,7 @@ import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCod
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
-
-import jakarta.persistence.EntityManager;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -120,7 +117,6 @@ public class WritingAnswerCommandService {
                 new WritingEvaluationRequestedEvent(answer.getId())
         );
     }
-
 
     private void lockAndValidateStableItem(
             DailyWritingItem item,

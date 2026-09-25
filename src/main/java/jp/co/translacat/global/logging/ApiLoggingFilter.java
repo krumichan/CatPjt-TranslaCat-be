@@ -1,11 +1,11 @@
 package jp.co.translacat.global.logging;
 
-import jakarta.servlet.*;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jp.co.translacat.global.utils.SecurityUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.entity.ContentType;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -22,7 +22,7 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     protected void doFilterInternal(@NotNull HttpServletRequest request,
                                     @NotNull HttpServletResponse response,
                                     @NotNull FilterChain chain)
-    throws IOException, ServletException {
+            throws IOException, ServletException {
 
         // Auth contains passwords and bearer/refresh tokens. Voice contains transcripts,
         // translations and short-lived tickets. Log metadata only for both surfaces.

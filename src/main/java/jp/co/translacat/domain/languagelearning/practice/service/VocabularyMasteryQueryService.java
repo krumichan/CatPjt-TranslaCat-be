@@ -1,8 +1,8 @@
 package jp.co.translacat.domain.languagelearning.practice.service;
 
+import jp.co.translacat.domain.languagelearning.practice.dto.response.VocabularyMasterySummaryResponseDto;
 import jp.co.translacat.domain.languagelearning.practice.entity.VocabularyMastery;
 import jp.co.translacat.domain.languagelearning.practice.repository.VocabularyMasteryRepository;
-import jp.co.translacat.domain.languagelearning.practice.dto.response.VocabularyMasterySummaryResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

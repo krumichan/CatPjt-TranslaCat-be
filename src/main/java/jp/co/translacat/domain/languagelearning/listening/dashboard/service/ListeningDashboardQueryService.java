@@ -1,7 +1,6 @@
 package jp.co.translacat.domain.languagelearning.listening.dashboard.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningProfileMetric;
@@ -16,18 +15,12 @@ import jp.co.translacat.domain.languagelearning.listening.profile.entity.Listeni
 import jp.co.translacat.domain.languagelearning.listening.profile.repository.ListeningMetricHistoryRepository;
 import jp.co.translacat.domain.languagelearning.listening.recommendation.entity.LearningRecommendation;
 import jp.co.translacat.domain.languagelearning.listening.recommendation.repository.LearningRecommendationRepository;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -50,11 +43,11 @@ public class ListeningDashboardQueryService {
         for (ListeningProfileMetric metric : ListeningProfileMetric.values()) {
             List<ListeningMetricHistory> source = taskType == null
                     ? historyRepository
-                            .findTop30ByUserIdAndLearningLanguageAndMetricTypeAndProfileAppliedTrueOrderByCreatedAtDesc(
-                                    userId, language, metric)
+                    .findTop30ByUserIdAndLearningLanguageAndMetricTypeAndProfileAppliedTrueOrderByCreatedAtDesc(
+                            userId, language, metric)
                     : historyRepository
-                            .findTop30ByUserIdAndLearningLanguageAndTaskTypeAndMetricTypeAndProfileAppliedTrueOrderByCreatedAtDesc(
-                                    userId, language, taskType, metric);
+                    .findTop30ByUserIdAndLearningLanguageAndTaskTypeAndMetricTypeAndProfileAppliedTrueOrderByCreatedAtDesc(
+                            userId, language, taskType, metric);
             List<ListeningProfilePolicy.Signal> signals = source.stream()
                     .map(value -> new ListeningProfilePolicy.Signal(
                             value.getReferenceActivityId(),

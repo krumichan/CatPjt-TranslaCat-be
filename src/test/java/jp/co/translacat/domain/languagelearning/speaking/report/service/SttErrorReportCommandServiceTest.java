@@ -7,7 +7,6 @@ import jp.co.translacat.domain.languagelearning.speaking.session.service.Speakin
 import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionQueryService;
 import jp.co.translacat.domain.languagelearning.speaking.turn.service.SpeakingTurnQueryService;
 import jp.co.translacat.domain.user.repository.UserRepository;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,9 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class SttErrorReportCommandServiceTest {

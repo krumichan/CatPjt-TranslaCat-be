@@ -1,14 +1,14 @@
 package jp.co.translacat.domain.novel.genre.entity;
 
 import jakarta.persistence.*;
-import jp.co.translacat.global.jpa.BaseAuditable;
 import jp.co.translacat.domain.novel.platform.entity.Platform;
+import jp.co.translacat.global.jpa.BaseAuditable;
 import lombok.Getter;
 
 @Entity
 @Getter
 @Table(name = "genre", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"platform_id", "identifier"})
+        @UniqueConstraint(columnNames = {"platform_id", "identifier"})
 })
 public class Genre extends BaseAuditable {
     @Id

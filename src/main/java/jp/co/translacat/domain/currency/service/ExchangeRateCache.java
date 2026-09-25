@@ -12,7 +12,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.LocalDate;
 import java.util.Optional;
 
-/** Cache commits independently: duplicate insert cannot poison an enclosing receipt batch. */
+/**
+ * Cache commits independently: duplicate insert cannot poison an enclosing receipt batch.
+ */
 @Component
 public class ExchangeRateCache {
     private final ExchangeRateRepository repository;
@@ -55,10 +57,10 @@ public class ExchangeRateCache {
             });
         } catch (DataIntegrityViolationException duplicate) {
             return find(
-                            rate.getSourceCurrencyCode(),
-                            rate.getTargetCurrencyCode(),
-                            rate.getRequestedRateDate(),
-                            rate.getProvider())
+                    rate.getSourceCurrencyCode(),
+                    rate.getTargetCurrencyCode(),
+                    rate.getRequestedRateDate(),
+                    rate.getProvider())
                     .orElseThrow(() -> duplicate);
         }
     }

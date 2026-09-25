@@ -52,16 +52,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 })
 class OpenChatBanRollbackTest {
 
-    @Autowired private PlatformTransactionManager transactionManager;
-    @Autowired private ApplicationEventPublisher eventPublisher;
-    @Autowired private UserRepository userRepository;
-    @Autowired private ChatRoomRepository chatRoomRepository;
-    @Autowired private OpenChatRoomRepository openChatRoomRepository;
-    @Autowired private ChatRoomMemberRepository memberRepository;
-    @Autowired private OpenChatMemberProfileRepository profileRepository;
-    @Autowired private OpenChatBanRepository banRepository;
-    @Autowired private ChatMessageRepository messageRepository;
-    @Autowired private RollbackEventListener eventListener;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private ChatRoomRepository chatRoomRepository;
+    @Autowired
+    private OpenChatRoomRepository openChatRoomRepository;
+    @Autowired
+    private ChatRoomMemberRepository memberRepository;
+    @Autowired
+    private OpenChatMemberProfileRepository profileRepository;
+    @Autowired
+    private OpenChatBanRepository banRepository;
+    @Autowired
+    private ChatMessageRepository messageRepository;
+    @Autowired
+    private RollbackEventListener eventListener;
 
     @BeforeEach
     void clearEvents() {

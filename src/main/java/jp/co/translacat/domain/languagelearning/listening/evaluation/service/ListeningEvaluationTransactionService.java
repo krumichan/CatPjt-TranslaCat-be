@@ -1,7 +1,6 @@
 package jp.co.translacat.domain.languagelearning.listening.evaluation.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
 import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
@@ -17,12 +16,10 @@ import jp.co.translacat.domain.languagelearning.listening.profile.entity.Listeni
 import jp.co.translacat.domain.languagelearning.listening.profile.repository.ListeningMetricHistoryRepository;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
+import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionLockService;
 import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
 import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
-import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionLockService;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -84,33 +81,32 @@ public class ListeningEvaluationTransactionService {
                     set.getLearningLanguage(),
                     Map.of()
             );
-            case INTERPRETATION ->
-                    new AiListeningContract.InterpretationRequest(
-                            requestId,
-                            event.idempotencyKey(),
-                            item.getId(),
-                            attempt.getId(),
-                            attempt.getEvaluationPurpose(),
-                            attempt.isAnswerRevealed(),
-                            assistance,
-                            policy.getProfilePolicyVersion(),
-                            policy.getModelConfigVersion(),
-                            response.getManualRetryCount(),
-                            item.getSourceText(),
-                            jsonCodec.read(
-                                    item.getReferenceMeaningsJson(),
-                                    new TypeReference<List<String>>() {
-                                    }
-                            ),
-                            jsonCodec.read(
-                                    item.getKeyMeaningUnitsJson(),
-                                    new TypeReference<List<String>>() {
-                                    }
-                            ),
-                            response.getAnswerText(),
-                            set.getOriginLanguage(),
-                            set.getLearningLanguage()
-                    );
+            case INTERPRETATION -> new AiListeningContract.InterpretationRequest(
+                    requestId,
+                    event.idempotencyKey(),
+                    item.getId(),
+                    attempt.getId(),
+                    attempt.getEvaluationPurpose(),
+                    attempt.isAnswerRevealed(),
+                    assistance,
+                    policy.getProfilePolicyVersion(),
+                    policy.getModelConfigVersion(),
+                    response.getManualRetryCount(),
+                    item.getSourceText(),
+                    jsonCodec.read(
+                            item.getReferenceMeaningsJson(),
+                            new TypeReference<List<String>>() {
+                            }
+                    ),
+                    jsonCodec.read(
+                            item.getKeyMeaningUnitsJson(),
+                            new TypeReference<List<String>>() {
+                            }
+                    ),
+                    response.getAnswerText(),
+                    set.getOriginLanguage(),
+                    set.getLearningLanguage()
+            );
             case COMPREHENSION -> new AiListeningContract.ComprehensionRequest(
                     requestId,
                     event.idempotencyKey(),
@@ -335,15 +331,15 @@ public class ListeningEvaluationTransactionService {
 
             boolean eligible = result.profileEligible()
                     && contractPolicy.profileEligible(
-                            attempt.isOfficial(),
-                            attempt.isPractice(),
-                            attempt.isAnswerRevealed(),
-                            response.isExcludedFromEvaluation(),
-                            result.evaluable(),
-                            signal.score(),
-                            signal.confidence(),
-                            signal.evidenceWeight()
-                    );
+                    attempt.isOfficial(),
+                    attempt.isPractice(),
+                    attempt.isAnswerRevealed(),
+                    response.isExcludedFromEvaluation(),
+                    result.evaluable(),
+                    signal.score(),
+                    signal.confidence(),
+                    signal.evidenceWeight()
+            );
             int rank = Math.min(
                     ListeningProfilePolicy.MAX_ACTIVITIES,
                     historyRepository
@@ -360,11 +356,11 @@ public class ListeningEvaluationTransactionService {
             );
             double finalWeight = eligible
                     ? profilePolicy.finalWeight(
-                            rank,
-                            signal.confidence(),
-                            response.getAssistanceLevel(),
-                            signal.evidenceWeight()
-                    )
+                    rank,
+                    signal.confidence(),
+                    response.getAssistanceLevel(),
+                    signal.evidenceWeight()
+            )
                     : 0;
             historyRepository.save(ListeningMetricHistory.create(
                     attempt.getSession().getUser(),

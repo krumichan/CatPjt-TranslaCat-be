@@ -1,13 +1,11 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.service;
 
+import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
+import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingDailyUsageResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.repository.SpeakingSessionRepository;
-import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
-import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

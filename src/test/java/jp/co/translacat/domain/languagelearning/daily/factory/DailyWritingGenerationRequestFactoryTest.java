@@ -33,8 +33,10 @@ class DailyWritingGenerationRequestFactoryTest {
 
     @Test
     void invalidSlotCannotSilentlyBecomeChallenge() {
-        assertThatThrownBy(() -> factory.distributionForItem(snapshot(), 0)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> factory.distributionForItem(snapshot(), 6)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> factory.distributionForItem(snapshot(), 0)).isInstanceOf(
+                IllegalArgumentException.class);
+        assertThatThrownBy(() -> factory.distributionForItem(snapshot(), 6)).isInstanceOf(
+                IllegalArgumentException.class);
     }
 
     private DailyWritingSnapshot snapshot() {

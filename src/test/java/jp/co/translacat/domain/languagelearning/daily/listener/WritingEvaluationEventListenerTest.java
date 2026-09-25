@@ -16,7 +16,8 @@ import static org.mockito.Mockito.*;
 class WritingEvaluationEventListenerTest {
 
     private final WritingEvaluationProcessor processor = mock(WritingEvaluationProcessor.class);
-    private final WritingEvaluationStateCommandService evaluationState = mock(WritingEvaluationStateCommandService.class);
+    private final WritingEvaluationStateCommandService evaluationState =
+            mock(WritingEvaluationStateCommandService.class);
     private final DailyWritingCompletionCommandService completion = mock(DailyWritingCompletionCommandService.class);
     private final WritingEvaluationEventListener listener =
             new WritingEvaluationEventListener(processor, evaluationState, completion);

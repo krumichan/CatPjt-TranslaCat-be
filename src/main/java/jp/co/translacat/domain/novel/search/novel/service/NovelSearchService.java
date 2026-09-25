@@ -46,8 +46,8 @@ public class NovelSearchService {
 
     private Optional<NovelSearchStrategy> strategy(PlatformCode platformCode) {
         return strategies.stream()
-            .filter(s -> s.getPlatformCode() == platformCode)
-            .findFirst();
+                .filter(s -> s.getPlatformCode() == platformCode)
+                .findFirst();
     }
 
     @Transactional
@@ -94,9 +94,9 @@ public class NovelSearchService {
 
             // Gemini 요청 - 한글 번역.
             this.translationExecutor.execute(
-                dirtyUnits,
-                AiRuleType.RANK,
-                TranslationType.AI_SERVER
+                    dirtyUnits,
+                    AiRuleType.RANK,
+                    TranslationType.AI_SERVER
             );
         }
 

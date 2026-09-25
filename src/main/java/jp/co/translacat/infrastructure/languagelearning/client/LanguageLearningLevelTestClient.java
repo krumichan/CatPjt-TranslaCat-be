@@ -2,11 +2,13 @@ package jp.co.translacat.infrastructure.languagelearning.client;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jp.co.translacat.domain.languagelearning.level.dto.request.*;
+import jp.co.translacat.domain.languagelearning.level.dto.request.LevelAnswerRequestDto;
+import jp.co.translacat.domain.languagelearning.level.dto.request.LevelTestStartRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.*;
-import jp.co.translacat.domain.languagelearning.level.model.*;
-import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
+import jp.co.translacat.domain.languagelearning.level.model.LevelCompletionSnapshot;
+import jp.co.translacat.domain.languagelearning.level.model.LevelTestAudioData;
 import jp.co.translacat.infrastructure.languagelearning.client.dto.InternalApiErrorDto;
+import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;

@@ -103,7 +103,6 @@ public class SpeakingSessionCreationContextService {
         );
     }
 
-
     private List<SelectedKeywordDto> resolveKeywords(
             Long userId,
             LocalDate learningDate,

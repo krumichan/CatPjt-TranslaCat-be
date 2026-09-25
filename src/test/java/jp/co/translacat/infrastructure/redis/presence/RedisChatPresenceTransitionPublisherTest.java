@@ -11,17 +11,17 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RedisChatPresenceTransitionPublisherTest {
 
-    @Mock private StringRedisTemplate redisTemplate;
-    @Mock private ApplicationEventPublisher localEventPublisher;
-    @Mock private RedisChatPresenceSubscriber subscriber;
+    @Mock
+    private StringRedisTemplate redisTemplate;
+    @Mock
+    private ApplicationEventPublisher localEventPublisher;
+    @Mock
+    private RedisChatPresenceSubscriber subscriber;
 
     @Test
     void publish_WhenRedisFails_FallsBackToLocalApplicationEvent() {

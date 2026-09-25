@@ -1,7 +1,6 @@
 package jp.co.translacat.domain.languagelearning.listening.attempt.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import jp.co.translacat.domain.languagelearning.activity.service.LearningActivityCommandService;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
@@ -18,11 +17,7 @@ import jp.co.translacat.domain.languagelearning.listening.evaluation.repository.
 import jp.co.translacat.domain.languagelearning.listening.evaluation.service.ListeningAttemptFinalizationCommandService;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
 import jp.co.translacat.domain.languagelearning.listening.playback.repository.ListeningPlaybackEventRepository;
-import jp.co.translacat.domain.languagelearning.listening.policy.ListeningIdempotencyPolicy;
-import jp.co.translacat.domain.languagelearning.listening.policy.ListeningIndependencePolicy;
-import jp.co.translacat.domain.languagelearning.listening.policy.ListeningProfilePolicy;
-import jp.co.translacat.domain.languagelearning.listening.policy.ListeningProgressPolicy;
-import jp.co.translacat.domain.languagelearning.listening.policy.ListeningTaskSelectionPolicy;
+import jp.co.translacat.domain.languagelearning.listening.policy.*;
 import jp.co.translacat.domain.languagelearning.listening.profile.repository.ListeningMetricHistoryRepository;
 import jp.co.translacat.domain.languagelearning.listening.response.entity.ListeningTaskResponse;
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
@@ -32,7 +27,6 @@ import jp.co.translacat.domain.languagelearning.listening.session.service.Listen
 import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
 import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import jp.co.translacat.domain.user.entity.User;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -73,7 +67,8 @@ class ListeningAttemptProgressiveLifecycleTest {
     void submittingEveryAttachedItemOnlyStartsSessionEvaluationWhenAllFiveExist(int attachedCount) {
         for (int index = 1; index <= attachedCount; index++) {
             ListeningItemAttempt attempt = attempt(index, ListeningEvaluationPurpose.OFFICIAL);
-            ListeningTaskResponse response = ListeningTaskResponse.selected(attempt, ListeningTaskType.SUMMARY, "r:" + index);
+            ListeningTaskResponse response =
+                    ListeningTaskResponse.selected(attempt, ListeningTaskType.SUMMARY, "r:" + index);
             ReflectionTestUtils.setField(response, "id", 100L + index);
             response.updateText("요약 답변", "요약 답변");
             when(responses.findAllLockedByAttemptIdOrderByTaskTypeAsc((long) index)).thenReturn(List.of(response));
@@ -108,7 +103,8 @@ class ListeningAttemptProgressiveLifecycleTest {
     void backgroundFinalizationCannotCompleteMissingSlots(int attachedCount) {
         for (int index = 1; index <= attachedCount; index++) {
             ListeningItemAttempt attempt = attempt(index, ListeningEvaluationPurpose.OFFICIAL);
-            ListeningTaskResponse response = ListeningTaskResponse.selected(attempt, ListeningTaskType.SUMMARY, "r:" + index);
+            ListeningTaskResponse response =
+                    ListeningTaskResponse.selected(attempt, ListeningTaskType.SUMMARY, "r:" + index);
             response.markNotEvaluable();
             when(responses.findAllLockedByAttemptIdOrderByTaskTypeAsc((long) index)).thenReturn(List.of(response));
         }

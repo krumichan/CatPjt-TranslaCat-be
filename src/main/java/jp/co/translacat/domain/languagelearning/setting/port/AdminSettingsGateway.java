@@ -6,9 +6,16 @@ import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnaps
 
 public interface AdminSettingsGateway {
     AdminSettingsSnapshot getSnapshot();
+
     AdminSettingResponseDto getSettings(Long adminUserId);
+
     AdminSettingResponseDto update(Long adminUserId, AdminSettingUpdateRequestDto request);
 
-    default int getLevelTestQuestionPoolTargetSize() { return getSnapshot().resolvedLevelTestQuestionPoolTargetSize(); }
-    default boolean isLevelTestQuestionPoolReplenishmentEnabled() { return getSnapshot().resolvedLevelTestQuestionPoolReplenishmentEnabled(); }
+    default int getLevelTestQuestionPoolTargetSize() {
+        return getSnapshot().resolvedLevelTestQuestionPoolTargetSize();
+    }
+
+    default boolean isLevelTestQuestionPoolReplenishmentEnabled() {
+        return getSnapshot().resolvedLevelTestQuestionPoolReplenishmentEnabled();
+    }
 }

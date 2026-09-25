@@ -16,8 +16,13 @@ import static org.mockito.Mockito.when;
 class AuditIdentityTest {
 
     private static class AuditedFixture extends BaseAuditable {
-        void insert() { prePersist(); }
-        void update() { preUpdate(); }
+        void insert() {
+            prePersist();
+        }
+
+        void update() {
+            preUpdate();
+        }
     }
 
     @AfterEach

@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.novel.platform.repository;
 
-import jp.co.translacat.domain.novel.platform.entity.Platform;
 import jp.co.translacat.domain.common.enums.PlatformCode;
+import jp.co.translacat.domain.novel.platform.entity.Platform;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

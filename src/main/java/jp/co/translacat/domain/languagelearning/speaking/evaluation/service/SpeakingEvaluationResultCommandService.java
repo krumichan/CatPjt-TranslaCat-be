@@ -9,28 +9,26 @@ import jp.co.translacat.domain.languagelearning.common.enums.MetricEvaluationSta
 import jp.co.translacat.domain.languagelearning.common.enums.WritingMetric;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.profile.service.SpeakingProfileSignalService;
+import jp.co.translacat.domain.languagelearning.resultjournal.model.LearningResultCaptured;
+import jp.co.translacat.domain.languagelearning.resultjournal.model.SpeakingResultFact;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingMetricDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.entity.SpeakingEvaluation;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.entity.SpeakingEvaluationMetric;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvaluationEligibilityPolicy;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvidenceMetadata;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.repository.SpeakingEvaluationMetricRepository;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.repository.SpeakingEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
 import jp.co.translacat.domain.languagelearning.speaking.turn.repository.SpeakingTurnRepository;
-
-import org.springframework.context.ApplicationEventPublisher;
-import jp.co.translacat.domain.languagelearning.resultjournal.model.*;
-
 import lombok.RequiredArgsConstructor;
-
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvidenceMetadata;
 
 @Service
 @RequiredArgsConstructor
@@ -48,7 +46,8 @@ public class SpeakingEvaluationResultCommandService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void apply(SpeakingSession session, AiSpeakingEvaluationResponseDto response) {
-        if (session.getResultKind() != jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind.SCORED_EVALUATION) {
+        if (session.getResultKind()
+                != jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind.SCORED_EVALUATION) {
             throw new IllegalArgumentException("FREE 코칭은 정식 평가 저장 경로를 사용할 수 없습니다.");
         }
         // Session is locked by the job command. A result is final regardless of the AI version label.
@@ -71,7 +70,8 @@ public class SpeakingEvaluationResultCommandService {
                 formal ? "EVALUATED" : "INSUFFICIENT_EVIDENCE",
                 jsonCodec.write(response.strengths()), jsonCodec.write(response.improvements()),
                 jsonCodec.write(response.recommendedExpressions()), jsonCodec.write(response.pronunciationPractice()),
-                jsonCodec.write(response.profileSignals()), SpeakingEvidenceMetadata.eligibilitySnapshot(response, jsonCodec),
+                jsonCodec.write(response.profileSignals()),
+                SpeakingEvidenceMetadata.eligibilitySnapshot(response, jsonCodec),
                 jsonCodec.write(response.usage())));
         saveSpeakingMetrics(evaluation, response);
         if (!formal) {
@@ -94,10 +94,10 @@ public class SpeakingEvaluationResultCommandService {
         resultEvents.publishEvent(new LearningResultCaptured(
                 session.getUser().getId(), formal ? "SPEAKING_SCORED" : "SPEAKING_INSUFFICIENT",
                 session.getId().toString(), jsonCodec.write(new SpeakingResultFact(
-                        session.getResultKind().name(), evaluation.getId(), session.getId(), activity.getId(),
-                        session.getLearningDate().toString(), session.getOriginLanguage(), session.getLearningLanguage(),
-                        formal, activityWeight, response
-                ))
+                session.getResultKind().name(), evaluation.getId(), session.getId(), activity.getId(),
+                session.getLearningDate().toString(), session.getOriginLanguage(), session.getLearningLanguage(),
+                formal, activityWeight, response
+        ))
         ));
     }
 

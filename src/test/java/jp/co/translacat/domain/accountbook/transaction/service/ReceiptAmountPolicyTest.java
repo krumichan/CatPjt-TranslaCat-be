@@ -55,7 +55,7 @@ class ReceiptAmountPolicyTest {
     @Test
     void cashTenderedAndChangeOverrideTheTenderedCashObservation() {
         var result = ReceiptAmountPolicy.decide(new BigDecimal("9.00"), List.of(
-                payment("CASH", "10.00", null)),
+                        payment("CASH", "10.00", null)),
                 new BigDecimal("10.00"), new BigDecimal("1.00"));
         assertThat(result.status()).isEqualTo("READY");
         assertThat(result.bookAmount()).isEqualByComparingTo("9.00");

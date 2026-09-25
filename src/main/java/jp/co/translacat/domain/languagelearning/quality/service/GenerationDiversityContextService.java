@@ -39,8 +39,9 @@ public class GenerationDiversityContextService {
         if (sourceContents.isEmpty()) {
             return base;
         }
-        var fingerprints = repository.findAllByUserIdAndLearningLanguageAndSourceTypeAndSourceIdInOrderByGeneratedAtDesc(
-                userId, learningLanguage, sourceType, sourceContents.keySet());
+        var fingerprints =
+                repository.findAllByUserIdAndLearningLanguageAndSourceTypeAndSourceIdInOrderByGeneratedAtDesc(
+                        userId, learningLanguage, sourceType, sourceContents.keySet());
         var currentSession = sourceContents.entrySet().stream()
                 .skip(Math.max(0, sourceContents.size() - 40L))
                 .map(entry -> {
@@ -141,10 +142,10 @@ public class GenerationDiversityContextService {
         List<String> grammarFocus = value.getGrammarFocusJson() == null
                 ? List.of()
                 : jsonCodec.read(
-                        value.getGrammarFocusJson(),
-                        new TypeReference<List<String>>() {
-                        }
-                );
+                value.getGrammarFocusJson(),
+                new TypeReference<List<String>>() {
+                }
+        );
         return new DiversityHistoryItem(
                 value.getSourceType(),
                 value.getContentExcerpt() == null

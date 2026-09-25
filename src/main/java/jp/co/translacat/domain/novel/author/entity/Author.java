@@ -1,8 +1,8 @@
 package jp.co.translacat.domain.novel.author.entity;
 
 import jakarta.persistence.*;
-import jp.co.translacat.global.jpa.BaseAuditable;
 import jp.co.translacat.domain.novel.platform.entity.Platform;
+import jp.co.translacat.global.jpa.BaseAuditable;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @Table(name = "author", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"platform_id", "identifier"})
+        @UniqueConstraint(columnNames = {"platform_id", "identifier"})
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Author extends BaseAuditable {

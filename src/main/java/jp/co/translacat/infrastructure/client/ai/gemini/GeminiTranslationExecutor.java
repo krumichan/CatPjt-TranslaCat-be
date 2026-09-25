@@ -33,7 +33,7 @@ public class GeminiTranslationExecutor extends AbstractTranslationExecutor {
 
     @Override
     @Retryable(
-            retryFor = { Exception.class },
+            retryFor = {Exception.class},
             maxAttempts = 3,
             backoff = @Backoff(delay = 100, multiplier = 1.5, maxDelay = 500),
             recover = "recoverTranslation"

@@ -70,26 +70,26 @@ public class AiGeminiClient {
 
     private List<GoogleGenAiSafetySetting> safetySettings() {
         return List.of(
-            new GoogleGenAiSafetySetting(
-                    GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
-                    GoogleGenAiSafetySetting.HarmBlockThreshold.BLOCK_NONE,
-                    GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED
-            ),
-            new GoogleGenAiSafetySetting(
-                    GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                    GoogleGenAiSafetySetting.HarmBlockThreshold.BLOCK_NONE,
-                    GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED
-            ),
-            new GoogleGenAiSafetySetting(
-                    GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                    GoogleGenAiSafetySetting.HarmBlockThreshold.BLOCK_NONE,
-                    GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED
-            ),
-            new GoogleGenAiSafetySetting(
-                    GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                    GoogleGenAiSafetySetting.HarmBlockThreshold.BLOCK_NONE,
-                    GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED
-            )
+                new GoogleGenAiSafetySetting(
+                        GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
+                        GoogleGenAiSafetySetting.HarmBlockThreshold.BLOCK_NONE,
+                        GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED
+                ),
+                new GoogleGenAiSafetySetting(
+                        GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                        GoogleGenAiSafetySetting.HarmBlockThreshold.BLOCK_NONE,
+                        GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED
+                ),
+                new GoogleGenAiSafetySetting(
+                        GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                        GoogleGenAiSafetySetting.HarmBlockThreshold.BLOCK_NONE,
+                        GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED
+                ),
+                new GoogleGenAiSafetySetting(
+                        GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                        GoogleGenAiSafetySetting.HarmBlockThreshold.BLOCK_NONE,
+                        GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED
+                )
         );
     }
 }

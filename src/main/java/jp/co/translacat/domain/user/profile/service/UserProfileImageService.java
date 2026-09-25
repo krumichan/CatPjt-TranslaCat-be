@@ -94,8 +94,7 @@ public class UserProfileImageService {
     ) {
         return switch (imageType) {
             case PROFILE -> userProfile.getProfileImageObjectKey();
-            case BACKGROUND ->
-                    userProfile.getProfileBackgroundImageObjectKey();
+            case BACKGROUND -> userProfile.getProfileBackgroundImageObjectKey();
         };
     }
 
@@ -105,12 +104,10 @@ public class UserProfileImageService {
             String newObjectKey
     ) {
         switch (imageType) {
-            case PROFILE ->
-                    userProfile.replaceProfileImageObjectKey(newObjectKey);
-            case BACKGROUND ->
-                    userProfile.replaceProfileBackgroundImageObjectKey(
-                            newObjectKey
-                    );
+            case PROFILE -> userProfile.replaceProfileImageObjectKey(newObjectKey);
+            case BACKGROUND -> userProfile.replaceProfileBackgroundImageObjectKey(
+                    newObjectKey
+            );
         }
     }
 

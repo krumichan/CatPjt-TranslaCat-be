@@ -15,11 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -27,8 +23,10 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class OpenChatMessageProfileServiceTest {
 
-    @Mock private OpenChatMemberProfileRepository profileRepository;
-    @Mock private OpenChatProfileImageUrlResolver imageUrlResolver;
+    @Mock
+    private OpenChatMemberProfileRepository profileRepository;
+    @Mock
+    private OpenChatProfileImageUrlResolver imageUrlResolver;
 
     private OpenChatMessageProfileService service;
     private OpenChatMemberProfile profile;

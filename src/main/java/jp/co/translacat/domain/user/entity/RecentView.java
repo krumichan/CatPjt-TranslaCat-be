@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Table(name = "recent_view", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"user_id", "platform_id", "recent_view_type", "novel_id", "episode_id"})
+        @UniqueConstraint(columnNames = {"user_id", "platform_id", "recent_view_type", "novel_id", "episode_id"})
 })
 @NoArgsConstructor
 public class RecentView {
@@ -68,15 +68,15 @@ public class RecentView {
     public static RecentView create(User user, Platform platform, RecentViewType recentViewType,
                                     String novelId, String episodeId, String title, String titleJa, String titleKo) {
         return RecentView.builder()
-            .user(user)
-            .platform(platform)
-            .recentViewType(recentViewType)
-            .novelId(novelId)
-            .episodeId(episodeId)
-            .title(title)
-            .titleJa(titleJa)
-            .titleKo(titleKo)
-            .build();
+                .user(user)
+                .platform(platform)
+                .recentViewType(recentViewType)
+                .novelId(novelId)
+                .episodeId(episodeId)
+                .title(title)
+                .titleJa(titleJa)
+                .titleKo(titleKo)
+                .build();
     }
 
     public void update(String title, String titleJa, String titleKo) {

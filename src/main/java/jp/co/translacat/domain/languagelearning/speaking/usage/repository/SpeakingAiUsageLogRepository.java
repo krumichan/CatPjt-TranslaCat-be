@@ -4,7 +4,6 @@ import jp.co.translacat.domain.languagelearning.speaking.usage.entity.SpeakingAi
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-
 public interface SpeakingAiUsageLogRepository
         extends JpaRepository<SpeakingAiUsageLog, Long> {
 

@@ -13,6 +13,7 @@ public record ListeningGenerationCommand(
                                       int replacementSequence, int manualRetryAttempt) {
         this(replacementForItemId, logicalItemIndex, replacementSequence, manualRetryAttempt, null);
     }
+
     public static ListeningGenerationCommand initial() {
         return item(1, 0);
     }

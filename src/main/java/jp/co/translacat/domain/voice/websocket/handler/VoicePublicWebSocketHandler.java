@@ -16,10 +16,8 @@ import jp.co.translacat.domain.voice.websocket.service.VoiceConnectionRegistry;
 import jp.co.translacat.domain.voice.websocket.service.VoiceRelayConnection;
 import jp.co.translacat.domain.voice.websocket.service.VoiceRelayConnection.BackpressureException;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
@@ -35,9 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-import static jp.co.translacat.domain.voice.websocket.interceptor.VoiceWebSocketHandshakeInterceptor.ATTR_CHANNEL;
-import static jp.co.translacat.domain.voice.websocket.interceptor.VoiceWebSocketHandshakeInterceptor.ATTR_SESSION_ID;
-import static jp.co.translacat.domain.voice.websocket.interceptor.VoiceWebSocketHandshakeInterceptor.ATTR_USER_ID;
+import static jp.co.translacat.domain.voice.websocket.interceptor.VoiceWebSocketHandshakeInterceptor.*;
 
 @Slf4j
 @Component

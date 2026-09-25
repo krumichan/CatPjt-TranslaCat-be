@@ -28,7 +28,7 @@ public class DailyWritingGenerationRecoveryService {
         dailySetRepository.findTop20ByStatusAndGenerationLeaseUntilIsNullOrderByIdAsc(DailySetStatus.GENERATING)
                 .forEach(set -> dispatch(set.getId()));
         dailySetRepository.findTop20ByStatusAndGenerationLeaseUntilLessThanEqualOrderByIdAsc(
-                DailySetStatus.GENERATING, LocalDateTime.now())
+                        DailySetStatus.GENERATING, LocalDateTime.now())
                 .forEach(set -> dispatch(set.getId()));
     }
 

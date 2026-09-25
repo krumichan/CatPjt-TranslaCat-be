@@ -1,9 +1,9 @@
 package jp.co.translacat.domain.user.entity;
 
 import jakarta.persistence.*;
-import jp.co.translacat.global.jpa.BaseAuditable;
-import jp.co.translacat.domain.user.enums.SocialType;
 import jp.co.translacat.domain.user.enums.Role;
+import jp.co.translacat.domain.user.enums.SocialType;
+import jp.co.translacat.global.jpa.BaseAuditable;
 import lombok.*;
 
 @Entity
@@ -14,7 +14,8 @@ import lombok.*;
 public class User extends BaseAuditable {
 
     @Builder(access = AccessLevel.PRIVATE)
-    private User(String email, String password, String username, String socialId, SocialType socialType, Role authority, String publicId) {
+    private User(String email, String password, String username, String socialId, SocialType socialType, Role authority,
+                 String publicId) {
         this.email = email;
         this.password = password;
         this.username = username;
@@ -49,7 +50,8 @@ public class User extends BaseAuditable {
     @Column(name = "public_id", nullable = false, unique = true, updatable = false, length = 20)
     private String publicId;
 
-    public static User createLocalUser(String email, String password, String username, Role authority, String publicId) {
+    public static User createLocalUser(String email, String password, String username, Role authority,
+                                       String publicId) {
         return User.builder()
                 .email(email)
                 .password(password)
@@ -60,7 +62,8 @@ public class User extends BaseAuditable {
                 .build();
     }
 
-    public static User createSocialUser(String email, String username, SocialType socialType,  String socialId, Role authority, String publicId) {
+    public static User createSocialUser(String email, String username, SocialType socialType, String socialId,
+                                        Role authority, String publicId) {
         return User.builder()
                 .email(email)
                 .username(username)

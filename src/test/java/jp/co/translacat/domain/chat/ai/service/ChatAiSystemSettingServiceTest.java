@@ -23,7 +23,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ChatAiSystemSettingServiceTest {
 
-    @Mock private ChatAiSystemSettingRepository repository;
+    @Mock
+    private ChatAiSystemSettingRepository repository;
 
     private ChatAiSystemSettingService service;
 
@@ -92,6 +93,7 @@ class ChatAiSystemSettingServiceTest {
                 .satisfies(exception -> assertThat(exception.getErrorCode())
                         .isEqualTo(ChatAiErrorCode.SETTING_INVALID));
     }
+
     @Test
     void rejectsResponseDelayMinGreaterThanMax() {
         ChatAiSystemSetting setting = ChatAiSystemSetting.createDefault();

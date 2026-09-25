@@ -33,7 +33,7 @@ class ReceiptCategorySuggestionPolicyTest {
                     assertThat(result.source()).isEqualTo("NEW");
                     assertThat(result.warnings()).containsExactly("CATEGORY_NEW_SUGGESTION");
                 });
-        for (String unsafe : new String[] {null, "   ", "bad\nname", "---"}) {
+        for (String unsafe : new String[]{null, "   ", "bad\nname", "---"}) {
             assertThat(ReceiptCategorySuggestionPolicy.resolve(
                     unsafe, null, List.of("Food"), List.of("식비", "기타")))
                     .satisfies(result -> {

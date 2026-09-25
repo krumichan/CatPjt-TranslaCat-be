@@ -5,5 +5,6 @@ import jp.co.translacat.domain.user.enums.SocialType;
 
 public interface OAuth2Strategy {
     SocialType getProviderType();
+
     User authenticate(String idToken);
 }

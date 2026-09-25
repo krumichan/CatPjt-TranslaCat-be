@@ -1,11 +1,7 @@
 package jp.co.translacat.domain.chat.ai.service;
 
 import jp.co.translacat.domain.chat.ai.dto.server.ChatAiRevivalClaim;
-import jp.co.translacat.domain.chat.ai.entity.ChatAiAgent;
-import jp.co.translacat.domain.chat.ai.entity.ChatAiSystemSetting;
-import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiActivity;
-import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiMember;
-import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiSetting;
+import jp.co.translacat.domain.chat.ai.entity.*;
 import jp.co.translacat.domain.chat.ai.enums.ChatAiTriggerProcessingResult;
 import jp.co.translacat.domain.chat.ai.repository.ChatRoomAiActivityRepository;
 import jp.co.translacat.domain.chat.ai.repository.ChatRoomAiMemberRepository;
@@ -25,17 +21,19 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatAiRevivalClaimServiceTest {
 
-    @Mock private ChatRoomAiActivityRepository activityRepository;
-    @Mock private ChatRoomAiSettingRepository roomSettingRepository;
-    @Mock private ChatRoomAiMemberRepository aiMemberRepository;
-    @Mock private ChatAiSystemSettingService systemSettingService;
+    @Mock
+    private ChatRoomAiActivityRepository activityRepository;
+    @Mock
+    private ChatRoomAiSettingRepository roomSettingRepository;
+    @Mock
+    private ChatRoomAiMemberRepository aiMemberRepository;
+    @Mock
+    private ChatAiSystemSettingService systemSettingService;
 
     private ChatAiRevivalClaimService service;
     private ChatRoom room;

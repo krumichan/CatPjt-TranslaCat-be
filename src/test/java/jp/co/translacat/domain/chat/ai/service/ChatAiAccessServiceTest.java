@@ -23,8 +23,10 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ChatAiAccessServiceTest {
 
-    @Mock private ChatRoomRepository chatRoomRepository;
-    @Mock private ChatRoomMemberRepository memberRepository;
+    @Mock
+    private ChatRoomRepository chatRoomRepository;
+    @Mock
+    private ChatRoomMemberRepository memberRepository;
 
     private ChatAiAccessService service;
     private User owner;

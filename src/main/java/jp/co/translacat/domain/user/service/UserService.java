@@ -1,21 +1,20 @@
 package jp.co.translacat.domain.user.service;
 
+import jp.co.translacat.domain.user.dto.UserCreateRequestDto;
+import jp.co.translacat.domain.user.dto.UserLoginRequestDto;
+import jp.co.translacat.domain.user.dto.UserLoginResponseDto;
 import jp.co.translacat.domain.user.entity.RefreshToken;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.entity.UserAllowed;
+import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.domain.user.enums.SocialType;
-import jp.co.translacat.domain.user.repository.UserAllowedRepository;
-import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.domain.user.repository.RefreshTokenRepository;
+import jp.co.translacat.domain.user.repository.UserAllowedRepository;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.security.JWTService;
-import jp.co.translacat.domain.user.enums.Role;
-import jp.co.translacat.domain.user.dto.UserLoginRequestDto;
-import jp.co.translacat.domain.user.dto.UserCreateRequestDto;
-import jp.co.translacat.domain.user.dto.UserLoginResponseDto;
+import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.PublicIdGenerator;
 import lombok.RequiredArgsConstructor;
-// import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -26,6 +25,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.Optional;
+
+// import org.springframework.security.access.AccessDeniedException;
 
 @Service
 @RequiredArgsConstructor
@@ -83,20 +84,20 @@ public class UserService {
         */
 
         return userRepository.findBySocialIdAndSocialType(socialId, socialType)
-            .map(existingUser -> {
-                existingUser.setUsername(username);
-                return userRepository.save(existingUser);
-            })
-            .orElseGet(() -> {
-                User newUser = User.createSocialUser(
-                        email,
-                        username,
-                        socialType,
-                        socialId,
-                        Role.USER,
-                        generateUniquePublicId());
-                return userRepository.save(newUser);
-            });
+                .map(existingUser -> {
+                    existingUser.setUsername(username);
+                    return userRepository.save(existingUser);
+                })
+                .orElseGet(() -> {
+                    User newUser = User.createSocialUser(
+                            email,
+                            username,
+                            socialType,
+                            socialId,
+                            Role.USER,
+                            generateUniquePublicId());
+                    return userRepository.save(newUser);
+                });
     }
 
     public UserLoginResponseDto authentication(UserLoginRequestDto userLoginRequestDto) {

@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.accountbook.category.entity;
 
-import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jakarta.persistence.*;
+import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

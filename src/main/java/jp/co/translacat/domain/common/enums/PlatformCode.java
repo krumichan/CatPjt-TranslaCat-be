@@ -12,8 +12,8 @@ public enum PlatformCode implements ConvertibleEnum {
     public static PlatformCode fromString(String source) {
         if (source == null) return null;
         return Arrays.stream(PlatformCode.values())
-            .filter(code -> code.matches(source))
-            .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("Unknown platform: " + source));
+                .filter(code -> code.matches(source))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown platform: " + source));
     }
 }

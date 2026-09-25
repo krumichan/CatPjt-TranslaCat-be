@@ -1,12 +1,12 @@
 package jp.co.translacat.domain.chat.presence.service;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import jp.co.translacat.domain.chat.presence.event.ChatPresenceChangedApplicationEvent;
 import jp.co.translacat.domain.chat.presence.port.ChatPresenceStore;
 import jp.co.translacat.domain.chat.presence.port.ChatPresenceTransitionPublisher;
 import jp.co.translacat.domain.chat.presence.scheduler.ChatPresenceOfflineGraceScheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 @Slf4j

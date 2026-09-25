@@ -5,12 +5,19 @@ import jakarta.persistence.EntityManager;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
 import jp.co.translacat.domain.languagelearning.listening.audio.service.ListeningAudioKeyFactory;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.*;
-import jp.co.translacat.domain.languagelearning.listening.daily.entity.*;
-import jp.co.translacat.domain.languagelearning.listening.daily.model.*;
-import jp.co.translacat.domain.languagelearning.listening.daily.repository.*;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDifficulty;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningLearningMode;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningOutboxType;
+import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
+import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningItem;
+import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningDurationPolicy;
+import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningGenerationCommand;
+import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
+import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningItemRepository;
 import jp.co.translacat.domain.languagelearning.listening.outbox.repository.ListeningOutboxEventRepository;
-import jp.co.translacat.domain.languagelearning.listening.outbox.service.*;
+import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxCommandService;
+import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxTransactionService;
 import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
 import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,9 +26,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
-import java.time.*;
-import java.util.*;
-import static org.assertj.core.api.Assertions.*;
+
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -34,8 +47,10 @@ class ListeningDurationCorrectionTest {
     private final ListeningOutboxTransactionService outbox = mock(ListeningOutboxTransactionService.class);
     private final ListeningOutboxEventRepository events = mock(ListeningOutboxEventRepository.class);
     private final EntityManager entityManager = mock(EntityManager.class);
-    private final LanguageLearningJsonCodec json = new LanguageLearningJsonCodec(new ObjectMapper().findAndRegisterModules());
-    private final AiListeningContract.DurationDemand demand = ListeningDurationPolicy.effective(ListeningDifficulty.MY_LEVEL, 1.0, 30.0);
+    private final LanguageLearningJsonCodec json =
+            new LanguageLearningJsonCodec(new ObjectMapper().findAndRegisterModules());
+    private final AiListeningContract.DurationDemand demand =
+            ListeningDurationPolicy.effective(ListeningDifficulty.MY_LEVEL, 1.0, 30.0);
     private ListeningDailySet set;
     private ListeningItem item;
     private ListeningOutboxTransactionService.ClaimedEvent event;
@@ -198,8 +213,9 @@ class ListeningDurationCorrectionTest {
     }
 
     private ListeningTtsTransactionService.TtsWork work() {
-        var request = new AiListeningContract.TtsRequest("request", "key", 100L, item.getSourceText(), item.getContentHash(),
-                "generation", "ja", null, "NORMAL", "policy", "model", 2, 0, demand);
+        var request =
+                new AiListeningContract.TtsRequest("request", "key", 100L, item.getSourceText(), item.getContentHash(),
+                        "generation", "ja", null, "NORMAL", "policy", "model", 2, 0, demand);
         return new ListeningTtsTransactionService.TtsWork(event, request, "reference.wav", 30, 1000000, 7);
     }
 }

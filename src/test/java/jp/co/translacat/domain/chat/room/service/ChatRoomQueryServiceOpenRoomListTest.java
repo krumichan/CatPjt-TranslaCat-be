@@ -30,19 +30,31 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ChatRoomQueryServiceOpenRoomListTest {
 
-    @Mock private ChatRoomRepository chatRoomRepository;
-    @Mock private ChatRoomMemberRepository chatRoomMemberRepository;
-    @Mock private OpenChatRoomRepository openChatRoomRepository;
-    @Mock private ChatLanguageSettingResolver chatLanguageSettingResolver;
-    @Mock private UserProfileRepository userProfileRepository;
-    @Mock private UserProfileImageUrlResolver imageUrlResolver;
-    @Mock private ChatUnreadCountRepository chatUnreadCountRepository;
-    @Mock private ChatPresenceQueryService chatPresenceQueryService;
+    @Mock
+    private ChatRoomRepository chatRoomRepository;
+    @Mock
+    private ChatRoomMemberRepository chatRoomMemberRepository;
+    @Mock
+    private OpenChatRoomRepository openChatRoomRepository;
+    @Mock
+    private ChatLanguageSettingResolver chatLanguageSettingResolver;
+    @Mock
+    private UserProfileRepository userProfileRepository;
+    @Mock
+    private UserProfileImageUrlResolver imageUrlResolver;
+    @Mock
+    private ChatUnreadCountRepository chatUnreadCountRepository;
+    @Mock
+    private ChatPresenceQueryService chatPresenceQueryService;
 
-    @Mock private ChatRoomMember openMember;
-    @Mock private ChatRoomMember groupMember;
-    @Mock private ChatRoom closedOpenRoom;
-    @Mock private ChatRoom groupRoom;
+    @Mock
+    private ChatRoomMember openMember;
+    @Mock
+    private ChatRoomMember groupMember;
+    @Mock
+    private ChatRoom closedOpenRoom;
+    @Mock
+    private ChatRoom groupRoom;
 
     private ChatRoomQueryService service;
 

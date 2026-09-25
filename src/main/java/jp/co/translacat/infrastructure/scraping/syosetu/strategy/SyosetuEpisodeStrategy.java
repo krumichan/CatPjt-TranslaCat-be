@@ -55,10 +55,10 @@ public class SyosetuEpisodeStrategy implements EpisodeStrategy {
         return EpisodeDetailContext.builder()
                 .episodePagerContext(pager)
                 .novelDetailContext(
-                    NovelDetailContext.builder()
-                        .novelContext(novelContext)
-                        .rawEpisodeContexts(rawEpisodes)
-                        .build())
+                        NovelDetailContext.builder()
+                                .novelContext(novelContext)
+                                .rawEpisodeContexts(rawEpisodes)
+                                .build())
                 .episodeContentContexts(contents)
                 .build();
     }

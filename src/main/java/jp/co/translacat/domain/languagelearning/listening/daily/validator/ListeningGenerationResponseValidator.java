@@ -76,7 +76,7 @@ public class ListeningGenerationResponseValidator {
                     && item.options() != null
                     && item.options().size() == 4
                     && item.options().stream().allMatch(option -> option != null
-                            && !blank(option.key()) && !blank(option.text()))
+                    && !blank(option.key()) && !blank(option.text()))
                     && item.options().stream()
                     .map(AiListeningContract.ChoiceOption::key)
                     .collect(java.util.stream.Collectors.toSet())

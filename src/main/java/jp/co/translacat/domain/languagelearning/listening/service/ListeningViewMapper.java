@@ -1,12 +1,11 @@
 package jp.co.translacat.domain.languagelearning.listening.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.listening.attempt.entity.ListeningItemAttempt;
 import jp.co.translacat.domain.languagelearning.listening.attempt.repository.ListeningItemAttemptRepository;
-import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningItemStatus;
+import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningDailySetQueryService;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.evaluation.entity.ListeningTaskEvaluation;
@@ -15,9 +14,7 @@ import jp.co.translacat.domain.languagelearning.listening.response.entity.Listen
 import jp.co.translacat.domain.languagelearning.listening.response.repository.ListeningTaskResponseRepository;
 import jp.co.translacat.domain.languagelearning.listening.session.entity.ListeningSession;
 import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -82,24 +79,24 @@ public class ListeningViewMapper {
                                     || attempt.isAnswerRevealed();
 
                             return new ListeningApiContract.HistoryAttemptDetailView(
-                                attempt.getItem().getId(),
-                                attempt.getItem().getItemIndex(),
-                                reveal ? attempt.getItem().getSourceText() : null,
-                                reveal
-                                        ? jsonCodec.read(
-                                                attempt.getItem()
-                                                        .getReferenceMeaningsJson(),
-                                                new TypeReference<List<String>>() {
-                                                }
-                                        )
-                                        : List.of(),
-                                audioAvailability(
-                                        attempt.getItem().getAudioObjectKey(),
-                                        attempt.getItem().getAudioRetentionUntil(),
-                                        attempt.getItem().getAudioDeletedAt(),
-                                        LocalDateTime.now()
-                                ),
-                                attempt(attempt)
+                                    attempt.getItem().getId(),
+                                    attempt.getItem().getItemIndex(),
+                                    reveal ? attempt.getItem().getSourceText() : null,
+                                    reveal
+                                            ? jsonCodec.read(
+                                            attempt.getItem()
+                                                    .getReferenceMeaningsJson(),
+                                            new TypeReference<List<String>>() {
+                                            }
+                                    )
+                                            : List.of(),
+                                    audioAvailability(
+                                            attempt.getItem().getAudioObjectKey(),
+                                            attempt.getItem().getAudioRetentionUntil(),
+                                            attempt.getItem().getAudioDeletedAt(),
+                                            LocalDateTime.now()
+                                    ),
+                                    attempt(attempt)
                             );
                         })
                         .toList()

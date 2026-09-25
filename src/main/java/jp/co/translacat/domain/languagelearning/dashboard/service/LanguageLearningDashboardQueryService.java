@@ -1,36 +1,27 @@
 package jp.co.translacat.domain.languagelearning.dashboard.service;
 
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
+import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
+import jp.co.translacat.domain.languagelearning.dashboard.dto.response.DashboardBaseResponseDto;
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.DashboardInsightsResponseDto;
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.DashboardResponseDto;
-import jp.co.translacat.domain.languagelearning.dashboard.dto.response.DashboardBaseResponseDto;
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.SourceSkillTrendResponseDto;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningWeaknessState;
 import jp.co.translacat.domain.languagelearning.listening.daily.repository.ListeningDailySetRepository;
 import jp.co.translacat.domain.languagelearning.listening.dashboard.facade.ListeningDashboardFacade;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
-import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAttemptRepository;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
 import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -103,12 +94,12 @@ public class LanguageLearningDashboardQueryService {
         List<ListeningApiContract.MetricTrendView> listeningMetrics =
                 includeListeningTrends
                         ? listeningDashboardFacade.metricTrends(
-                                userId,
-                                setting.getLearningLanguage(),
-                                resolvedFrom,
-                                resolvedTo,
-                                taskType
-                        )
+                        userId,
+                        setting.getLearningLanguage(),
+                        resolvedFrom,
+                        resolvedTo,
+                        taskType
+                )
                         : List.of();
 
         DashboardResponseDto.IntegratedAbilityView ability =
@@ -382,7 +373,7 @@ public class LanguageLearningDashboardQueryService {
         return latest.isEmpty()
                 ? null
                 : round(latest.stream().mapToDouble(Double::doubleValue)
-                        .average().orElse(0));
+                .average().orElse(0));
     }
 
     private double round(double value) {

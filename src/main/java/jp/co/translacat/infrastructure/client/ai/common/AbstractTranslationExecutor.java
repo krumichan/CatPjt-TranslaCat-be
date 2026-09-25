@@ -42,6 +42,7 @@ public abstract class AbstractTranslationExecutor implements AiTranslationProvid
     }
 
     protected abstract List<String> doTranslate(List<String> texts, AiRuleType rule);
+
     protected abstract String getProviderName();
 
     @Override

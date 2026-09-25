@@ -42,7 +42,6 @@ class ChatMessageUnreadMemberCountRepositoryImplTest {
     @Autowired
     private ChatMessageUnreadMemberCountRepository repository;
 
-
     @Test
     void directMessageCountChangesFromOneToZero() {
         User sender = persistUser(

@@ -6,30 +6,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.co.translacat.domain.chat.ai.dto.server.ChatAiReplyRequestDto;
 import jp.co.translacat.domain.chat.ai.dto.server.ChatAiReplyResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiDailyWritingGenerationRequestDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.request.AiWritingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.request.AiPracticeGenerationRequestDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.request.AiWritingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiDailyWritingGenerationResponseDto;
-import jp.co.translacat.domain.languagelearning.ai.dto.response.AiWritingEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiPracticeGenerationResponseDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingAssistanceRequestDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingSessionStartRequestDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingTtsRequestDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingTurnProcessRequestDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingAssistanceResponseDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingConversationResponseDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingEvaluationResponseDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingSessionStartResponseDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingTtsResponseDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingTurnProcessResponseDto;
+import jp.co.translacat.domain.languagelearning.ai.dto.response.AiWritingEvaluationResponseDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.*;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.*;
 import jp.co.translacat.global.exception.AiServerCommunicationException;
 import jp.co.translacat.global.exception.AiServerFailureCode;
 import jp.co.translacat.global.exception.BusinessException;
-import jp.co.translacat.infrastructure.client.ai.server.dto.AiChatTranslationRequest;
-import jp.co.translacat.infrastructure.client.ai.server.dto.AiChatTranslationResponse;
-import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptAnalysisOptions;
-import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptAnalysisResponse;
-import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptRuntimeIdentity;
+import jp.co.translacat.infrastructure.client.ai.server.dto.*;
 import jp.co.translacat.infrastructure.client.legacy.ExternalApiClient;
 import jp.co.translacat.infrastructure.client.legacy.ExternalApiClient4xxException;
 import lombok.RequiredArgsConstructor;
@@ -41,12 +28,7 @@ import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Component
@@ -299,9 +281,9 @@ public class AiServerClient {
         org.springframework.web.reactive.function.client.WebClientResponseException response =
                 clientError == null
                         ? findCause(
-                                failure,
-                                org.springframework.web.reactive.function.client.WebClientResponseException.class
-                        )
+                        failure,
+                        org.springframework.web.reactive.function.client.WebClientResponseException.class
+                )
                         : clientError.getResponseException();
         if (response == null) {
             return new PracticeHttpFailureDiagnostic(null, "none");
@@ -370,7 +352,8 @@ public class AiServerClient {
                 : value.substring(0, MAX_SAFE_PRACTICE_ERROR_DETAIL_CHARS) + "...<truncated>";
     }
 
-    private record PracticeHttpFailureDiagnostic(Integer httpStatus, String safeDetail) {}
+    private record PracticeHttpFailureDiagnostic(Integer httpStatus, String safeDetail) {
+    }
 
     public AiDailyWritingGenerationResponseDto callLanguageLearningDailyGeneration(
             AiDailyWritingGenerationRequestDto request

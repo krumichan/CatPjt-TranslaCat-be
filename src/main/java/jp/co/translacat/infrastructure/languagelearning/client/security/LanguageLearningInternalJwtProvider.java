@@ -101,7 +101,9 @@ public class LanguageLearningInternalJwtProvider {
                 .compact();
     }
 
-    /** 결과 수신 원장 전용 scope다. 사용자·관리자·Settings 조회 권한을 포함하지 않는다. */
+    /**
+     * 결과 수신 원장 전용 scope다. 사용자·관리자·Settings 조회 권한을 포함하지 않는다.
+     */
     public String issueLearningResultsToken() {
         Instant now = clock.instant();
         return Jwts.builder().issuer(issuer).audience().add(audience).and().subject(callerService)

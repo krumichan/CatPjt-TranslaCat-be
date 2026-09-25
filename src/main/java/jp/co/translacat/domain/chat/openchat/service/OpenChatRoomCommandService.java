@@ -202,9 +202,9 @@ public class OpenChatRoomCommandService {
         String normalized = objectKey.trim();
         if (normalized.length() > 500
                 || !normalized.startsWith(
-                        OpenChatPolicy
-                                .PROFILE_IMAGE_OBJECT_KEY_PREFIX
-                )) {
+                OpenChatPolicy
+                        .PROFILE_IMAGE_OBJECT_KEY_PREFIX
+        )) {
             throw new BusinessException(
                     "OPEN 채팅 프로필 이미지 Object Key가 유효하지 않습니다.",
                     OpenChatErrorCode

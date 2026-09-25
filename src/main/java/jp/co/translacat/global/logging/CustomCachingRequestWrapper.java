@@ -44,12 +44,22 @@ public class CustomCachingRequestWrapper extends HttpServletRequestWrapper {
         }
 
         @Override
-        public int read() { return buffer.read(); }
+        public int read() {
+            return buffer.read();
+        }
+
         @Override
-        public boolean isFinished() { return buffer.available() == 0; }
+        public boolean isFinished() {
+            return buffer.available() == 0;
+        }
+
         @Override
-        public boolean isReady() { return true; }
+        public boolean isReady() {
+            return true;
+        }
+
         @Override
-        public void setReadListener(ReadListener listener) { }
+        public void setReadListener(ReadListener listener) {
+        }
     }
 }

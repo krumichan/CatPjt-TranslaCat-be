@@ -1,17 +1,10 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.entity;
 
 import jakarta.persistence.*;
-
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.ConversationStartMode;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.CorrectionMode;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
-import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
+import jp.co.translacat.domain.languagelearning.speaking.common.enums.*;
 import jp.co.translacat.domain.languagelearning.speaking.topic.entity.SpeakingTopic;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.jpa.BaseAuditable;
-
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

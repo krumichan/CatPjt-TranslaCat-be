@@ -1,27 +1,19 @@
 package jp.co.translacat.domain.languagelearning.speaking.turn.factory;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import jp.co.translacat.domain.languagelearning.ai.dto.model.LearningProfileSummaryDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.SelectedKeywordDto;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingAssistanceUsageDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingConversationMessageDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingSessionPolicySnapshotDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingSttAnalysisMetadataDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingSttSegmentDto;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingTranscriptDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.*;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingTurnProcessRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.AssistanceType;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPracticeMode;
-import jp.co.translacat.domain.languagelearning.speaking.session.policy.SpeakingSessionPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
 import jp.co.translacat.domain.languagelearning.speaking.session.factory.SpeakingSessionAiRequestFactory;
 import jp.co.translacat.domain.languagelearning.speaking.session.model.SpeakingSessionPolicySnapshot;
+import jp.co.translacat.domain.languagelearning.speaking.session.policy.SpeakingSessionPolicy;
 import jp.co.translacat.domain.languagelearning.speaking.turn.entity.SpeakingTurn;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;

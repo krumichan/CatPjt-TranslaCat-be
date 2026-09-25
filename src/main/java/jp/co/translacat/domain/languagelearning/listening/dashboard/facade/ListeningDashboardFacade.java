@@ -1,14 +1,12 @@
 package jp.co.translacat.domain.languagelearning.listening.dashboard.facade;
 
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
-import jp.co.translacat.domain.languagelearning.listening.dashboard.service.ListeningDashboardQueryService;
 import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningDailySetQueryService;
+import jp.co.translacat.domain.languagelearning.listening.dashboard.service.ListeningDashboardQueryService;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
 import jp.co.translacat.domain.languagelearning.listening.recommendation.service.ListeningRecommendationCommandService;
 import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;

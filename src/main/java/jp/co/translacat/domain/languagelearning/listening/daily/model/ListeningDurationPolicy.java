@@ -3,11 +3,14 @@ package jp.co.translacat.domain.languagelearning.listening.daily.model;
 import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningContract;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDifficulty;
 
-/** NORMAL waveform requirement. Model estimates are not publication evidence. */
+/**
+ * NORMAL waveform requirement. Model estimates are not publication evidence.
+ */
 public final class ListeningDurationPolicy {
     public static final String VERSION = "listening-audio-duration-v1";
 
-    private ListeningDurationPolicy() { }
+    private ListeningDurationPolicy() {
+    }
 
     public static AiListeningContract.DurationDemand effective(
             ListeningDifficulty difficulty, Double requestedMin, Double requestedMax

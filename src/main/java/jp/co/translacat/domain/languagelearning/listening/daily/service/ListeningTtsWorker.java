@@ -4,15 +4,13 @@ import jp.co.translacat.domain.languagelearning.listening.ai.dto.AiListeningCont
 import jp.co.translacat.domain.languagelearning.listening.ai.port.ListeningAiClient;
 import jp.co.translacat.domain.languagelearning.listening.audio.port.ListeningAudioStoragePort;
 import jp.co.translacat.domain.languagelearning.listening.audio.validator.ListeningAudioValidator;
+import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningReferenceDurationException;
 import jp.co.translacat.domain.languagelearning.listening.outbox.service.ListeningOutboxTransactionService;
 import jp.co.translacat.domain.languagelearning.listening.support.ListeningAiException;
-import jp.co.translacat.domain.languagelearning.listening.daily.model.ListeningReferenceDurationException;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -138,8 +136,8 @@ public class ListeningTtsWorker {
                 || !work.request().sourceText().equals(response.sourceText())
                 || !work.request().contentHash().equals(response.contentHash())
                 || !work.request().generationVersion().equals(
-                        response.generationVersion()
-                )
+                response.generationVersion()
+        )
                 || response.status() == null) {
             throw invalid();
         }
@@ -191,8 +189,8 @@ public class ListeningTtsWorker {
                 || response.audio().voice() == null
                 || !work.request().voice().equals(response.audio().voice())
                 || !work.request().contentHash().equals(
-                        response.audio().textHash()
-                )
+                response.audio().textHash()
+        )
                 || response.audio().checksum() == null
                 || response.audio().checksum().isBlank()) {
             throw invalid();
@@ -249,10 +247,9 @@ public class ListeningTtsWorker {
             case "ogg", "audio/ogg" -> "audio/ogg";
             case "webm", "audio/webm" -> "audio/webm";
             case "flac", "audio/flac", "audio/x-flac" -> "audio/flac";
-            case "m4a", "mp4", "audio/m4a", "audio/x-m4a", "audio/mp4" ->
-                    "audio/mp4";
+            case "m4a", "mp4", "audio/m4a", "audio/x-m4a", "audio/mp4" -> "audio/mp4";
             case "wav", "wave", "audio/wav", "audio/x-wav",
-                    "audio/vnd.wave" -> "audio/wav";
+                 "audio/vnd.wave" -> "audio/wav";
             default -> "audio/wav";
         };
     }

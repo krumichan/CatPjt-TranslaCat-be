@@ -2,6 +2,7 @@ package jp.co.translacat.domain.chat.notification.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
+import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.member.event.ChatRoomMemberInvitedApplicationEvent;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.notification.entity.ChatNotification;
@@ -11,7 +12,6 @@ import jp.co.translacat.domain.chat.notification.repository.ChatNotificationRepo
 import jp.co.translacat.domain.chat.openchat.event.OpenChatMemberBannedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.event.OpenChatMemberRoleUpdatedApplicationEvent;
 import jp.co.translacat.domain.chat.openchat.event.OpenChatRoomClosedApplicationEvent;
-import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.chat.room.repository.ChatRoomRepository;
 import jp.co.translacat.domain.user.entity.User;
@@ -32,9 +32,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatNotificationActivityCreationServiceTest {
@@ -284,7 +282,6 @@ class ChatNotificationActivityCreationServiceTest {
         assertThat(captor.getValue().getActorUser().getId())
                 .isEqualTo(1L);
     }
-
 
     private void stubSaveAndFlush() {
         when(notificationRepository.saveAndFlush(any(ChatNotification.class)))

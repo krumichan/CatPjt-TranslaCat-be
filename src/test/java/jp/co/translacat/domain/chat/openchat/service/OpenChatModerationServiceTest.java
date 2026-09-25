@@ -41,13 +41,20 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class OpenChatModerationServiceTest {
 
-    @Mock private OpenChatRoomRepository openChatRoomRepository;
-    @Mock private ChatRoomMemberRepository memberRepository;
-    @Mock private OpenChatMemberProfileRepository profileRepository;
-    @Mock private OpenChatBanRepository banRepository;
-    @Mock private ChatMessageRepository messageRepository;
-    @Mock private OpenChatProfileResponseMapper profileResponseMapper;
-    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private OpenChatRoomRepository openChatRoomRepository;
+    @Mock
+    private ChatRoomMemberRepository memberRepository;
+    @Mock
+    private OpenChatMemberProfileRepository profileRepository;
+    @Mock
+    private OpenChatBanRepository banRepository;
+    @Mock
+    private ChatMessageRepository messageRepository;
+    @Mock
+    private OpenChatProfileResponseMapper profileResponseMapper;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private OpenChatModerationService service;
     private ChatRoom chatRoom;
@@ -522,17 +529,17 @@ class OpenChatModerationServiceTest {
     ) {
         ChatRoomMember member = role == ChatRoomMemberRole.OWNER
                 ? ChatRoomMember.createOwner(
-                        chatRoom,
-                        user,
-                        "ko",
-                        "ja"
-                )
+                chatRoom,
+                user,
+                "ko",
+                "ja"
+        )
                 : ChatRoomMember.createMember(
-                        chatRoom,
-                        user,
-                        "ko",
-                        "ja"
-                );
+                chatRoom,
+                user,
+                "ko",
+                "ja"
+        );
         member.changeRole(role);
         ReflectionTestUtils.setField(member, "id", id);
         member.initializeReadCursor(99L);

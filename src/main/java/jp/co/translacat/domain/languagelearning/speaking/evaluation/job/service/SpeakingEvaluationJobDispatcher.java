@@ -16,7 +16,8 @@ public class SpeakingEvaluationJobDispatcher {
     private final Executor executor;
 
     public SpeakingEvaluationJobDispatcher(SpeakingEvaluationJobCommandService commandService,
-            SpeakingEvaluationJobWorker worker, @Qualifier("speakingEvaluationExecutor") Executor executor) {
+                                           SpeakingEvaluationJobWorker worker,
+                                           @Qualifier("speakingEvaluationExecutor") Executor executor) {
         this.commandService = commandService;
         this.worker = worker;
         this.executor = executor;

@@ -21,7 +21,7 @@ public class AiServerTranslationExecutor extends AbstractTranslationExecutor {
 
     @Override
     @Retryable(
-            retryFor = { Exception.class },
+            retryFor = {Exception.class},
             maxAttempts = 3,
             backoff = @Backoff(delay = 500, multiplier = 1.5, maxDelay = 2000),
             recover = "recoverTranslation"

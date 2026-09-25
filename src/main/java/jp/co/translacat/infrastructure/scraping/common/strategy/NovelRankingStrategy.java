@@ -7,6 +7,8 @@ import java.util.List;
 
 public interface NovelRankingStrategy extends BaseStrategy {
     List<NovelRankingPeriodResponseDto> getPeriods();
+
     String getUrl(String pattern, Object... urlArgs);
+
     NovelRankingContext scrape(String url);
 }

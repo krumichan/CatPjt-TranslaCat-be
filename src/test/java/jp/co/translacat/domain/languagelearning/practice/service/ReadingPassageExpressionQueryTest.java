@@ -6,7 +6,10 @@ import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJson
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeAttempt;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeQuestion;
 import jp.co.translacat.domain.languagelearning.practice.entity.PracticeSet;
-import jp.co.translacat.domain.languagelearning.practice.repository.*;
+import jp.co.translacat.domain.languagelearning.practice.repository.PracticeAttemptRepository;
+import jp.co.translacat.domain.languagelearning.practice.repository.PracticeMetricScoreRepository;
+import jp.co.translacat.domain.languagelearning.practice.repository.PracticeQuestionRepository;
+import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
 import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import org.junit.jupiter.api.Test;
 

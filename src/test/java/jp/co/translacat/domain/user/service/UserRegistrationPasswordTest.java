@@ -23,13 +23,20 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserRegistrationPasswordTest {
-    @Mock UserRepository userRepository;
-    @Mock RefreshTokenRepository refreshTokenRepository;
-    @Mock UserAllowedRepository userAllowedRepository;
-    @Mock JWTService jwtService;
-    @Mock AuthenticationManager authenticationManager;
-    @Mock PasswordEncoder passwordEncoder;
-    @InjectMocks UserService userService;
+    @Mock
+    UserRepository userRepository;
+    @Mock
+    RefreshTokenRepository refreshTokenRepository;
+    @Mock
+    UserAllowedRepository userAllowedRepository;
+    @Mock
+    JWTService jwtService;
+    @Mock
+    AuthenticationManager authenticationManager;
+    @Mock
+    PasswordEncoder passwordEncoder;
+    @InjectMocks
+    UserService userService;
 
     @Test
     void localRegistrationStoresOnlyTheEncodedPassword() throws Exception {

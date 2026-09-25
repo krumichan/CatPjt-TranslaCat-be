@@ -20,7 +20,8 @@ import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
 final class AiServerFailureClassifier {
-    private AiServerFailureClassifier() {}
+    private AiServerFailureClassifier() {
+    }
 
     static AiServerFailureCode classify(Throwable failure) {
         Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());

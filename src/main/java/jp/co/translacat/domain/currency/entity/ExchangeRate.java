@@ -13,20 +13,22 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
-/** A daily quote: target currency units per ONE source currency unit. */
+/**
+ * A daily quote: target currency units per ONE source currency unit.
+ */
 @Getter
 @Entity
 @Table(
         name = "exchange_rate",
         uniqueConstraints =
-                @UniqueConstraint(
-                        name = "uk_exchange_rate_daily",
-                        columnNames = {
-                            "source_currency_code",
-                            "target_currency_code",
-                            "requested_rate_date",
-                            "provider"
-                        }))
+        @UniqueConstraint(
+                name = "uk_exchange_rate_daily",
+                columnNames = {
+                        "source_currency_code",
+                        "target_currency_code",
+                        "requested_rate_date",
+                        "provider"
+                }))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ExchangeRate extends BaseAuditable {
     @Id
@@ -52,7 +54,9 @@ public class ExchangeRate extends BaseAuditable {
     @Column(nullable = false, length = 50)
     private String provider;
 
-    /** UTC instant when this provider value was retrieved. Null only for legacy rows. */
+    /**
+     * UTC instant when this provider value was retrieved. Null only for legacy rows.
+     */
     @Column(name = "rate_fetched_at")
     private Instant rateFetchedAt;
 

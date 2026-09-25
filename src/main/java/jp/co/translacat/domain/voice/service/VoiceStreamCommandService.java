@@ -90,7 +90,6 @@ public class VoiceStreamCommandService {
         recomputeSession(session);
     }
 
-
     @Transactional
     public void markError(VoiceStreamContext context) {
         VoiceSession session = requireSession(context);

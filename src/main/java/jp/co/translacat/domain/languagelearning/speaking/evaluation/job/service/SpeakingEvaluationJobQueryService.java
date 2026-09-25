@@ -19,8 +19,8 @@ public class SpeakingEvaluationJobQueryService {
     @Transactional(readOnly = true)
     public List<SpeakingEvaluationJobKey> findDue(int limit) {
         return repository.findAllByStatusInAndAvailableAtLessThanEqualOrderByAvailableAtAscIdAsc(
-                List.of(Status.PENDING, Status.RUNNING), LocalDateTime.now(),
-                PageRequest.of(0, Math.max(1, Math.min(limit, 100)))).stream()
+                        List.of(Status.PENDING, Status.RUNNING), LocalDateTime.now(),
+                        PageRequest.of(0, Math.max(1, Math.min(limit, 100)))).stream()
                 .map(job -> new SpeakingEvaluationJobKey(job.getId(), job.getSession().getId()))
                 .toList();
     }

@@ -25,7 +25,8 @@ import java.time.LocalDateTime;
                 @Index(name = "idx_ll_practice_set_user_date", columnList = "user_id,learning_date"),
                 @Index(name = "idx_ll_practice_set_user_domain", columnList = "user_id,domain"),
                 @Index(name = "idx_ll_practice_set_generation", columnList = "generation_status,generation_started_at"),
-                @Index(name = "idx_ll_practice_set_generation_due", columnList = "generation_status,generation_available_at,id")
+                @Index(name = "idx_ll_practice_set_generation_due",
+                        columnList = "generation_status,generation_available_at,id")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

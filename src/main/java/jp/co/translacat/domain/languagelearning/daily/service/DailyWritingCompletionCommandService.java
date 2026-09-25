@@ -2,7 +2,6 @@ package jp.co.translacat.domain.languagelearning.daily.service;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
-
 import jp.co.translacat.domain.languagelearning.common.enums.DailySetStatus;
 import jp.co.translacat.domain.languagelearning.common.enums.EvaluationStatus;
 import jp.co.translacat.domain.languagelearning.daily.entity.DailyWritingItem;
@@ -12,12 +11,10 @@ import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingIte
 import jp.co.translacat.domain.languagelearning.daily.repository.DailyWritingSetRepository;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingAnswerRepository;
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor

@@ -10,9 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class DirectPartnerProfileResponseDtoTest {
@@ -82,7 +80,6 @@ class DirectPartnerProfileResponseDtoTest {
         assertNull(result.bio());
         verifyNoInteractions(imageUrlResolver);
     }
-
 
     @Test
     void from_includesPresenceSnapshotWhenProvided() {

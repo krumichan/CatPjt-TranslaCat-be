@@ -27,13 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -683,9 +677,9 @@ public class ChatAiTriggerPlanner {
             return username == null || username.isBlank()
                     ? "Member"
                     : truncate(
-                            username,
-                            AI_SERVER_SENDER_NAME_MAX_CHARACTERS
-                    );
+                    username,
+                    AI_SERVER_SENDER_NAME_MAX_CHARACTERS
+            );
         }
     }
 }

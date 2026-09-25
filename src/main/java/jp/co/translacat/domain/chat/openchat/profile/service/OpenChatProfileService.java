@@ -14,6 +14,7 @@ import jp.co.translacat.domain.chat.openchat.support.OpenChatErrorCode;
 import jp.co.translacat.domain.chat.openchat.support.OpenChatProfileValidator;
 import jp.co.translacat.domain.chat.presence.service.ChatPresenceQueryService;
 import jp.co.translacat.domain.chat.presence.service.ChatPresenceVisibilityPolicy;
+import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -66,12 +67,12 @@ public class OpenChatProfileService {
         Map<Long, Boolean> onlineByUserId =
                 chatPresenceVisibilityPolicy.isVisible(roomId)
                         ? chatPresenceQueryService.resolveOnlineByUserIds(
-                                profiles.stream()
-                                        .map(OpenChatMemberProfile::getChatRoomMember)
-                                        .map(ChatRoomMember::getUser)
-                                        .map(user -> user.getId())
-                                        .toList()
-                        )
+                        profiles.stream()
+                                .map(OpenChatMemberProfile::getChatRoomMember)
+                                .map(ChatRoomMember::getUser)
+                                .map(User::getId)
+                                .toList()
+                )
                         : Map.of();
 
         List<OpenChatMemberProfileResponseDto> members = profiles.stream()
@@ -139,7 +140,6 @@ public class OpenChatProfileService {
 
         return responseMapper.toResponse(profile);
     }
-
 
     private Boolean resolveOnline(
             Long roomId,

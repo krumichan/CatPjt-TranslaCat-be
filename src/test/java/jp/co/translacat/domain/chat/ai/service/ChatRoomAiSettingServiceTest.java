@@ -6,9 +6,9 @@ import jp.co.translacat.domain.chat.ai.entity.ChatAiSystemSetting;
 import jp.co.translacat.domain.chat.ai.entity.ChatRoomAiSetting;
 import jp.co.translacat.domain.chat.ai.enums.ChatAiDisclosureType;
 import jp.co.translacat.domain.chat.ai.enums.ChatAiMentionPermission;
-import jp.co.translacat.domain.chat.member.event.ChatRoomMembersChangedApplicationEvent;
 import jp.co.translacat.domain.chat.ai.repository.ChatRoomAiMemberRepository;
 import jp.co.translacat.domain.chat.ai.repository.ChatRoomAiSettingRepository;
+import jp.co.translacat.domain.chat.member.event.ChatRoomMembersChangedApplicationEvent;
 import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.enums.Role;
@@ -30,11 +30,16 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ChatRoomAiSettingServiceTest {
 
-    @Mock private ChatAiAccessService accessService;
-    @Mock private ChatRoomAiSettingRepository settingRepository;
-    @Mock private ChatRoomAiMemberRepository aiMemberRepository;
-    @Mock private ChatAiSystemSettingService systemSettingService;
-    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private ChatAiAccessService accessService;
+    @Mock
+    private ChatRoomAiSettingRepository settingRepository;
+    @Mock
+    private ChatRoomAiMemberRepository aiMemberRepository;
+    @Mock
+    private ChatAiSystemSettingService systemSettingService;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private ChatRoomAiSettingService service;
     private ChatRoom room;

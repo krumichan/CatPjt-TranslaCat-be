@@ -12,7 +12,6 @@ import jp.co.translacat.domain.languagelearning.daily.service.DailyWritingRegene
 import jp.co.translacat.domain.languagelearning.daily.validator.DailyWritingGenerationResponseValidator;
 import jp.co.translacat.domain.languagelearning.setting.model.AdminSettingsSnapshot;
 import jp.co.translacat.domain.languagelearning.setting.port.AdminSettingsGateway;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,9 +23,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class DailyWritingRegenerationCommandServiceTest {

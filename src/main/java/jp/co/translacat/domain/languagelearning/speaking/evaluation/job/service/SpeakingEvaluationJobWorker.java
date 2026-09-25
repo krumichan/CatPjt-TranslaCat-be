@@ -1,8 +1,8 @@
 package jp.co.translacat.domain.languagelearning.speaking.evaluation.job.service;
 
 import jp.co.translacat.domain.languagelearning.speaking.ai.port.SpeakingAiClient;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.model.SpeakingEvaluationClaim;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
+import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.model.SpeakingEvaluationClaim;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

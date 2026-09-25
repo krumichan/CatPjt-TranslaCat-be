@@ -60,7 +60,6 @@ class ListeningGenerationResponseValidatorTest {
         )).isInstanceOf(BusinessException.class);
     }
 
-
     @Test
     void validatesModeSpecificPayloads() {
         var options = List.of(
@@ -127,7 +126,6 @@ class ListeningGenerationResponseValidatorTest {
                 Map.of()
         );
     }
-
 
     private AiListeningContract.GeneratedItem fullItem(
             int index,

@@ -1,8 +1,8 @@
 package jp.co.translacat.domain.languagelearning.speaking.evaluation.job.service;
 
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
-import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingCoachingRequestDto;
+import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.factory.SpeakingEvaluationRequestFactory;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.entity.SpeakingEvaluationJob;
@@ -24,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/** Called by submission/retry commands while holding the session lock. */
+/**
+ * Called by submission/retry commands while holding the session lock.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(propagation = Propagation.MANDATORY)
@@ -81,9 +83,10 @@ public class SpeakingEvaluationJobQueueService {
                         session.getId(), problemIndex).stream()
                 .filter(turn -> !turn.isExcludedFromEvaluation()).toList();
         String script = problemIndex == 1 ? session.getOpeningAssistantText()
-                : turnRepository.findAllBySessionIdAndProblemIndexOrderByAttemptIndexAsc(session.getId(), problemIndex - 1)
-                    .stream().map(SpeakingTurn::getAssistantText)
-                    .filter(text -> text != null && !text.isBlank()).reduce((first, last) -> last).orElse(null);
+                : turnRepository.findAllBySessionIdAndProblemIndexOrderByAttemptIndexAsc(session.getId(),
+                        problemIndex - 1)
+                .stream().map(SpeakingTurn::getAssistantText)
+                .filter(text -> text != null && !text.isBlank()).reduce((first, last) -> last).orElse(null);
         if (script == null || script.isBlank()) throw invalid("듣고 리피트 문제 Script가 없습니다.");
         return requestFactory.createReadAloudProblem(session, problemIndex, attempts, script);
     }

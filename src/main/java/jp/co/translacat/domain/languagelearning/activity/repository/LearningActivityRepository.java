@@ -23,7 +23,6 @@ public interface LearningActivityRepository
             LocalDate to
     );
 
-
     List<LearningActivity> findAllByUserIdAndSourceAndLearningDateBetweenOrderByLearningDateDesc(
             Long userId,
             LearningSource source,

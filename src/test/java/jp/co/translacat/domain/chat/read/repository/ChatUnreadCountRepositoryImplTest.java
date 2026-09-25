@@ -258,10 +258,10 @@ class ChatUnreadCountRepositoryImplTest {
         int updatedCount = entityManager
                 .getEntityManager()
                 .createNativeQuery("""
-                    UPDATE chat_message
-                       SET created_at = :createdAt
-                     WHERE id = :messageId
-                    """)
+                        UPDATE chat_message
+                           SET created_at = :createdAt
+                         WHERE id = :messageId
+                        """)
                 .setParameter("createdAt", createdAt)
                 .setParameter("messageId", messageId)
                 .executeUpdate();
@@ -276,10 +276,10 @@ class ChatUnreadCountRepositoryImplTest {
         int updatedCount = entityManager
                 .getEntityManager()
                 .createNativeQuery("""
-                    UPDATE chat_room_member
-                       SET joined_at = :joinedAt
-                     WHERE id = :memberId
-                    """)
+                        UPDATE chat_room_member
+                           SET joined_at = :joinedAt
+                         WHERE id = :memberId
+                        """)
                 .setParameter("joinedAt", joinedAt)
                 .setParameter("memberId", memberId)
                 .executeUpdate();

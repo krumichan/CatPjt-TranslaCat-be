@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.chat.openchat.regression;
 
 import jp.co.translacat.domain.chat.language.dto.ChatLanguageSettingResult;
+import jp.co.translacat.domain.chat.language.service.ChatLanguageSettingResolver;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.member.service.ChatRoomMemberQueryService;
@@ -15,7 +16,6 @@ import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.domain.user.friend.request.repository.FriendRequestRepository;
 import jp.co.translacat.domain.user.friend.service.FriendService;
 import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
-import jp.co.translacat.domain.chat.language.service.ChatLanguageSettingResolver;
 import jp.co.translacat.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,7 +29,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class OpenChatPrivacyRegressionTest {

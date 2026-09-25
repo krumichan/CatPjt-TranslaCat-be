@@ -51,7 +51,6 @@ public interface ChatMessageRepository
             ChatMessageStatus status
     );
 
-
     List<ChatMessage>
     findTop101ByChatRoomIdAndStatusAndDeletedAtIsNullAndCreatedAtGreaterThanEqualOrderByIdDesc(
             Long chatRoomId,
@@ -66,7 +65,6 @@ public interface ChatMessageRepository
             LocalDateTime joinedAt,
             Long cursorId
     );
-
 
     @EntityGraph(attributePaths = {
             "chatRoom",

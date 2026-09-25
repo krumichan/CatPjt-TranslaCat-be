@@ -25,9 +25,12 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class OpenChatBanQueryServiceTest {
 
-    @Mock private OpenChatBanRepository banRepository;
-    @Mock private OpenChatAccessService accessService;
-    @Mock private OpenChatProfileImageUrlResolver imageUrlResolver;
+    @Mock
+    private OpenChatBanRepository banRepository;
+    @Mock
+    private OpenChatAccessService accessService;
+    @Mock
+    private OpenChatProfileImageUrlResolver imageUrlResolver;
 
     private OpenChatBanQueryService service;
     private ChatRoomMember owner;

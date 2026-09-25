@@ -57,7 +57,6 @@ class SpeakingSessionPolicyTest {
                 ));
     }
 
-
     @Test
     void readAloudAndGuidedRequireAiFirstAfterResolution() {
         policy.validateResolvedStartMode(
@@ -88,7 +87,6 @@ class SpeakingSessionPolicyTest {
         }
     }
 
-
     @Test
     void readAloudReservesFiveProblemsAndUpToThreeAttemptsEach() {
         assertThat(policy.resolveMaxTurns(
@@ -100,7 +98,6 @@ class SpeakingSessionPolicyTest {
                 20
         )).isEqualTo(20);
     }
-
 
     @Test
     void keywordBasedTopicRequiresAiFirstAndNoOtherTopicSource() {

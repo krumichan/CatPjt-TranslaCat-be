@@ -19,11 +19,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -76,13 +76,14 @@ public class SecurityConfig {
      * - 세션을 사용하지 않는 Stateless 설정
      * - JWT 필터를 UsernamePasswordAuthenticationFilter 앞에 적용
      *
-     * @param http HttpSecurity 객체
+     * @param http                  HttpSecurity 객체
      * @param authenticationManager AuthenticationManager Bean
      * @return SecurityFilterChain 구성 객체
      * @throws Exception Security 설정 중 예외 발생 가능
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationManager authenticationManager) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   AuthenticationManager authenticationManager) throws Exception {
 
         return http
                 .cors(corsConfigurer -> corsConfigurer.configurationSource(this.corsConfigurationSource()))
@@ -104,7 +105,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-resources/**",
                                 "/swagger-ui.html"
-                                ).permitAll()  // 위 경로는 인증 없이 접근 허용
+                        ).permitAll()  // 위 경로는 인증 없이 접근 허용
                         .anyRequest().authenticated())  // 나머지 경로는 인증 필요
 //                .formLogin(Customizer.withDefaults()) // login default form 사용.
                 .httpBasic(Customizer.withDefaults()) // HTTP Basic 인증 사용
@@ -122,7 +123,8 @@ public class SecurityConfig {
                                 AnyRequestMatcher.INSTANCE))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션을 사용하지 않는 Stateless 정책 설정
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class) // JWT 필터를 UsernamePasswordAuthenticationFilter 앞에 적용
+                .addFilterBefore(jwtFilter,
+                        UsernamePasswordAuthenticationFilter.class) // JWT 필터를 UsernamePasswordAuthenticationFilter 앞에 적용
                 .addFilterAfter(loggingFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
@@ -177,7 +179,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(allowedOrigin);
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "DELETE", "PUT", "PATCH", "HEAD", "OPTION", "OPTIONS"));
+        configuration.setAllowedMethods(
+                Arrays.asList("GET", "POST", "DELETE", "PUT", "PATCH", "HEAD", "OPTION", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

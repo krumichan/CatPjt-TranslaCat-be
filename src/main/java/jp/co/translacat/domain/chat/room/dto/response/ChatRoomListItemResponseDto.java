@@ -121,6 +121,7 @@ public record ChatRoomListItemResponseDto(
                 directPartner
         );
     }
+
     private static Long resolveOwnerId(ChatRoom chatRoom) {
         if (chatRoom.getRoomType() == ChatRoomType.OPEN) {
             return null;

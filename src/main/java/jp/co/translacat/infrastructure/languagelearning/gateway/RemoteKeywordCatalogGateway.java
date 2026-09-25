@@ -15,6 +15,7 @@ import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningS
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+
 import java.time.LocalDate;
 import java.util.List;
 
@@ -24,11 +25,13 @@ public class RemoteKeywordCatalogGateway implements KeywordCatalogGateway {
     private final UserRepository users;
     private final KeywordLearningFacts facts;
 
-    public RemoteKeywordCatalogGateway(ObjectProvider<LanguageLearningKeywordClient> clients, UserRepository users, KeywordLearningFacts facts) {
+    public RemoteKeywordCatalogGateway(ObjectProvider<LanguageLearningKeywordClient> clients, UserRepository users,
+                                       KeywordLearningFacts facts) {
         this.clients = clients;
         this.users = users;
         this.facts = facts;
     }
+
     private LanguageLearningKeywordClient forUser(Long userId) {
         LanguageLearningKeywordClient client = clients.getIfAvailable();
         if (client == null) throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
@@ -38,31 +41,49 @@ public class RemoteKeywordCatalogGateway implements KeywordCatalogGateway {
         }
         return client;
     }
-    @Override public KeywordListResponseDto getKeywords(Long userId, String uiLocale) {
+
+    @Override
+    public KeywordListResponseDto getKeywords(Long userId, String uiLocale) {
         return forUser(userId).list(userId, facts.hasStartedLearning(userId), uiLocale);
     }
-    @Override public KeywordResponseDto createCustom(Long userId, KeywordCreateRequestDto request) {
+
+    @Override
+    public KeywordResponseDto createCustom(Long userId, KeywordCreateRequestDto request) {
         return forUser(userId).createCustom(userId, facts.hasStartedLearning(userId), request);
     }
-    @Override public KeywordResponseDto updateCustom(Long userId, Long keywordId, KeywordUpdateRequestDto request) {
+
+    @Override
+    public KeywordResponseDto updateCustom(Long userId, Long keywordId, KeywordUpdateRequestDto request) {
         return forUser(userId).updateCustom(userId, facts.hasStartedLearning(userId), keywordId, request);
     }
-    @Override public void deleteCustom(Long userId, Long keywordId) {
+
+    @Override
+    public void deleteCustom(Long userId, Long keywordId) {
         forUser(userId).deleteCustom(userId, facts.hasStartedLearning(userId), keywordId);
     }
-    @Override public KeywordResponseDto selectSystem(Long userId, Long keywordId, boolean selected) {
+
+    @Override
+    public KeywordResponseDto selectSystem(Long userId, Long keywordId, boolean selected) {
         return forUser(userId).selectSystem(userId, facts.hasStartedLearning(userId), keywordId, selected);
     }
-    @Override public List<KeywordResponseDto> getSystemKeywords(Long adminUserId) {
+
+    @Override
+    public List<KeywordResponseDto> getSystemKeywords(Long adminUserId) {
         return forUser(adminUserId).listSystem(adminUserId);
     }
-    @Override public KeywordResponseDto createSystem(Long adminUserId, KeywordCreateRequestDto request) {
+
+    @Override
+    public KeywordResponseDto createSystem(Long adminUserId, KeywordCreateRequestDto request) {
         return forUser(adminUserId).createSystem(adminUserId, request);
     }
-    @Override public KeywordResponseDto updateSystem(Long adminUserId, Long keywordId, KeywordUpdateRequestDto request) {
+
+    @Override
+    public KeywordResponseDto updateSystem(Long adminUserId, Long keywordId, KeywordUpdateRequestDto request) {
         return forUser(adminUserId).updateSystem(adminUserId, keywordId, request);
     }
-    @Override public List<KeywordCandidateSnapshot> candidates(Long userId, LocalDate learningDate) {
+
+    @Override
+    public List<KeywordCandidateSnapshot> candidates(Long userId, LocalDate learningDate) {
         return forUser(userId).candidates(userId, facts.hasStartedLearning(userId), learningDate);
     }
 }

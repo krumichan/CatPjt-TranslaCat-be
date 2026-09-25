@@ -22,11 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,11 +37,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(QueryDslConfig.class)
 class OpenChatCapacityConcurrencyTest {
 
-    @Autowired private PlatformTransactionManager transactionManager;
-    @Autowired private UserRepository userRepository;
-    @Autowired private ChatRoomRepository chatRoomRepository;
-    @Autowired private OpenChatRoomRepository openChatRoomRepository;
-    @Autowired private ChatRoomMemberRepository memberRepository;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private ChatRoomRepository chatRoomRepository;
+    @Autowired
+    private OpenChatRoomRepository openChatRoomRepository;
+    @Autowired
+    private ChatRoomMemberRepository memberRepository;
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)

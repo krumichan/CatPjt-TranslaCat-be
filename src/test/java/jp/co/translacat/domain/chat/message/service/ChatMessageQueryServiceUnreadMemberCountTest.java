@@ -128,7 +128,6 @@ class ChatMessageQueryServiceUnreadMemberCountTest {
                 .countUnreadMembersByMessageIds(List.of(100L));
     }
 
-
     @Test
     void appliesSameUnreadMemberCountPolicyToCursorPage() {
         ChatMessage message = ChatMessage.createUserTextMessage(

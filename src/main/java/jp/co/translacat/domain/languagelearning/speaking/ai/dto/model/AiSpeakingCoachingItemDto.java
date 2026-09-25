@@ -7,4 +7,5 @@ public record AiSpeakingCoachingItemDto(
         String message,
         String suggestedExpression,
         boolean suggestionIsLearnerEvidence
-) { }
+) {
+}

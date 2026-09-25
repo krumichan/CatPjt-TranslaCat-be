@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Tracks only the WebSocket sessions owned by the current Backend instance.
- *
+ * <p>
  * Redis remains the shared presence store. This registry exists so that each
  * Backend instance refreshes only the leases for sessions it actually owns.
  */

@@ -17,10 +17,10 @@ import java.io.IOException;
 
 /**
  * JwtFilter 클래스
- *
+ * <p>
  * Spring Security 필터로, 모든 HTTP 요청마다 JWT 토큰을 검증하고
  * SecurityContext에 인증 정보를 설정합니다.
- *
+ * <p>
  * OncePerRequestFilter를 상속하여 요청당 한 번만 실행됩니다.
  */
 @Component
@@ -39,7 +39,8 @@ public class JwtFilter extends OncePerRequestFilter {
      * @param filterChain 필터 체인
      */
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
 
         // 1. Authorization 헤더에서 JWT 토큰 추출
         String authorizationHeader = request.getHeader("Authorization");

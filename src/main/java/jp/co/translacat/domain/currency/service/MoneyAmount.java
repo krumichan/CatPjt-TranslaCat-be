@@ -6,7 +6,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 public final class MoneyAmount {
-    private MoneyAmount() {}
+    private MoneyAmount() {
+    }
 
     public static BigDecimal normalize(BigDecimal amount, Currency currency) {
         if (amount == null || amount.signum() < 0)

@@ -8,13 +8,10 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
-
 import reactor.core.publisher.Mono;
 
 import java.util.LinkedHashMap;
@@ -45,7 +42,7 @@ public class ExternalApiClient {
      * - 요청 실패 시 Retry를 수행한다.
      * - Retry 후에도 실패하면 CircuitBreaker가 감지하여 fallback 메서드를 호출한다.
      *
-     * @param uri 요청할 API 경로
+     * @param uri          요청할 API 경로
      * @param responseType 응답을 매핑할 클래스 타입
      * @return API 응답을 매핑한 객체
      */
@@ -59,7 +56,9 @@ public class ExternalApiClient {
                 .block(); // Mono<T> 형태의 값을 T 값으로 동기 방식으로 변환
     }
 
-    /** A single authenticated GET used by runtime preflight checks. */
+    /**
+     * A single authenticated GET used by runtime preflight checks.
+     */
     public <T> T getOnce(
             String uri,
             Map<String, String> headers,
@@ -78,8 +77,8 @@ public class ExternalApiClient {
      * - 요청 실패 시 Retry를 수행한다.
      * - Retry 후에도 실패하면 CircuitBreaker가 fallback 메서드를 호출한다.
      *
-     * @param uri 요청할 API 경로
-     * @param body POST 요청 바디
+     * @param uri          요청할 API 경로
+     * @param body         POST 요청 바디
      * @param responseType 응답을 매핑할 클래스 타입
      * @return API 응답을 매핑한 객체
      */
@@ -108,28 +107,30 @@ public class ExternalApiClient {
 
     @Retry(name = "externalApiClient")
     @CircuitBreaker(name = "externalApiClient", fallbackMethod = "postMultipartFallback")
-    public <R> R postMultipart(String uri, MultiValueMap<String, HttpEntity<?>> multipartData, Map<String, String> headers, Class<R> responseType) {
+    public <R> R postMultipart(String uri, MultiValueMap<String, HttpEntity<?>> multipartData,
+                               Map<String, String> headers, Class<R> responseType) {
         return webClient.post()
-            .uri(uri)
-            .headers(h -> headers.forEach(h::add))
-            .contentType(MediaType.MULTIPART_FORM_DATA)
-            .body(BodyInserters.fromMultipartData(multipartData))
-            .retrieve()
-            .bodyToMono(responseType)
-            .block();
+                .uri(uri)
+                .headers(h -> headers.forEach(h::add))
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(multipartData))
+                .retrieve()
+                .bodyToMono(responseType)
+                .block();
     }
 
     /**
      * GET 요청 실패 시 호출되는 fallback 메서드.
      * - Retry 및 CircuitBreaker를 모두 거친 후 최종적으로 실패했을 때 실행된다.
      *
-     * @param uri 원본 요청 URI
+     * @param uri          원본 요청 URI
      * @param responseType 매핑 대상 클래스 타입
-     * @param throwable 발생한 예외 정보
+     * @param throwable    발생한 예외 정보
      * @return throw exception
      */
-    public <T> T  getFallback(String uri, Class<T> responseType, Throwable throwable) {
-        String errorMessage = String.format("[External API Error] URI: %s | Cause: %s", uri, getErrorMessage(throwable));
+    public <T> T getFallback(String uri, Class<T> responseType, Throwable throwable) {
+        String errorMessage =
+                String.format("[External API Error] URI: %s | Cause: %s", uri, getErrorMessage(throwable));
         throw new ExternalApiInvocationException(errorMessage, throwable);
     }
 
@@ -137,10 +138,10 @@ public class ExternalApiClient {
      * POST 요청 실패 시 호출되는 fallback 메서드.
      * - Retry 및 CircuitBreaker를 모두 거친 후 최종적으로 실패했을 때 실행된다.
      *
-     * @param uri 원본 요청 URI
-     * @param body POST 요청 바디
+     * @param uri          원본 요청 URI
+     * @param body         POST 요청 바디
      * @param responseType 매핑 대상 클래스 타입
-     * @param throwable 발생한 예외 정보
+     * @param throwable    발생한 예외 정보
      * @return throw exception
      */
     public <T, R> R postFallback(String uri, T body, Class<R> responseType, Throwable throwable) {
@@ -155,10 +156,10 @@ public class ExternalApiClient {
      * POST 요청 실패 시 호출되는 fallback 메서드.
      * - Retry 및 CircuitBreaker를 모두 거친 후 최종적으로 실패했을 때 실행된다.
      *
-     * @param uri 원본 요청 URI
-     * @param body POST 요청 바디
+     * @param uri          원본 요청 URI
+     * @param body         POST 요청 바디
      * @param responseType 매핑 대상 클래스 타입
-     * @param throwable 발생한 예외 정보
+     * @param throwable    발생한 예외 정보
      * @return throw exception
      */
     public <T, R> R postFallback(
@@ -207,7 +208,9 @@ public class ExternalApiClient {
         return executePostOnce(uri, body, headers, responseType);
     }
 
-    /** Reading/Vocabulary progressive generation has its own failure domain. */
+    /**
+     * Reading/Vocabulary progressive generation has its own failure domain.
+     */
     @CircuitBreaker(name = "languageLearningPracticeAi", fallbackMethod = "postFallback")
     public <T, R> R postOnceLanguageLearningPractice(
             String uri,
@@ -253,7 +256,6 @@ public class ExternalApiClient {
             throw e;
         }
     }
-
 
     /**
      * Retry를 적용하지 않는 단발 Multipart POST.

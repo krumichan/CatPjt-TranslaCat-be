@@ -3,8 +3,8 @@ package jp.co.translacat.domain.chat.openchat.service;
 import jp.co.translacat.domain.chat.language.dto.ChatLanguageSettingResult;
 import jp.co.translacat.domain.chat.language.service.UserChatLanguageSettingService;
 import jp.co.translacat.domain.chat.member.entity.ChatRoomMember;
-import jp.co.translacat.domain.chat.member.event.ChatRoomMembersChangedApplicationEvent;
 import jp.co.translacat.domain.chat.member.enums.ChatRoomMemberRole;
+import jp.co.translacat.domain.chat.member.event.ChatRoomMembersChangedApplicationEvent;
 import jp.co.translacat.domain.chat.member.repository.ChatRoomMemberRepository;
 import jp.co.translacat.domain.chat.message.entity.ChatMessage;
 import jp.co.translacat.domain.chat.message.enums.ChatMessageStatus;
@@ -327,9 +327,9 @@ public class OpenChatMembershipService {
             );
             if (requestedObjectKey != null
                     && !Objects.equals(
-                            requestedObjectKey,
-                            profile.getProfileImageObjectKey()
-                    )) {
+                    requestedObjectKey,
+                    profile.getProfileImageObjectKey()
+            )) {
                 throw new BusinessException(
                         "재참여 시 프로필 이미지는 참여 완료 후 이미지 API로 변경해야 합니다.",
                         OpenChatErrorCode.PROFILE_IMAGE_OBJECT_KEY_INVALID

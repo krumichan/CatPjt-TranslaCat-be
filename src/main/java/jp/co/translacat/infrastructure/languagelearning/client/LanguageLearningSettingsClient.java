@@ -2,11 +2,11 @@ package jp.co.translacat.infrastructure.languagelearning.client;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
 import jp.co.translacat.domain.languagelearning.setting.dto.request.AdminSettingUpdateRequestDto;
 import jp.co.translacat.domain.languagelearning.setting.dto.request.UserSettingUpdateRequestDto;
 import jp.co.translacat.domain.languagelearning.setting.dto.response.AdminSettingResponseDto;
 import jp.co.translacat.domain.languagelearning.setting.dto.response.UserSettingResponseDto;
-import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
 import jp.co.translacat.infrastructure.languagelearning.client.dto.*;
 import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
 import org.springframework.http.HttpHeaders;
@@ -16,9 +16,12 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+
 import java.io.IOException;
 
-/** Ktor가 Settings의 유일한 저장/정책 소유자다. 응용 수준 재시도·옛 DB fallback·dual-write는 없다. */
+/**
+ * Ktor가 Settings의 유일한 저장/정책 소유자다. 응용 수준 재시도·옛 DB fallback·dual-write는 없다.
+ */
 public class LanguageLearningSettingsClient {
     private static final String USER_SETTINGS_PATH = "/internal/v1/language-learning/settings";
     private static final String ADMIN_SETTINGS_PATH = "/internal/v1/admin/language-learning/settings";
@@ -43,32 +46,46 @@ public class LanguageLearningSettingsClient {
                 .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueUserToken(userId)))
                 .retrieve().body(byte[].class), UserSettingResponseDto.class);
     }
+
     public UserSettingResponseDto updateUserSettings(Long userId, UserSettingUpdateRequestDto request) {
         return read(() -> restClient.patch().uri(USER_SETTINGS_PATH)
                 .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueUserToken(userId)))
                 .body(request).retrieve().body(byte[].class), UserSettingResponseDto.class);
     }
+
     public AdminSettingResponseDto getAdminSettings(Long adminUserId) {
         return read(() -> restClient.get().uri(ADMIN_SETTINGS_PATH)
                 .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueAdminToken(adminUserId)))
                 .retrieve().body(byte[].class), AdminSettingResponseDto.class);
     }
+
     public AdminSettingResponseDto updateAdminSettings(Long adminUserId, AdminSettingUpdateRequestDto request) {
         return read(() -> restClient.patch().uri(ADMIN_SETTINGS_PATH)
                 .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueAdminToken(adminUserId)))
                 .body(request).retrieve().body(byte[].class), AdminSettingResponseDto.class);
     }
+
     public UserSettingsSnapshotDto getUserSnapshot(Long userId) {
         requireUserId(userId);
         return serviceGet("/users/" + userId, UserSettingsSnapshotDto.class);
     }
+
     public LearningDateResponseDto resolveLearningDate(Long userId) {
         requireUserId(userId);
         return serviceGet("/users/" + userId + "/learning-date", LearningDateResponseDto.class);
     }
-    public AdminSettingResponseDto getAdminPolicy() { return serviceGet("/admin", AdminSettingResponseDto.class); }
-    public ListeningPolicySnapshot getListeningPolicy() { return serviceGet("/listening-policy", ListeningPolicySnapshot.class); }
-    public ConfiguredLanguagePairsDto configuredLanguagePairs() { return serviceGet("/language-pairs", ConfiguredLanguagePairsDto.class); }
+
+    public AdminSettingResponseDto getAdminPolicy() {
+        return serviceGet("/admin", AdminSettingResponseDto.class);
+    }
+
+    public ListeningPolicySnapshot getListeningPolicy() {
+        return serviceGet("/listening-policy", ListeningPolicySnapshot.class);
+    }
+
+    public ConfiguredLanguagePairsDto configuredLanguagePairs() {
+        return serviceGet("/language-pairs", ConfiguredLanguagePairsDto.class);
+    }
 
     public SelectionDeliveryResponseDto rememberListeningSelection(Long userId, SelectionDeliveryRequestDto request) {
         return read(() -> restClient.post().uri(USER_SETTINGS_PATH + "/listening-selection")
@@ -85,8 +102,10 @@ public class LanguageLearningSettingsClient {
     private <T> T read(ClientCall call, Class<T> type) {
         try {
             byte[] bytes = call.execute();
-            if (bytes == null || bytes.length == 0) throw failure("LL_EMPTY_RESPONSE", "Language Learning 서비스가 빈 응답을 반환했습니다.");
-            if (bytes.length > 1_048_576) throw failure("LL_SETTINGS_CONTRACT_ERROR", "Language Learning 설정 응답이 너무 큽니다.");
+            if (bytes == null || bytes.length == 0)
+                throw failure("LL_EMPTY_RESPONSE", "Language Learning 서비스가 빈 응답을 반환했습니다.");
+            if (bytes.length > 1_048_576)
+                throw failure("LL_SETTINGS_CONTRACT_ERROR", "Language Learning 설정 응답이 너무 큽니다.");
             T value = objectMapper.readValue(bytes, type);
             if (value == null) throw failure("LL_EMPTY_RESPONSE", "Language Learning 서비스가 빈 응답을 반환했습니다.");
             validateResponse(value);
@@ -123,10 +142,12 @@ public class LanguageLearningSettingsClient {
                 java.util.List<jp.co.translacat.domain.languagelearning.setting.model.ConfiguredLanguagePair> pairs
         )) {
             if (pairs == null || pairs.stream().anyMatch(pair -> pair == null || pair.originLanguage() == null
-                    || pair.learningLanguage() == null || pair.originLanguage().isBlank() || pair.learningLanguage().isBlank())) {
+                    || pair.learningLanguage() == null || pair.originLanguage().isBlank() || pair.learningLanguage()
+                    .isBlank())) {
                 throw failure("LL_SETTINGS_CONTRACT_ERROR", "언어쌍 응답이 유효하지 않습니다.");
             }
-        } else if (value instanceof ListeningPolicySnapshot dto && (dto.profilePolicyVersion() == null || dto.modelConfigVersion() == null)) {
+        } else if (value instanceof ListeningPolicySnapshot dto && (dto.profilePolicyVersion() == null
+                || dto.modelConfigVersion() == null)) {
             throw failure("LL_SETTINGS_CONTRACT_ERROR", "Listening 정책 버전이 없습니다.");
         } else if (value instanceof SelectionDeliveryResponseDto(
                 String status
@@ -138,24 +159,39 @@ public class LanguageLearningSettingsClient {
     private LanguageLearningServiceException responseException(RestClientResponseException e) {
         InternalApiErrorDto error = readError(e.getResponseBodyAsByteArray());
         String code = error == null || error.code() == null ? "LL_SERVICE_ERROR" : error.code();
-        String message = error == null || error.message() == null ? "Language Learning 서비스 요청에 실패했습니다." : error.message();
+        String message =
+                error == null || error.message() == null ? "Language Learning 서비스 요청에 실패했습니다." : error.message();
         return new LanguageLearningServiceException(resolveStatus(e.getStatusCode()), code, message, e);
     }
+
     private InternalApiErrorDto readError(byte[] bytes) {
         if (bytes == null || bytes.length == 0 || bytes.length > 65536) return null;
-        try { return objectMapper.readValue(bytes, InternalApiErrorDto.class); }
-        catch (IOException | IllegalArgumentException ignored) { return null; }
+        try {
+            return objectMapper.readValue(bytes, InternalApiErrorDto.class);
+        } catch (IOException | IllegalArgumentException ignored) {
+            return null;
+        }
     }
+
     private HttpStatus resolveStatus(HttpStatusCode code) {
         HttpStatus status = HttpStatus.resolve(code.value());
         return status == null ? HttpStatus.BAD_GATEWAY : status;
     }
+
     private static LanguageLearningServiceException failure(String code, String message) {
         return new LanguageLearningServiceException(HttpStatus.BAD_GATEWAY, code, message);
     }
+
     private static void requireUserId(Long id) {
         if (id == null || id <= 0) throw new IllegalArgumentException("userId는 양수여야 합니다.");
     }
-    private String bearer(String token) { return "Bearer " + token; }
-    @FunctionalInterface private interface ClientCall { byte[] execute(); }
+
+    private String bearer(String token) {
+        return "Bearer " + token;
+    }
+
+    @FunctionalInterface
+    private interface ClientCall {
+        byte[] execute();
+    }
 }

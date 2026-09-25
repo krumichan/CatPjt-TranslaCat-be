@@ -71,8 +71,7 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
             boolean authenticationUpdated = false;
 
             switch (command) {
-                case CONNECT ->
-                        authenticationUpdated = authenticate(accessor);
+                case CONNECT -> authenticationUpdated = authenticate(accessor);
 
                 case SUBSCRIBE -> {
                     authenticationUpdated = ensureAuthenticated(accessor);
@@ -110,14 +109,14 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
         } catch (RuntimeException exception) {
             log.error(
                     """
-                    STOMP inbound 처리 실패.
-                    command={}
-                    destination={}
-                    sessionId={}
-                    userId={}
-                    exceptionType={}
-                    exceptionMessage={}
-                    """,
+                            STOMP inbound 처리 실패.
+                            command={}
+                            destination={}
+                            sessionId={}
+                            userId={}
+                            exceptionType={}
+                            exceptionMessage={}
+                            """,
                     command,
                     accessor.getDestination(),
                     accessor.getSessionId(),
@@ -185,7 +184,7 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
             return null;
         }
 
-        String authorizationHeader = authorizationHeaders.get(0);
+        String authorizationHeader = authorizationHeaders.getFirst();
 
         if (authorizationHeader == null
                 || !authorizationHeader.startsWith(BEARER_PREFIX)) {
@@ -285,7 +284,7 @@ public class ChatWebSocketAuthInterceptor implements ChannelInterceptor {
 
     /**
      * 오류 로그를 출력하기 위한 안전한 사용자 ID 조회.
-     *
+     * <p>
      * 인증 처리 자체가 실패한 경우에는 사용자 정보가 없을 수 있으므로
      * 예외를 발생시키지 않고 null을 반환한다.
      */

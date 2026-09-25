@@ -14,12 +14,17 @@ public class ResultOutboxDispatcher {
     private final ResultOutboxStore store;
     private final ResultDeliveryProperties properties;
     private final ObjectProvider<ResultJournalClient> clients;
-    public ResultOutboxDispatcher(ResultOutboxStore store, ResultDeliveryProperties properties, ObjectProvider<ResultJournalClient> clients) {
-        this.store = store; this.properties = properties; this.clients = clients;
+
+    public ResultOutboxDispatcher(ResultOutboxStore store, ResultDeliveryProperties properties,
+                                  ObjectProvider<ResultJournalClient> clients) {
+        this.store = store;
+        this.properties = properties;
+        this.clients = clients;
         if (properties.isDeliveryEnabled() && clients.getIfAvailable() == null) {
             throw new IllegalStateException("결과 전달에는 language-learning.remote.enabled=true가 필요합니다.");
         }
     }
+
     @Scheduled(fixedDelayString = "${language-learning.result-journal.poll-delay-ms:1000}")
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void poll() {
@@ -28,12 +33,14 @@ public class ResultOutboxDispatcher {
             throw new IllegalStateException("결과 전달 HTTP를 Core 트랜잭션 안에서 실행할 수 없습니다.");
         }
         for (int i = 0; i < properties.getBatchSize(); i++) {
-            var available = store.claim(properties.getSourceInstanceId(), properties.getLeaseSeconds(), properties.getMaximumAttempts());
+            var available = store.claim(properties.getSourceInstanceId(), properties.getLeaseSeconds(),
+                    properties.getMaximumAttempts());
             if (available.isEmpty()) return;
             var claim = available.get();
             try {
                 ResultAcknowledgement ack = clients.getObject().deliver(claim.event());
-                if (ack == null || !ack.matches(claim.event())) throw new HttpResultJournalClient.InvalidAcknowledgement();
+                if (ack == null || !ack.matches(claim.event()))
+                    throw new HttpResultJournalClient.InvalidAcknowledgement();
                 store.acknowledge(claim, ack);
             } catch (HttpResultJournalClient.InvalidAcknowledgement failure) {
                 fail(claim, "ACK_MISMATCH", true);
@@ -48,8 +55,10 @@ public class ResultOutboxDispatcher {
             }
         }
     }
+
     private void fail(ResultOutboxStore.Claim claim, String code, boolean permanent) {
         store.fail(claim, code, permanent, properties.getMaximumAttempts());
-        log.warn("Learning result delivery failed. eventId={} code={} attempt={}", claim.event().eventId(), code, claim.attempts());
+        log.warn("Learning result delivery failed. eventId={} code={} attempt={}", claim.event().eventId(), code,
+                claim.attempts());
     }
 }

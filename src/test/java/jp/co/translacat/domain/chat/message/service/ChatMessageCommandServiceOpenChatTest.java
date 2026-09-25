@@ -36,25 +36,33 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatMessageCommandServiceOpenChatTest {
 
-    @Mock private ChatMessageRepository messageRepository;
-    @Mock private ChatMessageTranslationRepository translationRepository;
-    @Mock private ChatRoomMemberRepository memberRepository;
-    @Mock private ChatRoomMemberQueryService memberQueryService;
-    @Mock private ChatLanguageSettingResolver languageSettingResolver;
-    @Mock private ApplicationEventPublisher applicationEventPublisher;
-    @Mock private ChatWebSocketEventPublisher webSocketEventPublisher;
-    @Mock private ChatMessageSenderProfileService ordinaryProfileService;
-    @Mock private ChatMessageUnreadMemberCountRepository unreadRepository;
-    @Mock private OpenChatAccessService openChatAccessService;
-    @Mock private OpenChatMessageProfileService openProfileService;
+    @Mock
+    private ChatMessageRepository messageRepository;
+    @Mock
+    private ChatMessageTranslationRepository translationRepository;
+    @Mock
+    private ChatRoomMemberRepository memberRepository;
+    @Mock
+    private ChatRoomMemberQueryService memberQueryService;
+    @Mock
+    private ChatLanguageSettingResolver languageSettingResolver;
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+    @Mock
+    private ChatWebSocketEventPublisher webSocketEventPublisher;
+    @Mock
+    private ChatMessageSenderProfileService ordinaryProfileService;
+    @Mock
+    private ChatMessageUnreadMemberCountRepository unreadRepository;
+    @Mock
+    private OpenChatAccessService openChatAccessService;
+    @Mock
+    private OpenChatMessageProfileService openProfileService;
 
     private ChatMessageCommandService service;
     private ChatRoomMember senderMember;

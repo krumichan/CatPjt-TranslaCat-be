@@ -39,9 +39,9 @@ public class SyosetuParser {
 
     public NovelSearchContext parseNovelSearch(Element element) {
         return NovelSearchContext.builder()
-            .pageNumberContext(this.extractSearchPageNumbers(element))
-            .novelContexts(this.extractSearchItems(element))
-            .build();
+                .pageNumberContext(this.extractSearchPageNumbers(element))
+                .novelContexts(this.extractSearchItems(element))
+                .build();
     }
 
     public NovelContext parseNovelDetail(Element element) {
@@ -225,8 +225,10 @@ public class SyosetuParser {
         Elements pages = element.select(".c-pager__item");
         if (!pages.isEmpty()) {
             return PageNumberContext.builder()
-                    .first(this.extractPageNumber(Objects.requireNonNull(pages.select(".c-pager__item--first").first())))
-                    .prev(this.extractPageNumber(Objects.requireNonNull(pages.select(".c-pager__item--before").first())))
+                    .first(this.extractPageNumber(
+                            Objects.requireNonNull(pages.select(".c-pager__item--first").first())))
+                    .prev(this.extractPageNumber(
+                            Objects.requireNonNull(pages.select(".c-pager__item--before").first())))
                     .next(this.extractPageNumber(Objects.requireNonNull(pages.select(".c-pager__item--next").first())))
                     .last(this.extractPageNumber(Objects.requireNonNull(pages.select(".c-pager__item--last").first())))
                     .build();
@@ -300,7 +302,8 @@ public class SyosetuParser {
             String authorIdentify = PathUtil.extractPath(authorHref).replaceAll("/", "");
 
             // 소설 상태 추출.
-            String statusText = Objects.requireNonNull(item.select(".p-ranklist-item__infomation .p-ranklist-item__separator").first()).text();
+            String statusText = Objects.requireNonNull(
+                    item.select(".p-ranklist-item__infomation .p-ranklist-item__separator").first()).text();
             statusText = statusText.contains("(") ? statusText.substring(0, statusText.indexOf("(")) : statusText;
             SyosetuNovelStatus status = SyosetuNovelStatus.of(statusText.trim());
 
@@ -352,26 +355,26 @@ public class SyosetuParser {
 
         // 모든 번호 추출.
         List<Integer> pages = pagerDiv.select("a").stream()
-            .filter(a -> !a.hasClass(".backlink") && !a.hasClass(".nextlink"))
-            .map(a -> a.attr("href"))
-            .map(href -> {
-                String p = PathUtil.getQueryParamFirst(href, "p");
-                return Objects.nonNull(p) ? Integer.parseInt(p) : null;
-            })
-            .filter(Objects::nonNull)
-            .distinct()
-            .collect(Collectors.toList());
+                .filter(a -> !a.hasClass(".backlink") && !a.hasClass(".nextlink"))
+                .map(a -> a.attr("href"))
+                .map(href -> {
+                    String p = PathUtil.getQueryParamFirst(href, "p");
+                    return Objects.nonNull(p) ? Integer.parseInt(p) : null;
+                })
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
         if (Objects.nonNull(current) && !pages.contains(current)) {
             pages.add(current);
             Collections.sort(pages);
         }
 
         return PageNumberContext.builder()
-            .current(current)
-            .prev(prev)
-            .next(next)
-            .pages(pages)
-            .build();
+                .current(current)
+                .prev(prev)
+                .next(next)
+                .pages(pages)
+                .build();
     }
 
     private List<NovelContext> extractSearchItems(Element element) {
@@ -407,26 +410,28 @@ public class SyosetuParser {
             if (Objects.nonNull(genreATag)) {
                 String mainGenre = genreATag.text();
                 String subGenre = (genreATag.nextSibling() instanceof TextNode)
-                    ? ((TextNode) Objects.requireNonNull(genreATag.nextSibling())).getWholeText().trim()
-                    : "";
+                        ? ((TextNode) Objects.requireNonNull(genreATag.nextSibling())).getWholeText().trim()
+                        : "";
                 genreText = mainGenre + subGenre;
             }
 
             novelContexts.add(NovelContext.builder()
-                .identifier(novelIdentifier)
-                .authorIdentifier(authorIdentifier)
-                .genreText(genreText)
-                .isShortStory(status.isShortStory())
-                .title(TranslationUnit.of(title))
-                .author(TranslationUnit.of(author))
-                .status(TranslationUnit.of(status.getJa(), status.getRubyJa(), status.getKo()))
-                .synopsis(TranslationUnit.of(synopsis)).build());
+                    .identifier(novelIdentifier)
+                    .authorIdentifier(authorIdentifier)
+                    .genreText(genreText)
+                    .isShortStory(status.isShortStory())
+                    .title(TranslationUnit.of(title))
+                    .author(TranslationUnit.of(author))
+                    .status(TranslationUnit.of(status.getJa(), status.getRubyJa(), status.getKo()))
+                    .synopsis(TranslationUnit.of(synopsis)).build());
         }
 
         return novelContexts;
     }
 
-    private record NovelDetailData(String synopsis, String author, String authorIdentifier, String smallGenre) {}
+    private record NovelDetailData(String synopsis, String author, String authorIdentifier, String smallGenre) {
+    }
+
     private NovelDetailData extractNovelDetailData(Element element) {
         Elements dataList = element.select(".p-infotop-data dt");
 

@@ -6,7 +6,6 @@ import jp.co.translacat.domain.languagelearning.setting.dto.request.UserSettingU
 import jp.co.translacat.domain.languagelearning.setting.dto.response.UserSettingResponseDto;
 import jp.co.translacat.infrastructure.languagelearning.client.config.LanguageLearningClientProperties;
 import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -22,10 +21,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -135,14 +131,16 @@ class LanguageLearningSettingsClientTest {
     @Test
     void missingRequiredNumericFieldIsNotSilentlyDefaulted() {
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/settings"))
-                .andRespond(withSuccess(userResponseJson().replace("\"dailySentenceCount\":5,", ""), MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(userResponseJson().replace("\"dailySentenceCount\":5,", ""),
+                        MediaType.APPLICATION_JSON));
         assertThrows(LanguageLearningServiceException.class, () -> client.getUserSettings(123L));
         server.verify();
     }
 
     @Test
     void serviceReadUsesItsOwnPathAndTokenPurpose() {
-        server.expect(requestTo("http://ll.test/internal/v1/service/language-learning/settings/users/123/learning-date"))
+        server.expect(
+                        requestTo("http://ll.test/internal/v1/service/language-learning/settings/users/123/learning-date"))
                 .andExpect(request -> {
                     String token = request.getHeaders().getFirst("Authorization").substring(7);
                     var claims = io.jsonwebtoken.Jwts.parser()
@@ -161,7 +159,8 @@ class LanguageLearningSettingsClientTest {
     void serverFailureIsNotAutomaticallyRetried() {
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/settings"))
                 .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
-                        .contentType(MediaType.APPLICATION_JSON).body("{\"code\":\"SETTINGS_POLICY_UNAVAILABLE\",\"message\":\"not ready\"}"));
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"code\":\"SETTINGS_POLICY_UNAVAILABLE\",\"message\":\"not ready\"}"));
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE,
                 assertThrows(LanguageLearningServiceException.class, () -> client.getUserSettings(123L)).getStatus());
         server.verify();

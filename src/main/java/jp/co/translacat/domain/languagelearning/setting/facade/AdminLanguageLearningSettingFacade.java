@@ -11,7 +11,10 @@ import org.springframework.stereotype.Service;
 public class AdminLanguageLearningSettingFacade {
     private final AdminSettingsGateway settings;
 
-    public AdminSettingResponseDto get(Long adminUserId) { return settings.getSettings(adminUserId); }
+    public AdminSettingResponseDto get(Long adminUserId) {
+        return settings.getSettings(adminUserId);
+    }
+
     public AdminSettingResponseDto update(Long adminUserId, AdminSettingUpdateRequestDto request) {
         return settings.update(adminUserId, request);
     }

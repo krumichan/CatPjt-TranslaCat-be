@@ -7,7 +7,10 @@ import jp.co.translacat.domain.novel.novel.facade.NovelEpisodeFacade;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.utils.ResponseUtil;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/{platformCode}/{novelIdentifier}/episodes")

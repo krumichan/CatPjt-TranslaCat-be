@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 
 import jp.co.translacat.domain.languagelearning.common.enums.EvaluationStatus;
 import jp.co.translacat.domain.languagelearning.common.enums.WritingEvaluationContext;
-import jp.co.translacat.domain.languagelearning.level.entity.LevelTestItem;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.jpa.BaseAuditable;
 
@@ -19,18 +18,9 @@ import java.time.LocalDateTime;
 @Table(
         name = "language_learning_writing_evaluation",
         indexes = {
-                @Index(
-                        name = "idx_ll_eval_user_context",
-                        columnList = "user_id,evaluation_context"
-                ),
-                @Index(
-                        name = "idx_ll_eval_answer",
-                        columnList = "answer_id"
-                ),
-                @Index(
-                        name = "idx_ll_eval_level_item",
-                        columnList = "level_test_item_id"
-                )
+                @Index(name = "idx_ll_eval_user_context", columnList = "user_id,evaluation_context"),
+                @Index(name = "idx_ll_eval_answer", columnList = "answer_id"),
+                @Index(name = "idx_ll_eval_level_item", columnList = "level_test_item_id")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -52,9 +42,9 @@ public class WritingEvaluation extends BaseAuditable {
     @JoinColumn(name = "answer_id", unique = true)
     private WritingAnswer answer;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "level_test_item_id", unique = true)
-    private LevelTestItem levelTestItem;
+    // 기존 이력의 식별자만 보존한다. LL DB와 JPA 관계/외래키를 만들지 않는다.
+    @Column(name = "level_test_item_id", unique = true, insertable = false, updatable = false)
+    private Long legacyLevelTestItemId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -105,60 +95,18 @@ public class WritingEvaluation extends BaseAuditable {
     @Column(length = 1000)
     private String failureMessage;
 
-    private WritingEvaluation(
-            User user,
-            WritingEvaluationContext context,
-            WritingAnswer answer,
-            LevelTestItem levelTestItem
-    ) {
+    private WritingEvaluation(User user, WritingEvaluationContext context, WritingAnswer answer) {
         this.user = user;
         this.context = context;
         this.answer = answer;
-        this.levelTestItem = levelTestItem;
         this.status = EvaluationStatus.PENDING;
     }
 
-    public static WritingEvaluation pendingDaily(
-            User user,
-            WritingAnswer answer
-    ) {
-        return new WritingEvaluation(
-                user,
-                WritingEvaluationContext.DAILY,
-                answer,
-                null
-        );
+    public static WritingEvaluation pendingDaily(User user, WritingAnswer answer) {
+        return new WritingEvaluation(user, WritingEvaluationContext.DAILY, answer);
     }
 
-    public static WritingEvaluation pendingLevel(
-            User user,
-            LevelTestItem levelTestItem
-    ) {
-        return new WritingEvaluation(
-                user,
-                WritingEvaluationContext.LEVEL_TEST,
-                null,
-                levelTestItem
-        );
-    }
-
-    public void success(
-            int overallScore,
-            int meaningScore,
-            int grammarScore,
-            int vocabularyScore,
-            int naturalnessScore,
-            int expressionScore,
-            String strengthsJson,
-            String weaknessesJson,
-            String correctionsJson,
-            String recommendedAnswersJson,
-            String explanationJson,
-            String profileSignalsJson,
-            String evaluationRubricVersion,
-            String scoringPolicyVersion,
-            String promptVersion
-    ) {
+    public void success(int overallScore, int meaningScore, int grammarScore, int vocabularyScore, int naturalnessScore, int expressionScore, String strengthsJson, String weaknessesJson, String correctionsJson, String recommendedAnswersJson, String explanationJson, String profileSignalsJson, String evaluationRubricVersion, String scoringPolicyVersion, String promptVersion) {
         this.overallScore = overallScore;
         this.meaningScore = meaningScore;
         this.grammarScore = grammarScore;

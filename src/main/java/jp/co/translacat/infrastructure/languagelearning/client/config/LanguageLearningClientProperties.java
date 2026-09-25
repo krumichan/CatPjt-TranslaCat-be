@@ -12,6 +12,13 @@ public class LanguageLearningClientProperties {
     private String url;
     private Remote remote = new Remote();
     private InternalJwt internalJwt = new InternalJwt();
+    private LevelTest levelTest = new LevelTest();
+
+    @Getter
+    @Setter
+    public static class LevelTest {
+        private int readTimeoutMs = 360000;
+    }
 
     @Getter
     @Setter

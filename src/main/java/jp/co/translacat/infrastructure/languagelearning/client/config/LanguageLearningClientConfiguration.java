@@ -2,6 +2,7 @@ package jp.co.translacat.infrastructure.languagelearning.client.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningKeywordClient;
+import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningLevelTestClient;
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningSettingsClient;
 import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -31,22 +32,21 @@ public class LanguageLearningClientConfiguration {
             throw new IllegalStateException("Language Learning URL 형식이 올바르지 않습니다.");
         }
         if ((!"http".equals(uri.getScheme()) && !"https".equals(uri.getScheme()))
-                || uri.getHost() == null || uri.getUserInfo() != null
-                || uri.getQuery() != null || uri.getFragment() != null
+                || uri.getHost() == null
+                || uri.getUserInfo() != null
+                || uri.getQuery() != null
+                || uri.getFragment() != null
                 || !(uri.getPath().isEmpty() || "/".equals(uri.getPath()))) {
             throw new IllegalStateException("Language Learning URL은 자격증명/쿼리/경로가 없는 http(s) 원점이어야 합니다.");
         }
-        if ("http".equals(uri.getScheme()) && !java.util.Set.of("localhost", "127.0.0.1", "[::1]", "::1").contains(uri.getHost())) {
+        if ("http".equals(uri.getScheme()) && !java.util.Set.of("localhost", "127.0.0.1", "[::1]", "::1")
+                .contains(uri.getHost())) {
             throw new IllegalStateException("loopback 이외의 Language Learning URL에는 HTTPS가 필요합니다.");
         }
 
-        LanguageLearningClientProperties.Remote remote =
-                properties.getRemote();
-        if (remote.getConnectTimeoutMs() <= 0
-                || remote.getReadTimeoutMs() <= 0) {
-            throw new IllegalStateException(
-                    "Language Learning HTTP timeout은 0보다 커야 합니다."
-            );
+        LanguageLearningClientProperties.Remote remote = properties.getRemote();
+        if (remote.getConnectTimeoutMs() <= 0 || remote.getReadTimeoutMs() <= 0) {
+            throw new IllegalStateException("Language Learning HTTP timeout은 0보다 커야 합니다.");
         }
     }
 
@@ -65,30 +65,16 @@ public class LanguageLearningClientConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(
-            prefix = "language-learning.remote",
-            name = "enabled",
-            havingValue = "true"
-    )
+    @ConditionalOnProperty(prefix = "language-learning.remote", name = "enabled", havingValue = "true")
     public LanguageLearningInternalJwtProvider languageLearningInternalJwtProvider(
-            LanguageLearningClientProperties properties
-    ) {
-        return new LanguageLearningInternalJwtProvider(
-                properties,
-                Clock.systemUTC()
-        );
+            LanguageLearningClientProperties properties) {
+        return new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC());
     }
 
     @Bean("languageLearningRestClient")
-    @ConditionalOnProperty(
-            prefix = "language-learning.remote",
-            name = "enabled",
-            havingValue = "true"
-    )
-    public RestClient languageLearningRestClient(
-            RestClient.Builder builder,
-            LanguageLearningClientProperties properties
-    ) {
+    @ConditionalOnProperty(prefix = "language-learning.remote", name = "enabled", havingValue = "true")
+    public RestClient languageLearningRestClient(RestClient.Builder builder,
+                                                 LanguageLearningClientProperties properties) {
         validate(properties);
 
         HttpClient httpClient = HttpClient.newBuilder()
@@ -99,39 +85,45 @@ public class LanguageLearningClientConfiguration {
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(Duration.ofMillis(properties.getRemote().getReadTimeoutMs()));
 
-        return builder
-                .baseUrl(trimTrailingSlash(properties.getUrl()))
+        return builder.baseUrl(trimTrailingSlash(properties.getUrl()))
                 .requestFactory(requestFactory)
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
 
     @Bean
-    @ConditionalOnProperty(
-            prefix = "language-learning.remote",
-            name = "enabled",
-            havingValue = "true"
-    )
+    @ConditionalOnProperty(prefix = "language-learning.remote", name = "enabled", havingValue = "true")
     public LanguageLearningSettingsClient languageLearningSettingsClient(
-            @Qualifier("languageLearningRestClient")
-            RestClient languageLearningRestClient,
-            LanguageLearningInternalJwtProvider jwtProvider,
-            ObjectMapper objectMapper
-    ) {
-        return new LanguageLearningSettingsClient(
-                languageLearningRestClient,
-                jwtProvider,
-                objectMapper
-        );
+            @Qualifier("languageLearningRestClient") RestClient languageLearningRestClient,
+            LanguageLearningInternalJwtProvider jwtProvider, ObjectMapper objectMapper) {
+        return new LanguageLearningSettingsClient(languageLearningRestClient, jwtProvider, objectMapper);
     }
 
     @Bean
     @ConditionalOnProperty(prefix = "language-learning.remote", name = "enabled", havingValue = "true")
     public LanguageLearningKeywordClient languageLearningKeywordClient(
             @Qualifier("languageLearningRestClient") RestClient restClient,
-            LanguageLearningInternalJwtProvider jwtProvider,
-            ObjectMapper objectMapper
-    ) {
+            LanguageLearningInternalJwtProvider jwtProvider, ObjectMapper objectMapper) {
         return new LanguageLearningKeywordClient(restClient, jwtProvider, objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "language-learning.remote", name = "enabled", havingValue = "true")
+    public LanguageLearningLevelTestClient languageLearningLevelTestClient(RestClient.Builder builder,
+                                                                           LanguageLearningClientProperties properties,
+                                                                           LanguageLearningInternalJwtProvider jwtProvider,
+                                                                           ObjectMapper mapper) {
+        validate(properties);
+        int timeout = properties.getLevelTest().getReadTimeoutMs();
+        if (timeout < 1000 || timeout > 600000)
+            throw new IllegalStateException("레벨 테스트 HTTP timeout은 1000~600000ms여야 합니다.");
+        var http = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofMillis(properties.getRemote().getConnectTimeoutMs()))
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
+        var factory = new JdkClientHttpRequestFactory(http);
+        factory.setReadTimeout(Duration.ofMillis(timeout));
+        var client = builder.clone().baseUrl(trimTrailingSlash(properties.getUrl())).requestFactory(factory).build();
+        return new LanguageLearningLevelTestClient(client, jwtProvider, mapper);
     }
 }

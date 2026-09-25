@@ -2,246 +2,112 @@ package jp.co.translacat.domain.languagelearning.level.facade;
 
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelAnswerRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelTestStartRequestDto;
-import jp.co.translacat.domain.languagelearning.level.dto.response.LevelAnswerResultResponseDto;
-import jp.co.translacat.domain.languagelearning.level.dto.response.LevelAudioAnswerResultResponseDto;
-import jp.co.translacat.domain.languagelearning.level.dto.response.LevelQuestionResponseDto;
-import jp.co.translacat.domain.languagelearning.level.dto.response.LevelSessionResponseDto;
-import jp.co.translacat.domain.languagelearning.level.dto.response.LevelStatusResponseDto;
-import jp.co.translacat.domain.languagelearning.level.dto.response.LevelTestHistoryDetailResponseDto;
-import jp.co.translacat.domain.languagelearning.level.dto.response.LevelTestHistoryItemResponseDto;
-import jp.co.translacat.domain.languagelearning.level.dto.response.LevelTestResultResponseDto;
-import jp.co.translacat.domain.languagelearning.level.entity.LevelTestItem;
-import jp.co.translacat.domain.languagelearning.level.entity.LevelTestSession;
-import jp.co.translacat.domain.languagelearning.level.service.LevelTestAnswerCommandService;
-import jp.co.translacat.domain.languagelearning.level.service.LevelTestAudioService;
-import jp.co.translacat.domain.languagelearning.level.service.LevelTestEvaluationService;
-import jp.co.translacat.domain.languagelearning.level.service.LevelTestProgressCommandService;
-import jp.co.translacat.domain.languagelearning.level.service.LevelTestQueryService;
-import jp.co.translacat.domain.languagelearning.level.service.LevelTestQuestionService;
-import jp.co.translacat.domain.languagelearning.level.pool.service.LevelTestQuestionPrefetchPublisher;
-import jp.co.translacat.domain.languagelearning.level.service.LevelTestResultQueryService;
-import jp.co.translacat.domain.languagelearning.level.service.LevelTestReviewAudioService;
-import jp.co.translacat.domain.languagelearning.level.service.LevelTestSessionCommandService;
+import jp.co.translacat.domain.languagelearning.level.dto.response.*;
+import jp.co.translacat.domain.languagelearning.level.port.LevelTestGateway;
 import jp.co.translacat.domain.languagelearning.listening.audio.model.ListeningAudioObject;
-
+import jp.co.translacat.domain.languagelearning.profile.service.LevelTestBaselineBridge;
+import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
+import jp.co.translacat.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
+/**
+ * 외부 URL/DTO는 유지하고 업무 처리와 저장은 LL로 전달한다. 긴 AI 호출 중 Core 트랜잭션을 열지 않는다.
+ */
 @Service
 @RequiredArgsConstructor
 public class LanguageLearningLevelTestFacade {
-
-    private final LevelTestQueryService levelTestQueryService;
-    private final LevelTestSessionCommandService sessionCommandService;
-    private final LevelTestQuestionService questionService;
-    private final LevelTestQuestionPrefetchPublisher prefetchPublisher;
-    private final LevelTestAnswerCommandService answerCommandService;
-    private final LevelTestEvaluationService evaluationService;
-    private final LevelTestAudioService audioService;
-    private final LevelTestResultQueryService resultQueryService;
-    private final LevelTestReviewAudioService reviewAudioService;
+    private final LevelTestGateway gateway;
+    private final LevelTestBaselineBridge baselineBridge;
 
     public LevelStatusResponseDto getStatus(Long userId) {
-        return levelTestQueryService.getStatus(userId);
+        var state = baselineBridge.synchronize(userId);
+        var value = gateway.status(userId);
+        return new LevelStatusResponseDto(state == null ? value.profileState() : state,
+                value.initialLevelTestCompleted(), value.recheckRecommended(), value.activeSessionId(),
+                value.currentQuestionNumber(), value.baseLevelScore(), value.proficiencyBand());
     }
 
-    public LevelSessionResponseDto start(
-            Long userId,
-            LevelTestStartRequestDto request
-    ) {
-        LevelTestSession session = sessionCommandService.start(
-                userId,
-                request == null ? null : request.type(),
-                request == null ? null : request.idempotencyKey()
-        );
-        return toSessionResponse(session);
+    public LevelSessionResponseDto start(Long userId, LevelTestStartRequestDto request) {
+        return gateway.start(userId, request);
     }
 
-    public LevelSessionResponseDto getSession(
-            Long userId,
-            Long sessionId
-    ) {
-        return toSessionResponse(
-                levelTestQueryService.getOwnedSession(userId, sessionId)
-        );
+    public LevelSessionResponseDto getSession(Long userId, Long sessionId) {
+        return gateway.session(userId, sessionId);
     }
 
-    public LevelQuestionResponseDto getCurrent(
-            Long userId,
-            Long sessionId
-    ) {
-        LevelTestSession session = levelTestQueryService.getOwnedSession(
-                userId,
-                sessionId
-        );
-        LevelTestItem item = questionService.getOrGenerateCurrent(session);
-        prefetchPublisher.publish(item);
-        return questionService.toResponse(item);
+    public LevelQuestionResponseDto getCurrent(Long userId, Long sessionId) {
+        return gateway.current(userId, sessionId);
     }
 
-    public ListeningAudioObject getReferenceAudio(
-            Long userId,
-            Long itemId
-    ) {
-        return questionService.referenceAudio(userId, itemId);
+    public LevelAnswerResultResponseDto submit(Long userId, Long sessionId, Long itemId,
+                                               LevelAnswerRequestDto request) {
+        var value = gateway.submit(userId, sessionId, itemId, request);
+        if (value.completed()) baselineBridge.requireCompleted(userId);
+        return value;
     }
 
-    public ListeningAudioObject getAnswerAudio(
-            Long userId,
-            Long itemId
-    ) {
-        return reviewAudioService.loadAnswerAudio(userId, itemId);
+    public LevelAudioAnswerResultResponseDto submitAudio(Long userId, Long sessionId, Long itemId, MultipartFile audio,
+                                                         Integer durationMs, String key) {
+        if (audio == null
+                || audio.isEmpty()
+                || audio.getSize() > 10 * 1024 * 1024
+                || durationMs == null
+                || durationMs <= 0
+                || key == null
+                || key.isBlank()) {
+            throw new BusinessException("녹음 크기와 길이, 재전송 키를 확인해 주세요.",
+                    LanguageLearningErrorCode.LEVEL_TEST_AUDIO_INVALID);
+        }
+        try {
+            var value = gateway.submitAudio(userId, sessionId, itemId, audio.getBytes(),
+                    audio.getContentType() == null ? "application/octet-stream" : audio.getContentType(), durationMs,
+                    key);
+            if (value.completed()) baselineBridge.requireCompleted(userId);
+            return value;
+        } catch (IOException error) {
+            throw new BusinessException("녹음을 읽을 수 없습니다.", LanguageLearningErrorCode.LEVEL_TEST_AUDIO_INVALID);
+        }
     }
 
-    public ListeningAudioObject getModelAnswerAudio(
-            Long userId,
-            Long itemId
-    ) {
-        return reviewAudioService.loadModelAnswerAudio(userId, itemId);
+    public LevelAnswerResultResponseDto retryEvaluation(Long userId, Long sessionId, Long itemId) {
+        var value = gateway.retry(userId, sessionId, itemId);
+        if (value.completed()) baselineBridge.requireCompleted(userId);
+        return value;
     }
 
-    public LevelAnswerResultResponseDto submit(
-            Long userId,
-            Long sessionId,
-            Long itemId,
-            LevelAnswerRequestDto request
-    ) {
-        LevelTestAnswerCommandService.PreparedResponse prepared =
-                answerCommandService.prepareText(
-                        userId,
-                        sessionId,
-                        itemId,
-                        request
-                );
-        LevelTestProgressCommandService.ProgressResult progress =
-                prepared.idempotentReplay()
-                        ? evaluationService.replay(prepared.response())
-                        : evaluationService.evaluate(
-                                prepared.response(),
-                                null,
-                                null,
-                                null
-                        );
-        return toAnswerResult(
-                userId,
-                sessionId,
-                itemId,
-                progress
-        );
-    }
-
-    public LevelAudioAnswerResultResponseDto submitAudio(
-            Long userId,
-            Long sessionId,
-            Long itemId,
-            MultipartFile audio,
-            Integer durationMs,
-            String idempotencyKey
-    ) {
-        LevelTestAudioService.StoredAudio stored = audioService.prepareAndStore(
-                userId,
-                sessionId,
-                itemId,
-                audio,
-                durationMs,
-                idempotencyKey
-        );
-        LevelTestProgressCommandService.ProgressResult progress =
-                stored.idempotentReplay()
-                        ? evaluationService.replay(stored.response())
-                        : evaluationService.evaluate(
-                                stored.response(),
-                                stored.bytes(),
-                                stored.fileName(),
-                                stored.contentType()
-                        );
-
-        return new LevelAudioAnswerResultResponseDto(
-                sessionId,
-                itemId,
-                progress.evaluable(),
-                progress.score(),
-                progress.reasonCode(),
-                progress.completed(),
-                null,
-                stored.retentionUntil()
-        );
-    }
-
-    public LevelAnswerResultResponseDto retryEvaluation(
-            Long userId,
-            Long sessionId,
-            Long itemId
-    ) {
-        LevelTestProgressCommandService.ProgressResult progress =
-                evaluationService.retry(userId, sessionId, itemId);
-        return toAnswerResult(
-                userId,
-                sessionId,
-                itemId,
-                progress
-        );
-    }
-
-    public LevelTestResultResponseDto getResult(
-            Long userId,
-            Long sessionId
-    ) {
-        return resultQueryService.getResult(userId, sessionId);
+    public LevelTestResultResponseDto getResult(Long userId, Long sessionId) {
+        var value = gateway.result(userId, sessionId);
+        baselineBridge.requireCompleted(userId);
+        return value;
     }
 
     public List<LevelTestHistoryItemResponseDto> getHistory(Long userId) {
-        return resultQueryService.getHistory(userId);
+        return gateway.history(userId);
     }
 
-    public LevelTestHistoryDetailResponseDto getHistoryDetail(
-            Long userId,
-            Long sessionId
-    ) {
-        return resultQueryService.getHistoryDetail(userId, sessionId);
+    public LevelTestHistoryDetailResponseDto getHistoryDetail(Long userId, Long sessionId) {
+        return gateway.detail(userId, sessionId);
     }
 
-    private LevelAnswerResultResponseDto toAnswerResult(
-            Long userId,
-            Long sessionId,
-            Long itemId,
-            LevelTestProgressCommandService.ProgressResult progress
-    ) {
-        LevelTestSession session = levelTestQueryService.getOwnedSession(
-                userId,
-                sessionId
-        );
-        return new LevelAnswerResultResponseDto(
-                sessionId,
-                itemId,
-                Math.min(
-                        session.currentQuestionNumber(),
-                        session.getTotalQuestions()
-                ),
-                progress.evaluable(),
-                progress.score(),
-                progress.reasonCode(),
-                progress.completed(),
-                null
-        );
+    public ListeningAudioObject getReferenceAudio(Long userId, Long itemId) {
+        return audio(userId, itemId, "reference-audio");
     }
 
-    private LevelSessionResponseDto toSessionResponse(LevelTestSession session) {
-        return new LevelSessionResponseDto(
-                session.getId(),
-                session.getSessionType(),
-                session.getStatus(),
-                session.getTotalQuestions(),
-                session.currentQuestionNumber(),
-                session.currentComplexityBand(),
-                session.getBaseLevelScore(),
-                session.getProficiencyBand(),
-                session.getStartedAt(),
-                session.getCompletedAt()
-        );
+    public ListeningAudioObject getAnswerAudio(Long userId, Long itemId) {
+        return audio(userId, itemId, "answer-audio");
+    }
+
+    public ListeningAudioObject getModelAnswerAudio(Long userId, Long itemId) {
+        return audio(userId, itemId, "model-answer-audio");
+    }
+
+    private ListeningAudioObject audio(Long userId, Long itemId, String kind) {
+        var value = gateway.audio(userId, itemId, kind);
+        return new ListeningAudioObject("level-test:" + itemId, value.bytes(), value.contentType());
     }
 }

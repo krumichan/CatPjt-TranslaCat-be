@@ -1,7 +1,6 @@
 package jp.co.translacat.domain.languagelearning.speaking.evaluation.service;
 
-import jp.co.translacat.domain.languagelearning.activity.repository.LearningActivityRepository;
-import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
+import jp.co.translacat.domain.languagelearning.activity.service.LearningActivityCommandService;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingEvaluationStatus;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.job.entity.SpeakingEvaluationJob;
@@ -19,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SpeakingEvaluationRetryCommandService {
     private final SpeakingSessionQueryService sessionQueryService;
     private final SpeakingEvaluationJobQueueService queueService;
-    private final LearningActivityRepository activityRepository;
+    private final LearningActivityCommandService activityCommands;
     private final SpeakingEvaluationJobRepository jobRepository;
 
     @Transactional
@@ -27,8 +26,7 @@ public class SpeakingEvaluationRetryCommandService {
         var session = sessionQueryService.getOwnedEntityForUpdate(userId, sessionId);
         if (session.getResultKind() == SpeakingResultKind.SESSION_COACHING) {
             var job = jobRepository.findOneBySessionIdAndProblemIndex(sessionId, 0)
-                    .orElseThrow(() -> new BusinessException(
-                            "Speaking coaching 작업을 찾을 수 없습니다.",
+                    .orElseThrow(() -> new BusinessException("Speaking coaching 작업을 찾을 수 없습니다.",
                             LanguageLearningErrorCode.SPEAKING_EVALUATION_FAILED));
             if (job.getStatus() == SpeakingEvaluationJob.Status.PENDING
                     || job.getStatus() == SpeakingEvaluationJob.Status.RUNNING) return;
@@ -43,7 +41,6 @@ public class SpeakingEvaluationRetryCommandService {
                     LanguageLearningErrorCode.SPEAKING_EVALUATION_FAILED);
         queueService.retry(session, 0);
         session.markEvaluationPending();
-        activityRepository.findBySourceAndReferenceId(LearningSource.SPEAKING, String.valueOf(sessionId))
-                .orElseThrow().markEvaluating();
+        activityCommands.speakingStatus(session, false);
     }
 }

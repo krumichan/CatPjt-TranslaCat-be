@@ -1,113 +1,43 @@
 package jp.co.translacat.domain.languagelearning.profile.service;
 
 import jp.co.translacat.domain.languagelearning.common.enums.ProfileSignalType;
+import jp.co.translacat.domain.languagelearning.growth.model.GrowthOperation;
+import jp.co.translacat.domain.languagelearning.growth.port.GrowthCommands;
+import jp.co.translacat.domain.languagelearning.growth.port.GrowthReadGateway;
 import jp.co.translacat.domain.languagelearning.profile.dto.response.ProfileSignalResponseDto;
-import jp.co.translacat.domain.languagelearning.profile.entity.LearningProfileSignal;
-import jp.co.translacat.domain.languagelearning.profile.repository.LearningProfileSignalRepository;
-import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
-import jp.co.translacat.domain.user.entity.User;
-import jp.co.translacat.domain.user.repository.UserRepository;
-import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class LearningProfileSignalService {
-
-    private static final int MAX_SIGNAL_KEY_LENGTH = 300;
-
-    private final LearningProfileSignalRepository signalRepository;
-    private final UserRepository userRepository;
+    private final GrowthCommands commands;
+    private final GrowthReadGateway growth;
 
     @Transactional
-    public void touchAll(
-            Long userId,
-            ProfileSignalType type,
-            List<String> values
-    ) {
-        for (String raw : safe(values)) {
-            if (raw == null || raw.isBlank()) {
-                continue;
-            }
-
-            String key = normalizeKey(raw);
-            LearningProfileSignal signal = signalRepository
-                    .findByUserIdAndTypeAndKey(userId, type, key)
-                    .orElseGet(() -> signalRepository.save(
-                            LearningProfileSignal.create(
-                                    getUser(userId),
-                                    type,
-                                    key
-                            )
-                    ));
-
-            if (signal.getOccurrenceCount() > 0
-                    && signal.getCreatedAt() != null) {
-                signal.touch();
-            }
-        }
+    public void touchAll(Long userId, ProfileSignalType type, List<String> values) {
+        var filtered =
+                values == null ? List.<String>of() : values.stream().filter(v -> v != null && !v.isBlank()).toList();
+        if (filtered.isEmpty()) return;
+        commands.append(userId, new GrowthOperation("SIGNALS:" + UUID.randomUUID(), "SIGNALS_TOUCHED",
+                Map.of("type", type.name(), "values", filtered)));
     }
 
-    @Transactional(readOnly = true)
-    public List<String> getKeys(
-            Long userId,
-            ProfileSignalType type,
-            int limit
-    ) {
-        return signalRepository
-                .findAllByUserIdAndTypeOrderByOccurrenceCountDesc(
-                        userId,
-                        type
-                )
+    public List<String> getKeys(Long userId, ProfileSignalType type, int limit) {
+        return getResponses(userId, type, limit).stream().map(ProfileSignalResponseDto::key).toList();
+    }
+
+    public List<ProfileSignalResponseDto> getResponses(Long userId, ProfileSignalType type, int limit) {
+        return growth.snapshot(userId)
+                .signals()
+                .getOrDefault(type.name(), List.of())
                 .stream()
-                .limit(limit)
-                .map(LearningProfileSignal::getKey)
+                .limit(Math.max(0, limit))
                 .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<ProfileSignalResponseDto> getResponses(
-            Long userId,
-            ProfileSignalType type,
-            int limit
-    ) {
-        return signalRepository
-                .findAllByUserIdAndTypeOrderByOccurrenceCountDesc(
-                        userId,
-                        type
-                )
-                .stream()
-                .limit(limit)
-                .map(signal -> new ProfileSignalResponseDto(
-                        signal.getKey(),
-                        signal.getOccurrenceCount()
-                ))
-                .toList();
-    }
-
-    private String normalizeKey(String raw) {
-        String value = raw.trim();
-        return value.substring(
-                0,
-                Math.min(value.length(), MAX_SIGNAL_KEY_LENGTH)
-        );
-    }
-
-    private User getUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(
-                        "사용자를 찾을 수 없습니다.",
-                        LanguageLearningErrorCode.USER_NOT_FOUND
-                ));
-    }
-
-    private static <T> List<T> safe(List<T> values) {
-        return values == null ? List.of() : values;
     }
 }

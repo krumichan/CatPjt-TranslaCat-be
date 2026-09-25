@@ -35,7 +35,7 @@ class PracticeCompletionGuardTest {
     @BeforeEach
     void setup() {
         service = new PracticeAnswerCommandService(questionRepository, null, attemptRepository,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null);
         set = PracticeSet.create(null, LocalDate.of(2026, 9, 9), PracticeDomain.READING,
                 "COMPREHENSION", "ko", "ja", 5, 3);
         ReflectionTestUtils.setField(set, "id", 12L);

@@ -20,10 +20,10 @@ class KeywordLegacyBoundaryTest {
         List<String> retired =
                 List.of("SystemKeyword", "CustomKeyword", "SystemKeywordLocale", "UserSystemKeywordSelection",
                         "SystemKeywordRepository", "CustomKeywordRepository", "SystemKeywordLocaleRepository",
-                        "UserSystemKeywordSelectionRepository",
-                        "CustomKeywordCommandService", "SystemKeywordCommandService",
-                        "SystemKeywordSelectionCommandService", "LanguageLearningKeywordQueryService",
-                        "KeywordApplicationTimingPolicy", "KeywordValidationPolicy", "KeywordHierarchyPolicy");
+                        "UserSystemKeywordSelectionRepository", "CustomKeywordCommandService",
+                        "SystemKeywordCommandService", "SystemKeywordSelectionCommandService",
+                        "LanguageLearningKeywordQueryService", "KeywordApplicationTimingPolicy",
+                        "KeywordValidationPolicy", "KeywordHierarchyPolicy");
         var forbidden = Pattern.compile("\\b(" + String.join("|", retired) + ")\\b");
         assertTrue(Files.isDirectory(main));
         try (var paths = Files.walk(main)) {
@@ -34,12 +34,13 @@ class KeywordLegacyBoundaryTest {
     }
 
     @Test
-    void learnerMasteryStillBelongsToCoreEvaluationBoundary() throws Exception {
+    void learnerMasteryIsReadFromLlWithoutRetiredCoreEntity() throws Exception {
         Path root = Path.of("src/main/java/jp/co/translacat/domain/languagelearning");
-        assertTrue(Files.exists(root.resolve("keyword/entity/KeywordMastery.java")));
+        assertFalse(Files.exists(root.resolve("keyword/entity/KeywordMastery.java")));
         String service = Files.readString(root.resolve("keyword/service/KeywordCandidateQueryService.java"));
         assertTrue(service.contains("KeywordCatalogGateway"));
-        assertTrue(service.contains("KeywordMasteryRepository"));
+        assertTrue(service.contains("GrowthReadGateway"));
+        assertFalse(service.contains("KeywordMasteryRepository"));
         assertTrue(service.contains("weightPolicy.calculateRawWeight"));
         assertFalse(service.contains("new SystemKeyword"));
     }

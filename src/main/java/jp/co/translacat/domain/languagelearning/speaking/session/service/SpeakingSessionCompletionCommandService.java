@@ -1,6 +1,6 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.service;
 
-import jp.co.translacat.domain.languagelearning.activity.entity.LearningActivity;
+import jp.co.translacat.domain.languagelearning.activity.model.GrowthActivityDraft;
 import jp.co.translacat.domain.languagelearning.activity.service.LearningActivityCommandService;
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
@@ -39,47 +39,27 @@ public class SpeakingSessionCompletionCommandService {
     }
 
     @Transactional
-    public SpeakingSession complete(
-            Long userId,
-            Long sessionId,
-            boolean skipEvaluation
-    ) {
-        SpeakingSession session = sessionQueryService.getOwnedEntityForUpdate(
-                userId,
-                sessionId
-        );
+    public SpeakingSession complete(Long userId, Long sessionId, boolean skipEvaluation) {
+        SpeakingSession session = sessionQueryService.getOwnedEntityForUpdate(userId, sessionId);
         if (session.getCompletedAt() != null && session.getStatus() != SpeakingSessionStatus.EXPIRED) {
             return session; // A lost completion response can be replayed without queueing another evaluation.
         }
         lifecycleService.requireActive(session);
         SpeakingSessionPolicySnapshot snapshot = snapshotService.read(session);
-        var eligibility = eligibilityPolicy.evaluate(
-                session.getPracticeMode(),
-                turnQueryService.getEntities(sessionId)
-        );
+        var eligibility =
+                eligibilityPolicy.evaluate(session.getPracticeMode(), turnQueryService.getEntities(sessionId));
         boolean coaching = session.getResultKind() == SpeakingResultKind.SESSION_COACHING;
-        if (skipEvaluation
-                && snapshot.speakingEvaluationEnabled()
-                && (coaching || eligibility.eligibleBeforeAi())) {
-            throw new BusinessException(
-                    "평가 가능 조건을 충족한 Session은 평가 없이 종료할 수 없습니다.",
-                    LanguageLearningErrorCode.SPEAKING_EVALUATION_SKIP_NOT_ALLOWED
-            );
+        if (skipEvaluation && snapshot.speakingEvaluationEnabled() && (coaching || eligibility.eligibleBeforeAi())) {
+            throw new BusinessException("평가 가능 조건을 충족한 Session은 평가 없이 종료할 수 없습니다.",
+                    LanguageLearningErrorCode.SPEAKING_EVALUATION_SKIP_NOT_ALLOWED);
         }
-        boolean resultRequested = snapshot.speakingEvaluationEnabled()
-                && !skipEvaluation;
+        boolean resultRequested = snapshot.speakingEvaluationEnabled() && !skipEvaluation;
         session.complete(resultRequested && !coaching);
 
-        LearningActivity activity = activityCommandService.getOrCreate(
-                userId,
-                LearningSource.SPEAKING,
-                String.valueOf(session.getId()),
-                session.getLearningDate(),
-                session.getTopicTitle(),
-                session.getTotalDurationSeconds(),
-                session.getStartedAt(),
-                session.getCompletedAt()
-        );
+        GrowthActivityDraft activity =
+                activityCommandService.getOrCreate(userId, LearningSource.SPEAKING, String.valueOf(session.getId()),
+                        session.getLearningDate(), session.getTopicTitle(), session.getTotalDurationSeconds(),
+                        session.getStartedAt(), session.getCompletedAt());
         activity.updateMetadataJson(metadata(session, skipEvaluation));
         if (resultRequested) {
             if (!coaching) activity.markEvaluating();
@@ -88,20 +68,11 @@ public class SpeakingSessionCompletionCommandService {
         return session;
     }
 
-    private String metadata(
-            SpeakingSession session,
-            boolean evaluationSkipped
-    ) {
+    private String metadata(SpeakingSession session, boolean evaluationSkipped) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("topicCategory", session.getTopicCategory());
-        metadata.put(
-                "conversationStartMode",
-                session.getConversationStartMode().name()
-        );
-        metadata.put(
-                "resolvedStartMode",
-                session.getResolvedStartMode().name()
-        );
+        metadata.put("conversationStartMode", session.getConversationStartMode().name());
+        metadata.put("resolvedStartMode", session.getResolvedStartMode().name());
         metadata.put("correctionMode", session.getCorrectionMode().name());
         metadata.put("selectedKeywords", session.getSelectedKeywordsJson());
         metadata.put("evaluationSkipped", evaluationSkipped);

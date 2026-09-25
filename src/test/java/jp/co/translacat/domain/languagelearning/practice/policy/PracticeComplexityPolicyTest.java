@@ -1,8 +1,8 @@
 package jp.co.translacat.domain.languagelearning.practice.policy;
 
 import jp.co.translacat.domain.languagelearning.common.enums.PracticeDomain;
+import jp.co.translacat.domain.languagelearning.growth.port.GrowthReadGateway;
 import jp.co.translacat.domain.languagelearning.practice.repository.PracticeSetRepository;
-import jp.co.translacat.domain.languagelearning.profile.repository.LearningProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ExtendWith(MockitoExtension.class)
 class PracticeComplexityPolicyTest {
     @Mock
-    LearningProfileRepository profileRepository;
+    GrowthReadGateway profileRepository;
     @Mock
     PracticeSetRepository practiceSetRepository;
 

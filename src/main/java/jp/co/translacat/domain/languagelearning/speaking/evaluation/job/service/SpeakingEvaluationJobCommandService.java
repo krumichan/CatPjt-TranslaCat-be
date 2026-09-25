@@ -1,7 +1,6 @@
 package jp.co.translacat.domain.languagelearning.speaking.evaluation.job.service;
 
-import jp.co.translacat.domain.languagelearning.activity.repository.LearningActivityRepository;
-import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
+import jp.co.translacat.domain.languagelearning.activity.service.LearningActivityCommandService;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingCoachingRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.request.AiSpeakingEvaluationRequestDto;
@@ -42,7 +41,7 @@ public class SpeakingEvaluationJobCommandService {
     private final SpeakingSessionRepository sessionRepository;
     private final SpeakingEvaluationJobRepository jobRepository;
     private final SpeakingReadAloudProblemEvaluationRepository problemRepository;
-    private final LearningActivityRepository activityRepository;
+    private final LearningActivityCommandService activityCommands;
     private final SpeakingEvaluationResultCommandService resultCommandService;
     private final SpeakingEvaluationResponseValidator responseValidator;
     private final SpeakingAiUsageCommandService usageService;
@@ -83,14 +82,13 @@ public class SpeakingEvaluationJobCommandService {
         if (job.getProblemIndex() == 0) {
             if (job.getResultKind() == SpeakingResultKind.SCORED_EVALUATION) {
                 state.session().markEvaluating();
-                activityRepository.findBySourceAndReferenceId(LearningSource.SPEAKING,
-                        String.valueOf(state.session().getId())).orElseThrow().markEvaluating();
+                activityCommands.speakingStatus(state.session(), false);
             }
         } else {
             problem(state).markEvaluating();
         }
-        return Optional.of(new SpeakingEvaluationClaim(key, job.getProblemIndex(), token,
-                job.getManualRetryCount(), job.getResultKind(), request, coachingRequest));
+        return Optional.of(new SpeakingEvaluationClaim(key, job.getProblemIndex(), token, job.getManualRetryCount(),
+                job.getResultKind(), request, coachingRequest));
     }
 
     /**
@@ -104,9 +102,8 @@ public class SpeakingEvaluationJobCommandService {
         if (state.job().getProblemIndex() == 0) {
             resultCommandService.apply(state.session(), response);
         } else {
-            problem(state).markEvaluated(response.status().toUpperCase(java.util.Locale.ROOT),
-                    response.overallScore(), response.evaluationConfidence(),
-                    SpeakingEvidenceMetadata.readAloudSnapshot(response, jsonCodec),
+            problem(state).markEvaluated(response.status().toUpperCase(java.util.Locale.ROOT), response.overallScore(),
+                    response.evaluationConfidence(), SpeakingEvidenceMetadata.readAloudSnapshot(response, jsonCodec),
                     jsonCodec.write(response.strengths()), jsonCodec.write(response.improvements()),
                     jsonCodec.write(response.pronunciationPractice()));
         }
@@ -135,9 +132,8 @@ public class SpeakingEvaluationJobCommandService {
         var locked = lock(claim.key());
         if (locked.isEmpty()) return;
         var state = locked.get();
-        String failureCode = claim.resultKind() == SpeakingResultKind.SESSION_COACHING
-                ? "SPEAKING_COACHING_FAILED"
-                : "SPEAKING_EVALUATION_FAILED";
+        String failureCode = claim.resultKind() == SpeakingResultKind.SESSION_COACHING ? "SPEAKING_COACHING_FAILED" :
+                "SPEAKING_EVALUATION_FAILED";
         if (state.job().fail(claim.token(), failureCode)) markFailed(state);
     }
 
@@ -171,8 +167,7 @@ public class SpeakingEvaluationJobCommandService {
         if (state.job().getProblemIndex() == 0) {
             if (state.job().getResultKind() == SpeakingResultKind.SCORED_EVALUATION) {
                 state.session().markEvaluationFailed();
-                activityRepository.findBySourceAndReferenceId(LearningSource.SPEAKING,
-                        String.valueOf(state.session().getId())).orElseThrow().markEvaluationFailed();
+                activityCommands.speakingStatus(state.session(), true);
             }
         } else {
             problem(state).markFailed("Speaking 평가 처리에 실패했습니다. 다시 시도해 주세요.");

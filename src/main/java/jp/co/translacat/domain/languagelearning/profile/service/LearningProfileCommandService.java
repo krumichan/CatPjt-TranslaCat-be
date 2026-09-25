@@ -5,17 +5,12 @@ import jp.co.translacat.domain.languagelearning.ai.dto.model.SelectedKeywordDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiWritingEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.common.enums.DailyWritingDifficulty;
 import jp.co.translacat.domain.languagelearning.common.enums.LearningProfileState;
-import jp.co.translacat.domain.languagelearning.common.enums.ProfileSignalType;
-import jp.co.translacat.domain.languagelearning.keyword.entity.KeywordMastery;
-import jp.co.translacat.domain.languagelearning.keyword.repository.KeywordMasteryRepository;
-import jp.co.translacat.domain.languagelearning.profile.entity.LearningProfile;
+import jp.co.translacat.domain.languagelearning.growth.model.GrowthOperation;
+import jp.co.translacat.domain.languagelearning.growth.port.GrowthCommands;
+import jp.co.translacat.domain.languagelearning.growth.port.GrowthReadGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
-import jp.co.translacat.domain.user.entity.User;
-import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,109 +18,61 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
+/**
+ * BE는 평가 사실만 전달한다. 점수 blend, 상태 전이, signal/mastery 갱신은 LL이 수행한다.
+ */
 @Service
 @RequiredArgsConstructor
 public class LearningProfileCommandService {
-
-    private static final double CALIBRATION_WEIGHT = 0.50;
-    private static final double ACTIVE_WEIGHT = 0.30;
-
-    private final LearningProfileQueryService queryService;
-    private final LearningProfileSignalService signalService;
-    private final KeywordMasteryRepository masteryRepository;
-    private final UserRepository userRepository;
-    private final LevelTestBaselineBridge levelTestBaselineBridge;
+    private final GrowthCommands commands;
+    private final GrowthReadGateway growth;
 
     @Transactional
-    public void prepareDailyLearning(Long userId, LocalDate learningDate) {
-        levelTestBaselineBridge.requireCompleted(userId);
-        LearningProfile profile = queryService.getOrCreate(userId);
-
-        if (profile.getState() == LearningProfileState.LEVEL_TEST_REQUIRED) {
+    public void prepareDailyLearning(Long userId, LocalDate date) {
+        var profile = growth.snapshot(userId).profile();
+        if (profile == null || profile.state() == LearningProfileState.LEVEL_TEST_REQUIRED)
             throw new BusinessException("최초 Level Test가 필요합니다.", LanguageLearningErrorCode.LEVEL_TEST_REQUIRED);
-        }
-
-        profile.startCalibrationIfNeeded(learningDate);
-        profile.advanceCalibration(learningDate);
+        commands.append(userId,
+                new GrowthOperation("PREPARE:" + date, "LEARNING_PREPARED", Map.of("learningDate", date.toString())));
     }
 
     @Transactional
-    public void applyDailyEvaluation(Long userId, AiWritingEvaluationResponseDto response,
+    public void applyDailyEvaluation(Long userId, long evaluationId, AiWritingEvaluationResponseDto response,
                                      DailyWritingDifficulty difficulty, List<SelectedKeywordDto> keywords,
-                                     LocalDate learningDate) {
-        LearningProfile profile = queryService.getOrCreate(userId);
-        profile.startCalibrationIfNeeded(learningDate);
-        profile.advanceCalibration(learningDate);
-
-        double weight = resolveWeight(profile);
-        applySkillScores(profile, response, difficulty, weight);
-        applyProfileSignals(userId, response.profileSignals());
-        applyKeywordMastery(userId, response, keywords, weight);
-    }
-
-    private double resolveWeight(LearningProfile profile) {
-        return profile.getState() == LearningProfileState.CALIBRATING ? CALIBRATION_WEIGHT : ACTIVE_WEIGHT;
-    }
-
-    private void applySkillScores(LearningProfile profile, AiWritingEvaluationResponseDto response,
-                                  DailyWritingDifficulty difficulty, double weight) {
+                                     LocalDate date) {
         var scores = response.scores();
-
-        profile.applyScores(scores.meaning(), scores.grammar(), scores.vocabulary(), scores.naturalness(),
-                scores.expression(), weight, difficulty);
+        var payload = Map.<String, Object>of("learningDate", date.toString(), "difficulty", difficulty.name(), "scores",
+                List.of(scores.meaning(), scores.grammar(), scores.vocabulary(), scores.naturalness(),
+                        scores.expression()), "signals", signals(response.profileSignals()), "canonicalKeys",
+                safe(keywords).stream()
+                        .map(keyword -> keyword.canonicalKey() == null || keyword.canonicalKey().isBlank() ?
+                                keyword.text().toLowerCase(Locale.ROOT) : keyword.canonicalKey())
+                        .toList());
+        commands.append(userId, new GrowthOperation("WRITING_EVALUATION:" + evaluationId, "WRITING_SCORED", payload));
     }
 
-    private void applyProfileSignals(Long userId, ProfileSignalsDto signals) {
-        if (signals == null) {
-            return;
-        }
-
-        signalService.touchAll(userId, ProfileSignalType.STRENGTH, signals.strengthTags());
-        signalService.touchAll(userId, ProfileSignalType.WEAKNESS, signals.weaknessTags());
-        signalService.touchAll(userId, ProfileSignalType.GRAMMAR_WEAKNESS, signals.grammarPatterns());
-        signalService.touchAll(userId, ProfileSignalType.ERROR_PATTERN,
-                merge(signals.vocabularyPatterns(), signals.naturalnessPatterns(), signals.expressionPatterns(),
-                        signals.meaningPatterns()));
-        signalService.touchAll(userId, ProfileSignalType.RECOMMENDED_FOCUS, signals.recommendedFocus());
-    }
-
-    private void applyKeywordMastery(Long userId, AiWritingEvaluationResponseDto response,
-                                     List<SelectedKeywordDto> keywords, double weight) {
-        double keywordScore = (response.scores().vocabulary() + response.scores().meaning()) / 2.0;
-        User user = getUser(userId);
-
-        for (SelectedKeywordDto keyword : safe(keywords)) {
-            String canonicalKey = resolveCanonicalKey(keyword);
-            KeywordMastery mastery = masteryRepository.findByUserIdAndCanonicalKey(userId, canonicalKey)
-                    .orElseGet(() -> masteryRepository.save(KeywordMastery.create(user, canonicalKey)));
-
-            mastery.applyScore(keywordScore, weight);
-        }
-    }
-
-    private String resolveCanonicalKey(SelectedKeywordDto keyword) {
-        if (keyword.canonicalKey() == null || keyword.canonicalKey().isBlank()) {
-            return keyword.text().toLowerCase(Locale.ROOT);
-        }
-        return keyword.canonicalKey();
+    private Map<String, List<String>> signals(ProfileSignalsDto value) {
+        if (value == null) return Map.of();
+        return Map.of("STRENGTH", texts(value.strengthTags()), "WEAKNESS", texts(value.weaknessTags()),
+                "GRAMMAR_WEAKNESS", texts(value.grammarPatterns()), "ERROR_PATTERN",
+                merge(value.vocabularyPatterns(), value.naturalnessPatterns(), value.expressionPatterns(),
+                        value.meaningPatterns()), "RECOMMENDED_FOCUS", texts(value.recommendedFocus()));
     }
 
     @SafeVarargs
     private final List<String> merge(List<String>... lists) {
         List<String> result = new ArrayList<>();
-        for (List<String> list : lists) {
-            result.addAll(safe(list));
-        }
+        for (var values : lists) result.addAll(texts(values));
         return result;
+    }
+
+    private List<String> texts(List<String> values) {
+        return safe(values).stream().filter(v -> v != null && !v.isBlank()).toList();
     }
 
     private <T> List<T> safe(List<T> values) {
         return values == null ? List.of() : values;
-    }
-
-    private User getUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("사용자를 찾을 수 없습니다.", LanguageLearningErrorCode.USER_NOT_FOUND));
     }
 }

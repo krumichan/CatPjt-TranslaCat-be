@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -40,10 +41,7 @@ public class DailyWritingRegenerationStateCommandService {
     private final DailyWritingItemRevisionService itemRevisionService;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public RegenerationClaim claim(
-            Long userId,
-            Long dailySetId
-    ) {
+    public RegenerationClaim claim(Long userId, Long dailySetId) {
         DailyWritingSet dailySet = getLockedSet(dailySetId);
         validateOwnership(dailySet, userId);
         validateState(dailySet);
@@ -51,97 +49,50 @@ public class DailyWritingRegenerationStateCommandService {
 
         LocalDateTime now = LocalDateTime.now();
         if (!dailySet.canClaimRegeneration(now)) {
-            throw new BusinessException(
-                    "문제 재생성이 이미 진행 중입니다.",
-                    LanguageLearningErrorCode.WRITING_REGENERATION_IN_PROGRESS
-            );
+            throw new BusinessException("문제 재생성이 이미 진행 중입니다.",
+                    LanguageLearningErrorCode.WRITING_REGENERATION_IN_PROGRESS);
         }
 
-        List<DailyWritingItem> unansweredItems = findUnansweredItems(
-                dailySetId
-        );
+        List<DailyWritingItem> unansweredItems = findUnansweredItems(dailySetId);
         if (unansweredItems.isEmpty()) {
-            throw new BusinessException(
-                    "재생성 가능한 미응답 문제가 없습니다.",
-                    LanguageLearningErrorCode.ANSWER_NOT_ALLOWED
-            );
+            throw new BusinessException("재생성 가능한 미응답 문제가 없습니다.", LanguageLearningErrorCode.ANSWER_NOT_ALLOWED);
         }
 
         String token = UUID.randomUUID().toString();
-        dailySet.claimRegeneration(
-                token,
-                now.plusMinutes(REGENERATION_LEASE_MINUTES)
-        );
+        dailySet.claimRegeneration(token, now.plusMinutes(REGENERATION_LEASE_MINUTES));
 
         DailyWritingSnapshot snapshot = snapshotService.read(dailySet);
-        DifficultyDistributionDto distribution = distributionFrom(
-                unansweredItems
-        );
-        AiDailyWritingGenerationRequestDto request = requestFactory
-                .createRegeneration(
-                        userId,
-                        dailySet,
-                        snapshot,
-                        unansweredItems.size(),
-                        distribution,
-                        token
-                );
+        DifficultyDistributionDto distribution = distributionFrom(unansweredItems);
+        AiDailyWritingGenerationRequestDto request =
+                requestFactory.createRegeneration(userId, dailySet, snapshot, unansweredItems.size(), distribution,
+                        token, unansweredItems.stream().map(DailyWritingItem::getId).collect(Collectors.toSet()));
 
         List<RegenerationTarget> targets = unansweredItems.stream()
-                .sorted(Comparator.comparingInt(
-                        DailyWritingItem::getOrderNo
-                ))
-                .map(item -> new RegenerationTarget(
-                        item.getId(),
-                        item.getOrderNo(),
-                        item.getDifficulty(),
-                        itemRevisionService.revision(item)
-                ))
+                .sorted(Comparator.comparingInt(DailyWritingItem::getOrderNo))
+                .map(item -> new RegenerationTarget(item.getId(), item.getOrderNo(), item.getDifficulty(),
+                        itemRevisionService.revision(item)))
                 .toList();
 
-        return new RegenerationClaim(
-                dailySet.getId(),
-                token,
-                request,
-                targets,
-                distribution,
-                dailySet.getWritingType(),
-                snapshot.learningLanguage()
-        );
+        return new RegenerationClaim(dailySet.getId(), token, request, targets, distribution, dailySet.getWritingType(),
+                snapshot.learningLanguage());
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public DailyWritingSet publish(
-            RegenerationClaim claim,
-            AiDailyWritingGenerationResponseDto response
-    ) {
+    public DailyWritingSet publish(RegenerationClaim claim, AiDailyWritingGenerationResponseDto response) {
         DailyWritingSet dailySet = getLockedSet(claim.dailySetId());
         if (dailySet.getStatus() == DailySetStatus.GENERATING
                 || dailySet.getStatus() == DailySetStatus.PARTIAL
                 || dailySet.getStatus() == DailySetStatus.FAILED) {
-            throw regenerationConflict(
-                    "재생성 중 Daily Set 상태가 변경되었습니다."
-            );
+            throw regenerationConflict("재생성 중 Daily Set 상태가 변경되었습니다.");
         }
         if (!dailySet.ownsRegeneration(claim.token())) {
-            throw regenerationConflict(
-                    "문제 재생성 소유권이 변경되었습니다."
-            );
+            throw regenerationConflict("문제 재생성 소유권이 변경되었습니다.");
         }
-        if (response == null
-                || !claim.request().requestId().equals(
-                response.requestId()
-        )) {
-            throw new BusinessException(
-                    "AI 재생성 응답 식별자가 일치하지 않습니다.",
-                    LanguageLearningErrorCode.AI_SCHEMA_INVALID
-            );
+        if (response == null || !claim.request().requestId().equals(response.requestId())) {
+            throw new BusinessException("AI 재생성 응답 식별자가 일치하지 않습니다.", LanguageLearningErrorCode.AI_SCHEMA_INVALID);
         }
 
-        List<DailyWritingItem> currentItems = itemRepository
-                .findAllByDailySetIdOrderByOrderNoAsc(
-                        claim.dailySetId()
-                );
+        List<DailyWritingItem> currentItems = itemRepository.findAllByDailySetIdOrderByOrderNoAsc(claim.dailySetId());
         Map<Long, DailyWritingItem> currentById = new HashMap<>();
         for (DailyWritingItem item : currentItems) {
             currentById.put(item.getId(), item);
@@ -153,62 +104,35 @@ public class DailyWritingRegenerationStateCommandService {
             if (current == null
                     || current.getOrderNo() != target.orderNo()
                     || current.getDifficulty() != target.difficulty()
-                    || !target.contentRevision().equals(
-                    itemRevisionService.revision(current)
-            )) {
-                throw regenerationConflict(
-                        "재생성 대상 문제가 변경되었습니다."
-                );
+                    || !target.contentRevision().equals(itemRevisionService.revision(current))) {
+                throw regenerationConflict("재생성 대상 문제가 변경되었습니다.");
             }
-            if (answerRepository.existsByDailyItemId(
-                    target.itemId()
-            )) {
-                throw regenerationConflict(
-                        "재생성 대상 문제에 답변이 제출되었습니다."
-                );
+            if (answerRepository.existsByDailyItemId(target.itemId())) {
+                throw regenerationConflict("재생성 대상 문제에 답변이 제출되었습니다.");
             }
             replaceTargets.add(current);
         }
 
-        List<DailyWritingGeneratedItemDto> generatedItems =
-                response.items();
-        itemCommandService.replaceAll(
-                claim.learningLanguage(),
-                replaceTargets,
-                generatedItems
-        );
+        List<DailyWritingGeneratedItemDto> generatedItems = response.items();
+        itemCommandService.replaceAll(claim.learningLanguage(), replaceTargets, generatedItems);
         dailySet.incrementRegeneration();
         dailySet.releaseRegeneration(claim.token());
         return dailySet;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void release(
-            Long dailySetId,
-            String token
-    ) {
-        dailySetRepository.findLockedById(dailySetId)
-                .ifPresent(dailySet ->
-                        dailySet.releaseRegeneration(token)
-                );
+    public void release(Long dailySetId, String token) {
+        dailySetRepository.findLockedById(dailySetId).ifPresent(dailySet -> dailySet.releaseRegeneration(token));
     }
 
-    private List<DailyWritingItem> findUnansweredItems(
-            Long dailySetId
-    ) {
-        return itemRepository.findAllByDailySetIdOrderByOrderNoAsc(
-                        dailySetId
-                )
+    private List<DailyWritingItem> findUnansweredItems(Long dailySetId) {
+        return itemRepository.findAllByDailySetIdOrderByOrderNoAsc(dailySetId)
                 .stream()
-                .filter(item -> !answerRepository.existsByDailyItemId(
-                        item.getId()
-                ))
+                .filter(item -> !answerRepository.existsByDailyItemId(item.getId()))
                 .toList();
     }
 
-    private DifficultyDistributionDto distributionFrom(
-            List<DailyWritingItem> items
-    ) {
+    private DifficultyDistributionDto distributionFrom(List<DailyWritingItem> items) {
         int reviewCount = 0;
         int normalCount = 0;
         int challengeCount = 0;
@@ -221,22 +145,12 @@ public class DailyWritingRegenerationStateCommandService {
             }
         }
 
-        return new DifficultyDistributionDto(
-                reviewCount,
-                normalCount,
-                challengeCount
-        );
+        return new DifficultyDistributionDto(reviewCount, normalCount, challengeCount);
     }
 
-    private void validateOwnership(
-            DailyWritingSet dailySet,
-            Long userId
-    ) {
+    private void validateOwnership(DailyWritingSet dailySet, Long userId) {
         if (!dailySet.getUser().getId().equals(userId)) {
-            throw new BusinessException(
-                    "Daily Set을 찾을 수 없습니다.",
-                    LanguageLearningErrorCode.DAILY_SET_NOT_FOUND
-            );
+            throw new BusinessException("Daily Set을 찾을 수 없습니다.", LanguageLearningErrorCode.DAILY_SET_NOT_FOUND);
         }
     }
 
@@ -244,58 +158,36 @@ public class DailyWritingRegenerationStateCommandService {
         if (dailySet.getStatus() == DailySetStatus.GENERATING
                 || dailySet.getStatus() == DailySetStatus.PARTIAL
                 || dailySet.getStatus() == DailySetStatus.FAILED) {
-            throw new BusinessException(
-                    "생성 중이거나 일부만 생성된 문제는 생성 재시도를 이용해주세요.",
-                    LanguageLearningErrorCode.DAILY_SET_GENERATING
-            );
+            throw new BusinessException("생성 중이거나 일부만 생성된 문제는 생성 재시도를 이용해주세요.",
+                    LanguageLearningErrorCode.DAILY_SET_GENERATING);
         }
     }
 
-    private void validateRegenerationLimit(
-            DailyWritingSet dailySet
-    ) {
+    private void validateRegenerationLimit(DailyWritingSet dailySet) {
         if (dailySet.getRegenerationCount() >= MAX_REGENERATIONS) {
-            throw new BusinessException(
-                    "문제 재생성 가능 횟수를 초과했습니다.",
-                    LanguageLearningErrorCode.REGENERATION_LIMIT
-            );
+            throw new BusinessException("문제 재생성 가능 횟수를 초과했습니다.", LanguageLearningErrorCode.REGENERATION_LIMIT);
         }
     }
 
     private DailyWritingSet getLockedSet(Long dailySetId) {
         return dailySetRepository.findLockedById(dailySetId)
-                .orElseThrow(() -> new BusinessException(
-                        "Daily Set을 찾을 수 없습니다.",
-                        LanguageLearningErrorCode.DAILY_SET_NOT_FOUND
-                ));
+                .orElseThrow(() -> new BusinessException("Daily Set을 찾을 수 없습니다.",
+                        LanguageLearningErrorCode.DAILY_SET_NOT_FOUND));
     }
 
     private BusinessException regenerationConflict(String message) {
-        return new BusinessException(
-                message,
-                LanguageLearningErrorCode.WRITING_REGENERATION_CONFLICT
-        );
+        return new BusinessException(message, LanguageLearningErrorCode.WRITING_REGENERATION_CONFLICT);
     }
 
-    public record RegenerationClaim(
-            Long dailySetId,
-            String token,
-            AiDailyWritingGenerationRequestDto request,
-            List<RegenerationTarget> targets,
-            DifficultyDistributionDto distribution,
-            DailyWritingType writingType,
-            String learningLanguage
-    ) {
+    public record RegenerationClaim(Long dailySetId, String token, AiDailyWritingGenerationRequestDto request,
+                                    List<RegenerationTarget> targets, DifficultyDistributionDto distribution,
+                                    DailyWritingType writingType, String learningLanguage) {
         public int expectedCount() {
             return targets.size();
         }
     }
 
-    public record RegenerationTarget(
-            Long itemId,
-            int orderNo,
-            DailyWritingDifficulty difficulty,
-            String contentRevision
-    ) {
+    public record RegenerationTarget(Long itemId, int orderNo, DailyWritingDifficulty difficulty,
+                                     String contentRevision) {
     }
 }

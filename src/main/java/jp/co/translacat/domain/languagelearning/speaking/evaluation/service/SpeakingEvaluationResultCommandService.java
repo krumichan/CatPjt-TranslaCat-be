@@ -1,14 +1,12 @@
 package jp.co.translacat.domain.languagelearning.speaking.evaluation.service;
 
-import jp.co.translacat.domain.languagelearning.activity.entity.EvaluationMetricHistory;
-import jp.co.translacat.domain.languagelearning.activity.entity.LearningActivity;
-import jp.co.translacat.domain.languagelearning.activity.repository.EvaluationMetricHistoryRepository;
-import jp.co.translacat.domain.languagelearning.activity.repository.LearningActivityRepository;
-import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
+import jp.co.translacat.domain.languagelearning.activity.model.GrowthActivityDraft;
+import jp.co.translacat.domain.languagelearning.activity.service.LearningActivityCommandService;
 import jp.co.translacat.domain.languagelearning.common.enums.MetricEvaluationState;
-import jp.co.translacat.domain.languagelearning.common.enums.WritingMetric;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
-import jp.co.translacat.domain.languagelearning.profile.service.SpeakingProfileSignalService;
+import jp.co.translacat.domain.languagelearning.growth.model.GrowthFacts;
+import jp.co.translacat.domain.languagelearning.growth.model.GrowthOperation;
+import jp.co.translacat.domain.languagelearning.growth.port.GrowthCommands;
 import jp.co.translacat.domain.languagelearning.resultjournal.model.LearningResultCaptured;
 import jp.co.translacat.domain.languagelearning.resultjournal.model.SpeakingResultFact;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingMetricDto;
@@ -29,6 +27,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -40,9 +39,8 @@ public class SpeakingEvaluationResultCommandService {
     private final SpeakingEvaluationEligibilityPolicy eligibilityPolicy;
     private final LanguageLearningJsonCodec jsonCodec;
     private final ApplicationEventPublisher resultEvents;
-    private final LearningActivityRepository activityRepository;
-    private final EvaluationMetricHistoryRepository metricHistoryRepository;
-    private final SpeakingProfileSignalService profileSignalService;
+    private final GrowthCommands growthCommands;
+    private final LearningActivityCommandService activityCommands;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void apply(SpeakingSession session, AiSpeakingEvaluationResponseDto response) {
@@ -60,19 +58,19 @@ public class SpeakingEvaluationResultCommandService {
             return;
         }
         List<SpeakingTurn> turns = turnRepository.findAllBySessionIdOrderByTurnIndexAsc(session.getId());
-        LearningActivity activity = activityRepository.findBySourceAndReferenceId(
-                LearningSource.SPEAKING, String.valueOf(session.getId())).orElseThrow();
-        boolean formal = "EVALUATED".equalsIgnoreCase(response.status())
-                && eligibilityPolicy.hasFormalEvaluationConfidence(response.evaluationConfidence());
-        SpeakingEvaluation evaluation = evaluationRepository.save(SpeakingEvaluation.create(
-                session, formal ? response.overallScore() : null, response.evaluationConfidence(),
-                response.evaluationVersion(), response.scoringPolicyVersion(), response.promptVersion(),
-                formal ? "EVALUATED" : "INSUFFICIENT_EVIDENCE",
-                jsonCodec.write(response.strengths()), jsonCodec.write(response.improvements()),
-                jsonCodec.write(response.recommendedExpressions()), jsonCodec.write(response.pronunciationPractice()),
-                jsonCodec.write(response.profileSignals()),
-                SpeakingEvidenceMetadata.eligibilitySnapshot(response, jsonCodec),
-                jsonCodec.write(response.usage())));
+        GrowthActivityDraft activity = activityCommands.speakingResult(session);
+        boolean formal =
+                "EVALUATED".equalsIgnoreCase(response.status()) && eligibilityPolicy.hasFormalEvaluationConfidence(
+                        response.evaluationConfidence());
+        SpeakingEvaluation evaluation = evaluationRepository.save(
+                SpeakingEvaluation.create(session, formal ? response.overallScore() : null,
+                        response.evaluationConfidence(), response.evaluationVersion(), response.scoringPolicyVersion(),
+                        response.promptVersion(), formal ? "EVALUATED" : "INSUFFICIENT_EVIDENCE",
+                        jsonCodec.write(response.strengths()), jsonCodec.write(response.improvements()),
+                        jsonCodec.write(response.recommendedExpressions()),
+                        jsonCodec.write(response.pronunciationPractice()), jsonCodec.write(response.profileSignals()),
+                        SpeakingEvidenceMetadata.eligibilitySnapshot(response, jsonCodec),
+                        jsonCodec.write(response.usage())));
         saveSpeakingMetrics(evaluation, response);
         if (!formal) {
             activity.markInsufficientEvidence(response.evaluationConfidence());
@@ -81,102 +79,77 @@ public class SpeakingEvaluationResultCommandService {
             return;
         }
         activity.markEvaluated(response.overallScore(), response.evaluationConfidence());
-        saveMetricHistory(activity, response.metrics());
         double activityWeight = resolveActivityWeight(response, turns);
-        profileSignalService.apply(session.getUser().getId(), response.profileSignals(), activityWeight);
         session.markEvaluated(evaluation.getEvaluationVersion());
         publishResult(session, evaluation, activity, response, true, activityWeight);
     }
 
-    private void publishResult(SpeakingSession session, SpeakingEvaluation evaluation, LearningActivity activity,
+    private void publishResult(SpeakingSession session, SpeakingEvaluation evaluation, GrowthActivityDraft activity,
                                AiSpeakingEvaluationResponseDto response, boolean formal, double activityWeight) {
-        // 기존 평가·Activity·Profile 반영 성공 뒤에만 발행한다. 기존 평가 재조회 분기에서는 발행하지 않는다.
-        resultEvents.publishEvent(new LearningResultCaptured(
-                session.getUser().getId(), formal ? "SPEAKING_SCORED" : "SPEAKING_INSUFFICIENT",
-                session.getId().toString(), jsonCodec.write(new SpeakingResultFact(
-                session.getResultKind().name(), evaluation.getId(), session.getId(), activity.getId(),
-                session.getLearningDate().toString(), session.getOriginLanguage(), session.getLearningLanguage(),
-                formal, activityWeight, response
-        ))
-        ));
+        // Session 평가와 성장 명령은 같은 Core 커밋이다. 실제 성장 반영은 LL에서 원자적으로 처리한다.
+        var metrics = response.metrics() == null ? List.<Map<String, Object>>of() : response.metrics()
+                .stream()
+                .map(metric -> GrowthFacts.fields("metricType", metric.type().name(), "state",
+                        metricState(metric).name(), "score", metric.score(), "confidence", metric.confidence(),
+                        "notEvaluableReason", GrowthFacts.nonBlankOrNull(metric.notEvaluableReason())))
+                .toList();
+        var evidence = response.profileSignals() == null ? List.<Map<String, Object>>of() : response.profileSignals()
+                .stream()
+                .filter(value -> value != null && value.patternKey() != null && !value.patternKey().isBlank())
+                .map(value -> GrowthFacts.fields("metricType",
+                        value.metricType() == null ? null : value.metricType().name(), "patternKey", value.patternKey(),
+                        "direction", GrowthFacts.nonBlankOrNull(value.direction()), "confidence", value.confidence(),
+                        "recommendedFocus", GrowthFacts.nonBlankOrNull(value.recommendedFocus())))
+                .toList();
+        growthCommands.append(session.getUser().getId(),
+                new GrowthOperation("SPEAKING_EVALUATION:" + evaluation.getId(), "SPEAKING_SCORED",
+                        GrowthFacts.fields("resultKind", session.getResultKind().name(), "activity", activity.payload(),
+                                "metrics", metrics, "formal", formal, "activityWeight", activityWeight, "evidence",
+                                evidence)));
+        // 기존 선택적 raw journal은 진단 보관만 유지한다. LL 활동 ID를 Core에서 만들어 내지 않는다.
+        resultEvents.publishEvent(new LearningResultCaptured(session.getUser().getId(),
+                formal ? "SPEAKING_SCORED" : "SPEAKING_INSUFFICIENT", session.getId().toString(), jsonCodec.write(
+                new SpeakingResultFact(session.getResultKind().name(), evaluation.getId(), session.getId(), null,
+                        session.getLearningDate().toString(), session.getOriginLanguage(),
+                        session.getLearningLanguage(), formal, activityWeight, response))));
     }
 
-    private void saveSpeakingMetrics(
-            SpeakingEvaluation evaluation,
-            AiSpeakingEvaluationResponseDto response
-    ) {
+    private void saveSpeakingMetrics(SpeakingEvaluation evaluation, AiSpeakingEvaluationResponseDto response) {
         if (response == null || response.metrics() == null) {
             return;
         }
-        List<SpeakingEvaluationMetric> metrics = response.metrics().stream()
-                .map(metric -> SpeakingEvaluationMetric.create(
-                        evaluation,
-                        metric.type(),
-                        metricState(metric),
-                        metric.score(),
-                        metric.confidence(),
-                        metric.summary(),
-                        metric.notEvaluableReason(),
-                        jsonCodec.write(metric.evidence())
-                ))
+        List<SpeakingEvaluationMetric> metrics = response.metrics()
+                .stream()
+                .map(metric -> SpeakingEvaluationMetric.create(evaluation, metric.type(), metricState(metric),
+                        metric.score(), metric.confidence(), metric.summary(), metric.notEvaluableReason(),
+                        jsonCodec.write(metric.evidence())))
                 .toList();
         metricRepository.saveAll(metrics);
     }
 
-    private void saveMetricHistory(
-            LearningActivity activity,
-            List<AiSpeakingMetricDto> metrics
-    ) {
-        if (metrics == null) {
-            return;
-        }
-        metricHistoryRepository.saveAll(
-                metrics.stream()
-                        .map(metric -> EvaluationMetricHistory.create(
-                                activity,
-                                WritingMetric.valueOf(metric.type().name()),
-                                metricState(metric),
-                                metric.score(),
-                                metric.confidence(),
-                                metric.notEvaluableReason()
-                        ))
-                        .toList()
-        );
-    }
-
     private MetricEvaluationState metricState(AiSpeakingMetricDto metric) {
-        return "NOT_EVALUABLE".equalsIgnoreCase(metric.state())
-                ? MetricEvaluationState.NOT_EVALUABLE
-                : MetricEvaluationState.EVALUATED;
+        return "NOT_EVALUABLE".equalsIgnoreCase(metric.state()) ? MetricEvaluationState.NOT_EVALUABLE :
+                MetricEvaluationState.EVALUATED;
     }
 
-    private double resolveActivityWeight(
-            AiSpeakingEvaluationResponseDto response,
-            List<SpeakingTurn> turns
-    ) {
-        double confidence = response.evaluationConfidence() == null
-                ? 0
-                : response.evaluationConfidence();
+    private double resolveActivityWeight(AiSpeakingEvaluationResponseDto response, List<SpeakingTurn> turns) {
+        double confidence = response.evaluationConfidence() == null ? 0 : response.evaluationConfidence();
         double assistanceWeight = assistanceWeight(turns);
-        double validity = response.eligibility() == null
-                ? 1.0
-                : Math.min(1.0, response.eligibility().validSttTurnRatio());
+        double validity =
+                response.eligibility() == null ? 1.0 : Math.min(1.0, response.eligibility().validSttTurnRatio());
         return round(confidence * assistanceWeight * validity);
     }
 
     private double assistanceWeight(List<SpeakingTurn> turns) {
         boolean guided = turns.stream()
                 .map(SpeakingTurn::getAssistanceUsageJson)
-                .anyMatch(value -> value != null
-                        && value.contains("SAMPLE_ANSWER"));
+                .anyMatch(value -> value != null && value.contains("SAMPLE_ANSWER"));
         if (guided) {
             return 0.60;
         }
         boolean assisted = turns.stream()
                 .map(SpeakingTurn::getAssistanceUsageJson)
-                .anyMatch(value -> value != null
-                        && (value.contains("HINT")
-                        || value.contains("TRANSLATION")));
+                .anyMatch(value -> value != null && (value.contains("HINT") || value.contains("TRANSLATION")));
         return assisted ? 0.80 : 1.0;
     }
 

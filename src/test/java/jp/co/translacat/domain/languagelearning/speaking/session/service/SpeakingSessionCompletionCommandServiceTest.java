@@ -1,6 +1,6 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.service;
 
-import jp.co.translacat.domain.languagelearning.activity.entity.LearningActivity;
+import jp.co.translacat.domain.languagelearning.activity.model.GrowthActivityDraft;
 import jp.co.translacat.domain.languagelearning.activity.service.LearningActivityCommandService;
 import jp.co.translacat.domain.languagelearning.common.json.LanguageLearningJsonCodec;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.model.AiSpeakingEvaluationEligibilityDto;
@@ -47,80 +47,46 @@ class SpeakingSessionCompletionCommandServiceTest {
     @Mock
     private SpeakingEvaluationEligibilityPolicy eligibilityPolicy;
     @Mock
-    private LearningActivity activity;
+    private GrowthActivityDraft activity;
 
     private SpeakingSessionCompletionCommandService service;
     private SpeakingSession session;
 
     @BeforeEach
     void setUp() {
-        service = new SpeakingSessionCompletionCommandService(
-                sessionQueryService,
-                lifecycleService,
-                snapshotService,
-                activityCommandService,
-                queueService,
-                jsonCodec,
-                turnQueryService,
-                eligibilityPolicy
-        );
+        service = new SpeakingSessionCompletionCommandService(sessionQueryService, lifecycleService, snapshotService,
+                activityCommandService, queueService, jsonCodec, turnQueryService, eligibilityPolicy);
         session = session();
 
-        lenient().when(sessionQueryService.getOwnedEntityForUpdate(7L, 301L))
-                .thenReturn(session);
+        lenient().when(sessionQueryService.getOwnedEntityForUpdate(7L, 301L)).thenReturn(session);
         lenient().when(snapshotService.read(session)).thenReturn(snapshot());
         when(turnQueryService.getEntities(301L)).thenReturn(List.of());
     }
 
     @Test
     void insufficientSessionCanCompleteWithoutEvaluation() {
-        when(eligibilityPolicy.evaluate(
-                any(),
-                eq(List.of())
-        )).thenReturn(eligibility(false));
-        when(activityCommandService.getOrCreate(
-                anyLong(),
-                any(),
-                any(),
-                any(),
-                any(),
-                anyLong(),
-                any(),
-                any()
-        )).thenReturn(activity);
+        when(eligibilityPolicy.evaluate(any(), eq(List.of()))).thenReturn(eligibility(false));
+        when(activityCommandService.getOrCreate(anyLong(), any(), any(), any(), any(), anyLong(), any(),
+                any())).thenReturn(activity);
         when(jsonCodec.write(any())).thenReturn("{\"evaluationSkipped\":true}");
 
         SpeakingSession completed = service.complete(7L, 301L, true);
 
         assertThat(completed.getStatus()).isEqualTo(SpeakingSessionStatus.COMPLETED);
-        assertThat(completed.getEvaluationStatus())
-                .isEqualTo(SpeakingEvaluationStatus.NOT_REQUESTED);
+        assertThat(completed.getEvaluationStatus()).isEqualTo(SpeakingEvaluationStatus.NOT_REQUESTED);
         verify(activity).updateMetadataJson("{\"evaluationSkipped\":true}");
-        verify(queueService, never())
-                .enqueue(any(), eq(0));
+        verify(queueService, never()).enqueue(any(), eq(0));
     }
 
     @Test
     void eligibleSessionCannotSkipEvaluation() {
-        when(eligibilityPolicy.evaluate(
-                any(),
-                eq(List.of())
-        )).thenReturn(eligibility(true));
+        when(eligibilityPolicy.evaluate(any(), eq(List.of()))).thenReturn(eligibility(true));
 
-        assertThatThrownBy(() -> service.complete(7L, 301L, true))
-                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> service.complete(7L, 301L, true)).isInstanceOf(BusinessException.class);
 
         assertThat(session.getStatus()).isEqualTo(SpeakingSessionStatus.IN_PROGRESS);
-        verify(activityCommandService, never()).getOrCreate(
-                anyLong(),
-                any(),
-                any(),
-                any(),
-                any(),
-                anyLong(),
-                any(),
-                any()
-        );
+        verify(activityCommandService, never()).getOrCreate(anyLong(), any(), any(), any(), any(), anyLong(), any(),
+                any());
     }
 
     @Test
@@ -129,8 +95,8 @@ class SpeakingSessionCompletionCommandServiceTest {
         when(sessionQueryService.getOwnedEntityForUpdate(7L, 301L)).thenReturn(session);
         when(snapshotService.read(session)).thenReturn(snapshot());
         when(eligibilityPolicy.evaluate(any(), eq(List.of()))).thenReturn(eligibility(false));
-        when(activityCommandService.getOrCreate(anyLong(), any(), any(), any(), any(), anyLong(), any(), any()))
-                .thenReturn(activity);
+        when(activityCommandService.getOrCreate(anyLong(), any(), any(), any(), any(), anyLong(), any(),
+                any())).thenReturn(activity);
         when(jsonCodec.write(any())).thenReturn("{}");
 
         SpeakingSession completed = service.complete(7L, 301L, false);
@@ -142,87 +108,27 @@ class SpeakingSessionCompletionCommandServiceTest {
     }
 
     private AiSpeakingEvaluationEligibilityDto eligibility(boolean eligible) {
-        return new AiSpeakingEvaluationEligibilityDto(
-                eligible ? 5 : 2,
-                eligible ? 60 : 16,
-                1.0,
-                5,
-                60,
-                0.8,
-                0.7,
-                eligible,
-                eligible
-                        ? List.of()
-                        : List.of("VALID_USER_TURNS", "VALID_USER_SPEECH_SECONDS")
-        );
+        return new AiSpeakingEvaluationEligibilityDto(eligible ? 5 : 2, eligible ? 60 : 16, 1.0, 5, 60, 0.8, 0.7,
+                eligible, eligible ? List.of() : List.of("VALID_USER_TURNS", "VALID_USER_SPEECH_SECONDS"));
     }
 
     private SpeakingSessionPolicySnapshot snapshot() {
-        return new SpeakingSessionPolicySnapshot(
-                true,
-                30,
-                5,
-                10,
-                20,
-                1,
-                60,
-                10L * 1024L * 1024L,
-                7,
-                30,
-                2,
-                2,
-                1,
-                30,
-                30,
-                60
-        );
+        return new SpeakingSessionPolicySnapshot(true, 30, 5, 10, 20, 1, 60, 10L * 1024L * 1024L, 7, 30, 2, 2, 1, 30,
+                30, 60);
     }
 
     private SpeakingSession session() {
-        User user = User.createLocalUser(
-                "completion@test.local",
-                "pw",
-                "completion",
-                Role.USER,
-                "COMPLETION001"
-        );
-        return SpeakingSession.create(
-                user,
-                null,
-                "session-key",
-                LocalDate.of(2026, 8, 15),
-                "Free Talk",
-                "FREE_TALK",
-                1,
-                "Free Talk",
-                null,
-                null,
-                "[]",
-                "ko",
-                "ja",
-                ConversationStartMode.USER_FIRST,
-                ConversationStartMode.USER_FIRST,
-                CorrectionMode.CONVERSATION,
-                5,
-                20,
-                "Kore",
-                "NORMAL",
-                "{}",
-                "{}"
-        );
+        User user = User.createLocalUser("completion@test.local", "pw", "completion", Role.USER, "COMPLETION001");
+        return SpeakingSession.create(user, null, "session-key", LocalDate.of(2026, 8, 15), "Free Talk", "FREE_TALK", 1,
+                "Free Talk", null, null, "[]", "ko", "ja", ConversationStartMode.USER_FIRST,
+                ConversationStartMode.USER_FIRST, CorrectionMode.CONVERSATION, 5, 20, "Kore", "NORMAL", "{}", "{}");
     }
 
     private SpeakingSession coachingSession() {
-        User user = User.createLocalUser(
-                "coaching@test.local", "pw", "coaching", Role.USER, "COACHING001"
-        );
-        return SpeakingSession.create(
-                user, null, "coaching-key", LocalDate.of(2026, 9, 21),
-                "Free Talk", "FREE_TALK", 1, null, "대화 연습", null, "[]",
-                "ko", "ja", SpeakingPracticeMode.FREE,
-                SpeakingResultKind.SESSION_COACHING, "free-session-coaching-v1",
-                ConversationStartMode.USER_FIRST, ConversationStartMode.USER_FIRST,
-                CorrectionMode.CONVERSATION, 5, 20, "marin", "NORMAL", "{}", "{}"
-        );
+        User user = User.createLocalUser("coaching@test.local", "pw", "coaching", Role.USER, "COACHING001");
+        return SpeakingSession.create(user, null, "coaching-key", LocalDate.of(2026, 9, 21), "Free Talk", "FREE_TALK",
+                1, null, "대화 연습", null, "[]", "ko", "ja", SpeakingPracticeMode.FREE,
+                SpeakingResultKind.SESSION_COACHING, "free-session-coaching-v1", ConversationStartMode.USER_FIRST,
+                ConversationStartMode.USER_FIRST, CorrectionMode.CONVERSATION, 5, 20, "marin", "NORMAL", "{}", "{}");
     }
 }

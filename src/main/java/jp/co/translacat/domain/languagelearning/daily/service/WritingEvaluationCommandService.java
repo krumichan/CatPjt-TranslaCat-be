@@ -37,105 +37,56 @@ public class WritingEvaluationCommandService {
     private final ApplicationEventPublisher resultEvents;
 
     @Transactional(noRollbackFor = BusinessException.class)
-    public WritingEvaluation evaluateDaily(
-            User user,
-            WritingAnswer answer,
-            UserSettingsSnapshot setting,
-            DailyWritingSnapshot snapshot,
-            LocalDate learningDate
-    ) {
-        WritingEvaluation evaluation = getOrCreateDailyEvaluation(
-                user,
-                answer
-        );
+    public WritingEvaluation evaluateDaily(User user, WritingAnswer answer, UserSettingsSnapshot setting,
+                                           DailyWritingSnapshot snapshot, LocalDate learningDate) {
+        WritingEvaluation evaluation = getOrCreateDailyEvaluation(user, answer);
         WritingEvaluationRequestContext requestContext =
-                requestFactory.createDaily(
-                        answer,
-                        setting,
-                        snapshot,
-                        learningDate
-                );
+                requestFactory.createDaily(answer, setting, snapshot, learningDate);
 
+        AiWritingEvaluationResponseDto response;
         try {
-            AiWritingEvaluationResponseDto response = aiClient.evaluate(
-                    requestContext.request()
-            );
+            response = aiClient.evaluate(requestContext.request());
             responseValidator.validate(response);
-            persistSuccess(evaluation, response);
-
-            profileCommandService.applyDailyEvaluation(
-                    user.getId(),
-                    response,
-                    answer.getDailyItem().getDifficulty(),
-                    requestContext.relevantKeywords(),
-                    learningDate
-            );
-
-            // BEFORE_COMMIT 수신기가 같은 Core 트랜잭션에 outbox를 기록한다. 여기서 HTTP는 호출하지 않는다.
-            resultEvents.publishEvent(new LearningResultCaptured(
-                    user.getId(), "WRITING_SCORED", answer.getId().toString(),
-                    jsonCodec.write(new WritingResultFact(
-                            "SCORED_EVALUATION", evaluation.getId(), answer.getId(), answer.getDailyItem().getId(),
-                            learningDate.toString(), setting.getOriginLanguage(), setting.getLearningLanguage(),
-                            answer.getDailyItem().getDifficulty().name(), response, requestContext.relevantKeywords()
-                    ))
-            ));
-            return evaluation;
         } catch (Exception e) {
             persistFailure(evaluation, e);
             throw evaluationFailure("AI Writing 평가에 실패했습니다.");
         }
+        // 검증된 AI 결과 이후의 저장/이벤트 실패는 삼키지 않는다. outbox와 평가를 함께 rollback한다.
+        persistSuccess(evaluation, response);
+        profileCommandService.applyDailyEvaluation(user.getId(), evaluation.getId(), response,
+                answer.getDailyItem().getDifficulty(), requestContext.relevantKeywords(), learningDate);
+        resultEvents.publishEvent(new LearningResultCaptured(user.getId(), "WRITING_SCORED", answer.getId().toString(),
+                jsonCodec.write(new WritingResultFact("SCORED_EVALUATION", evaluation.getId(), answer.getId(),
+                        answer.getDailyItem().getId(), learningDate.toString(), setting.getOriginLanguage(),
+                        setting.getLearningLanguage(), answer.getDailyItem().getDifficulty().name(), response,
+                        requestContext.relevantKeywords()))));
+        return evaluation;
     }
 
-    private WritingEvaluation getOrCreateDailyEvaluation(
-            User user,
-            WritingAnswer answer
-    ) {
+    private WritingEvaluation getOrCreateDailyEvaluation(User user, WritingAnswer answer) {
         return evaluationRepository.findByAnswerId(answer.getId())
-                .orElseGet(() -> evaluationRepository.save(
-                        WritingEvaluation.pendingDaily(user, answer)
-                ));
+                .orElseGet(() -> evaluationRepository.save(WritingEvaluation.pendingDaily(user, answer)));
     }
 
-    private void persistSuccess(
-            WritingEvaluation evaluation,
-            AiWritingEvaluationResponseDto response
-    ) {
+    private void persistSuccess(WritingEvaluation evaluation, AiWritingEvaluationResponseDto response) {
         var scores = response.scores();
 
-        evaluation.success(
-                scores.overall(),
-                scores.meaning(),
-                scores.grammar(),
-                scores.vocabulary(),
-                scores.naturalness(),
-                scores.expression(),
-                jsonCodec.write(response.strengths()),
-                jsonCodec.write(response.weaknesses()),
-                jsonCodec.write(response.corrections()),
-                jsonCodec.write(response.recommendedAnswers()),
-                jsonCodec.write(response.explanation()),
-                jsonCodec.write(response.profileSignals()),
-                response.evaluationRubricVersion(),
-                response.scoringPolicyVersion(),
-                response.promptVersion()
-        );
+        evaluation.success(scores.overall(), scores.meaning(), scores.grammar(), scores.vocabulary(),
+                scores.naturalness(), scores.expression(), jsonCodec.write(response.strengths()),
+                jsonCodec.write(response.weaknesses()), jsonCodec.write(response.corrections()),
+                jsonCodec.write(response.recommendedAnswers()), jsonCodec.write(response.explanation()),
+                jsonCodec.write(response.profileSignals()), response.evaluationRubricVersion(),
+                response.scoringPolicyVersion(), response.promptVersion());
         evaluationRepository.save(evaluation);
     }
 
-    private void persistFailure(
-            WritingEvaluation evaluation,
-            Exception exception
-    ) {
+    private void persistFailure(WritingEvaluation evaluation, Exception exception) {
         evaluation.fail(trimMessage(exception.getMessage()));
         evaluationRepository.save(evaluation);
     }
 
     private BusinessException evaluationFailure(String message) {
-        return new BusinessException(
-                message,
-                LanguageLearningErrorCode.EVALUATION_FAILED
-        );
+        return new BusinessException(message, LanguageLearningErrorCode.EVALUATION_FAILED);
     }
 
     private String trimMessage(String message) {
@@ -143,8 +94,6 @@ public class WritingEvaluationCommandService {
             return "unknown";
         }
 
-        return message.length() <= 1000
-                ? message
-                : message.substring(0, 1000);
+        return message.length() <= 1000 ? message : message.substring(0, 1000);
     }
 }

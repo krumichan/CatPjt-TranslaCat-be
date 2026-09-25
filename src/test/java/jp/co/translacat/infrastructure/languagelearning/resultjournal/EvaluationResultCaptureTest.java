@@ -1,9 +1,8 @@
 package jp.co.translacat.infrastructure.languagelearning.resultjournal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jp.co.translacat.domain.languagelearning.activity.entity.LearningActivity;
-import jp.co.translacat.domain.languagelearning.activity.repository.EvaluationMetricHistoryRepository;
-import jp.co.translacat.domain.languagelearning.activity.repository.LearningActivityRepository;
+import jp.co.translacat.domain.languagelearning.activity.model.GrowthActivityDraft;
+import jp.co.translacat.domain.languagelearning.activity.service.LearningActivityCommandService;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.WritingEvaluationScoresDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.response.AiWritingEvaluationResponseDto;
 import jp.co.translacat.domain.languagelearning.ai.port.LanguageLearningAiClient;
@@ -19,8 +18,9 @@ import jp.co.translacat.domain.languagelearning.daily.model.WritingEvaluationReq
 import jp.co.translacat.domain.languagelearning.daily.repository.WritingEvaluationRepository;
 import jp.co.translacat.domain.languagelearning.daily.service.WritingEvaluationCommandService;
 import jp.co.translacat.domain.languagelearning.daily.validator.WritingEvaluationResponseValidator;
+import jp.co.translacat.domain.languagelearning.growth.model.GrowthOperation;
+import jp.co.translacat.domain.languagelearning.growth.port.GrowthCommands;
 import jp.co.translacat.domain.languagelearning.profile.service.LearningProfileCommandService;
-import jp.co.translacat.domain.languagelearning.profile.service.SpeakingProfileSignalService;
 import jp.co.translacat.domain.languagelearning.resultjournal.model.LearningResultCaptured;
 import jp.co.translacat.domain.languagelearning.setting.model.UserSettingsSnapshot;
 import jp.co.translacat.domain.languagelearning.speaking.ai.dto.response.AiSpeakingEvaluationResponseDto;
@@ -52,20 +52,93 @@ class EvaluationResultCaptureTest {
     private final ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
     private final LanguageLearningJsonCodec codec = new LanguageLearningJsonCodec(mapper);
 
+    @Test
+    void scoredSpeakingPublishesAfterProfileAndActivityAreUpdated() throws Exception {
+        var f = new SpeakingFixture();
+        var response = f.response(0.9);
+        f.service.apply(f.session, response);
+        var order = inOrder(f.activity, f.growth, f.session, f.events);
+        order.verify(f.activity).markEvaluated(80, 0.9);
+        order.verify(f.session).markEvaluated("test-v1");
+        order.verify(f.growth).append(eq(123L), any(GrowthOperation.class));
+        order.verify(f.events).publishEvent(any(LearningResultCaptured.class));
+        var event = f.capture();
+        var json = mapper.readTree(event.payloadJson());
+        assertEquals("SPEAKING_SCORED", event.kind());
+        assertEquals("51", event.referenceId());
+        assertTrue(json.get("formal").booleanValue());
+        assertEquals(0.9, json.get("activityWeight").doubleValue());
+    }
+
+    @Test
+    void insufficientSpeakingHasNoProfileUpdateAndIsNotMarkedAsFormal() throws Exception {
+        var f = new SpeakingFixture();
+        f.service.apply(f.session, f.response(0.2));
+        var operation = ArgumentCaptor.forClass(GrowthOperation.class);
+        verify(f.growth).append(eq(123L), operation.capture());
+        assertEquals(false, operation.getValue().payload().get("formal"));
+        var event = f.capture();
+        var json = mapper.readTree(event.payloadJson());
+        assertEquals("SPEAKING_INSUFFICIENT", event.kind());
+        assertFalse(json.get("formal").booleanValue());
+        assertEquals(0.0, json.get("activityWeight").doubleValue());
+    }
+
+    @Test
+    void freeCoachingCannotUseTheScoredPath() {
+        var f = new SpeakingFixture();
+        when(f.session.getResultKind()).thenReturn(SpeakingResultKind.SESSION_COACHING);
+        assertThrows(IllegalArgumentException.class, () -> f.service.apply(f.session, f.response(0.9)));
+        verifyNoInteractions(f.evaluations, f.activities, f.growth, f.events);
+    }
+
+    @Test
+    void anAlreadyStoredSpeakingResultDoesNotPublishAgain() {
+        var f = new SpeakingFixture();
+        when(f.evaluation.getStatus()).thenReturn("EVALUATED");
+        when(f.evaluations.findFirstBySessionIdOrderByEvaluatedAtDesc(51L)).thenReturn(Optional.of(f.evaluation));
+        f.service.apply(f.session, f.response(0.9));
+        verifyNoInteractions(f.activities, f.growth, f.events);
+    }
+
+    @Test
+    void writingPublishesOnlyAfterTheExistingProfileUpdate() throws Exception {
+        var f = new WritingFixture();
+        f.execute();
+        var order = inOrder(f.profile, f.events);
+        order.verify(f.profile)
+                .applyDailyEvaluation(123L, 21L, f.response, DailyWritingDifficulty.NORMAL, List.of(), f.day);
+        order.verify(f.events).publishEvent(any(LearningResultCaptured.class));
+        var capture = ArgumentCaptor.forClass(LearningResultCaptured.class);
+        verify(f.events).publishEvent(capture.capture());
+        var event = capture.getValue();
+        assertEquals("WRITING_SCORED", event.kind());
+        assertEquals(31L, mapper.readTree(event.payloadJson()).get("answerId").longValue());
+    }
+
+    @Test
+    void failedWritingDoesNotPublishASuccessfulResult() {
+        var f = new WritingFixture();
+        when(f.ai.evaluate(null)).thenThrow(new IllegalStateException("test AI failure"));
+        assertThrows(BusinessException.class, f::execute);
+        verifyNoInteractions(f.profile, f.events);
+    }
+
     private class SpeakingFixture {
         final SpeakingTurnRepository turns = mock(SpeakingTurnRepository.class);
         final SpeakingEvaluationRepository evaluations = mock(SpeakingEvaluationRepository.class);
         final SpeakingEvaluationMetricRepository metrics = mock(SpeakingEvaluationMetricRepository.class);
-        final LearningActivityRepository activities = mock(LearningActivityRepository.class);
-        final EvaluationMetricHistoryRepository history = mock(EvaluationMetricHistoryRepository.class);
-        final SpeakingProfileSignalService profile = mock(SpeakingProfileSignalService.class);
+        final LearningActivityCommandService activities = mock(LearningActivityCommandService.class);
+        final GrowthCommands growth = mock(GrowthCommands.class);
         final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
         final SpeakingSession session = mock(SpeakingSession.class);
         final SpeakingEvaluation evaluation = mock(SpeakingEvaluation.class);
-        final LearningActivity activity = mock(LearningActivity.class);
+        final GrowthActivityDraft activity =
+                spy(new GrowthActivityDraft(123L, LearningSource.SPEAKING, "51", LocalDate.of(2026, 9, 24), "연습", 60,
+                        LocalDate.of(2026, 9, 24).atStartOfDay(), LocalDate.of(2026, 9, 24).atTime(0, 1)));
         final SpeakingEvaluationResultCommandService service = new SpeakingEvaluationResultCommandService(
-                turns, evaluations, metrics, new SpeakingEvaluationEligibilityPolicy(), codec, events, activities,
-                history, profile);
+                turns, evaluations, metrics, new SpeakingEvaluationEligibilityPolicy(), codec, events, growth,
+                activities);
 
         SpeakingFixture() {
             var user = mock(User.class);
@@ -81,9 +154,7 @@ class EvaluationResultCaptureTest {
             when(evaluation.getId()).thenReturn(61L);
             when(evaluation.getEvaluationVersion()).thenReturn("test-v1");
             when(turns.findAllBySessionIdOrderByTurnIndexAsc(51L)).thenReturn(List.of());
-            when(activities.findBySourceAndReferenceId(LearningSource.SPEAKING, "51")).thenReturn(
-                    Optional.of(activity));
-            when(activity.getId()).thenReturn(71L);
+            lenient().when(activities.speakingResult(session)).thenReturn(activity);
         }
 
         AiSpeakingEvaluationResponseDto response(double confidence) {
@@ -97,53 +168,6 @@ class EvaluationResultCaptureTest {
             verify(events).publishEvent(captor.capture());
             return captor.getValue();
         }
-    }
-
-    @Test
-    void scoredSpeakingPublishesAfterProfileAndActivityAreUpdated() throws Exception {
-        var f = new SpeakingFixture();
-        var response = f.response(0.9);
-        f.service.apply(f.session, response);
-        var order = inOrder(f.activity, f.profile, f.session, f.events);
-        order.verify(f.activity).markEvaluated(80, 0.9);
-        order.verify(f.profile).apply(123L, response.profileSignals(), 0.9);
-        order.verify(f.session).markEvaluated("test-v1");
-        order.verify(f.events).publishEvent(any(LearningResultCaptured.class));
-        var event = f.capture();
-        var json = mapper.readTree(event.payloadJson());
-        assertEquals("SPEAKING_SCORED", event.kind());
-        assertEquals("51", event.referenceId());
-        assertTrue(json.get("formal").booleanValue());
-        assertEquals(0.9, json.get("activityWeight").doubleValue());
-    }
-
-    @Test
-    void insufficientSpeakingHasNoProfileUpdateAndIsNotMarkedAsFormal() throws Exception {
-        var f = new SpeakingFixture();
-        f.service.apply(f.session, f.response(0.2));
-        verifyNoInteractions(f.profile, f.history);
-        var event = f.capture();
-        var json = mapper.readTree(event.payloadJson());
-        assertEquals("SPEAKING_INSUFFICIENT", event.kind());
-        assertFalse(json.get("formal").booleanValue());
-        assertEquals(0.0, json.get("activityWeight").doubleValue());
-    }
-
-    @Test
-    void freeCoachingCannotUseTheScoredPath() {
-        var f = new SpeakingFixture();
-        when(f.session.getResultKind()).thenReturn(SpeakingResultKind.SESSION_COACHING);
-        assertThrows(IllegalArgumentException.class, () -> f.service.apply(f.session, f.response(0.9)));
-        verifyNoInteractions(f.evaluations, f.activities, f.history, f.profile, f.events);
-    }
-
-    @Test
-    void anAlreadyStoredSpeakingResultDoesNotPublishAgain() {
-        var f = new SpeakingFixture();
-        when(f.evaluation.getStatus()).thenReturn("EVALUATED");
-        when(f.evaluations.findFirstBySessionIdOrderByEvaluatedAtDesc(51L)).thenReturn(Optional.of(f.evaluation));
-        f.service.apply(f.session, f.response(0.9));
-        verifyNoInteractions(f.activities, f.history, f.profile, f.events);
     }
 
     private class WritingFixture {
@@ -183,27 +207,5 @@ class EvaluationResultCaptureTest {
         void execute() {
             service.evaluateDaily(user, answer, settings, snapshot, day);
         }
-    }
-
-    @Test
-    void writingPublishesOnlyAfterTheExistingProfileUpdate() throws Exception {
-        var f = new WritingFixture();
-        f.execute();
-        var order = inOrder(f.profile, f.events);
-        order.verify(f.profile).applyDailyEvaluation(123L, f.response, DailyWritingDifficulty.NORMAL, List.of(), f.day);
-        order.verify(f.events).publishEvent(any(LearningResultCaptured.class));
-        var capture = ArgumentCaptor.forClass(LearningResultCaptured.class);
-        verify(f.events).publishEvent(capture.capture());
-        var event = capture.getValue();
-        assertEquals("WRITING_SCORED", event.kind());
-        assertEquals(31L, mapper.readTree(event.payloadJson()).get("answerId").longValue());
-    }
-
-    @Test
-    void failedWritingDoesNotPublishASuccessfulResult() {
-        var f = new WritingFixture();
-        when(f.ai.evaluate(null)).thenThrow(new IllegalStateException("test AI failure"));
-        assertThrows(BusinessException.class, f::execute);
-        verifyNoInteractions(f.profile, f.events);
     }
 }

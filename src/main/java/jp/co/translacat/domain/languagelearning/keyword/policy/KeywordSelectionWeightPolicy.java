@@ -1,6 +1,6 @@
 package jp.co.translacat.domain.languagelearning.keyword.policy;
 
-import jp.co.translacat.domain.languagelearning.keyword.entity.KeywordMastery;
+import jp.co.translacat.domain.languagelearning.profile.dto.response.KeywordMasteryResponseDto;
 
 import org.springframework.stereotype.Component;
 
@@ -12,43 +12,23 @@ import java.util.Locale;
 @Component
 public class KeywordSelectionWeightPolicy {
 
-    public double calculateRawWeight(
-            LocalDateTime availableFrom,
-            KeywordMastery mastery,
-            LocalDate learningDate
-    ) {
-        double rampWeight = calculateRampWeight(
-                availableFrom,
-                learningDate
-        );
-        double masteryWeight = mastery == null
-                ? 1.10
-                : 1.25 - mastery.getScore() / 250.0;
-        double recencyWeight = calculateRecencyWeight(
-                mastery,
-                learningDate
-        );
+    public double calculateRawWeight(LocalDateTime availableFrom, KeywordMasteryResponseDto mastery,
+                                     LocalDate learningDate) {
+        double rampWeight = calculateRampWeight(availableFrom, learningDate);
+        double masteryWeight = mastery == null ? 1.10 : 1.25 - mastery.score() / 250.0;
+        double recencyWeight = calculateRecencyWeight(mastery, learningDate);
 
-        return Math.max(
-                0.01,
-                rampWeight * masteryWeight * recencyWeight
-        );
+        return Math.max(0.01, rampWeight * masteryWeight * recencyWeight);
     }
 
-    public double normalizeSelectionWeight(
-            double rawWeight,
-            double maxRawWeight
-    ) {
+    public double normalizeSelectionWeight(double rawWeight, double maxRawWeight) {
         double normalized = rawWeight / Math.max(maxRawWeight, 0.0001);
-        double bounded = Math.max(0.01, Math.min(1.0, normalized));
+        double bounded = Math.clamp(normalized, 0.01, 1.0);
 
         return round(bounded);
     }
 
-    public String normalizeCanonicalKey(
-            String canonicalKey,
-            String keywordText
-    ) {
+    public String normalizeCanonicalKey(String canonicalKey, String keywordText) {
         if (canonicalKey == null || canonicalKey.isBlank()) {
             return keywordText.toLowerCase(Locale.ROOT);
         }
@@ -56,18 +36,12 @@ public class KeywordSelectionWeightPolicy {
         return canonicalKey;
     }
 
-    double calculateRampWeight(
-            LocalDateTime availableFrom,
-            LocalDate learningDate
-    ) {
+    double calculateRampWeight(LocalDateTime availableFrom, LocalDate learningDate) {
         if (availableFrom == null) {
             return 1.0;
         }
 
-        long activeDay = ChronoUnit.DAYS.between(
-                availableFrom.toLocalDate(),
-                learningDate
-        ) + 1;
+        long activeDay = ChronoUnit.DAYS.between(availableFrom.toLocalDate(), learningDate) + 1;
 
         if (activeDay <= 1) {
             return 0.25;
@@ -82,18 +56,12 @@ public class KeywordSelectionWeightPolicy {
         return 1.0;
     }
 
-    double calculateRecencyWeight(
-            KeywordMastery mastery,
-            LocalDate learningDate
-    ) {
-        if (mastery == null || mastery.getLastSelectedDate() == null) {
+    double calculateRecencyWeight(KeywordMasteryResponseDto mastery, LocalDate learningDate) {
+        if (mastery == null || mastery.lastSelectedDate() == null) {
             return 1.20;
         }
 
-        long elapsedDays = ChronoUnit.DAYS.between(
-                mastery.getLastSelectedDate(),
-                learningDate
-        );
+        long elapsedDays = ChronoUnit.DAYS.between(mastery.lastSelectedDate(), learningDate);
 
         if (elapsedDays <= 1) {
             return 0.55;

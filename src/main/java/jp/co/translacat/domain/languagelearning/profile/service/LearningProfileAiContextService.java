@@ -1,133 +1,71 @@
 package jp.co.translacat.domain.languagelearning.profile.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import jp.co.translacat.domain.languagelearning.ai.dto.model.DifficultyPerformanceDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.KeywordMasteryDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.LearningProfileSummaryDto;
 import jp.co.translacat.domain.languagelearning.ai.dto.model.WritingSkillScoresDto;
-import jp.co.translacat.domain.languagelearning.common.enums.ProfileSignalType;
-import jp.co.translacat.domain.languagelearning.keyword.repository.KeywordMasteryRepository;
-import jp.co.translacat.domain.languagelearning.profile.entity.LearningProfile;
-import jp.co.translacat.domain.languagelearning.profile.repository.LearningProfileRepository;
-
+import jp.co.translacat.domain.languagelearning.growth.model.GrowthSnapshot;
+import jp.co.translacat.domain.languagelearning.growth.port.GrowthReadGateway;
+import jp.co.translacat.domain.languagelearning.profile.dto.response.ProfileSignalResponseDto;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 아직 Core에 남은 기능의 AI 요청 DTO와 LL 읽기 모델 사이의 호환 어댑터다.
+ */
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class LearningProfileAiContextService {
-
-    private static final int GRAMMAR_WEAKNESS_LIMIT = 10;
-    private static final int ERROR_PATTERN_LIMIT = 10;
-    private static final int PROFILE_SIGNAL_LIMIT = 10;
-    private static final int KEYWORD_MASTERY_LIMIT = 30;
-
-    private final LearningProfileRepository profileRepository;
-    private final KeywordMasteryRepository masteryRepository;
-    private final LearningProfileSignalService signalService;
-    private final ObjectMapper objectMapper;
+    private final GrowthReadGateway growth;
+    private final ObjectMapper mapper;
 
     public LearningProfileSummaryDto buildSummary(Long userId) {
-        LearningProfile profile = profileRepository
-                .findByUserId(userId)
-                .orElse(null);
-
-        if (profile == null) {
-            return null;
-        }
-
-        return new LearningProfileSummaryDto(
-                profile.getProfileVersion(),
-                profile.getBaseLevelScore(),
-                toSkillScores(profile),
-                signalService.getKeys(
-                        userId,
-                        ProfileSignalType.GRAMMAR_WEAKNESS,
-                        GRAMMAR_WEAKNESS_LIMIT
-                ),
-                getKeywordMasteries(userId),
-                new DifficultyPerformanceDto(
-                        profile.getReviewPerformance(),
-                        profile.getNormalPerformance(),
-                        profile.getChallengePerformance()
-                ),
-                signalService.getKeys(
-                        userId,
-                        ProfileSignalType.ERROR_PATTERN,
-                        ERROR_PATTERN_LIMIT
-                ),
-                profile.getTrend(),
-                profile.getConfidence(),
-                signalService.getKeys(
-                        userId,
-                        ProfileSignalType.STRENGTH,
-                        PROFILE_SIGNAL_LIMIT
-                ),
-                signalService.getKeys(
-                        userId,
-                        ProfileSignalType.WEAKNESS,
-                        PROFILE_SIGNAL_LIMIT
-                ),
-                signalService.getKeys(
-                        userId,
-                        ProfileSignalType.RECOMMENDED_FOCUS,
-                        PROFILE_SIGNAL_LIMIT
-                ),
-                readAdditionalSignals(profile.getAdditionalSignalsJson())
-        );
+        var value = growth.snapshot(userId);
+        var p = value.profile();
+        if (p == null) return null;
+        WritingSkillScoresDto scores = p.meaningScore() == null
+                && p.grammarScore() == null
+                && p.vocabularyScore() == null
+                && p.naturalnessScore() == null
+                && p.expressionScore() == null ? null :
+                new WritingSkillScoresDto(zero(p.meaningScore()), zero(p.grammarScore()), zero(p.vocabularyScore()),
+                        zero(p.naturalnessScore()), zero(p.expressionScore()));
+        return new LearningProfileSummaryDto(p.profileVersion(), p.baseLevelScore(), scores,
+                keys(value, "GRAMMAR_WEAKNESS"), value.masteries()
+                .stream()
+                .limit(30)
+                .map(v -> new KeywordMasteryDto(v.canonicalKey(), v.score()))
+                .toList(),
+                new DifficultyPerformanceDto(p.reviewPerformance(), p.normalPerformance(), p.challengePerformance()),
+                keys(value, "ERROR_PATTERN"), p.trend(), p.confidence(), keys(value, "STRENGTH"),
+                keys(value, "WEAKNESS"), keys(value, "RECOMMENDED_FOCUS"), additional(p.additionalSignalsJson()));
     }
 
-    private List<KeywordMasteryDto> getKeywordMasteries(Long userId) {
-        return masteryRepository.findAllByUserIdOrderByScoreAsc(userId)
+    private List<String> keys(GrowthSnapshot value, String type) {
+        return value.signals()
+                .getOrDefault(type, List.of())
                 .stream()
-                .limit(KEYWORD_MASTERY_LIMIT)
-                .map(mastery -> new KeywordMasteryDto(
-                        mastery.getCanonicalKey(),
-                        mastery.getScore()
-                ))
+                .limit(10)
+                .map(ProfileSignalResponseDto::key)
                 .toList();
     }
 
-    private WritingSkillScoresDto toSkillScores(LearningProfile profile) {
-        boolean empty = profile.getMeaningScore() == null
-                && profile.getGrammarScore() == null
-                && profile.getVocabularyScore() == null
-                && profile.getNaturalnessScore() == null
-                && profile.getExpressionScore() == null;
-        if (empty) {
-            return null;
-        }
-
-        return new WritingSkillScoresDto(
-                valueOrZero(profile.getMeaningScore()),
-                valueOrZero(profile.getGrammarScore()),
-                valueOrZero(profile.getVocabularyScore()),
-                valueOrZero(profile.getNaturalnessScore()),
-                valueOrZero(profile.getExpressionScore())
-        );
+    private double zero(Double value) {
+        return value == null ? 0.0 : value;
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> readAdditionalSignals(String json) {
-        if (json == null || json.isBlank()) {
-            return Map.of();
-        }
-
+    private Map<String, Object> additional(String text) {
+        if (text == null || text.isBlank()) return Map.of();
         try {
-            return objectMapper.readValue(json, Map.class);
-        } catch (Exception e) {
-            return Map.of();
+            return mapper.readValue(text, new TypeReference<Map<String, Object>>() {
+            });
+        } catch (java.io.IOException failure) {
+            throw new IllegalStateException("LL additionalSignals 응답 형식이 올바르지 않습니다.");
         }
-    }
-
-    private double valueOrZero(Double value) {
-        return value == null ? 0 : value;
     }
 }

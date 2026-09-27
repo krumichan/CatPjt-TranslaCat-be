@@ -28,10 +28,10 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
         // translations and short-lived tickets. Log metadata only for both surfaces.
         String redactionLabel = sensitiveBodyLabel(request.getRequestURI());
         if (redactionLabel != null) {
-            String username = SecurityUtil.getSafeUsername();
+            // 민감 경로는 본문과 함께 인증 주체의 원문도 로그에서 제외한다.
             log.info(
                     "[REQUEST] [{}] {} {} | Body: [{}]",
-                    username,
+                    "REDACTED",
                     request.getMethod(),
                     request.getRequestURI(),
                     redactionLabel
@@ -107,11 +107,26 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     }
 
     private String sensitiveBodyLabel(String uri) {
+        // Chat 메시지/이미지/프로필과 WebSocket handshake도 본문·사용자 식별자를 기록하지 않는다.
+        if (uri.equals("/api/v1/chat") || uri.startsWith("/api/v1/chat/")
+                || uri.equals("/api/v1/admin/chat") || uri.startsWith("/api/v1/admin/chat/")
+                || uri.equals("/api/v1/users/me/chat-language-settings")
+                || uri.equals("/ws/chat") || uri.startsWith("/ws/chat/")) {
+            return "CHAT_REDACTED";
+        }
+        // 현재 identity의 subject/email과 내부 요청 본문은 로그에 남기지 않는다.
+        if (uri.equals("/internal/v1/chat") || uri.startsWith("/internal/v1/chat/")) {
+            return "CHAT_INTERNAL_REDACTED";
+        }
         if (uri.startsWith("/api/v1/auth")) {
             return "AUTH_REDACTED";
         }
         if (uri.startsWith("/api/v1/voice/")) {
             return "VOICE_REDACTED";
+        }
+        // Writing 응답에는 학습자 답변과 원문이 포함되므로 본문을 기록하지 않는다.
+        if (uri.startsWith("/api/v1/language-learning/writing/")) {
+            return "WRITING_REDACTED";
         }
         return null;
     }

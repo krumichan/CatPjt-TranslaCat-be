@@ -58,4 +58,18 @@ public class AiServerCommunicationException extends RuntimeException {
         this.httpStatus = httpStatus;
         this.safeDetail = safeDetail == null ? "" : safeDetail;
     }
+
+    public AiServerCommunicationException(
+            String message,
+            String errorCode,
+            boolean retryable,
+            Integer httpStatus,
+            Throwable cause
+    ) {
+        super(message, cause);
+        this.errorCode = errorCode;
+        this.retryable = retryable;
+        this.httpStatus = httpStatus;
+        this.safeDetail = "";
+    }
 }

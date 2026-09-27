@@ -44,7 +44,7 @@ public class LanguageLearningInternalJwtProvider {
     }
 
     /**
-     * 사용자 권한이 없는 BE 작업자의 Settings 조회 전용 토큰이다.
+     * 외부 Listening 정책 조회를 Ktor Settings에 전달하는 서비스 전용 토큰이다.
      */
     public String issueSettingsServiceToken() {
         Instant now = clock.instant();
@@ -64,17 +64,17 @@ public class LanguageLearningInternalJwtProvider {
     }
 
     /**
-     * Core의 학습 시작 사실은 서버가 조회하며 FE 입력을 그대로 서명하지 않는다.
+     * 인증된 주체만 전달한다. 키워드 적용 시점에 필요한 학습 사실은 LL이 조회한다.
      */
-    public String issueKeywordUserToken(Long userId, boolean hasStartedLearning) {
-        return issueKeywordToken(userId, false, hasStartedLearning);
+    public String issueKeywordUserToken(Long userId) {
+        return issueKeywordToken(userId, false);
     }
 
     public String issueKeywordAdminToken(Long adminUserId) {
-        return issueKeywordToken(adminUserId, true, false);
+        return issueKeywordToken(adminUserId, true);
     }
 
-    private String issueKeywordToken(Long userId, boolean admin, boolean started) {
+    private String issueKeywordToken(Long userId, boolean admin) {
         if (userId == null || userId <= 0) throw new IllegalArgumentException("내부 JWT userId는 양수여야 합니다.");
         Instant now = clock.instant();
         return Jwts.builder()
@@ -86,47 +86,6 @@ public class LanguageLearningInternalJwtProvider {
                 .claim("service", callerService)
                 .claim("tokenUse", "ll-keywords")
                 .claim("roles", List.of(admin ? "ADMIN" : "USER"))
-                .claim("keywordLearningStarted", started)
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusSeconds(ttlSeconds)))
-                .signWith(key, Jwts.SIG.HS256)
-                .compact();
-    }
-
-    /**
-     * 결과 수신 원장 전용 scope다. 사용자·관리자·Settings 조회 권한을 포함하지 않는다.
-     */
-    public String issueLearningResultsToken() {
-        Instant now = clock.instant();
-        return Jwts.builder()
-                .issuer(issuer)
-                .audience()
-                .add(audience)
-                .and()
-                .subject(callerService)
-                .claim("service", callerService)
-                .claim("tokenUse", "ll-learning-results-v1")
-                .claim("scopes", List.of("learning-results:write"))
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusSeconds(ttlSeconds)))
-                .signWith(key, Jwts.SIG.HS256)
-                .compact();
-    }
-
-    /**
-     * 사용자 권한이 없는 성장 projection 전달 전용 토큰이다.
-     */
-    public String issueGrowthServiceToken() {
-        Instant now = clock.instant();
-        return Jwts.builder()
-                .issuer(issuer)
-                .audience()
-                .add(audience)
-                .and()
-                .subject(callerService)
-                .claim("service", callerService)
-                .claim("tokenUse", "ll-growth-v1")
-                .claim("scopes", List.of("growth:write"))
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(ttlSeconds)))
                 .signWith(key, Jwts.SIG.HS256)

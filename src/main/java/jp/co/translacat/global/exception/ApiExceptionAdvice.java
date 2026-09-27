@@ -97,6 +97,15 @@ public class ApiExceptionAdvice {
         String responseMessage = this.trace(e);
         log.error("Ai Server Communication logic error: code={}, message={}", e.getErrorCode(), e.getMessage());
 
+        if (e.getErrorCode().startsWith("WRITING_")) {
+            HttpStatus status = switch (e.getHttpStatus() == null ? 0 : e.getHttpStatus()) {
+                case 422 -> HttpStatus.UNPROCESSABLE_ENTITY;
+                case 503 -> HttpStatus.SERVICE_UNAVAILABLE;
+                case 504 -> HttpStatus.GATEWAY_TIMEOUT;
+                default -> HttpStatus.BAD_GATEWAY;
+            };
+            return this.entity(status, e.getErrorCode(), responseMessage, e);
+        }
         return this.entity(HttpStatus.BAD_REQUEST, e.getErrorCode(), responseMessage, e);
     }
 

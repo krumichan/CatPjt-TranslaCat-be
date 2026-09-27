@@ -13,6 +13,8 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+// gateway 모드에서는 Presence를 CHAT이 소유하므로 BE가 Chat Redis에 startup PING을 보내지 않는다.
+@ConditionalOnProperty(prefix = "chat.gateway", name = "enabled", havingValue = "false", matchIfMissing = true)
 @ConditionalOnProperty(
         prefix = "translacat.redis",
         name = "verify-on-startup",

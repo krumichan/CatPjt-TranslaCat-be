@@ -6,7 +6,6 @@ import jp.co.translacat.domain.languagelearning.keyword.dto.response.KeywordList
 import jp.co.translacat.domain.languagelearning.keyword.dto.response.KeywordResponseDto;
 import jp.co.translacat.domain.languagelearning.keyword.model.KeywordCandidateSnapshot;
 import jp.co.translacat.domain.languagelearning.keyword.port.KeywordCatalogGateway;
-import jp.co.translacat.domain.languagelearning.keyword.port.KeywordLearningFacts;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
@@ -23,13 +22,10 @@ import java.util.List;
 public class RemoteKeywordCatalogGateway implements KeywordCatalogGateway {
     private final ObjectProvider<LanguageLearningKeywordClient> clients;
     private final UserRepository users;
-    private final KeywordLearningFacts facts;
 
-    public RemoteKeywordCatalogGateway(ObjectProvider<LanguageLearningKeywordClient> clients, UserRepository users,
-                                       KeywordLearningFacts facts) {
+    public RemoteKeywordCatalogGateway(ObjectProvider<LanguageLearningKeywordClient> clients, UserRepository users) {
         this.clients = clients;
         this.users = users;
-        this.facts = facts;
     }
 
     private LanguageLearningKeywordClient forUser(Long userId) {
@@ -44,27 +40,27 @@ public class RemoteKeywordCatalogGateway implements KeywordCatalogGateway {
 
     @Override
     public KeywordListResponseDto getKeywords(Long userId, String uiLocale) {
-        return forUser(userId).list(userId, facts.hasStartedLearning(userId), uiLocale);
+        return forUser(userId).list(userId, uiLocale);
     }
 
     @Override
     public KeywordResponseDto createCustom(Long userId, KeywordCreateRequestDto request) {
-        return forUser(userId).createCustom(userId, facts.hasStartedLearning(userId), request);
+        return forUser(userId).createCustom(userId, request);
     }
 
     @Override
     public KeywordResponseDto updateCustom(Long userId, Long keywordId, KeywordUpdateRequestDto request) {
-        return forUser(userId).updateCustom(userId, facts.hasStartedLearning(userId), keywordId, request);
+        return forUser(userId).updateCustom(userId, keywordId, request);
     }
 
     @Override
     public void deleteCustom(Long userId, Long keywordId) {
-        forUser(userId).deleteCustom(userId, facts.hasStartedLearning(userId), keywordId);
+        forUser(userId).deleteCustom(userId, keywordId);
     }
 
     @Override
     public KeywordResponseDto selectSystem(Long userId, Long keywordId, boolean selected) {
-        return forUser(userId).selectSystem(userId, facts.hasStartedLearning(userId), keywordId, selected);
+        return forUser(userId).selectSystem(userId, keywordId, selected);
     }
 
     @Override
@@ -84,6 +80,6 @@ public class RemoteKeywordCatalogGateway implements KeywordCatalogGateway {
 
     @Override
     public List<KeywordCandidateSnapshot> candidates(Long userId, LocalDate learningDate) {
-        return forUser(userId).candidates(userId, facts.hasStartedLearning(userId), learningDate);
+        return forUser(userId).candidates(userId, learningDate);
     }
 }

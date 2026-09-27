@@ -1,99 +1,38 @@
 package jp.co.translacat.domain.languagelearning.speaking.session.facade;
 
-import jp.co.translacat.domain.languagelearning.speaking.coaching.service.SpeakingCoachingResultService;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.policy.SpeakingEvaluationEligibilityPolicy;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.service.SpeakingReadAloudProblemEvaluationService;
+import jp.co.translacat.domain.languagelearning.speaking.port.SpeakingGateway;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCompleteRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.request.SpeakingSessionCreateRequestDto;
-import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingEvaluationEligibilityResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingPracticeModeStatusResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingSessionDetailResponseDto;
 import jp.co.translacat.domain.languagelearning.speaking.session.dto.response.SpeakingSessionResponseDto;
-import jp.co.translacat.domain.languagelearning.speaking.session.entity.SpeakingSession;
-import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionCommandService;
-import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionCompletionCommandService;
-import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionLifecycleService;
-import jp.co.translacat.domain.languagelearning.speaking.session.service.SpeakingSessionQueryService;
-import jp.co.translacat.domain.languagelearning.speaking.turn.service.SpeakingTurnQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class SpeakingSessionFacade {
+    private final SpeakingGateway gateway;
 
-    private final SpeakingSessionCommandService sessionCommandService;
-    private final SpeakingSessionCompletionCommandService completionCommandService;
-    private final SpeakingSessionQueryService sessionQueryService;
-    private final SpeakingSessionLifecycleService lifecycleService;
-    private final SpeakingTurnQueryService turnQueryService;
-    private final SpeakingEvaluationEligibilityPolicy eligibilityPolicy;
-    private final SpeakingReadAloudProblemEvaluationService readAloudProblemEvaluationService;
-    private final SpeakingCoachingResultService coachingResultService;
-
-    public SpeakingSessionResponseDto create(
-            Long userId,
-            SpeakingSessionCreateRequestDto request
-    ) {
-        SpeakingSession session = sessionCommandService.create(userId, request);
-        return sessionQueryService.toResponse(userId, session);
+    public SpeakingSessionResponseDto create(Long userId, SpeakingSessionCreateRequestDto request) {
+        return gateway.post(userId, "/sessions", request, SpeakingSessionResponseDto.class);
     }
 
-    public SpeakingSessionResponseDto complete(
-            Long userId,
-            Long sessionId,
-            SpeakingSessionCompleteRequestDto request
-    ) {
-        boolean skipEvaluation = request != null && request.skipEvaluation();
-        SpeakingSession session = completionCommandService.complete(
-                userId,
-                sessionId,
-                skipEvaluation
-        );
-        return sessionQueryService.toResponse(userId, session);
+    public SpeakingSessionResponseDto complete(Long userId, Long sessionId, SpeakingSessionCompleteRequestDto request) {
+        return gateway.post(userId, "/sessions/" + sessionId + "/complete", request, SpeakingSessionResponseDto.class);
     }
 
-    public SpeakingSessionDetailResponseDto get(
-            Long userId,
-            Long sessionId
-    ) {
-        SpeakingSession session = sessionQueryService.getOwnedEntity(
-                userId,
-                sessionId
-        );
-        lifecycleService.expireIfNeeded(session);
-
-        var turns = turnQueryService.getEntities(sessionId);
-        return new SpeakingSessionDetailResponseDto(
-                sessionQueryService.toResponse(userId, session),
-                sessionQueryService.getDailyUsage(userId),
-                turnQueryService.getResponses(userId, sessionId),
-                readAloudProblemEvaluationService.list(userId, sessionId),
-                SpeakingEvaluationEligibilityResponseDto.from(
-                        eligibilityPolicy.evaluate(
-                                session.getPracticeMode(),
-                                turns
-                        )
-                ),
-                coachingResultService.find(sessionId),
-                lifecycleService.isResumable(session)
-        );
+    public SpeakingSessionDetailResponseDto get(Long userId, Long sessionId) {
+        return gateway.get(userId, "/sessions/" + sessionId, SpeakingSessionDetailResponseDto.class);
     }
 
-    public java.util.List<SpeakingPracticeModeStatusResponseDto> todayModeStatuses(Long userId) {
-        return sessionQueryService.todayModeStatuses(userId);
+    public List<SpeakingPracticeModeStatusResponseDto> todayModeStatuses(Long userId) {
+        return gateway.list(userId, "/sessions/today/status", SpeakingPracticeModeStatusResponseDto.class);
     }
 
     public SpeakingSessionDetailResponseDto getActive(Long userId) {
-        SpeakingSession session = sessionQueryService.findActiveEntity(userId)
-                .orElse(null);
-        if (session == null) {
-            return null;
-        }
-        lifecycleService.expireIfNeeded(session);
-        if (!session.isActive()) {
-            return null;
-        }
-        return get(userId, session.getId());
+        return gateway.optional(userId, "/sessions/active", SpeakingSessionDetailResponseDto.class);
     }
 }

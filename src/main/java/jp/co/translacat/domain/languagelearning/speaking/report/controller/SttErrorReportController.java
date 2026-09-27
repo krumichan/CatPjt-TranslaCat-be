@@ -1,9 +1,8 @@
 package jp.co.translacat.domain.languagelearning.speaking.report.controller;
 
+import jp.co.translacat.domain.languagelearning.speaking.port.SpeakingGateway;
 import jp.co.translacat.domain.languagelearning.speaking.report.dto.request.SttErrorReportCreateRequestDto;
 import jp.co.translacat.domain.languagelearning.speaking.report.dto.response.SttErrorReportResponseDto;
-import jp.co.translacat.domain.languagelearning.speaking.report.service.SttErrorReportCommandService;
-import jp.co.translacat.domain.languagelearning.speaking.report.service.SttErrorReportQueryService;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
@@ -17,8 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class SttErrorReportController {
 
-    private final SttErrorReportCommandService commandService;
-    private final SttErrorReportQueryService queryService;
+    private final SpeakingGateway gateway;
 
     @PostMapping("/sessions/{sessionId}/turns/{turnId}/stt-reports")
     public ResponseDto<SttErrorReportResponseDto> create(
@@ -27,13 +25,9 @@ public class SttErrorReportController {
             @PathVariable Long turnId,
             @RequestBody SttErrorReportCreateRequestDto request
     ) {
-        var report = commandService.create(
-                SecurityUtil.getLoginUserId(principal),
-                sessionId,
-                turnId,
-                request
-        );
-        return ResponseUtil.ok(queryService.toResponse(report));
+        return ResponseUtil.ok(gateway.post(SecurityUtil.getLoginUserId(principal),
+                "/sessions/" + sessionId + "/turns/" + turnId + "/stt-reports", request,
+                SttErrorReportResponseDto.class));
     }
 
     @PostMapping("/stt-reports/{reportId}/support")
@@ -41,14 +35,8 @@ public class SttErrorReportController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long reportId
     ) {
-        return ResponseUtil.ok(
-                queryService.toResponse(
-                        commandService.requestSupport(
-                                SecurityUtil.getLoginUserId(principal),
-                                reportId
-                        )
-                )
-        );
+        return ResponseUtil.ok(gateway.post(SecurityUtil.getLoginUserId(principal),
+                "/stt-reports/" + reportId + "/support", null, SttErrorReportResponseDto.class));
     }
 
     @GetMapping("/stt-reports/{reportId}")
@@ -56,11 +44,7 @@ public class SttErrorReportController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long reportId
     ) {
-        return ResponseUtil.ok(
-                queryService.get(
-                        SecurityUtil.getLoginUserId(principal),
-                        reportId
-                )
-        );
+        return ResponseUtil.ok(gateway.get(SecurityUtil.getLoginUserId(principal),
+                "/stt-reports/" + reportId, SttErrorReportResponseDto.class));
     }
 }

@@ -31,21 +31,22 @@ class LanguageLearningLevelTestClientTest {
     }
 
     @Test
-    void missingBaselineIsNotFabricated() {
-        server.expect(requestTo("http://ll.test/internal/v1/language-learning/level-test/baseline"))
-                .andRespond(withSuccess("{\"baseline\":null}", MediaType.APPLICATION_JSON));
-        assertTrue(client().baseline(123L).isEmpty());
-        server.verify();
-    }
+    void publicStatusUsesCurrentRemoteResponseWithoutRecomputingBand() {
+        // 준비: 외부 상태 조회는 현재 LL이 확정한 점수·band를 그대로 읽는다.
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/level-test/status"))
+                .andRespond(withSuccess("""
+                        {"profileState":"ACTIVE","initialLevelTestCompleted":true,"recheckRecommended":false,
+                         "activeSessionId":null,"currentQuestionNumber":null,"baseLevelScore":65.0,
+                         "proficiencyBand":"INTERMEDIATE"}
+                        """, MediaType.APPLICATION_JSON));
 
-    @Test
-    void wrongOwnerBaselineIsRejected() {
-        server.expect(requestTo("http://ll.test/internal/v1/language-learning/level-test/baseline"))
-                .andRespond(withSuccess(
-                        "{\"baseline\":{\"userId\":456,\"sessionId\":1,\"completionId\":\"5f55806e-767d-4c0d-82fd-66e44ee094f2\",\"sessionType\":\"INITIAL\",\"score\":65,\"proficiencyBand\":\"INTERMEDIATE\",\"completedDate\":\"2026-09-25\",\"startedAt\":\"2026-09-25T00:00:00\",\"completedAt\":\"2026-09-25T01:00:00\"}}",
-                        MediaType.APPLICATION_JSON));
-        assertEquals("LL_LEVEL_OWNER_MISMATCH",
-                assertThrows(LanguageLearningServiceException.class, () -> client().baseline(123L)).getErrorCode());
+        // 실행
+        var value = client().status(123L);
+
+        // 검증
+        assertTrue(value.initialLevelTestCompleted());
+        assertEquals(65.0, value.baseLevelScore());
+        assertEquals("INTERMEDIATE", value.proficiencyBand());
         server.verify();
     }
 
@@ -62,11 +63,14 @@ class LanguageLearningLevelTestClientTest {
     }
 
     @Test
-    void missingCompletionFieldsAreRejected() {
-        server.expect(requestTo("http://ll.test/internal/v1/language-learning/level-test/baseline"))
-                .andRespond(withSuccess("{\"baseline\":{\"userId\":123}}", MediaType.APPLICATION_JSON));
+    void missingPublicStatusFieldsAreRejected() {
+        // 준비
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/level-test/status"))
+                .andRespond(withSuccess("{\"initialLevelTestCompleted\":true}", MediaType.APPLICATION_JSON));
+
+        // 실행 및 검증
         assertEquals("LL_LEVEL_RESPONSE_INVALID",
-                assertThrows(LanguageLearningServiceException.class, () -> client().baseline(123L)).getErrorCode());
+                assertThrows(LanguageLearningServiceException.class, () -> client().status(123L)).getErrorCode());
         server.verify();
     }
 

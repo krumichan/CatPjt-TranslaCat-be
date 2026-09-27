@@ -13,6 +13,14 @@ public class LanguageLearningClientProperties {
     private Remote remote = new Remote();
     private InternalJwt internalJwt = new InternalJwt();
     private LevelTest levelTest = new LevelTest();
+    private Writing writing = new Writing();
+
+    @Getter
+    @Setter
+    public static class Writing {
+        // LL 생성의 기존 240초 deadline 뒤 응답 전달 여유만 둔다.
+        private int readTimeoutMs = 270000;
+    }
 
     @Getter
     @Setter

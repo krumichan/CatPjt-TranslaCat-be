@@ -1,21 +1,14 @@
 package jp.co.translacat.infrastructure.languagelearning.gateway;
 
 import jp.co.translacat.domain.languagelearning.setting.dto.request.UserSettingUpdateRequestDto;
-import jp.co.translacat.domain.languagelearning.setting.model.ConfiguredLanguagePair;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningServiceException;
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningSettingsClient;
-import jp.co.translacat.infrastructure.languagelearning.client.dto.ConfiguredLanguagePairsDto;
-import jp.co.translacat.infrastructure.languagelearning.client.dto.LearningDateResponseDto;
-import jp.co.translacat.infrastructure.languagelearning.client.dto.UserSettingsSnapshotDto;
 import jp.co.translacat.support.SettingsSnapshotFixtures;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
-
-import java.time.LocalDate;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -34,95 +27,89 @@ class RemoteSettingsGatewayTest {
 
     @Test
     void disabledClientFailsClosedWithoutCoreSettingsFallback() {
+        // 준비
         var access = new RemoteSettingsAccess(provider, users);
+
+        // 실행
         var error = assertThrows(LanguageLearningServiceException.class, () -> access.forUser(123L));
+
+        // 검증
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, error.getStatus());
         verifyNoInteractions(users, client);
     }
 
     @Test
     void missingCoreUserNeverCreatesRemoteLearner() {
+        // 준비
         var gateway = new RemoteUserSettingsGateway(access());
-        assertThrows(BusinessException.class, () -> gateway.getSnapshot(999L));
+
+        // 실행
+        assertThrows(BusinessException.class, () -> gateway.get(999L));
+
+        // 검증
         verifyNoInteractions(client);
     }
 
     @Test
-    void synchronizedSnapshotCarriesPostPromotionDateAndRevision() {
+    void userReadReturnsTheRemotePublicContract() {
+        // 준비
         var gateway = new RemoteUserSettingsGateway(access());
-        var expected = SettingsSnapshotFixtures.user(123);
-        when(client.getUserSnapshot(123L)).thenReturn(new UserSettingsSnapshotDto(123L,
-                expected.learningDate(), expected.revision(), expected.settings()));
-        assertEquals(expected, gateway.getSnapshot(123L));
-        assertEquals(expected.learningDate(), gateway.resolveToday(expected));
-        verify(client).getUserSnapshot(123L);
-    }
+        var response = SettingsSnapshotFixtures.userDto();
+        when(client.getUserSettings(123L)).thenReturn(response);
 
-    @Test
-    void mismatchedUserResponseIsNotAccepted() {
-        var gateway = new RemoteUserSettingsGateway(access());
-        var snapshot = SettingsSnapshotFixtures.user(123);
-        when(client.getUserSnapshot(123L)).thenReturn(new UserSettingsSnapshotDto(999L,
-                snapshot.learningDate(), snapshot.revision(), snapshot.settings()));
-        assertThrows(LanguageLearningServiceException.class, () -> gateway.getSnapshot(123L));
-    }
+        // 실행
+        var actual = gateway.get(123L);
 
-    @Test
-    void passiveDateDoesNotReadOrCreateUserSettings() {
-        var gateway = new RemoteUserSettingsGateway(access());
-        var date = LocalDate.of(2026, 9, 24);
-        when(client.resolveLearningDate(999L)).thenReturn(new LearningDateResponseDto(date));
-        assertEquals(date, gateway.resolveToday(999L));
-        verifyNoInteractions(users);
-        verify(client, never()).getUserSnapshot(any());
-        verify(client, never()).getUserSettings(any());
+        // 검증
+        assertSame(response, actual);
+        verify(client).getUserSettings(123L);
+        verifyNoMoreInteractions(client);
     }
 
     @Test
     void remoteErrorDoesNotTryAnotherReadSource() {
+        // 준비
         var gateway = new RemoteUserSettingsGateway(access());
         var failure = new LanguageLearningServiceException(HttpStatus.BAD_GATEWAY, "LL_SERVICE_UNAVAILABLE", "실패");
-        when(client.getUserSnapshot(123L)).thenThrow(failure);
-        assertSame(failure, assertThrows(LanguageLearningServiceException.class, () -> gateway.getSnapshot(123L)));
-        verify(client, times(1)).getUserSnapshot(123L);
+        when(client.getUserSettings(123L)).thenThrow(failure);
+
+        // 실행
+        var actual = assertThrows(LanguageLearningServiceException.class, () -> gateway.get(123L));
+
+        // 검증
+        assertSame(failure, actual);
+        verify(client, times(1)).getUserSettings(123L);
         verifyNoMoreInteractions(client);
     }
 
     @Test
     void userUpdateUsesActualUserAndPreservesResponse() {
+        // 준비
         var gateway = new RemoteUserSettingsGateway(access());
         var request = new UserSettingUpdateRequestDto(null, null, null, 7, null, null, null, null, null);
         var response = SettingsSnapshotFixtures.userDto();
         when(client.updateUserSettings(123L, request)).thenReturn(response);
-        assertSame(response, gateway.update(123L, request));
-    }
 
-    @Test
-    void backgroundAdminReadDoesNotInventAnAdminIdentity() {
-        var gateway = new RemoteAdminSettingsGateway(access());
-        when(client.getAdminPolicy()).thenReturn(SettingsSnapshotFixtures.admin().settings());
-        assertEquals(1000, gateway.getSnapshot().resolvedLevelTestQuestionPoolTargetSize());
-        verify(client).getAdminPolicy();
-        verify(client, never()).getAdminSettings(any());
-        verifyNoInteractions(users);
+        // 실행
+        var actual = gateway.update(123L, request);
+
+        // 검증
+        assertSame(response, actual);
     }
 
     @Test
     void publicAdminReadUsesTheAuthenticatedCoreIdentity() {
+        // 준비
         var gateway = new RemoteAdminSettingsGateway(access());
-        when(client.getAdminSettings(123L)).thenReturn(SettingsSnapshotFixtures.admin().settings());
-        gateway.getSettings(123L);
+        var response = SettingsSnapshotFixtures.adminDto();
+        when(client.getAdminSettings(123L)).thenReturn(response);
+
+        // 실행
+        var actual = gateway.getSettings(123L);
+
+        // 검증
+        assertSame(response, actual);
         verify(client).getAdminSettings(123L);
         verify(users).existsById(123L);
-    }
-
-    @Test
-    void languagePairResultsAreImmutableAndReadThroughTheServiceContract() {
-        var gateway = new RemoteUserSettingsGateway(access());
-        var pair = new ConfiguredLanguagePair("ko", "ja");
-        when(client.configuredLanguagePairs()).thenReturn(new ConfiguredLanguagePairsDto(List.of(pair)));
-        var result = gateway.configuredLanguagePairs();
-        assertEquals(List.of(pair), result);
-        assertThrows(UnsupportedOperationException.class, () -> result.add(pair));
     }
 }

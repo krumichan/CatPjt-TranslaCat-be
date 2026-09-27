@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.languagelearning.speaking.audio.controller;
 
 import jp.co.translacat.domain.languagelearning.speaking.audio.model.SpeakingAudioObject;
-import jp.co.translacat.domain.languagelearning.speaking.audio.service.SpeakingAudioQueryService;
+import jp.co.translacat.domain.languagelearning.speaking.port.SpeakingGateway;
 import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.SecurityUtil;
 
@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class SpeakingAudioController {
 
-    private final SpeakingAudioQueryService audioQueryService;
+    private final SpeakingGateway gateway;
 
     @GetMapping("/audio/opening")
     public ResponseEntity<byte[]> getOpening(
@@ -29,9 +29,9 @@ public class SpeakingAudioController {
             @PathVariable Long sessionId
     ) {
         return response(
-                audioQueryService.getOpeningAudio(
+                gateway.audio(
                         SecurityUtil.getLoginUserId(principal),
-                        sessionId
+                        "/sessions/" + sessionId + "/audio/opening"
                 )
         );
     }
@@ -43,10 +43,9 @@ public class SpeakingAudioController {
             @PathVariable Long turnId
     ) {
         return response(
-                audioQueryService.getUserAudio(
+                gateway.audio(
                         SecurityUtil.getLoginUserId(principal),
-                        sessionId,
-                        turnId
+                        "/sessions/" + sessionId + "/turns/" + turnId + "/audio/user"
                 )
         );
     }
@@ -58,10 +57,9 @@ public class SpeakingAudioController {
             @PathVariable Long turnId
     ) {
         return response(
-                audioQueryService.getAssistantAudio(
+                gateway.audio(
                         SecurityUtil.getLoginUserId(principal),
-                        sessionId,
-                        turnId
+                        "/sessions/" + sessionId + "/turns/" + turnId + "/audio"
                 )
         );
     }

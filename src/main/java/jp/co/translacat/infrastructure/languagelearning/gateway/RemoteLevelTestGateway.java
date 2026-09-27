@@ -3,7 +3,6 @@ package jp.co.translacat.infrastructure.languagelearning.gateway;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelAnswerRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelTestStartRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.*;
-import jp.co.translacat.domain.languagelearning.level.model.LevelCompletionSnapshot;
 import jp.co.translacat.domain.languagelearning.level.model.LevelTestAudioData;
 import jp.co.translacat.domain.languagelearning.level.port.LevelTestGateway;
 import jp.co.translacat.domain.languagelearning.support.LanguageLearningErrorCode;
@@ -16,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Optional;
 
 @Component
 public class RemoteLevelTestGateway implements LevelTestGateway {
@@ -95,13 +93,4 @@ public class RemoteLevelTestGateway implements LevelTestGateway {
         return forUser(userId).audio(userId, itemId, kind);
     }
 
-    @Override
-    public Optional<LevelCompletionSnapshot> baseline(Long userId) {
-        return forUser(userId).baseline(userId);
-    }
-
-    @Override
-    public List<LevelCompletionSnapshot> completions(Long userId) {
-        return forUser(userId).completions(userId);
-    }
 }

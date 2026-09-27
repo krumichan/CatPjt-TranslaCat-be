@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelAnswerRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelTestStartRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.*;
-import jp.co.translacat.domain.languagelearning.level.model.LevelCompletionSnapshot;
 import jp.co.translacat.domain.languagelearning.level.model.LevelTestAudioData;
 import jp.co.translacat.infrastructure.languagelearning.client.dto.InternalApiErrorDto;
 import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
@@ -18,7 +17,6 @@ import org.springframework.web.client.RestClientException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * 느린 AI 작업용 timeout은 Settings client와 분리한다. HTTP 재전송/옛 DB fallback은 하지 않는다.
@@ -112,20 +110,6 @@ public class LanguageLearningLevelTestClient {
         return get(user, "/history/" + positive(session), LevelTestHistoryDetailResponseDto.class);
     }
 
-    public Optional<LevelCompletionSnapshot> baseline(Long user) {
-        var value = get(user, "/baseline", BaselineResponse.class).baseline();
-        if (value != null && !user.equals(value.userId()))
-            throw failure("LL_LEVEL_OWNER_MISMATCH", "레벨 기준점의 소유자가 다릅니다.");
-        return Optional.ofNullable(value);
-    }
-
-    public List<LevelCompletionSnapshot> completions(Long user) {
-        var value = get(user, "/completions", CompletionsResponse.class).completions();
-        if (value == null || value.stream().anyMatch(v -> v == null || !user.equals(v.userId())))
-            throw failure("LL_LEVEL_OWNER_MISMATCH", "레벨 이력의 소유자가 다릅니다.");
-        return value;
-    }
-
     public LevelTestAudioData audio(Long user, Long item, String kind) {
         if (!List.of("reference-audio", "answer-audio", "model-answer-audio").contains(kind))
             throw new IllegalArgumentException("음성 종류를 확인해 주세요.");
@@ -201,9 +185,4 @@ public class LanguageLearningLevelTestClient {
         return "Bearer " + jwt.issueUserToken(positive(user));
     }
 
-    public record BaselineResponse(LevelCompletionSnapshot baseline) {
-    }
-
-    public record CompletionsResponse(List<LevelCompletionSnapshot> completions) {
-    }
 }

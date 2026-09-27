@@ -1,14 +1,9 @@
 package jp.co.translacat.domain.languagelearning.listening.daily.facade;
 
-import jp.co.translacat.domain.languagelearning.listening.attempt.service.ListeningAttemptQueryService;
 import jp.co.translacat.domain.languagelearning.listening.audio.model.ListeningAudioObject;
-import jp.co.translacat.domain.languagelearning.listening.daily.entity.ListeningDailySet;
-import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningDailySetCommandService;
-import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningDailySetQueryService;
-import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningGenerationRetryCommandService;
-import jp.co.translacat.domain.languagelearning.listening.daily.service.ListeningTtsRetryCommandService;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
-import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
+import jp.co.translacat.domain.languagelearning.listening.port.ListeningGateway;
+import jp.co.translacat.domain.languagelearning.listening.setting.port.ListeningPolicyGateway;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,66 +12,41 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ListeningDailySetFacade {
+    private final ListeningGateway gateway;
+    private final ListeningPolicyGateway policyGateway;
 
-    private final ListeningDailySetCommandService commandService;
-    private final ListeningDailySetQueryService queryService;
-    private final ListeningGenerationRetryCommandService generationRetryCommandService;
-    private final ListeningTtsRetryCommandService ttsRetryCommandService;
-    private final ListeningAttemptQueryService attemptQueryService;
-    private final UserSettingsGateway userSettingService;
-
-    public ListeningApiContract.DailySetView getOrCreate(
-            Long userId,
-            ListeningApiContract.DailySetCreateRequest request
-    ) {
-        ListeningDailySet dailySet = commandService.getOrCreate(userId, request);
-
-        return queryService.view(userId, dailySet);
+    public ListeningApiContract.DailySetView getOrCreate(Long userId,
+                                                         ListeningApiContract.DailySetCreateRequest request) {
+        return gateway.post(userId, "/daily-sets", request, ListeningApiContract.DailySetView.class);
     }
 
-    public ListeningApiContract.DailySetView get(Long userId, Long dailySetId) {
-        return queryService.view(userId, queryService.owned(userId, dailySetId));
+    public ListeningApiContract.DailySetView get(Long userId, Long setId) {
+        return gateway.get(userId, "/daily-sets/" + setId, ListeningApiContract.DailySetView.class);
     }
 
     public List<ListeningApiContract.DailyModeStatusView> todayStatuses(Long userId) {
-        var setting = userSettingService.getSnapshot(userId);
-        userSettingService.requireConfigured(setting);
-        return queryService.todayStatuses(
-                userId,
-                userSettingService.resolveToday(setting),
-                setting.getLearningLanguage()
-        );
+        return gateway.list(userId, "/today/status", ListeningApiContract.DailyModeStatusView.class);
     }
 
-    public ListeningApiContract.DailySetView retryGeneration(
-            Long userId,
-            Long dailySetId
-    ) {
-        ListeningDailySet dailySet = generationRetryCommandService.retry(
-                userId,
-                dailySetId
-        );
-
-        return queryService.view(userId, dailySet);
+    public ListeningApiContract.DailySetView retryGeneration(Long userId, Long setId) {
+        return gateway.post(userId, "/daily-sets/" + setId + "/retry-generation", null,
+                ListeningApiContract.DailySetView.class);
     }
 
-    public ListeningApiContract.DailySetView retryTts(
-            Long userId,
-            Long itemId
-    ) {
-        ListeningDailySet dailySet = ttsRetryCommandService.retry(
-                userId,
-                itemId
-        );
-
-        return queryService.view(userId, dailySet);
+    public ListeningApiContract.DailySetView retryTts(Long userId, Long itemId) {
+        return gateway.post(userId, "/items/" + itemId + "/retry-tts", null, ListeningApiContract.DailySetView.class);
     }
 
     public ListeningAudioObject referenceAudio(Long userId, Long itemId) {
-        return attemptQueryService.referenceAudio(userId, itemId);
+        return gateway.audio(userId, "/items/" + itemId + "/audio");
     }
 
     public ListeningApiContract.PolicyView policy() {
-        return queryService.policy();
+        var value = policyGateway.get();
+        return new ListeningApiContract.PolicyView(value.enabled(), value.defaultItemCount(), value.minItemCount(),
+                value.maxItemCount(), value.hardItemLimit(), value.resumeHours(), value.referenceAudioRetentionDays(),
+                value.userAudioRetentionDays(), value.reportedAudioRetentionDays(), value.automaticRetryLimit(),
+                value.manualRetryLimit(), value.practiceAttemptLimit(), value.profilePolicyVersion(),
+                value.modelConfigVersion(), value.referenceTtsRegenerationEnabled());
     }
 }

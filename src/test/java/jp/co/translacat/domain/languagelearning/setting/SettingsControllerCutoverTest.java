@@ -81,7 +81,7 @@ class SettingsControllerCutoverTest {
         try (var context = new AnnotationConfigApplicationContext(ConfigurationForTest.class)) {
             var principal = principal();
             var gateway = context.getBean(AdminSettingsGateway.class);
-            when(gateway.getSettings(987L)).thenReturn(SettingsSnapshotFixtures.admin().settings());
+            when(gateway.getSettings(987L)).thenReturn(SettingsSnapshotFixtures.adminDto());
             SecurityContextHolder.getContext()
                     .setAuthentication(new UsernamePasswordAuthenticationToken(principal, "",
                             List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));

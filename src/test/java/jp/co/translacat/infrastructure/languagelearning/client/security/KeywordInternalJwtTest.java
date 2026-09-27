@@ -33,17 +33,18 @@ class KeywordInternalJwtTest {
     }
 
     @Test
-    void userTokenCarriesOnlyVerifiedUserAndMandatoryLearningFact() {
-        Claims started = claims(provider().issueKeywordUserToken(123L, true));
+    void userTokenCarriesVerifiedIdentityWithoutCoreLearningState() {
+        // 준비·실행: LL이 학습 사실을 조회하므로 BE는 인증 주체만 서명한다.
+        Claims started = claims(provider().issueKeywordUserToken(123L));
+
+        // 검증
         assertEquals("123", started.getSubject());
         assertEquals("ll-keywords", started.get("tokenUse"));
         assertEquals("translacat-be", started.get("service"));
         assertEquals(List.of("USER"), started.get("roles", List.class));
-        assertEquals(Boolean.TRUE, started.get("keywordLearningStarted", Boolean.class));
+        assertNull(started.get("keywordLearningStarted"));
         assertEquals(NOW, started.getIssuedAt().toInstant());
         assertEquals(NOW.plusSeconds(120), started.getExpiration().toInstant());
-        assertEquals(Boolean.FALSE,
-                claims(provider().issueKeywordUserToken(123L, false)).get("keywordLearningStarted", Boolean.class));
     }
 
     @Test
@@ -64,8 +65,8 @@ class KeywordInternalJwtTest {
 
     @Test
     void invalidSubjectsAreRejectedBeforeSigning() {
-        assertThrows(IllegalArgumentException.class, () -> provider().issueKeywordUserToken(0L, false));
-        assertThrows(IllegalArgumentException.class, () -> provider().issueKeywordUserToken(null, true));
+        assertThrows(IllegalArgumentException.class, () -> provider().issueKeywordUserToken(0L));
+        assertThrows(IllegalArgumentException.class, () -> provider().issueKeywordUserToken(null));
         assertThrows(IllegalArgumentException.class, () -> provider().issueKeywordAdminToken(-1L));
     }
 }

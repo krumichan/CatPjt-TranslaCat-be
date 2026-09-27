@@ -139,8 +139,9 @@ class LanguageLearningSettingsClientTest {
 
     @Test
     void serviceReadUsesItsOwnPathAndTokenPurpose() {
+        // 준비: 현재 외부 Listening 정책 조회가 서비스 인증 경로를 계속 사용한다.
         server.expect(
-                        requestTo("http://ll.test/internal/v1/service/language-learning/settings/users/123/learning-date"))
+                        requestTo("http://ll.test/internal/v1/service/language-learning/settings/listening-policy"))
                 .andExpect(request -> {
                     String token = request.getHeaders().getFirst("Authorization").substring(7);
                     var claims = io.jsonwebtoken.Jwts.parser()
@@ -150,8 +151,21 @@ class LanguageLearningSettingsClientTest {
                     assertEquals("ll-settings-service", claims.get("tokenUse"));
                     org.junit.jupiter.api.Assertions.assertNull(claims.get("roles"));
                 })
-                .andRespond(withSuccess("{\"date\":\"2026-09-24\"}", MediaType.APPLICATION_JSON));
-        assertEquals(java.time.LocalDate.of(2026, 9, 24), client.resolveLearningDate(123L).date());
+                .andRespond(withSuccess("""
+                        {"enabled":true,"defaultItemCount":8,"minItemCount":2,"maxItemCount":12,"hardItemLimit":10,
+                         "referenceAudioMaxSeconds":30,"repeatAudioMaxSeconds":60,"maxAudioFileBytes":10485760,
+                         "maxRerecordCount":2,"resumeHours":2,"referenceAudioRetentionDays":7,
+                         "userAudioRetentionDays":7,"reportedAudioRetentionDays":30,"automaticRetryLimit":2,
+                         "manualRetryLimit":1,"practiceAttemptLimit":1,"profilePolicyVersion":"p2",
+                         "modelConfigVersion":"m2","referenceTtsRegenerationEnabled":false}
+                        """, MediaType.APPLICATION_JSON));
+
+        // 실행
+        var result = client.getListeningPolicy();
+
+        // 검증
+        assertEquals(8, result.defaultItemCount());
+        assertEquals("p2", result.profilePolicyVersion());
         server.verify();
     }
 

@@ -62,7 +62,8 @@ class LanguageLearningKeywordClientTest {
     }
 
     @Test
-    void getUsesKeywordPurposeLocaleAndStartedFact() {
+    void getUsesKeywordPurposeAndLocaleWithoutCoreLearningFact() {
+        // 준비: 학습 사실을 실어 보내지 않는 전용 인증 계약을 확인한다.
         server.expect(requestTo(USER))
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(header("X-TranslaCat-Locale", "learning"))
@@ -70,11 +71,12 @@ class LanguageLearningKeywordClientTest {
                     var value = claims(request.getHeaders().getFirst("Authorization"));
                     assertEquals("123", value.getSubject());
                     assertEquals("ll-keywords", value.get("tokenUse"));
-                    assertEquals(Boolean.TRUE, value.get("keywordLearningStarted", Boolean.class));
+                    assertNull(value.get("keywordLearningStarted"));
                 })
                 .andRespond(withSuccess("{\"systemKeywords\":[" + ROW + "],\"customKeywords\":[]}",
                         MediaType.APPLICATION_JSON));
-        assertEquals(10L, client.list(123L, true, "learning").systemKeywords().get(0).id().longValue());
+        // 실행·검증
+        assertEquals(10L, client.list(123L, "learning").systemKeywords().get(0).id().longValue());
         server.verify();
     }
 
@@ -89,8 +91,8 @@ class LanguageLearningKeywordClientTest {
                 .andExpect(method(HttpMethod.PATCH))
                 .andExpect(jsonPath("$.active").value(false))
                 .andRespond(withSuccess(ROW, MediaType.APPLICATION_JSON));
-        client.createCustom(123L, false, new KeywordCreateRequestDto("IT", KeywordType.TOPIC, null, null, null));
-        client.updateCustom(123L, true, 10L, new KeywordUpdateRequestDto(null, null, null, false, null, null));
+        client.createCustom(123L, new KeywordCreateRequestDto("IT", KeywordType.TOPIC, null, null, null));
+        client.updateCustom(123L, 10L, new KeywordUpdateRequestDto(null, null, null, false, null, null));
         server.verify();
     }
 
@@ -100,8 +102,8 @@ class LanguageLearningKeywordClientTest {
                 .andExpect(jsonPath("$.selected").value(true)).andRespond(withSuccess(ROW, MediaType.APPLICATION_JSON));
         server.expect(requestTo(USER + "/custom/11")).andExpect(method(HttpMethod.DELETE))
                 .andRespond(withSuccess("true", MediaType.APPLICATION_JSON));
-        client.selectSystem(123L, false, 10L, true);
-        client.deleteCustom(123L, false, 11L);
+        client.selectSystem(123L, 10L, true);
+        client.deleteCustom(123L, 11L);
         server.verify();
     }
 
@@ -123,7 +125,7 @@ class LanguageLearningKeywordClientTest {
                         {"candidates":[{"key":"CUSTOM:10","text":"IT","source":"CUSTOM","type":"TOPIC",
                          "canonicalKey":"it","availableFrom":"2026-09-24"}]}
                         """, MediaType.APPLICATION_JSON));
-        var rows = client.candidates(123L, true, LocalDate.of(2026, 9, 24));
+        var rows = client.candidates(123L, LocalDate.of(2026, 9, 24));
         assertEquals("CUSTOM:10", rows.get(0).key());
         assertEquals(LocalDate.of(2026, 9, 24), rows.get(0).availableFrom());
         server.verify();
@@ -143,7 +145,7 @@ class LanguageLearningKeywordClientTest {
         server.expect(requestTo(USER))
                 .andRespond(withSuccess("{\"systemKeywords\":null,\"customKeywords\":[]}", MediaType.APPLICATION_JSON));
         assertEquals(HttpStatus.BAD_GATEWAY,
-                assertThrows(LanguageLearningServiceException.class, () -> client.list(123L, false, "ko")).getStatus());
+                assertThrows(LanguageLearningServiceException.class, () -> client.list(123L, "ko")).getStatus());
         server.verify();
     }
 
@@ -153,7 +155,7 @@ class LanguageLearningKeywordClientTest {
                 .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
                         .body("{\"code\":\"KEYWORD_DUPLICATED\",\"message\":\"이미 등록된 키워드입니다.\"}"));
         var error = assertThrows(LanguageLearningServiceException.class,
-                () -> client.createCustom(123L, false,
+                () -> client.createCustom(123L,
                         new KeywordCreateRequestDto("IT", KeywordType.TOPIC, null, null, null)));
         assertEquals("KEYWORD_DUPLICATED", error.getErrorCode());
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
@@ -166,7 +168,7 @@ class LanguageLearningKeywordClientTest {
                 .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE).contentType(MediaType.APPLICATION_JSON)
                         .body("{\"code\":\"TEST_UNAVAILABLE\",\"message\":\"테스트 장애\"}"));
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE,
-                assertThrows(LanguageLearningServiceException.class, () -> client.list(123L, true, null)).getStatus());
+                assertThrows(LanguageLearningServiceException.class, () -> client.list(123L, null)).getStatus());
         server.verify();
     }
 }

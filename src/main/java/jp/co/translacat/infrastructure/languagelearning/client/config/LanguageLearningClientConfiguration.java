@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningKeywordClient;
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningLevelTestClient;
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningSettingsClient;
+import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningWritingClient;
 import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -125,5 +126,25 @@ public class LanguageLearningClientConfiguration {
         factory.setReadTimeout(Duration.ofMillis(timeout));
         var client = builder.clone().baseUrl(trimTrailingSlash(properties.getUrl())).requestFactory(factory).build();
         return new LanguageLearningLevelTestClient(client, jwtProvider, mapper);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "language-learning.remote", name = "enabled", havingValue = "true")
+    public LanguageLearningWritingClient languageLearningWritingClient(RestClient.Builder builder,
+                                                                       LanguageLearningClientProperties properties,
+                                                                       LanguageLearningInternalJwtProvider jwtProvider,
+                                                                       ObjectMapper mapper) {
+        validate(properties);
+        int timeout = properties.getWriting().getReadTimeoutMs();
+        if (timeout < 240000 || timeout > 600000)
+            throw new IllegalStateException("Writing HTTP timeout은 LL의 240초 작업 기한을 포함해야 합니다.");
+        var http = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofMillis(properties.getRemote().getConnectTimeoutMs()))
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
+        var factory = new JdkClientHttpRequestFactory(http);
+        factory.setReadTimeout(Duration.ofMillis(timeout));
+        var client = builder.clone().baseUrl(trimTrailingSlash(properties.getUrl())).requestFactory(factory).build();
+        return new LanguageLearningWritingClient(client, jwtProvider, mapper);
     }
 }

@@ -3,7 +3,6 @@ package jp.co.translacat.infrastructure.languagelearning.growth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
 import jp.co.translacat.domain.languagelearning.growth.model.GrowthActivitySnapshot;
-import jp.co.translacat.domain.languagelearning.growth.model.GrowthOperation;
 import jp.co.translacat.domain.languagelearning.growth.model.GrowthSnapshot;
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningServiceException;
 import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
@@ -28,27 +27,18 @@ public class GrowthHttpClient {
         this.mapper = mapper;
     }
 
-    public GrowthAcknowledgement deliver(GrowthEnvelope event) {
-        var bytes = client.post().uri("/internal/v1/service/language-learning/growth/commands")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.issueGrowthServiceToken())
-                .contentType(MediaType.APPLICATION_JSON).body(event).retrieve().body(byte[].class);
-        return decode(bytes, GrowthAcknowledgement.class);
-    }
-
-    public GrowthSnapshot snapshot(long userId, String source, long minimum, List<GrowthOperation> preview,
-                                   List<String> keys) {
+    public GrowthSnapshot snapshot(long userId, List<String> keys) {
+        // 인증된 사용자에게 필요한 현재 LL mastery 범위만 요청한다.
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("sourceInstanceId", source);
-        payload.put("minimumSequence", minimum);
-        payload.put("previewOperations", preview);
         payload.put("masteryKeys", keys);
+
+        // 다른 사용자의 응답과 잘못된 본문은 외부 Profile로 반환하지 않는다.
         try {
             var result = decode(client.post().uri("/internal/v1/language-learning/growth/snapshot")
                             .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.issueUserToken(userId))
                             .contentType(MediaType.APPLICATION_JSON).body(payload).retrieve().body(byte[].class),
                     GrowthSnapshot.class);
-            if (result.userId() != userId || !source.equals(result.sourceInstanceId()) || result.sequence() < minimum
-                    || result.preview() != !preview.isEmpty()) throw invalid();
+            if (result.userId() != userId) throw invalid();
             return result;
         } catch (RestClientResponseException failure) {
             throw readFailure(failure);
@@ -57,14 +47,12 @@ public class GrowthHttpClient {
         }
     }
 
-    public ActivityPage activities(long userId, String sourceId, long minimum, LearningSource source, LocalDate from,
+    public ActivityPage activities(long userId, LearningSource source, LocalDate from,
                                    LocalDate to, long after) {
         try {
             var result =
                     decode(client.get()
                             .uri(builder -> builder.path("/internal/v1/language-learning/growth/activities")
-                                    .queryParam("sourceInstanceId", sourceId)
-                                    .queryParam("minimumSequence", minimum)
                                     .queryParam("source", source == null ? "" : source.name())
                                     .queryParam("from", from)
                                     .queryParam("to", to)
@@ -74,8 +62,6 @@ public class GrowthHttpClient {
                             .retrieve()
                             .body(byte[].class), ActivityPage.class);
             if (result.userId() != userId
-                    || !sourceId.equals(result.sourceInstanceId())
-                    || result.sequence() < minimum
                     || result.activities() == null
                     || result.projectionRevision() == null)
                 throw invalid();
@@ -101,11 +87,10 @@ public class GrowthHttpClient {
         try {
             var body = mapper.readTree(failure.getResponseBodyAsByteArray());
             String value = body.path("code").asText();
-            if (Set.of("GROWTH_SYNC_PENDING", "GROWTH_SOURCE_MISMATCH", "GROWTH_OPERATION_CONFLICT",
-                    "LEVEL_TEST_REQUIRED").contains(value)) code = value;
+            if ("LEVEL_TEST_REQUIRED".equals(value)) code = value;
         } catch (Exception ignored) { /* 원문 오류는 로그/외부 응답에 노출하지 않는다. */ }
         return new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, code,
-                "GROWTH_SYNC_PENDING".equals(code) ? "성장 결과 반영 중입니다. 잠시 후 다시 확인해 주세요." : "언어학습 성장 데이터 조회가 실패했습니다.");
+                "언어학습 성장 데이터 조회가 실패했습니다.");
     }
 
     private static LanguageLearningServiceException invalid() {
@@ -118,7 +103,7 @@ public class GrowthHttpClient {
                 "성장 서비스에 연결할 수 없습니다.");
     }
 
-    public record ActivityPage(long userId, String sourceInstanceId, long sequence,
+    public record ActivityPage(long userId,
                                List<GrowthActivitySnapshot> activities, Long nextAfterId, String projectionRevision) {
     }
 }

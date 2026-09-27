@@ -118,6 +118,12 @@ public class SecurityConfig {
                                 (request, response, accessDeniedException) ->
                                         response.setStatus(HttpServletResponse.SC_NOT_FOUND),
                                 NOVEL_API_REQUESTS)
+                        // 인증된 비관리자의 거부가 익명 /error 재진입에서 401로 바뀌지 않게 한다.
+                        .defaultAccessDeniedHandlerFor(
+                                (request, response, accessDeniedException) ->
+                                        response.setStatus(HttpServletResponse.SC_FORBIDDEN),
+                                PathPatternRequestMatcher.withDefaults()
+                                        .matcher("/api/v1/admin/language-learning/**"))
                         .defaultAccessDeniedHandlerFor(
                                 new AccessDeniedHandlerImpl(),
                                 AnyRequestMatcher.INSTANCE))

@@ -1,7 +1,7 @@
 package jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.controller;
 
 import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.dto.SpeakingReadAloudProblemEvaluationResponseDto;
-import jp.co.translacat.domain.languagelearning.speaking.evaluation.readaloud.service.SpeakingReadAloudProblemEvaluationService;
+import jp.co.translacat.domain.languagelearning.speaking.port.SpeakingGateway;
 import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
@@ -17,7 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SpeakingReadAloudProblemEvaluationController {
 
-    private final SpeakingReadAloudProblemEvaluationService service;
+    private final SpeakingGateway gateway;
 
     @PostMapping("/{problemIndex}/evaluate")
     public ResponseDto<SpeakingReadAloudProblemEvaluationResponseDto> evaluate(
@@ -26,10 +26,10 @@ public class SpeakingReadAloudProblemEvaluationController {
             @PathVariable int problemIndex
     ) {
         return ResponseUtil.ok(
-                service.submit(
+                gateway.post(
                         SecurityUtil.getLoginUserId(principal),
-                        sessionId,
-                        problemIndex
+                        "/sessions/" + sessionId + "/read-aloud/problems/" + problemIndex + "/evaluate",
+                        null, SpeakingReadAloudProblemEvaluationResponseDto.class
                 )
         );
     }
@@ -40,7 +40,9 @@ public class SpeakingReadAloudProblemEvaluationController {
             @PathVariable Long sessionId,
             @PathVariable int problemIndex
     ) {
-        return ResponseUtil.ok(service.retry(SecurityUtil.getLoginUserId(principal), sessionId, problemIndex));
+        return ResponseUtil.ok(gateway.post(SecurityUtil.getLoginUserId(principal),
+                "/sessions/" + sessionId + "/read-aloud/problems/" + problemIndex + "/evaluation/retry",
+                null, SpeakingReadAloudProblemEvaluationResponseDto.class));
     }
 
     @GetMapping
@@ -49,9 +51,10 @@ public class SpeakingReadAloudProblemEvaluationController {
             @PathVariable Long sessionId
     ) {
         return ResponseUtil.ok(
-                service.list(
+                gateway.list(
                         SecurityUtil.getLoginUserId(principal),
-                        sessionId
+                        "/sessions/" + sessionId + "/read-aloud/problems",
+                        SpeakingReadAloudProblemEvaluationResponseDto.class
                 )
         );
     }

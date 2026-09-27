@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.io.IOException;
 
@@ -30,6 +31,20 @@ public class JwtFilter extends OncePerRequestFilter {
     private final JWTService jwtService;
 
     private final ApplicationContext context;
+
+    @Value("${chat.gateway.enabled:false}")
+    private boolean chatGatewayEnabled;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        // Chat 내부 서비스 JWT는 전용 SecurityFilterChain이 검증한다. 외부 사용자 JWT 키와 혼용하지 않는다.
+        String path = request.getServletPath();
+        return path.equals("/internal/v1/chat") || path.startsWith("/internal/v1/chat/")
+                || chatGatewayEnabled && (path.equals("/ws/chat") || path.startsWith("/ws/chat/")
+                || path.equals("/api/v1/chat") || path.startsWith("/api/v1/chat/")
+                || path.equals("/api/v1/admin/chat") || path.startsWith("/api/v1/admin/chat/")
+                || path.equals("/api/v1/users/me/chat-language-settings"));
+    }
 
     /**
      * HTTP 요청 필터링

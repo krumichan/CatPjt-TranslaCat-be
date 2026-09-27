@@ -42,39 +42,39 @@ public class LanguageLearningKeywordClient {
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     }
 
-    public KeywordListResponseDto list(Long userId, boolean started, String locale) {
+    public KeywordListResponseDto list(Long userId, String locale) {
         return read(() -> client.get().uri(USER)
-                .header(HttpHeaders.AUTHORIZATION, bearer(jwt.issueKeywordUserToken(userId, started)))
+                .header(HttpHeaders.AUTHORIZATION, bearer(jwt.issueKeywordUserToken(userId)))
                 .header("X-TranslaCat-Locale", locale == null ? "ko" : locale)
                 .retrieve().body(byte[].class), KeywordListResponseDto.class);
     }
 
-    public KeywordResponseDto createCustom(Long userId, boolean started, KeywordCreateRequestDto request) {
+    public KeywordResponseDto createCustom(Long userId, KeywordCreateRequestDto request) {
         return read(() -> client.post().uri(USER + "/custom")
-                .header(HttpHeaders.AUTHORIZATION, bearer(jwt.issueKeywordUserToken(userId, started)))
+                .header(HttpHeaders.AUTHORIZATION, bearer(jwt.issueKeywordUserToken(userId)))
                 .body(request).retrieve().body(byte[].class), KeywordResponseDto.class);
     }
 
-    public KeywordResponseDto updateCustom(Long userId, boolean started, Long keywordId,
+    public KeywordResponseDto updateCustom(Long userId, Long keywordId,
                                            KeywordUpdateRequestDto request) {
         requireId(keywordId);
         return read(() -> client.patch().uri(USER + "/custom/" + keywordId)
-                .header(HttpHeaders.AUTHORIZATION, bearer(jwt.issueKeywordUserToken(userId, started)))
+                .header(HttpHeaders.AUTHORIZATION, bearer(jwt.issueKeywordUserToken(userId)))
                 .body(request).retrieve().body(byte[].class), KeywordResponseDto.class);
     }
 
-    public void deleteCustom(Long userId, boolean started, Long keywordId) {
+    public void deleteCustom(Long userId, Long keywordId) {
         requireId(keywordId);
         Boolean deleted = read(() -> client.delete().uri(USER + "/custom/" + keywordId)
-                .header(HttpHeaders.AUTHORIZATION, bearer(jwt.issueKeywordUserToken(userId, started)))
+                .header(HttpHeaders.AUTHORIZATION, bearer(jwt.issueKeywordUserToken(userId)))
                 .retrieve().body(byte[].class), Boolean.class);
         if (!Boolean.TRUE.equals(deleted)) throw invalidResponse();
     }
 
-    public KeywordResponseDto selectSystem(Long userId, boolean started, Long keywordId, boolean selected) {
+    public KeywordResponseDto selectSystem(Long userId, Long keywordId, boolean selected) {
         requireId(keywordId);
         return read(() -> client.put().uri(USER + "/system/" + keywordId + "/selection")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(jwt.issueKeywordUserToken(userId, started)))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(jwt.issueKeywordUserToken(userId)))
                         .body(new SystemKeywordSelectionRequestDto(selected)).retrieve().body(byte[].class),
                 KeywordResponseDto.class);
     }
@@ -99,11 +99,11 @@ public class LanguageLearningKeywordClient {
                 .body(request).retrieve().body(byte[].class), KeywordResponseDto.class);
     }
 
-    public List<KeywordCandidateSnapshot> candidates(Long userId, boolean started, LocalDate date) {
+    public List<KeywordCandidateSnapshot> candidates(Long userId, LocalDate date) {
         if (date == null) throw new IllegalArgumentException("학습 날짜가 필요합니다.");
         return read(
                 () -> client.get().uri(uri -> uri.path(USER + "/candidates").queryParam("learningDate", date).build())
-                        .header(HttpHeaders.AUTHORIZATION, bearer(jwt.issueKeywordUserToken(userId, started)))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(jwt.issueKeywordUserToken(userId)))
                         .retrieve().body(byte[].class), KeywordCandidatesDto.class).candidates();
     }
 

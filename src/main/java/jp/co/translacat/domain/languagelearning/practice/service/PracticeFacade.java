@@ -6,6 +6,7 @@ import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeAn
 import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeModeAvailabilityResponseDto;
 import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeSetResponseDto;
 import jp.co.translacat.domain.languagelearning.practice.dto.response.PracticeTodayModeStatusResponseDto;
+import jp.co.translacat.domain.languagelearning.practice.port.PracticeGateway;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,35 +15,33 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class PracticeFacade {
-    private final PracticeGenerationService generationService;
-    private final PracticeQueryService queryService;
-    private final PracticeAnswerCommandService answerCommandService;
+    private final PracticeGateway gateway;
 
     public PracticeSetResponseDto getToday(
             Long userId,
             PracticeDomain domain,
             String mode
     ) {
-        return queryService.toResponse(generationService.getOrGenerate(userId, domain, mode));
+        return gateway.today(userId, domain, mode);
     }
 
     public PracticeSetResponseDto get(Long userId, Long setId) {
-        return queryService.get(userId, setId);
+        return gateway.get(userId, setId);
     }
 
     public PracticeSetResponseDto retryGeneration(Long userId, Long setId) {
-        return queryService.toResponse(generationService.retry(userId, setId));
+        return gateway.retry(userId, setId);
     }
 
     public List<PracticeTodayModeStatusResponseDto> getTodayStatus(
             Long userId,
             PracticeDomain domain
     ) {
-        return queryService.getTodayStatus(userId, domain);
+        return gateway.statuses(userId, domain);
     }
 
     public List<PracticeModeAvailabilityResponseDto> availability(Long userId) {
-        return generationService.availability(userId);
+        return gateway.availability(userId);
     }
 
     public PracticeAnswerResultResponseDto submit(
@@ -50,6 +49,6 @@ public class PracticeFacade {
             Long questionId,
             PracticeAnswerSubmitRequestDto request
     ) {
-        return answerCommandService.submit(userId, questionId, request);
+        return gateway.answer(userId, questionId, request);
     }
 }

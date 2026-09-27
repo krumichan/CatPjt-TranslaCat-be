@@ -7,7 +7,7 @@ import jp.co.translacat.domain.languagelearning.setting.dto.request.AdminSetting
 import jp.co.translacat.domain.languagelearning.setting.dto.request.UserSettingUpdateRequestDto;
 import jp.co.translacat.domain.languagelearning.setting.dto.response.AdminSettingResponseDto;
 import jp.co.translacat.domain.languagelearning.setting.dto.response.UserSettingResponseDto;
-import jp.co.translacat.infrastructure.languagelearning.client.dto.*;
+import jp.co.translacat.infrastructure.languagelearning.client.dto.InternalApiErrorDto;
 import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -65,32 +65,8 @@ public class LanguageLearningSettingsClient {
                 .body(request).retrieve().body(byte[].class), AdminSettingResponseDto.class);
     }
 
-    public UserSettingsSnapshotDto getUserSnapshot(Long userId) {
-        requireUserId(userId);
-        return serviceGet("/users/" + userId, UserSettingsSnapshotDto.class);
-    }
-
-    public LearningDateResponseDto resolveLearningDate(Long userId) {
-        requireUserId(userId);
-        return serviceGet("/users/" + userId + "/learning-date", LearningDateResponseDto.class);
-    }
-
-    public AdminSettingResponseDto getAdminPolicy() {
-        return serviceGet("/admin", AdminSettingResponseDto.class);
-    }
-
     public ListeningPolicySnapshot getListeningPolicy() {
         return serviceGet("/listening-policy", ListeningPolicySnapshot.class);
-    }
-
-    public ConfiguredLanguagePairsDto configuredLanguagePairs() {
-        return serviceGet("/language-pairs", ConfiguredLanguagePairsDto.class);
-    }
-
-    public SelectionDeliveryResponseDto rememberListeningSelection(Long userId, SelectionDeliveryRequestDto request) {
-        return read(() -> restClient.post().uri(USER_SETTINGS_PATH + "/listening-selection")
-                .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueUserToken(userId)))
-                .body(request).retrieve().body(byte[].class), SelectionDeliveryResponseDto.class);
     }
 
     private <T> T serviceGet(String path, Class<T> type) {
@@ -122,37 +98,15 @@ public class LanguageLearningSettingsClient {
     }
 
     private static void validateResponse(Object value) {
-        if (value instanceof UserSettingsSnapshotDto(
-                Long userId, java.time.LocalDate learningDate, java.time.LocalDateTime revision,
-                UserSettingResponseDto settings
-        )) {
-            if (userId == null || userId <= 0 || learningDate == null || revision == null || settings == null) {
-                throw failure("LL_SETTINGS_CONTRACT_ERROR", "사용자 설정 snapshot 계약이 유효하지 않습니다.");
-            }
-            validateResponse(settings);
-        } else if (value instanceof UserSettingResponseDto dto) {
+        if (value instanceof UserSettingResponseDto dto) {
             if (dto.timezone() == null || dto.timezone().isBlank() || dto.speakingVoiceId() == null
                     || dto.speakingPlaybackSpeed() == null || dto.defaultListeningTaskTypes() == null
                     || dto.configured() != (dto.originLanguage() != null && dto.learningLanguage() != null)) {
                 throw failure("LL_SETTINGS_CONTRACT_ERROR", "사용자 설정 응답이 유효하지 않습니다.");
             }
-        } else if (value instanceof LearningDateResponseDto(java.time.LocalDate date) && date == null) {
-            throw failure("LL_SETTINGS_CONTRACT_ERROR", "학습 날짜가 없습니다.");
-        } else if (value instanceof ConfiguredLanguagePairsDto(
-                java.util.List<jp.co.translacat.domain.languagelearning.setting.model.ConfiguredLanguagePair> pairs
-        )) {
-            if (pairs == null || pairs.stream().anyMatch(pair -> pair == null || pair.originLanguage() == null
-                    || pair.learningLanguage() == null || pair.originLanguage().isBlank() || pair.learningLanguage()
-                    .isBlank())) {
-                throw failure("LL_SETTINGS_CONTRACT_ERROR", "언어쌍 응답이 유효하지 않습니다.");
-            }
         } else if (value instanceof ListeningPolicySnapshot dto && (dto.profilePolicyVersion() == null
                 || dto.modelConfigVersion() == null)) {
             throw failure("LL_SETTINGS_CONTRACT_ERROR", "Listening 정책 버전이 없습니다.");
-        } else if (value instanceof SelectionDeliveryResponseDto(
-                String status
-        ) && (status == null || !java.util.Set.of("APPLIED", "DUPLICATE", "SUPERSEDED").contains(status))) {
-            throw failure("LL_SETTINGS_CONTRACT_ERROR", "설정 전달 결과가 유효하지 않습니다.");
         }
     }
 
@@ -180,10 +134,6 @@ public class LanguageLearningSettingsClient {
 
     private static LanguageLearningServiceException failure(String code, String message) {
         return new LanguageLearningServiceException(HttpStatus.BAD_GATEWAY, code, message);
-    }
-
-    private static void requireUserId(Long id) {
-        if (id == null || id <= 0) throw new IllegalArgumentException("userId는 양수여야 합니다.");
     }
 
     private String bearer(String token) {

@@ -1,14 +1,9 @@
 package jp.co.translacat.domain.languagelearning.listening.session.facade;
 
-import jp.co.translacat.domain.languagelearning.listening.attempt.service.ListeningAttemptCommandService;
-import jp.co.translacat.domain.languagelearning.listening.attempt.service.ListeningAttemptQueryService;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningSessionStatus;
 import jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningTaskType;
 import jp.co.translacat.domain.languagelearning.listening.dto.ListeningApiContract;
-import jp.co.translacat.domain.languagelearning.listening.playback.service.ListeningPlaybackCommandService;
-import jp.co.translacat.domain.languagelearning.listening.report.service.ListeningEvaluationReportCommandService;
-import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionCommandService;
-import jp.co.translacat.domain.languagelearning.listening.session.service.ListeningSessionQueryService;
+import jp.co.translacat.domain.languagelearning.listening.port.ListeningGateway;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,49 +21,37 @@ import static org.mockito.Mockito.when;
 class ListeningSessionFacadeActiveTest {
 
     @Mock
-    private ListeningSessionCommandService sessionCommandService;
-    @Mock
-    private ListeningSessionQueryService sessionQueryService;
-    @Mock
-    private ListeningAttemptCommandService attemptCommandService;
-    @Mock
-    private ListeningAttemptQueryService attemptQueryService;
-    @Mock
-    private ListeningEvaluationReportCommandService reportCommandService;
-    @Mock
-    private ListeningPlaybackCommandService playbackCommandService;
+    private ListeningGateway gateway;
 
     private ListeningSessionFacade facade;
 
     @BeforeEach
     void setUp() {
-        facade = new ListeningSessionFacade(
-                sessionCommandService,
-                sessionQueryService,
-                attemptCommandService,
-                attemptQueryService,
-                reportCommandService,
-                playbackCommandService
-        );
+        facade = new ListeningSessionFacade(gateway);
     }
 
     @Test
     void returnsInactiveViewWhenNoServerSessionExists() {
-        when(sessionCommandService.activeSessionId(7L)).thenReturn(null);
+        // 준비: 활성 여부 판정과 동기화는 LL이 처리한 동일 응답을 전달한다.
+        when(gateway.get(7L, "/sessions/active", ListeningApiContract.ActiveSessionView.class))
+                .thenReturn(new ListeningApiContract.ActiveSessionView(false, null));
 
+        // 실행
         ListeningApiContract.ActiveSessionView result = facade.active(7L);
 
+        // 검증
         assertThat(result.active()).isFalse();
         assertThat(result.session()).isNull();
     }
 
     @Test
     void returnsServerSessionWhenActiveSessionExists() {
+        // 준비
         LocalDateTime now = LocalDateTime.now();
         ListeningApiContract.SessionView session =
                 new ListeningApiContract.SessionView(
-                        99L,
-                        11L,
+                        -99L,
+                        -11L,
                         ListeningSessionStatus.IN_PROGRESS,
                         List.of(ListeningTaskType.DICTATION),
                         0,
@@ -85,11 +68,13 @@ class ListeningSessionFacadeActiveTest {
                         0,
                         true
                 );
-        when(sessionCommandService.activeSessionId(7L)).thenReturn(99L);
-        when(sessionCommandService.synchronizeAndView(7L, 99L)).thenReturn(session);
+        when(gateway.get(7L, "/sessions/active", ListeningApiContract.ActiveSessionView.class))
+                .thenReturn(new ListeningApiContract.ActiveSessionView(true, session));
 
+        // 실행
         ListeningApiContract.ActiveSessionView result = facade.active(7L);
 
+        // 검증
         assertThat(result.active()).isTrue();
         assertThat(result.session()).isSameAs(session);
     }

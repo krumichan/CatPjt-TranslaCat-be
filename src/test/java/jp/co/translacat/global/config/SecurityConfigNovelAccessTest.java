@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -92,6 +93,18 @@ class SecurityConfigNovelAccessTest {
         mockMvc.perform(get("/api/v1/admin/security-regression")
                         .with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER")))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void languageLearningAdminDenialDoesNotRedispatchAsAnonymousError() throws Exception {
+        // 준비: 일반 사용자 인증은 유효하지만 언어학습 관리자 권한은 없다.
+        var request = get("/api/v1/admin/language-learning/settings")
+                .with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER"));
+
+        // 실행 및 검증: sendError를 통한 익명 /error 재진입 없이 원래 403을 확정한다.
+        mockMvc.perform(request)
+                .andExpect(status().isForbidden())
+                .andExpect(result -> assertThat(result.getResponse().getErrorMessage()).isNull());
     }
 
     @RestController

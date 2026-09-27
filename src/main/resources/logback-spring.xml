@@ -8,7 +8,7 @@
             </encoder>
         </appender>
         <root level="INFO">
-            <appender-ref ref="CONSOLE" />
+            <appender-ref ref="CONSOLE"/>
         </root>
     </springProfile>
 
@@ -27,7 +27,7 @@
             </encoder>
         </appender>
         <root level="INFO">
-            <appender-ref ref="JSON_CONSOLE" />
+            <appender-ref ref="JSON_CONSOLE"/>
         </root>
     </springProfile>
 

@@ -1,7 +1,6 @@
 package jp.co.translacat.infrastructure.chat.gateway;
 
 import jakarta.persistence.EntityManagerFactory;
-import jp.co.translacat.domain.chat.room.entity.ChatRoom;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.global.config.QueryDslConfig;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -10,8 +9,8 @@ import org.springframework.boot.autoconfigure.AutoConfigurationPackage;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.data.repository.support.Repositories;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.orm.jpa.persistenceunit.PersistenceManagedTypes;
@@ -25,7 +24,7 @@ import static org.mockito.Mockito.*;
 class ChatGatewayPersistenceTest {
     @ParameterizedTest
     @ValueSource(strings = {"missing", "false", "true"})
-    void actualHibernateMetadataAndRepositoryRegistrationRespectGatewayMode(String enabled) throws Exception {
+    void actualHibernateMetadataAndRepositoriesNeverRegisterLegacyChatInAnyMode(String enabled) throws Exception {
         // 준비: 실제 Hibernate/Boot scanner/repository factory를 사용한다. JDBC metadata와 DDL을 테스트에서만 끈다.
         var dataSource = mock(DataSource.class);
         when(dataSource.getConnection()).thenThrow(
@@ -33,8 +32,7 @@ class ChatGatewayPersistenceTest {
         var runner = new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(HibernateJpaAutoConfiguration.class,
                         JpaRepositoriesAutoConfiguration.class))
-                .withUserConfiguration(RootPackage.class, QueryDslConfig.class,
-                        ChatGatewayPersistenceConfiguration.class)
+                .withUserConfiguration(RootPackage.class, QueryDslConfig.class)
                 .withBean(DataSource.class, () -> dataSource)
                 .withBean(NamedParameterJdbcTemplate.class, () -> new NamedParameterJdbcTemplate(dataSource))
                 .withPropertyValues("spring.jpa.hibernate.ddl-auto=none",
@@ -52,22 +50,15 @@ class ChatGatewayPersistenceTest {
             var repositories = new Repositories(context);
             assertThat(entities).contains(User.class.getName());
             assertThat(repositories.hasRepositoryFor(User.class)).isTrue();
-            if (enabled.equals("true")) {
-                assertThat(managed).noneMatch(name -> name.startsWith("jp.co.translacat.domain.chat."));
-                assertThat(entities).noneMatch(name -> name.startsWith("jp.co.translacat.domain.chat."));
-                assertThat(repositories.hasRepositoryFor(ChatRoom.class)).isFalse();
-                repositories.forEach(domainType -> assertThat(domainType.getName()).doesNotStartWith(
-                        "jp.co.translacat.domain.chat."));
-            } else {
-                assertThat(managed).contains(ChatRoom.class.getName());
-                assertThat(entities).contains(ChatRoom.class.getName());
-                assertThat(repositories.hasRepositoryFor(ChatRoom.class)).isTrue();
-            }
+            assertThat(managed).noneMatch(name -> name.startsWith("jp.co.translacat.domain.chat."));
+            assertThat(entities).noneMatch(name -> name.startsWith("jp.co.translacat.domain.chat."));
+            repositories.forEach(domainType -> assertThat(domainType.getName()).doesNotStartWith(
+                    "jp.co.translacat.domain.chat."));
         });
         verify(dataSource, never()).getConnection();
     }
 
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     @AutoConfigurationPackage(basePackages = "jp.co.translacat")
     static class RootPackage {
     }

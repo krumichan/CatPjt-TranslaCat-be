@@ -7,3 +7,9 @@ out
 .deploy-env.*
 .deploy.lock
 *.log
+
+# 외부 로컬 비밀 설정은 이미지 build context에도 보내지 않는다.
+src/main/resources/application-local.properties
+.secrets
+secrets
+**/*.secret

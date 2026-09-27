@@ -1,6 +1,0 @@
-package jp.co.translacat.domain.chat.message.enums;
-
-public enum ChatMessageStatus {
-    SENT,
-    DELETED
-}

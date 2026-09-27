@@ -30,7 +30,6 @@ public class RemoteDailyWritingGateway implements DailyWritingGateway {
         return value;
     }
 
-    @Override
     public WritingReportSnapshot report(Long userId, LocalDate from, LocalDate to) {
         return client().report(userId, from, to);
     }

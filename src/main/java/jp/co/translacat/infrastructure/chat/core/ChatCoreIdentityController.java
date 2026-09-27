@@ -56,7 +56,8 @@ public class ChatCoreIdentityController {
         boolean canAuthenticate = principal.isEnabled() && principal.isAccountNonLocked()
                 && principal.isAccountNonExpired() && principal.isCredentialsNonExpired();
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(
-                new IdentityResponse(userId, principal.getUsername(), user.get().getAuthority().value(), canAuthenticate));
+                new IdentityResponse(userId, principal.getUsername(), user.get().getAuthority().value(),
+                        canAuthenticate));
     }
 
     private static ResponseEntity<?> rejected(int status) {

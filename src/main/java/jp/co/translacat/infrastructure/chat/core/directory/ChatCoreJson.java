@@ -12,7 +12,8 @@ import java.util.Map;
 public final class ChatCoreJson {
     private static final ObjectMapper MAPPER = new ObjectMapper().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
 
-    private ChatCoreJson() { }
+    private ChatCoreJson() {
+    }
 
     public static JsonNode read(HttpServletRequest request, int limit) throws IOException {
         byte[] bytes = request.getInputStream().readNBytes(limit + 1);

@@ -19,7 +19,8 @@ public final class ChatGatewayTarget {
                 case "localhost", "127.0.0.1", "[::1]", "::1" -> true;
                 default -> false;
             };
-            boolean allowedHttp = "Development".equals(properties.getEnvironment()) && loopback && "http".equals(scheme);
+            boolean allowedHttp =
+                    "Development".equals(properties.getEnvironment()) && loopback && "http".equals(scheme);
             if ((!"https".equals(scheme) && !allowedHttp) || host == null || candidate.getRawUserInfo() != null
                     || candidate.getRawQuery() != null || candidate.getRawFragment() != null
                     || !(candidate.getRawPath().isEmpty() || "/".equals(candidate.getRawPath()))
@@ -28,7 +29,8 @@ public final class ChatGatewayTarget {
             }
             this.origin = URI.create(candidate.toASCIIString().replaceAll("/$", ""));
         } catch (Exception ignored) {
-            throw new IllegalStateException("Chat gateway requires a fixed HTTPS origin or a Development loopback HTTP origin.");
+            throw new IllegalStateException(
+                    "Chat gateway requires a fixed HTTPS origin or a Development loopback HTTP origin.");
         }
         this.client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
                 .connectTimeout(Duration.ofSeconds(3)).build();

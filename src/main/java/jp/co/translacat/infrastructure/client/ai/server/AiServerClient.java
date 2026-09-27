@@ -2,11 +2,11 @@ package jp.co.translacat.infrastructure.client.ai.server;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jp.co.translacat.domain.chat.ai.dto.server.ChatAiReplyRequestDto;
-import jp.co.translacat.domain.chat.ai.dto.server.ChatAiReplyResponseDto;
 import jp.co.translacat.global.exception.AiServerCommunicationException;
 import jp.co.translacat.global.exception.BusinessException;
-import jp.co.translacat.infrastructure.client.ai.server.dto.*;
+import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptAnalysisOptions;
+import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptAnalysisResponse;
+import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptRuntimeIdentity;
 import jp.co.translacat.infrastructure.client.legacy.ExternalApiClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -170,60 +170,6 @@ public class AiServerClient {
             return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException e) {
             throw new BusinessException("AI Server 요청 옵션 생성에 실패했습니다.");
-        }
-    }
-
-    public AiChatTranslationResponse callChatTranslation(
-            String text,
-            String targetLanguageCode
-    ) {
-        String url = aiServerUrl + "/api/v1/chat/translate";
-
-        AiChatTranslationRequest request =
-                new AiChatTranslationRequest(
-                        text,
-                        targetLanguageCode
-                );
-
-        try {
-            return this.apiClient.post(
-                    url,
-                    request,
-                    this.basicHeader(),
-                    AiChatTranslationResponse.class
-            );
-        } catch (Exception e) {
-            log.error("AI Server chat translation failed: {}", e.getMessage());
-
-            throw new AiServerCommunicationException(
-                    "AI Server Chat Translation Error",
-                    e
-            );
-        }
-    }
-
-    public ChatAiReplyResponseDto callChatAiReply(
-            ChatAiReplyRequestDto request
-    ) {
-        String url = aiServerUrl + "/api/v1/chat/ai/reply";
-
-        try {
-            return this.apiClient.post(
-                    url,
-                    request,
-                    this.basicHeader(),
-                    ChatAiReplyResponseDto.class
-            );
-        } catch (Exception e) {
-            log.error(
-                    "AI Server chat reply failed. requestId={}, cause={}",
-                    request == null ? null : request.requestId(),
-                    e.getMessage()
-            );
-            throw new AiServerCommunicationException(
-                    "AI Server Chat Reply Error",
-                    e
-            );
         }
     }
 

@@ -22,7 +22,6 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
     implementation 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
@@ -113,6 +112,20 @@ sourceSets {
 
 tasks.named('compileJava') {
     options.annotationProcessorPath = configurations.annotationProcessor
+}
+
+tasks.named('processResources') {
+    // 로컬의 실제 계정/JWT 비밀 설정은 JAR에 넣지 않고 명시적인 외부 Spring 설정으로 공급한다.
+    exclude 'application-local.properties'
+}
+
+tasks.named('bootJar') {
+    // 기존 build 출력에 복사본이 남아도 배포 가능한 boot JAR에 재포함하지 않는다.
+    exclude 'application-local.properties', 'BOOT-INF/classes/application-local.properties'
+}
+
+tasks.named('jar') {
+    exclude 'application-local.properties'
 }
 
 clean {

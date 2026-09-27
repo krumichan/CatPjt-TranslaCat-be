@@ -1,6 +1,7 @@
 package jp.co.translacat.infrastructure.chat.gateway;
 
 import jp.co.translacat.infrastructure.chat.core.ChatCoreIdentityProperties;
+import jp.co.translacat.infrastructure.languagelearning.client.config.LanguageLearningClientProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.context.properties.bind.Binder;
@@ -71,6 +72,32 @@ class ChatGatewaySettingsBindingTest {
         assertThat(gateway.getEnvironment()).isEqualTo("Production");
         assertThat(core.isEnabled()).isTrue();
         assertThat(core.getEnvironment()).isEqualTo("Production");
+        assertThat(gateway.getSecretBase64()).isNull();
+        assertThat(core.getSecretBase64()).isNull();
+    }
+
+    @Test
+    void languageLearningEnvironmentKeyBindsOnlyItsOwnConsumer() {
+        // 준비: LL 키는 별도 계약이며 CHAT 방향키나 사용자 JWT로 복사하지 않는다.
+        String synthetic = Base64.getEncoder().encodeToString(new byte[48]);
+        var environment = environment(Map.of(
+                "LANGUAGELEARNING_REMOTE_ENABLED", "true",
+                "LANGUAGELEARNING_URL", "http://127.0.0.1:18766",
+                "LANGUAGELEARNING_INTERNALJWT_SECRETBASE64", synthetic,
+                "LANGUAGELEARNING_INTERNALJWT_ISSUER", "translacat-be",
+                "LANGUAGELEARNING_INTERNALJWT_AUDIENCE", "translacat-ll"));
+
+        // 실행: 단순 대문자 치환을 가정하지 않고 Spring 실제 relaxed binding으로 확인한다.
+        var learning = Binder.get(environment).bind("language-learning", LanguageLearningClientProperties.class).get();
+        var gateway = Binder.get(environment).bindOrCreate("chat.gateway", ChatGatewayProperties.class);
+        var core = Binder.get(environment).bindOrCreate("chat.core.identity", ChatCoreIdentityProperties.class);
+
+        // 검증
+        assertThat(learning.getRemote().isEnabled()).isTrue();
+        assertThat(learning.getUrl()).isEqualTo("http://127.0.0.1:18766");
+        assertThat(learning.getInternalJwt().getSecretBase64()).isEqualTo(synthetic);
+        assertThat(learning.getInternalJwt().getIssuer()).isEqualTo("translacat-be");
+        assertThat(learning.getInternalJwt().getAudience()).isEqualTo("translacat-ll");
         assertThat(gateway.getSecretBase64()).isNull();
         assertThat(core.getSecretBase64()).isNull();
     }

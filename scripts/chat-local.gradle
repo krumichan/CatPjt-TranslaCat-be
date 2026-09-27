@@ -1,0 +1,16 @@
+// CHAT 개발 빌드는 기존 LL 검증 산출물과 QueryDSL 생성 경로를 공유하지 않는다.
+allprojects {
+    layout.buildDirectory = file('build/chat-local')
+
+    afterEvaluate {
+        sourceSets.main.java.setSrcDirs(['src/main/java'])
+        tasks.named('compileJava') {
+            options.generatedSourceOutputDirectory = layout.buildDirectory.dir('generated/sources/annotationProcessor/java/main')
+        }
+
+        // 원래 clean은 src/main/generated를 지우므로 이 실행 경로에서는 허용하지 않는다.
+        tasks.named('clean') {
+            enabled = false
+        }
+    }
+}

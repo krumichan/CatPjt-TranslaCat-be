@@ -39,11 +39,13 @@ public final class ChatCoreIdentityTokenVerifier {
     }
 
     public ChatCoreServicePrincipal verifyService(String token, String expectedScope) {
-        if (!Set.of("chat:accounts:read", "chat:relations:read", "chat:storage:read", "chat:storage:write", "chat:storage:delete")
+        if (!Set.of("chat:accounts:read", "chat:relations:read", "chat:storage:read", "chat:storage:write",
+                        "chat:storage:delete")
                 .contains(expectedScope)) return null;
         JsonNode payload = verifiedPayload(token, "chat-core-service", expectedScope);
         if (payload == null || !payload.path("sub").isTextual()
-                || !properties.getService().equals(payload.path("sub").textValue()) || payload.has("roles")) return null;
+                || !properties.getService().equals(payload.path("sub").textValue()) || payload.has("roles"))
+            return null;
 
         // worker의 서비스 권한은 사용자의 identity/role을 대신하지 않는다.
         return new ChatCoreServicePrincipal(properties.getService(), expectedScope);
@@ -90,7 +92,8 @@ public final class ChatCoreIdentityTokenVerifier {
 
     private static SecretKey configuredKey(ChatCoreIdentityProperties properties) {
         if (blank(properties.getEnvironment()) || blank(properties.getIssuer())
-                || blank(properties.getAudience()) || blank(properties.getService()) || blank(properties.getSecretBase64())) {
+                || blank(properties.getAudience()) || blank(properties.getService()) || blank(
+                properties.getSecretBase64())) {
             throw new IllegalStateException("Chat Core identity authentication settings are required.");
         }
         try {
@@ -98,7 +101,8 @@ public final class ChatCoreIdentityTokenVerifier {
             if (bytes.length < 32 || bytes.length > 128) throw new IllegalArgumentException();
             return Keys.hmacShaKeyFor(bytes);
         } catch (IllegalArgumentException ignored) {
-            throw new IllegalStateException("Chat Core identity signing key must contain 32 to 128 Base64-encoded bytes.");
+            throw new IllegalStateException(
+                    "Chat Core identity signing key must contain 32 to 128 Base64-encoded bytes.");
         }
     }
 

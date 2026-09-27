@@ -1,27 +1,17 @@
 package jp.co.translacat.infrastructure.chat.gateway;
 
 import org.springframework.beans.factory.DisposableBean;
-import org.springframework.web.socket.BinaryMessage;
-import org.springframework.web.socket.CloseStatus;
-import org.springframework.web.socket.SubProtocolCapable;
-import org.springframework.web.socket.TextMessage;
-import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.HashSet;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -215,7 +205,10 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
         if (upstream != null) {
             try {
                 upstream.sendClose(safeStatus(status.getCode()).getCode(), "")
-                        .exceptionally(failure -> { upstream.abort(); return upstream; });
+                        .exceptionally(failure -> {
+                            upstream.abort();
+                            return upstream;
+                        });
                 scheduler.schedule(upstream::abort, 3, TimeUnit.SECONDS);
             } catch (Exception ignored) {
                 upstream.abort();
@@ -311,7 +304,8 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
 
     @FunctionalInterface
     interface Connector {
-        CompletableFuture<WebSocket> connect(WebSocketSession browser, String serviceToken, WebSocket.Listener listener);
+        CompletableFuture<WebSocket> connect(WebSocketSession browser, String serviceToken,
+                                             WebSocket.Listener listener);
     }
 
     private static final class Bridge {

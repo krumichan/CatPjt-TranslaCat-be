@@ -67,7 +67,6 @@ public class RemotePracticeGateway implements PracticeGateway {
         return client().mastery(userId);
     }
 
-    @Override
     public PracticeReportSnapshot report(Long userId, LocalDate from, LocalDate to) {
         return client().report(userId, from, to);
     }

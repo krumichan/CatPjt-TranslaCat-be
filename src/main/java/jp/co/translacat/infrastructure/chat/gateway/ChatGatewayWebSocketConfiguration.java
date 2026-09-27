@@ -22,7 +22,8 @@ import java.util.Map;
 public class ChatGatewayWebSocketConfiguration {
     @Bean
     ChatGatewayWebSocketHandler chatGatewayWebSocketHandler(ChatGatewayProperties properties, ChatGatewayTarget target,
-            ChatGatewayTokenIssuer tokens, ChatGatewayUserAuthenticator users) {
+                                                            ChatGatewayTokenIssuer tokens,
+                                                            ChatGatewayUserAuthenticator users) {
         return new ChatGatewayWebSocketHandler(properties, target, tokens, users);
     }
 

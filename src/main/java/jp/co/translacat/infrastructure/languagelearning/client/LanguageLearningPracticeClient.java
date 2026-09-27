@@ -81,7 +81,6 @@ public class LanguageLearningPracticeClient implements PracticeGateway {
                 type(VocabularyMasterySummaryResponseDto.class));
     }
 
-    @Override
     public PracticeReportSnapshot report(Long userId, LocalDate from, LocalDate to) {
         if ((from == null) != (to == null)) throw new IllegalArgumentException("조회 시작일과 종료일을 함께 지정해 주세요.");
         String query = from == null ? "" : "?from=" + from + "&to=" + to;

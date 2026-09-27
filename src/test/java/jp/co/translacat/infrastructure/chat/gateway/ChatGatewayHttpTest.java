@@ -22,9 +22,9 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 import java.net.InetSocketAddress;
@@ -275,7 +275,7 @@ class ChatGatewayHttpTest {
         }
     }
 
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     @EnableAutoConfiguration(exclude = {
             DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
             UserDetailsServiceAutoConfiguration.class

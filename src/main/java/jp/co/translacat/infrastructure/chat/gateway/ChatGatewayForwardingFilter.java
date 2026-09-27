@@ -10,8 +10,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.net.http.HttpRequest;
-import java.net.http.HttpTimeoutException;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -24,7 +24,8 @@ final class ChatGatewayForwardingFilter extends OncePerRequestFilter {
     private final ChatGatewayTarget target;
     private final ChatGatewayTokenIssuer issuer;
 
-    ChatGatewayForwardingFilter(ChatGatewayProperties properties, ChatGatewayTarget target, ChatGatewayTokenIssuer issuer) {
+    ChatGatewayForwardingFilter(ChatGatewayProperties properties, ChatGatewayTarget target,
+                                ChatGatewayTokenIssuer issuer) {
         this.properties = properties;
         this.target = target;
         this.issuer = issuer;

@@ -7,7 +7,6 @@ import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningS
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningWritingClient;
 import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -66,14 +65,14 @@ public class LanguageLearningClientConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = "language-learning.remote", name = "enabled", havingValue = "true")
+
     public LanguageLearningInternalJwtProvider languageLearningInternalJwtProvider(
             LanguageLearningClientProperties properties) {
         return new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC());
     }
 
     @Bean("languageLearningRestClient")
-    @ConditionalOnProperty(prefix = "language-learning.remote", name = "enabled", havingValue = "true")
+
     public RestClient languageLearningRestClient(RestClient.Builder builder,
                                                  LanguageLearningClientProperties properties) {
         validate(properties);
@@ -93,7 +92,7 @@ public class LanguageLearningClientConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = "language-learning.remote", name = "enabled", havingValue = "true")
+
     public LanguageLearningSettingsClient languageLearningSettingsClient(
             @Qualifier("languageLearningRestClient") RestClient languageLearningRestClient,
             LanguageLearningInternalJwtProvider jwtProvider, ObjectMapper objectMapper) {
@@ -101,7 +100,7 @@ public class LanguageLearningClientConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = "language-learning.remote", name = "enabled", havingValue = "true")
+
     public LanguageLearningKeywordClient languageLearningKeywordClient(
             @Qualifier("languageLearningRestClient") RestClient restClient,
             LanguageLearningInternalJwtProvider jwtProvider, ObjectMapper objectMapper) {
@@ -109,7 +108,7 @@ public class LanguageLearningClientConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = "language-learning.remote", name = "enabled", havingValue = "true")
+
     public LanguageLearningLevelTestClient languageLearningLevelTestClient(RestClient.Builder builder,
                                                                            LanguageLearningClientProperties properties,
                                                                            LanguageLearningInternalJwtProvider jwtProvider,
@@ -129,7 +128,7 @@ public class LanguageLearningClientConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = "language-learning.remote", name = "enabled", havingValue = "true")
+
     public LanguageLearningWritingClient languageLearningWritingClient(RestClient.Builder builder,
                                                                        LanguageLearningClientProperties properties,
                                                                        LanguageLearningInternalJwtProvider jwtProvider,

@@ -8,7 +8,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Setter
 @ConfigurationProperties(prefix = "chat.gateway")
 public class ChatGatewayProperties {
-    private boolean enabled;
     private String baseUrl;
     private String environment;
     private String issuer = "translacat-be";

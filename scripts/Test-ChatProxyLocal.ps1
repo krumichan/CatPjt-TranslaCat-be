@@ -67,6 +67,9 @@ try {
     $quietPublic = Join-Path $testDirectory 'quiet-public.properties'
     Write-Utf8 $quietPublic "logging.level.jdbc.sqlonly=OFF`nlogging.level.jdbc.sqltiming=OFF`nlogging.level.jdbc.audit=OFF`nlogging.level.jdbc.resultset=OFF`nlogging.level.jdbc.connection=OFF`nlogging.level.jdbc.resultsettable=OFF"
     Assert-Launch 'specific JDBC loggers can be disabled' @{ ConfigurationFile = $quietPublic }
+    $integrationPublic = Join-Path $testDirectory 'integration-public.properties'
+    Write-Utf8 $integrationPublic "language-learning.url=http://127.0.0.1:5000`nlanguage-learning.growth.enabled=true`nai-server.url=http://localhost:8000`ntranslacat.storage.type=local`ntranslacat.storage.local.public-base-url=http://localhost:8080/api/v1/public/storage`ncors.allowed-origin=http://localhost:3000,http://127.0.0.1:3000"
+    Assert-Launch 'complete loopback integration configuration' @{ ConfigurationFile = $integrationPublic }
     Assert-Launch 'same direction key rejected' @{ ChatToBeSigningKeyFile = $keyA } -Reject
     Assert-Launch 'missing JAR' @{ JarPath = (Join-Path $testDirectory 'absent.jar') } -Reject
     Assert-Launch 'relative key rejected' @{ BeToChatSigningKeyFile = 'synthetic-a' } -Reject
@@ -101,6 +104,10 @@ try {
     foreach ($value in @('chat.gateway.secret-base64=synthetic', "server.port=8080`nserver.port=8080",
         'chat.gateway.environment=Production', 'server.port=9090', 'spring.jpa.hibernate.ddl-auto=update',
         'spring.datasource.url=jdbc:mysql://localhost:3306/translacat?password=synthetic',
+        'language-learning.url=https://remote.invalid', 'ai-server.url=http://remote.invalid',
+        'language-learning.url=http://localhost:5000/internal', 'ai-server.url=http://user:pass@localhost:8000',
+        'cors.allowed-origin=http://localhost:3000,https://remote.invalid',
+        'translacat.storage.type=s3', 'translacat.storage.local.public-base-url=https://remote.invalid',
         'chat.gateway.enabled=false', 'logging.level.jdbc.sqlonly=INFO')) {
         Write-Utf8 $invalidPublic $value
         Assert-Launch 'invalid public configuration rejected' @{ ConfigurationFile = $invalidPublic } -Reject

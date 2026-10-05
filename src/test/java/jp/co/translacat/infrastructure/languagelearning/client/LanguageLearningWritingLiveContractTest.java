@@ -132,7 +132,12 @@ class LanguageLearningWritingLiveContractTest {
         String username = System.getenv("LL_TEST_MYSQL_USERNAME");
         String password = System.getenv("LL_TEST_MYSQL_PASSWORD");
         assertNotNull(jdbcUrl);
-        assertTrue(jdbcUrl.matches("jdbc:mysql://127\\.0\\.0\\.1:33316/translacat_ll_it_live_[0-9a-f]{8}"));
+        // 실행별 격리 MySQL 포트만 명시적으로 바꿀 수 있다. loopback/scratch catalog 제한은 유지한다.
+        String configuredPort = System.getenv("LL_TEST_MYSQL_PORT");
+        int testPort = configuredPort == null ? 33316 : Integer.parseInt(configuredPort);
+        assertTrue(testPort > 0 && testPort <= 65535);
+        assertTrue(jdbcUrl.matches("jdbc:mysql://127\\.0\\.0\\.1:" + testPort
+                + "/translacat_ll_it_live_[0-9a-f]{8}"));
         assertNotNull(username);
         assertNotNull(password);
         try (var connection = DriverManager.getConnection(jdbcUrl, username, password);

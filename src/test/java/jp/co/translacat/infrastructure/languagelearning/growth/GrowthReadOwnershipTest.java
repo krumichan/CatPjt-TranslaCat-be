@@ -1,8 +1,11 @@
 package jp.co.translacat.infrastructure.languagelearning.growth;
 
 import jp.co.translacat.domain.languagelearning.growth.port.GrowthReadGateway;
+import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.web.client.RestClient;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -10,12 +13,18 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 class GrowthReadOwnershipTest {
     @Test
     void currentReadConfigurationRequiresNoCoreDatabaseOrMigrationWorker() {
         // 준비: 현재 조회는 외부 DTO용 Gateway이며 이관 DB·dispatcher는 조립하지 않는다.
-        var runner = new ApplicationContextRunner().withUserConfiguration(GrowthConfiguration.class);
+        var runner = new ApplicationContextRunner().withUserConfiguration(GrowthConfiguration.class)
+                .withBean("languageLearningRestClient", RestClient.class,
+                        () -> RestClient.builder().baseUrl("https://ll.fixture.invalid").build())
+                .withBean(LanguageLearningInternalJwtProvider.class,
+                        () -> mock(LanguageLearningInternalJwtProvider.class))
+                .withBean(ObjectMapper.class, ObjectMapper::new);
 
         // 실행 및 검증
         runner.run(context -> {

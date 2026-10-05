@@ -21,7 +21,7 @@ public final class ChatCoreIdentityTokenVerifier {
     public ChatCoreIdentityTokenVerifier(ChatCoreIdentityProperties properties, Clock clock) {
         this.properties = properties;
         this.clock = clock;
-        this.key = properties.isEnabled() ? configuredKey(properties) : null;
+        this.key = configuredKey(properties);
     }
 
     public ChatCorePrincipal verify(String token) {
@@ -52,7 +52,7 @@ public final class ChatCoreIdentityTokenVerifier {
     }
 
     private JsonNode verifiedPayload(String token, String tokenUse, String scope) {
-        if (!properties.isEnabled() || key == null || token == null || token.length() > 8192) return null;
+        if (token == null || token.length() > 8192) return null;
 
         try {
             // 공개 사용자 JWT/LL 토큰과 다른 키·발급자·대상·용도를 검증한다.

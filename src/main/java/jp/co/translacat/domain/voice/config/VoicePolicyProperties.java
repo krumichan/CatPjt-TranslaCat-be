@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class VoicePolicyProperties {
 
-    private final boolean enabled;
     private final long maxSessionMs;
     private final long dailyLimitMs;
     private final int maxAudioFrameBytes;
@@ -29,8 +28,6 @@ public class VoicePolicyProperties {
     private final int languageSwitchConsecutiveCount;
 
     public VoicePolicyProperties(
-            @Value("${translacat.voice.enabled:true}")
-            boolean enabled,
             @Value("${translacat.voice.max-session-ms:3600000}")
             long maxSessionMs,
             @Value("${translacat.voice.daily-limit-ms:7200000}")
@@ -66,7 +63,6 @@ public class VoicePolicyProperties {
             @Value("${translacat.voice.language-switch-consecutive-count:3}")
             int languageSwitchConsecutiveCount
     ) {
-        this.enabled = enabled;
         this.maxSessionMs = maxSessionMs;
         this.dailyLimitMs = dailyLimitMs;
         this.maxAudioFrameBytes = maxAudioFrameBytes;

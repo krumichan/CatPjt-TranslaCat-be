@@ -272,10 +272,10 @@ public class SyosetuParser {
                     .filter(e -> e.attr("title").contains("次の50作品へ")).findFirst().orElse(null);
 
             return PageNumberContext.builder()
-                    .first(this.extractPageNumber(Objects.requireNonNull(prev)))
-                    .prev(this.extractPageNumber(Objects.requireNonNull(prev)))
-                    .next(this.extractPageNumber(Objects.requireNonNull(next)))
-                    .last(this.extractPageNumber(Objects.requireNonNull(next)))
+                    .first(this.extractPageNumber(prev))
+                    .prev(this.extractPageNumber(prev))
+                    .next(this.extractPageNumber(next))
+                    .last(this.extractPageNumber(next))
                     .build();
         }
 

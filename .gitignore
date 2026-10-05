@@ -37,6 +37,11 @@ out/
 .vscode/
 
 # configuration
+/.env
+/sudachi/system_full.dic
+# 배포 validator 실행으로 생성된 Python cache는 검토할 소스가 아니다.
+__pycache__/
+*.py[cod]
 default_setting.sql
 src/main/resources/application-local.properties
 .deploy-env.*

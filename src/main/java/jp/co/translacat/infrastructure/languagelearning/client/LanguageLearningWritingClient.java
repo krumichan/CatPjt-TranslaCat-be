@@ -1,6 +1,7 @@
 package jp.co.translacat.infrastructure.languagelearning.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -26,6 +27,7 @@ import java.util.Map;
  */
 public class LanguageLearningWritingClient {
     private static final String ROOT = "/internal/v1/language-learning/writing/daily";
+    private static final String CURATED_ROOT = "/internal/v1/language-learning/writing/curated";
     private static final int MAX_BODY = 4 * 1024 * 1024;
     private final RestClient http;
     private final LanguageLearningInternalJwtProvider jwt;
@@ -80,11 +82,102 @@ public class LanguageLearningWritingClient {
         post(userId, "/items/" + learningId(itemId) + "/evaluation/resume", Map.of(), Void.class);
     }
 
+    /** 신규 비점수 경로는 구형 DTO·점수형 API와 분리하여 정책 필드를 검증한다. */
+    public JsonNode curatedStart(Long userId, DailyWritingType type, boolean rePractice) {
+        if (type == null) throw new IllegalArgumentException("Writing 유형이 필요합니다.");
+        return curatedSet(postAt(CURATED_ROOT, userId, "/sets",
+                Map.of("writingType", type.name(), "rePractice", rePractice), JsonNode.class));
+    }
+
+    public JsonNode curatedGet(Long userId, Long setId) {
+        return curatedSet(getAt(CURATED_ROOT, userId, "/sets/" + learningId(setId), JsonNode.class));
+    }
+
+    public JsonNode curatedHistory(Long userId, LocalDate date, DailyWritingType type) {
+        if (date == null || type == null) throw new IllegalArgumentException("조회 날짜와 유형이 필요합니다.");
+        return curatedSet(getAt(CURATED_ROOT, userId,
+                "/history/" + date + "?writingType=" + type.name(), JsonNode.class));
+    }
+
+    public JsonNode curatedSubmit(Long userId, Long itemId, String answer, String revision) {
+        if (answer == null || revision == null) throw new IllegalArgumentException("답안과 revision이 필요합니다.");
+        return curatedSet(postAt(CURATED_ROOT, userId, "/items/" + learningId(itemId) + "/answers",
+                Map.of("answer", answer, "contentRevision", revision), JsonNode.class));
+    }
+
+    public JsonNode curatedReplace(Long userId, Long setId, boolean rePractice) {
+        return curatedSet(postAt(CURATED_ROOT, userId, "/sets/" + learningId(setId) + "/replace",
+                Map.of("rePractice", rePractice), JsonNode.class));
+    }
+
+    private JsonNode curatedSet(JsonNode value) {
+        if (value == null || !"curated-writing-v1".equals(value.path("policyVersion").asText())
+                || !"REFERENCE_ONLY".equals(value.path("resultPolicy").asText())
+                || value.path("sentenceCount").asInt(-1) != 5
+                || value.path("generatedItemCount").asInt(-1) != 5
+                || !value.path("items").isArray() || value.path("items").size() != 5)
+            throw contractFailure();
+        return value;
+    }
+
+    /** QA opt-in 가변 목표는 기존 fixed5 DTO와 독립 계약으로 중계한다. */
+    public JsonNode writingPlanConfig(Long userId) {
+        return WritingPlanContract.config(getAt(CURATED_ROOT, userId, "/plans/config", JsonNode.class));
+    }
+
+    public JsonNode writingPlanPreview(Long userId, JsonNode request) {
+        return WritingPlanContract.preview(postAt(CURATED_ROOT, userId, "/plans/preview", request, JsonNode.class));
+    }
+
+    public JsonNode writingPlanStart(Long userId, JsonNode request) {
+        // 원래 JSON 정수/boolean 타입을 유지하여 LL의 엄격 입력 검사를 우회하지 않는다.
+        return WritingPlanContract.plan(postAt(CURATED_ROOT, userId, "/plans", request, JsonNode.class));
+    }
+
+    public JsonNode writingPlanGet(Long userId, Long setId) {
+        return WritingPlanContract.plan(getAt(CURATED_ROOT, userId, "/plans/" + learningId(setId), JsonNode.class));
+    }
+
+    public JsonNode writingPlanHistory(Long userId, LocalDate date, DailyWritingType type) {
+        if (date == null || type == null) throw new IllegalArgumentException("조회 날짜와 유형이 필요합니다.");
+        return WritingPlanContract.plan(getAt(CURATED_ROOT, userId,
+                "/plans/history/" + date + "?writingType=" + type.name(), JsonNode.class));
+    }
+
+    public JsonNode writingPlanExpand(Long userId, Long setId, JsonNode request) {
+        return WritingPlanContract.plan(postAt(CURATED_ROOT, userId,
+                "/plans/" + learningId(setId) + "/target", request, JsonNode.class));
+    }
+
+    public JsonNode writingPlanRestore(Long userId, Long setId, JsonNode request) {
+        return WritingPlanContract.plan(postAt(CURATED_ROOT, userId,
+                "/plans/" + learningId(setId) + "/restore", request, JsonNode.class));
+    }
+
+    public JsonNode writingPlanAnswer(Long userId, Long itemId, JsonNode request) {
+        return WritingPlanContract.plan(postAt(CURATED_ROOT, userId,
+                "/plans/items/" + learningId(itemId) + "/answers", request, JsonNode.class));
+    }
+
+    /** 실패한 답안의 명시적 피드백 재시도만 중계한다. */
+    public JsonNode writingPlanFeedbackRetry(Long userId, Long answerId) {
+        return WritingPlanContract.plan(postAt(CURATED_ROOT, userId,
+                "/plans/answers/" + learningId(answerId) + "/feedback/retry", Map.of(), JsonNode.class));
+    }
+
     private <T> T get(Long userId, String path, Class<T> type) {
-        return read(http.get().uri(ROOT + path).header(HttpHeaders.AUTHORIZATION, token(userId)), type);
+        return getAt(ROOT, userId, path, type);
     }
 
     private <T> T post(Long userId, String path, Object value, Class<T> type) {
+        return postAt(ROOT, userId, path, value, type);
+    }
+
+    private <T> T getAt(String root, Long userId, String path, Class<T> type) {
+        return read(http.get().uri(root + path).header(HttpHeaders.AUTHORIZATION, token(userId)), type);
+    }
+
+    private <T> T postAt(String root, Long userId, String path, Object value, Class<T> type) {
         // BE는 선택한 모드와 답변만 직렬화하고 학습 문맥은 LL이 준비한다.
         byte[] body;
         try {
@@ -92,7 +185,7 @@ public class LanguageLearningWritingClient {
         } catch (JsonProcessingException failure) {
             throw contractFailure();
         }
-        return read(http.post().uri(ROOT + path).header(HttpHeaders.AUTHORIZATION, token(userId))
+        return read(http.post().uri(root + path).header(HttpHeaders.AUTHORIZATION, token(userId))
                 .contentType(MediaType.APPLICATION_JSON).body(body), type);
     }
 

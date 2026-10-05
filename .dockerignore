@@ -13,3 +13,9 @@ src/main/resources/application-local.properties
 .secrets
 secrets
 **/*.secret
+**/*.key
+**/*-key.pem
+**/*private*.pem
+**/*runtime.actual.json
+**/*runtime.draft.json
+**/.env*

@@ -54,7 +54,6 @@ public class VoiceSessionCommandService {
             Long userId,
             VoiceSessionCreateRequestDto request
     ) {
-        requireEnabled();
         ValidatedCreateRequest validated = validateCreateRequest(request);
 
         User user = entityManager.find(
@@ -295,15 +294,6 @@ public class VoiceSessionCommandService {
             throw new BusinessException(
                     "Failed to build Voice policy snapshot.",
                     e
-            );
-        }
-    }
-
-    private void requireEnabled() {
-        if (!policy.isEnabled()) {
-            throw new BusinessException(
-                    "Voice Translation is disabled.",
-                    VoiceErrorCode.FEATURE_DISABLED
             );
         }
     }

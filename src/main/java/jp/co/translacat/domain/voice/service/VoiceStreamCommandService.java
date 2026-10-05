@@ -143,12 +143,6 @@ public class VoiceStreamCommandService {
             Long userId,
             VoiceSession session
     ) {
-        if (!policy.isEnabled()) {
-            throw new BusinessException(
-                    "Voice Translation is disabled.",
-                    VoiceErrorCode.FEATURE_DISABLED
-            );
-        }
         if (!session.getStatus().isOpen()) {
             throw new BusinessException(
                     "Voice session is not open for streaming.",

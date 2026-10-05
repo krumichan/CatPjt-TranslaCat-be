@@ -13,6 +13,11 @@ public class TransactionUtil {
         registerSync(null, runnable);
     }
 
+    public static void runAfterCommit(Runnable runnable) {
+        // 본문 저장은 상위 작업이 실패/롤백한 경우 실행하지 않는다.
+        registerSync(TransactionSynchronization.STATUS_COMMITTED, runnable);
+    }
+
     private static void registerSync(Integer targetStatus, Runnable runnable) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

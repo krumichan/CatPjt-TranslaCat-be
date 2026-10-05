@@ -115,7 +115,6 @@ class ChatCoreServiceTokenTest {
 
     private static ChatCoreIdentityTokenVerifier verifier() {
         var options = new ChatCoreIdentityProperties();
-        options.setEnabled(true);
         options.setEnvironment("Development");
         options.setSecretBase64(Base64.getEncoder().encodeToString(KEY));
         return new ChatCoreIdentityTokenVerifier(options, Clock.fixed(NOW, ZoneOffset.UTC));

@@ -3,6 +3,7 @@ package jp.co.translacat.domain.novel.episode.service;
 import jp.co.translacat.domain.novel.episode.entity.Episode;
 import jp.co.translacat.domain.novel.episode.entity.EpisodeContent;
 import jp.co.translacat.domain.novel.episode.respository.EpisodeContentRepository;
+import jp.co.translacat.domain.novel.episode.respository.EpisodeRepository;
 import jp.co.translacat.infrastructure.japanese.FuriganaProcessor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
@@ -18,12 +19,30 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class EpisodeContentSafeSaver {
     private final EpisodeContentRepository episodeContentRepository;
+    private final EpisodeRepository episodeRepository;
 
     private final FuriganaProcessor processor;
 
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void saveEpisodeContents(Episode episode, List<EpisodeContent> contents) {
+    public void saveEpisodeContents(Episode episode, List<EpisodeContent> contents, String expectedSnapshot) {
+        // 실패/빈 번역과 잘못된 회차·순번을 기존 데이터 삭제 전에 차단한다.
+        if (contents.isEmpty() || expectedSnapshot == null || expectedSnapshot.isBlank()
+                || contents.stream().anyMatch(content -> content == null || content.getEpisode() == null
+                    || !episode.getId().equals(content.getEpisode().getId()) || content.getContent() == null
+                    || (!content.getContent().isBlank()
+                        && (content.getContentKo() == null || content.getContentKo().isBlank())))
+                || contents.stream().map(EpisodeContent::getSequence).distinct().count() != contents.size()) {
+            throw new IllegalStateException("Novel content replacement is incomplete or invalid.");
+        }
+
+        // 동일 회차의 저장만 직렬화한다. 모델 호출은 이 짧은 트랜잭션 밖에서 이미 끝났다.
+        episodeRepository.findForContentUpdate(episode.getId())
+                .orElseThrow(() -> new IllegalStateException("Novel episode is missing."));
+        List<EpisodeContent> current = episodeContentRepository.findAllByEpisodeIdOrderBySequenceAsc(episode.getId());
+        if (!expectedSnapshot.equals(EpisodeContentSnapshot.fingerprint(current))) {
+            throw new IllegalStateException("Novel content changed while translation was running; existing data preserved.");
+        }
 
         // 1. 에피소드에 연결된 모든 내용 제거.
         this.episodeContentRepository.deleteAllByEpisodeId(episode.getId());

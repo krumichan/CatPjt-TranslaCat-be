@@ -63,6 +63,8 @@ class SecurityConfigNovelAccessTest {
             "/api/v1/syosetu/ranking/periods",
             "/api/v1/syosetu/novels/n1234",
             "/api/v1/syosetu/n1234/episodes/1",
+            "/api/v1/syosyetu/n1234ab/episodes/1/reader",
+            "/api/v1/syosyetu/n1234ab/episodes/1/translations/job-1",
             "/api/v1/syosetu/search/novels",
             "/api/v1/recent/top10"
     })
@@ -76,6 +78,16 @@ class SecurityConfigNovelAccessTest {
     void userSeesNotFoundForNovelDictionaryApi() throws Exception {
         mockMvc.perform(post("/api/v1/dictionary/register")
                         .with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER")))
+                .andExpect(status().isNotFound());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"translations", "audio", "glossary"})
+    void paidReaderCommandsKeepAdminOnlyPolicy(String operation) throws Exception {
+        // 실행 및 검증: 인증되지 않은 요청과 일반 사용자 모두 소설 API를 발견하지 못한다.
+        String path = "/api/v1/syosyetu/n1234ab/episodes/1/" + operation;
+        mockMvc.perform(post(path)).andExpect(status().isNotFound());
+        mockMvc.perform(post(path).with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER")))
                 .andExpect(status().isNotFound());
     }
 

@@ -35,7 +35,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class ChatGatewayDisabledHttpTest {
     @ParameterizedTest
     @ValueSource(strings = {"missing", "false"})
-    void missingOrDisabledGatewayRejectsHttpAndWebSocketWithoutLegacyFallback(String enabled) throws Exception {
+    void missingOrRetiredOffSettingKeepsAuthenticatedGatewayAndWebSocket(String enabled) throws Exception {
         // 준비: 실제 Tomcat/공통 인증 filter를 사용한다. 계정 repository는 호출 금지 대역이며 DB/Redis는 없다.
         var properties = new LinkedHashMap<String, Object>();
         properties.put("server.address", "127.0.0.1");
@@ -47,6 +47,9 @@ class ChatGatewayDisabledHttpTest {
         properties.put("jwt.token.secret-key", Base64.getEncoder().encodeToString(new byte[64]));
         properties.put("jwt.token.expired.access", "60000");
         properties.put("jwt.token.expired.refresh", "60000");
+        properties.put("chat.gateway.base-url", "http://127.0.0.1:1");
+        properties.put("chat.gateway.environment", "Development");
+        properties.put("chat.gateway.secret-base64", Base64.getEncoder().encodeToString(new byte[64]));
         if (enabled.equals("false")) {
             properties.put("chat.gateway.enabled", "false");
         }
@@ -55,30 +58,29 @@ class ChatGatewayDisabledHttpTest {
                 .properties(properties).run(); var client = HttpClient.newHttpClient()) {
             String origin = "http://127.0.0.1:" + context.getWebServer().getPort();
 
-            // 실행 / 검증: 모든 공개 Chat 경로는 같은 명시적 실패이며, 가짜 성공이나 옛 controller가 없다.
+            // 실행 / 검증: flag 없이 활성화된 모든 HTTP 경로는 무효 사용자 JWT를 거부한다.
             for (String path : List.of("/api/v1/chat", "/api/v1/chat/rooms",
-                    "/api/v1/admin/chat/ai/settings", "/api/v1/users/me/chat-language-settings",
-                    "/ws/chat", "/ws/chat/info")) {
+                    "/api/v1/admin/chat/ai/settings", "/api/v1/users/me/chat-language-settings")) {
                 var request = HttpRequest.newBuilder(URI.create(origin + path)).timeout(Duration.ofSeconds(3))
                         .header("Authorization", "Bearer invalid-user-token").GET().build();
                 var response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-                assertThat(response.statusCode()).as(path).isEqualTo(503);
-                assertThat(response.body()).isEqualTo("{\"code\":\"CHAT_GATEWAY_DISABLED\"}");
+                assertThat(response.statusCode()).as(path).isEqualTo(401);
                 assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
             }
 
-            // 실행 / 검증: 직접 controller 호출이 아닌 JDK client의 실제 WebSocket upgrade 거절을 확인한다.
+            // 실행 / 검증: 활성 WS에서도 브라우저가 서버 전용 인증 헤더를 위조하면 거부한다.
             Throwable failure = catchThrowable(() -> client.newWebSocketBuilder()
                     .connectTimeout(Duration.ofSeconds(3)).subprotocols("v12.stomp")
+                    .header(ChatGatewayWebSocketHandler.SERVICE_HEADER, "synthetic-invalid")
                     .buildAsync(URI.create(origin.replace("http:", "ws:") + "/ws/chat"), new WebSocket.Listener() {
                     })
                     .get(5, TimeUnit.SECONDS));
             assertThat(failure).isInstanceOf(ExecutionException.class)
                     .hasCauseInstanceOf(WebSocketHandshakeException.class);
-            assertThat(((WebSocketHandshakeException) failure.getCause()).getResponse().statusCode()).isEqualTo(503);
-            assertThat(context.containsBean("chatGatewayTarget")).isFalse();
-            assertThat(context.containsBean("chatGatewayTokenIssuer")).isFalse();
+            assertThat(((WebSocketHandshakeException) failure.getCause()).getResponse().statusCode()).isEqualTo(403);
+            assertThat(context.containsBean("chatGatewayTarget")).isTrue();
+            assertThat(context.containsBean("chatGatewayTokenIssuer")).isTrue();
             verifyNoInteractions(context.getBean(UserRepository.class));
         }
     }
@@ -89,7 +91,7 @@ class ChatGatewayDisabledHttpTest {
             UserDetailsServiceAutoConfiguration.class
     }, excludeName = "org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration")
     @Import({
-            ChatGatewayDisabledSecurity.class, ChatGatewayConfiguration.class, SecurityConfig.class,
+            ChatGatewaySecurity.class, ChatGatewayWebSocketConfiguration.class, ChatGatewayConfiguration.class, SecurityConfig.class,
             JwtFilter.class, JWTService.class, MyUserDetailsService.class, ApiLoggingFilter.class
     })
     static class TestApplication {

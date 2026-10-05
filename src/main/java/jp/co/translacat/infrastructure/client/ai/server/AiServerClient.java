@@ -64,16 +64,26 @@ public class AiServerClient {
         request.put("type", type);
 
         try {
-            var response = this.apiClient.post(url, request, this.basicHeader(), Map.class);
-
-            if (response != null && response.containsKey("translated")) {
-                return (List<String>) response.get("translated");
+            // 유료 번역 재시도는 업무 소유자가 결정한다. 이 HTTP 계층은 한 번만 전송한다.
+            var response = this.apiClient.postOnce(url, request, this.basicHeader(), Map.class);
+            if (response == null || !(response.get("translated") instanceof List<?> translated)
+                    || translated.size() != texts.size()) {
+                throw new IllegalStateException("Translation response count is invalid.");
             }
-
-            return Collections.emptyList();
+            List<String> validated = new ArrayList<>();
+            for (int i = 0; i < translated.size(); i++) {
+                Object value = translated.get(i);
+                if (!(value instanceof String text) || text.length() > 100_000
+                        || (!texts.get(i).isBlank() && text.isBlank())) {
+                    throw new IllegalStateException("Translation response text is invalid.");
+                }
+                validated.add(text);
+            }
+            return List.copyOf(validated);
         } catch (Exception e) {
-            log.error("AI Server communication failed: {}", e.getMessage());
-            throw new AiServerCommunicationException("AI Server Error", e);
+            log.error("Novel legacy AI request failed: type={}", e.getClass().getSimpleName());
+            throw new AiServerCommunicationException("Novel AI translation failed", "NOVEL_TRANSLATION_FAILED",
+                    false, 502, null);
         }
     }
 

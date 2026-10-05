@@ -2,7 +2,6 @@ package jp.co.translacat.infrastructure.chat.gateway;
 
 import jp.co.translacat.global.logging.ApiLoggingFilter;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -15,7 +14,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnProperty(prefix = "chat.gateway", name = "enabled", havingValue = "true")
+
 public class ChatGatewaySecurity {
     @Bean
     @Order(2)

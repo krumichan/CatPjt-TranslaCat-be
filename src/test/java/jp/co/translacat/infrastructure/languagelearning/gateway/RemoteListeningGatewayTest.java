@@ -17,28 +17,17 @@ import static org.mockito.Mockito.*;
 
 class RemoteListeningGatewayTest {
     @Test
-    void disabledRemoteStartsAndRejectsEveryEntryPointWithoutLegacyFallback() {
-        // 준비: test profile과 같은 원격 비활성 설정에서 실제 Spring 빈을 조립한다.
+    void missingRequiredClientFailsStartupEvenWithRetiredFalseSetting() {
+        // 준비: 없어진 OFF 값을 전달해도 실제 원격 client 구성을 생략할 수 없다.
         var runner = new ApplicationContextRunner()
+                .withPropertyValues("language-learning.remote.enabled=false")
                 .withUserConfiguration(ListeningClientConfiguration.class, RemoteListeningGateway.class);
 
-        // 실행: 조회·변경·오디오 진입점의 비활성 처리를 함께 확인한다.
+        // 실행 / 검증: 필수 전송 빈 누락은 비활성 503 상태로 기동하지 않고 시작 시 실패한다.
         runner.run(context -> {
-            assertNull(context.getStartupFailure());
-            var gateway = context.getBean(ListeningGateway.class);
-            List<Executable> calls = List.of(
-                    () -> gateway.get(123L, "/sets/today", Object.class),
-                    () -> gateway.list(123L, "/profiles", Object.class),
-                    () -> gateway.post(123L, "/sessions", Map.of(), Object.class),
-                    () -> gateway.audio(123L, "/audio/synthetic"));
-
-            // 검증: 모든 진입점이 명시적인 503으로 끝나며 원격 전송 빈도 생성하지 않는다.
-            for (var call : calls) {
-                var error = assertThrows(LanguageLearningServiceException.class, call);
-                assertEquals(HttpStatus.SERVICE_UNAVAILABLE, error.getStatus());
-                assertEquals("LL_LISTENING_REMOTE_DISABLED", error.getErrorCode());
-            }
-            assertFalse(context.containsBean("languageLearningListeningClient"));
+            assertNotNull(context.getStartupFailure());
+            assertTrue(context.getStartupFailure().getMessage().contains("languageLearningListeningClient"));
+            assertTrue(context.getStartupFailure().getMessage().contains("RestClient"));
         });
     }
 

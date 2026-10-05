@@ -109,9 +109,10 @@ public class EpisodeService {
         // 스크랩 한 데이터들 중 DB에 이미 존재하는 데이터 조회.
         // 이미 존재할 경우, 번역된 내용이 있는 것으로, Gemini 요청이 필요 없음.
         List<EpisodeContent> existingEpisodeContents = this.findEpisodeContents(existingEpisode.getId());
-        Map<String, EpisodeContent> existingEpisodeContentsMap = existingEpisodeContents.stream()
-                .filter(content -> !content.getContent().trim().isEmpty())
-                .collect(Collectors.toMap(EpisodeContent::getContent, r -> r, (oldValue, newValue) -> oldValue));
+        String expectedSnapshot = EpisodeContentSnapshot.fingerprint(existingEpisodeContents);
+        Map<Integer, EpisodeContent> existingEpisodeContentsMap = existingEpisodeContents.stream()
+                .filter(content -> content.getContent() != null && !content.getContent().trim().isEmpty())
+                .collect(Collectors.toMap(EpisodeContent::getSequence, r -> r, (oldValue, newValue) -> oldValue));
 
         // 번역이 필요한 유닛들.
         List<TranslationUnit> dirtyUnits = new ArrayList<>();
@@ -126,16 +127,17 @@ public class EpisodeService {
             }
 
             // 기존 내용이 DB에 있는지 조회.
-            EpisodeContent existing = existingEpisodeContentsMap.get(ctx.getContent().getRawJa());
+            EpisodeContent existing = existingEpisodeContentsMap.get(ctx.getSequence());
 
             // 원문이 바뀌었거나, DB에 한 번도 저장되지 않은 경우 Gemini 번역 대상으로 추가.
-            if (Objects.isNull(existing) || existing.isTranslationRequired()) {
+            if (Objects.isNull(existing) || !existing.getContent().equals(ctx.getContent().getRawJa())
+                    || existing.isTranslationRequired()) {
 
                 // 번역 필요 데이터 수집.
                 List<TranslationUnit> currentUnits = ctx.getAllUnit();
 
                 // ja ruby 설정.
-                currentUnits.forEach(unit -> unit.setJa(furiganaProcessor.convertToRuby(unit.getJa())));
+                currentUnits.forEach(unit -> unit.setJa(furiganaProcessor.convertToRuby(unit.getRawJa())));
 
                 // 번역 대상에 추가.
                 dirtyUnits.addAll(currentUnits);
@@ -163,8 +165,8 @@ public class EpisodeService {
                             existingEpisode, ctx.getSequence(),
                             ctx.getContent().getRawJa(), ctx.getContent().getJa(), ctx.getContent().getKo()))
                     .toList();
-            TransactionUtil.runAfterCompletion(
-                    () -> this.episodeContentSafeSaver.saveEpisodeContents(existingEpisode, contents));
+            TransactionUtil.runAfterCommit(
+                    () -> this.episodeContentSafeSaver.saveEpisodeContents(existingEpisode, contents, expectedSnapshot));
         }
 
         return EpisodeResponseDto.of(

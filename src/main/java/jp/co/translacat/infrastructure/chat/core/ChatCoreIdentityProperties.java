@@ -8,7 +8,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Setter
 @ConfigurationProperties(prefix = "chat.core.identity")
 public class ChatCoreIdentityProperties {
-    private boolean enabled = false;
     private String environment;
     private String issuer = "translacat-chat";
     private String audience = "translacat-be";

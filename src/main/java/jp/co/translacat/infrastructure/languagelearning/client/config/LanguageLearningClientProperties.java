@@ -14,6 +14,14 @@ public class LanguageLearningClientProperties {
     private InternalJwt internalJwt = new InternalJwt();
     private LevelTest levelTest = new LevelTest();
     private Writing writing = new Writing();
+    private Speaking speaking = new Speaking();
+
+    @Getter
+    @Setter
+    public static class Speaking {
+        // 동기 STT·대화·TTS의 기본 단계별 기한과 응답 전달 시간을 포함한다.
+        private int readTimeoutMs = 360000;
+    }
 
     @Getter
     @Setter
@@ -31,7 +39,6 @@ public class LanguageLearningClientProperties {
     @Getter
     @Setter
     public static class Remote {
-        private boolean enabled = false;
         private int connectTimeoutMs = 3000;
         private int readTimeoutMs = 5000;
     }

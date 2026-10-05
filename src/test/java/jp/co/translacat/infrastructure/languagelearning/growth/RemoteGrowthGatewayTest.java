@@ -4,7 +4,6 @@ import jp.co.translacat.domain.languagelearning.growth.model.GrowthActivitySnaps
 import jp.co.translacat.domain.languagelearning.growth.model.GrowthSnapshot;
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningServiceException;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -31,16 +30,12 @@ class RemoteGrowthGatewayTest {
     }
 
     @Test
-    void disabledReadStartsWithoutClientAndFailsExplicitly() {
-        // 준비
-        var gateway = new RemoteGrowthGateway(new GrowthProperties(),
-                new StaticListableBeanFactory().getBeanProvider(GrowthHttpClient.class));
-
-        // 실행
-        var failure = assertThrows(LanguageLearningServiceException.class, () -> gateway.snapshot(123L));
+    void requiredRemoteClientCannotBeOmittedAtStartup() {
+        // 준비 / 실행: 서비스 OFF 대신 누락된 필수 의존성을 생성 시점에 거부한다.
+        var failure = assertThrows(NullPointerException.class, () -> new RemoteGrowthGateway(null));
 
         // 검증
-        assertEquals("LL_GROWTH_DISABLED", failure.getErrorCode());
+        assertEquals("Growth HTTP client is required.", failure.getMessage());
     }
 
     @Test
@@ -77,10 +72,6 @@ class RemoteGrowthGatewayTest {
     }
 
     private RemoteGrowthGateway gateway(GrowthHttpClient client) {
-        var properties = new GrowthProperties();
-        properties.setEnabled(true);
-        var beans = new StaticListableBeanFactory();
-        beans.addBean("growthHttpClient", client);
-        return new RemoteGrowthGateway(properties, beans.getBeanProvider(GrowthHttpClient.class));
+        return new RemoteGrowthGateway(client);
     }
 }

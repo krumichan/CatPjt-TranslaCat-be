@@ -130,13 +130,6 @@ public class VoiceSessionQueryService {
             String sessionId,
             VoiceChannel channel
     ) {
-        if (!policy.isEnabled()) {
-            throw new BusinessException(
-                    "Voice Translation is disabled.",
-                    VoiceErrorCode.FEATURE_DISABLED
-            );
-        }
-
         VoiceSession session = getOwnedEntity(userId, sessionId);
         if (!session.getStatus().isOpen()) {
             throw new BusinessException(

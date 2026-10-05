@@ -1,6 +1,5 @@
 package jp.co.translacat.infrastructure.chat.gateway;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -18,7 +17,7 @@ import java.util.Map;
 
 @Configuration(proxyBeanMethods = false)
 @EnableWebSocket
-@ConditionalOnProperty(prefix = "chat.gateway", name = "enabled", havingValue = "true")
+
 public class ChatGatewayWebSocketConfiguration {
     @Bean
     ChatGatewayWebSocketHandler chatGatewayWebSocketHandler(ChatGatewayProperties properties, ChatGatewayTarget target,

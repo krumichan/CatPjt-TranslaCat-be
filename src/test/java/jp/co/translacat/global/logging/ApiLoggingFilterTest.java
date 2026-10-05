@@ -20,6 +20,40 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ApiLoggingFilterTest {
 
     @Test
+    void novelSourceAndAudioBodiesAreNeverLoggedOrBuffered() throws Exception {
+        // 준비
+        var request = new MockHttpServletRequest("POST", "/api/v1/syosyetu/n1234ab/episodes/1/audio");
+        request.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        request.setContent("{\"private\":\"source-secret\"}".getBytes(StandardCharsets.UTF_8));
+        var response = new MockHttpServletResponse();
+        Logger logger = (Logger) LoggerFactory.getLogger(ApiLoggingFilter.class);
+        var previousLevel = logger.getLevel();
+        var appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.INFO);
+
+        // 실행
+        try {
+            new ApiLoggingFilter().doFilter(request, response, (req, res) -> {
+                assertThat(req).isSameAs(request);
+                assertThat(res).isSameAs(response);
+                res.getWriter().write("{\"audioBase64\":\"audio-secret\"}");
+            });
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(previousLevel);
+            appender.stop();
+        }
+
+        // 검증
+        String logs = appender.list.stream().map(ILoggingEvent::getFormattedMessage)
+                .collect(java.util.stream.Collectors.joining("\n"));
+        assertThat(logs).contains("NOVEL_REDACTED").doesNotContain("source-secret", "audio-secret");
+        assertThat(response.getContentAsString()).contains("audio-secret");
+    }
+
+    @Test
     void writingAnswerAndEvaluationBodiesAreNeverLogged() throws Exception {
         // 준비: Writing 답변 요청과 평가 응답에 구별 가능한 합성 원문을 넣는다.
         var request = new MockHttpServletRequest("POST",

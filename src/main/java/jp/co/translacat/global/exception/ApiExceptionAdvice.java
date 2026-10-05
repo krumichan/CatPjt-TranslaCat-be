@@ -97,6 +97,10 @@ public class ApiExceptionAdvice {
         String responseMessage = this.trace(e);
         log.error("Ai Server Communication logic error: code={}, message={}", e.getErrorCode(), e.getMessage());
 
+        if (e.getErrorCode().startsWith("NOVEL_")) {
+            // 제공자/내부 통신 실패를 사용자 입력 오류(400)로 취급하지 않는다.
+            return this.entity(HttpStatus.BAD_GATEWAY, e.getErrorCode(), responseMessage, e);
+        }
         if (e.getErrorCode().startsWith("WRITING_")) {
             HttpStatus status = switch (e.getHttpStatus() == null ? 0 : e.getHttpStatus()) {
                 case 422 -> HttpStatus.UNPROCESSABLE_ENTITY;

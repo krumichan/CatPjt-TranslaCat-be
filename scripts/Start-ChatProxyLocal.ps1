@@ -89,6 +89,12 @@ $allowedProperties = @(
     'chat.gateway.timeout-seconds', 'chat.gateway.token-lifetime-seconds',
     'chat.core.identity.enabled', 'chat.core.identity.environment',
     'chat.core.identity.issuer', 'chat.core.identity.audience', 'chat.core.identity.service',
+    'language-learning.url', 'language-learning.remote.enabled', 'language-learning.growth.enabled',
+    'language-learning.internal-jwt.issuer', 'language-learning.internal-jwt.audience',
+    'language-learning.internal-jwt.caller-service', 'language-learning.internal-jwt.ttl-seconds',
+    'ai-server.url', 'external.google.proxy-url', 'external.use-proxy',
+    'translacat.storage.type', 'translacat.storage.local.root-path', 'translacat.storage.local.public-base-url',
+    'sudachi.dictionary.path', 'exchange-rate.frankfurter.base-url', 'translacat.batch.fixed-cost.enabled',
     'logging.level.root', 'logging.level.jdbc', 'logging.level.jp.co.translacat.global.logging',
     'logging.level.jdbc.sqlonly', 'logging.level.jdbc.sqltiming', 'logging.level.jdbc.audit',
     'logging.level.jdbc.resultset', 'logging.level.jdbc.connection', 'logging.level.jdbc.resultsettable',
@@ -108,6 +114,27 @@ foreach ($line in $configuration -split '\r?\n') {
         throw 'Public configuration contains an unsupported or duplicate key. Put secret inputs in the separate secret file.'
     }
     $publicValues[$propertyName] = $value
+
+    # 전체 로컬 결합에서도 HTTP 의존성과 CORS는 loopback으로 제한한다.
+    if ($propertyName -in @('language-learning.url', 'ai-server.url', 'external.google.proxy-url',
+        'translacat.storage.local.public-base-url', 'exchange-rate.frankfurter.base-url', 'cors.allowed-origin')) {
+        $urls = if ($propertyName -eq 'cors.allowed-origin') { $value.Split(',') } else { @($value) }
+        foreach ($url in $urls) {
+            $localUri = $null
+            if (![Uri]::TryCreate($url.Trim(), [UriKind]::Absolute, [ref]$localUri) -or
+                $localUri.Scheme -ne 'http' -or $localUri.Host -notin @('localhost', '127.0.0.1', '[::1]', '::1') -or
+                $localUri.UserInfo -or $localUri.Query -or $localUri.Fragment) {
+                throw 'Development HTTP dependencies and CORS origins must use loopback HTTP without credentials.'
+            }
+            if ($propertyName -in @('language-learning.url', 'ai-server.url', 'cors.allowed-origin') -and
+                $localUri.AbsolutePath -ne '/') {
+                throw 'Development service URLs and CORS values must be origins without paths.'
+            }
+        }
+    }
+    if ($propertyName -eq 'translacat.storage.type' -and $value -cne 'local') {
+        throw 'Development storage must remain local.'
+    }
 
     # JDBC URL에도 자격증명이나 임의 연결 옵션을 끼워 넣지 않는다. 실제 확인한 로컬 계정 catalog만 허용한다.
     if ($propertyName -eq 'spring.datasource.url') {

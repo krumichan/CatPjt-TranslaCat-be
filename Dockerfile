@@ -21,11 +21,23 @@ RUN ./gradlew dependencies --no-daemon
 COPY src src
 
 # 빌드
-RUN ./gradlew bootJar -x test
+RUN ./gradlew bootJar -x test --no-daemon
 
 # 2단계: 실행 스테이지
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
+
+# 기존 공인 CA는 유지하고 승인된 서비스 공개 CA만 Java trust store에 추가한다.
+COPY deploy/tls/service-ca.pem /tmp/translacat-service-ca.pem
+
+RUN keytool -importcert \
+    -noprompt \
+    -trustcacerts \
+    -alias translacat-service-ca \
+    -file /tmp/translacat-service-ca.pem \
+    -cacerts \
+    -storepass changeit \
+    && rm -f /tmp/translacat-service-ca.pem
 
 # Keep persistence-generated LocalDateTime values deterministic in production.
 ENV TZ=UTC

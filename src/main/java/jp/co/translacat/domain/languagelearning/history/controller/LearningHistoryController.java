@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.languagelearning.history.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
@@ -23,6 +24,26 @@ import java.util.List;
 public class LearningHistoryController {
 
     private final LearningHistoryQueryService historyQueryService;
+
+    @Operation(summary = "누적 학습 근거 조회", description = "저장된 근거와 기존 학습 연결을 읽습니다. 새 평가나 생성을 실행하지 않습니다.")
+    @GetMapping("/evidence")
+    public ResponseDto<JsonNode> getEvidence(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String source,
+            @RequestParam(required = false) String learningLanguage,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) String resultKind,
+            @RequestParam(required = false) String policyVersion,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) String limit
+    ) {
+        // 소유자는 기존 인증에서 얻고 조회 조건·정책 판정은 LL에 그대로 위임한다.
+        return ResponseUtil.ok(historyQueryService.getEvidence(
+                SecurityUtil.getLoginUserId(principal), source, learningLanguage, from, to,
+                resultKind, policyVersion, cursor, limit
+        ));
+    }
 
     @Operation(
             summary = "Language Learning History 조회",

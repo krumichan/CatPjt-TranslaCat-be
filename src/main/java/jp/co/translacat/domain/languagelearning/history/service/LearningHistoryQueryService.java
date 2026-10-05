@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.languagelearning.history.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jp.co.translacat.domain.languagelearning.common.enums.LearningSource;
 import jp.co.translacat.domain.languagelearning.dashboard.port.OverviewGateway;
 import jp.co.translacat.domain.languagelearning.history.dto.response.LearningHistoryDetailResponseDto;
@@ -19,6 +20,21 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class LearningHistoryQueryService {
     private final OverviewGateway overview;
+
+    public JsonNode getEvidence(Long userId, String source, String learningLanguage, String from, String to,
+                                String resultKind, String policyVersion, String cursor, String limit) {
+        // 필터·페이지·정책의 유효성 및 기본값은 결과 소유자인 LL이 결정한다.
+        var query = new LinkedHashMap<String, Object>();
+        query.put("source", source);
+        query.put("learningLanguage", learningLanguage);
+        query.put("from", from);
+        query.put("to", to);
+        query.put("resultKind", resultKind);
+        query.put("policyVersion", policyVersion);
+        query.put("cursor", cursor);
+        query.put("limit", limit);
+        return overview.get(userId, "/evidence", query, JsonNode.class);
+    }
 
     public List<LearningHistoryItemResponseDto> getHistory(Long userId, LearningSource source, String period,
                                                            String status) {

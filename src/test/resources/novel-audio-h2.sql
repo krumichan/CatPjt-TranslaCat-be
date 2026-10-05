@@ -1,0 +1,36 @@
+CREATE TABLE novel_audio_asset (
+  asset_id VARCHAR(36) PRIMARY KEY,
+  identity_hash CHAR(64) NOT NULL UNIQUE,
+  source_key VARCHAR(160) NOT NULL,
+  actor_id BIGINT NOT NULL,
+  language VARCHAR(2) NOT NULL,
+  part_index INT NOT NULL,
+  text_sha256 CHAR(64) NOT NULL,
+  pronunciation_version VARCHAR(100) NOT NULL,
+  model_name VARCHAR(100) NOT NULL,
+  voice_name VARCHAR(40) NOT NULL,
+  audio_format VARCHAR(20) NOT NULL,
+  object_key VARCHAR(220),
+  checksum_sha256 CHAR(64),
+  bytes BIGINT,
+  content_type VARCHAR(100),
+  duration_seconds DOUBLE,
+  state VARCHAR(20) NOT NULL,
+  owner_token VARCHAR(36),
+  fence BIGINT NOT NULL,
+  lease_until BIGINT NOT NULL,
+  attempt_count INT NOT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);
+CREATE TABLE novel_audio_segment_link (
+  source_key VARCHAR(160) NOT NULL,
+  source_revision VARCHAR(64) NOT NULL,
+  actor_id BIGINT NOT NULL,
+  segment_id VARCHAR(100) NOT NULL,
+  language VARCHAR(2) NOT NULL,
+  part_index INT NOT NULL,
+  asset_id VARCHAR(36) NOT NULL,
+  translation_cache_key VARCHAR(64),
+  PRIMARY KEY (source_key, source_revision, actor_id, segment_id, language, part_index)
+);

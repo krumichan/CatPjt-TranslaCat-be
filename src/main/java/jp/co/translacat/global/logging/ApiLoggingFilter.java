@@ -107,6 +107,10 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     }
 
     private String sensitiveBodyLabel(String uri) {
+        // 회차 원문/번역/음성은 긴 본문·개인 읽기 정보를 포함하므로 메타데이터만 기록한다.
+        if (uri.matches("/api/v1/[^/]+/[^/]+/episodes(?:/.*)?")) {
+            return "NOVEL_REDACTED";
+        }
         // Chat 메시지/이미지/프로필과 WebSocket handshake도 본문·사용자 식별자를 기록하지 않는다.
         if (uri.equals("/api/v1/chat") || uri.startsWith("/api/v1/chat/")
                 || uri.equals("/api/v1/admin/chat") || uri.startsWith("/api/v1/admin/chat/")

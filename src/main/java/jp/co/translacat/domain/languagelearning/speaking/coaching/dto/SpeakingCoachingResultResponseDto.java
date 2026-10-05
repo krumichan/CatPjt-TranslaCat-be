@@ -15,6 +15,8 @@ public record SpeakingCoachingResultResponseDto(
         List<String> limitationReasons,
         List<AiSpeakingCoachingItemDto> items,
         String promptVersion,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        String evidenceAvailability,
+        List<String> evidenceLimitations
 ) {
 }

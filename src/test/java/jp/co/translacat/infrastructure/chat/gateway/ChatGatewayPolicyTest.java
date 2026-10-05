@@ -87,13 +87,9 @@ class ChatGatewayPolicyTest {
         assertThat(components).doesNotContain("jp.co.translacat.global.config.WebSocketConfig");
         assertThat(components).contains("jp.co.translacat.infrastructure.chat.core.ChatCoreIdentityController",
                 "jp.co.translacat.global.security.MyUserDetailsService");
-        if (enabled.equals("true")) {
-            assertThat(components).contains("jp.co.translacat.infrastructure.chat.gateway.ChatGatewayConfiguration")
-                    .doesNotContain("jp.co.translacat.infrastructure.chat.gateway.ChatGatewayDisabledSecurity");
-        } else {
-            assertThat(components).contains("jp.co.translacat.infrastructure.chat.gateway.ChatGatewayDisabledSecurity")
-                    .doesNotContain("jp.co.translacat.infrastructure.chat.gateway.ChatGatewayConfiguration");
-        }
+        assertThat(components).contains("jp.co.translacat.infrastructure.chat.gateway.ChatGatewayConfiguration",
+                        "jp.co.translacat.infrastructure.chat.gateway.ChatGatewaySecurity")
+                .doesNotContain("jp.co.translacat.infrastructure.chat.gateway.ChatGatewayDisabledSecurity");
     }
 
     @Test
@@ -128,7 +124,6 @@ class ChatGatewayPolicyTest {
 
     private static ChatGatewayProperties options() {
         var options = new ChatGatewayProperties();
-        options.setEnabled(true);
         options.setEnvironment("Development");
         options.setBaseUrl("http://127.0.0.1:5090");
         options.setSecretBase64(Base64.getEncoder().encodeToString(new byte[64]));

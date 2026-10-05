@@ -15,26 +15,17 @@ import static org.mockito.Mockito.*;
 
 class RemoteOverviewGatewayTest {
     @Test
-    void disabledRemoteStartsAndReturnsExplicitUnavailableForBothReads() {
-        // 준비: 기존 test profile처럼 LL 원격 연결을 켜지 않은 실제 Spring 조립 경계다.
+    void missingRequiredClientFailsStartupEvenWithRetiredFalseSetting() {
+        // 준비: 없어진 OFF 값을 전달해도 실제 원격 client 구성을 생략할 수 없다.
         var runner = new ApplicationContextRunner()
+                .withPropertyValues("language-learning.remote.enabled=false")
                 .withUserConfiguration(OverviewClientConfiguration.class, RemoteOverviewGateway.class);
 
-        // 실행: 외부 Controller가 의존하는 Gateway가 연결 설정 없이도 생성된다.
+        // 실행 / 검증: 필수 전송 빈 누락은 비활성 503 상태로 기동하지 않고 시작 시 실패한다.
         runner.run(context -> {
-            assertNull(context.getStartupFailure());
-            var gateway = context.getBean(OverviewGateway.class);
-            var single = assertThrows(LanguageLearningServiceException.class,
-                    () -> gateway.get(123L, "/dashboard", Map.of(), Object.class));
-            var list = assertThrows(LanguageLearningServiceException.class,
-                    () -> gateway.list(123L, "/history", Map.of(), Object.class));
-
-            // 검증: 빈 성공 응답이나 이전 Core 경로 대신 동일한 503 계약을 반환한다.
-            for (var error : new LanguageLearningServiceException[]{single, list}) {
-                assertEquals(HttpStatus.SERVICE_UNAVAILABLE, error.getStatus());
-                assertEquals("LL_OVERVIEW_REMOTE_DISABLED", error.getErrorCode());
-            }
-            assertFalse(context.containsBean("languageLearningOverviewClient"));
+            assertNotNull(context.getStartupFailure());
+            assertTrue(context.getStartupFailure().getMessage().contains("languageLearningOverviewClient"));
+            assertTrue(context.getStartupFailure().getMessage().contains("RestClient"));
         });
     }
 

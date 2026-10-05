@@ -36,15 +36,16 @@ class SettingsCutoverArchitectureTest {
 
     @Test
     void snapshotModelsHaveNoJpaOrSpringDependency() throws Exception {
-        for (Path folder : List.of(root.resolve("domain/languagelearning/setting/model"),
-                root.resolve("domain/languagelearning/listening/setting/model"))) {
-            try (var paths = Files.walk(folder)) {
-                for (Path path : paths.filter(p -> p.toString().endsWith(".java")).toList()) {
-                    var text = Files.readString(path);
-                    assertFalse(text.contains("import jakarta.persistence."));
-                    assertFalse(text.contains("import org.springframework."));
-                    assertFalse(text.contains("createDefault("));
-                }
+        var folders = List.of(root.resolve("domain/languagelearning/setting/model"),
+                root.resolve("domain/languagelearning/listening/setting/model"));
+        // Git은 빈 디렉터리를 보존하지 않으므로 실제 소스 루트에서 대상 모델만 검사한다.
+        try (var paths = Files.walk(root)) {
+            for (Path path : paths.filter(p -> p.toString().endsWith(".java"))
+                    .filter(p -> folders.stream().anyMatch(p::startsWith)).toList()) {
+                var text = Files.readString(path);
+                assertFalse(text.contains("import jakarta.persistence."));
+                assertFalse(text.contains("import org.springframework."));
+                assertFalse(text.contains("createDefault("));
             }
         }
     }

@@ -4,6 +4,7 @@ import jp.co.translacat.domain.languagelearning.speaking.common.enums.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record SpeakingSessionResponseDto(
         Long id,
@@ -36,6 +37,8 @@ public record SpeakingSessionResponseDto(
         SpeakingPromptGuideResponseDto openingPromptGuide,
         String openingAssistantAudioUrl,
         String sessionSummary,
+        String summaryEvidenceAvailability,
+        List<String> summaryEvidenceLimitations,
         LocalDateTime startedAt,
         LocalDateTime completedAt,
         LocalDateTime lastActivityAt

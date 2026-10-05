@@ -5,7 +5,6 @@ import jp.co.translacat.domain.languagelearning.growth.model.GrowthActivitySnaps
 import jp.co.translacat.domain.languagelearning.growth.model.GrowthSnapshot;
 import jp.co.translacat.domain.languagelearning.growth.port.GrowthReadGateway;
 import jp.co.translacat.infrastructure.languagelearning.client.LanguageLearningServiceException;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 
 import java.time.LocalDate;
@@ -13,34 +12,33 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RemoteGrowthGateway implements GrowthReadGateway {
-    private final GrowthProperties properties;
-    private final ObjectProvider<GrowthHttpClient> clients;
+    private final GrowthHttpClient client;
 
-    public RemoteGrowthGateway(GrowthProperties properties, ObjectProvider<GrowthHttpClient> clients) {
-        this.properties = properties;
-        this.clients = clients;
+    public RemoteGrowthGateway(GrowthHttpClient client) {
+        // 성장 조회는 필수 LL client가 없는 상태로 시작하지 않는다.
+        this.client = java.util.Objects.requireNonNull(client, "Growth HTTP client is required.");
     }
 
     @Override
     public GrowthSnapshot snapshot(Long userId, List<String> masteryKeys) {
-        requireEnabled(userId);
+        requireUser(userId);
         if (masteryKeys != null && masteryKeys.size() > 500)
             throw new IllegalArgumentException("키워드 조회는 500개씩 나누어 주세요.");
 
         // 성장의 현재 원본은 LL이다. 조회 요청에는 사용자와 필요한 mastery 범위만 전달한다.
-        return clients.getObject().snapshot(userId, masteryKeys);
+        return client.snapshot(userId, masteryKeys);
     }
 
     @Override
     public List<GrowthActivitySnapshot> activities(Long userId, LearningSource source, LocalDate from, LocalDate to) {
-        requireEnabled(userId);
+        requireUser(userId);
 
         // LL 페이지의 동일 revision과 커서 전진을 확인해 조회 도중 바뀐 이력을 합치지 않는다.
         List<GrowthActivitySnapshot> result = new ArrayList<>();
         long after = 0;
         String revision = null;
         while (true) {
-            var page = clients.getObject().activities(userId, source, from, to, after);
+            var page = client.activities(userId, source, from, to, after);
             if (revision != null && !revision.equals(page.projectionRevision()))
                 throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
                         "GROWTH_READ_CHANGED", "성장 이력이 갱신되어 다시 조회해야 합니다.");
@@ -54,10 +52,7 @@ public class RemoteGrowthGateway implements GrowthReadGateway {
         return List.copyOf(result);
     }
 
-    private void requireEnabled(Long userId) {
+    private void requireUser(Long userId) {
         if (userId == null || userId <= 0) throw new IllegalArgumentException("userId는 양수여야 합니다.");
-        if (!properties.isEnabled() || clients.getIfAvailable() == null)
-            throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "LL_GROWTH_DISABLED", "언어학습 성장 데이터 연결이 활성화되지 않았습니다.");
     }
 }

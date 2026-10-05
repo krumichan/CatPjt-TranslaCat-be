@@ -49,12 +49,10 @@ public class EpisodeSafeSaver {
 
             if (!Objects.isNull(maybeEpisode)) {
                 // [UPDATE] 이미 있다면 가져와서 정보 갱신
-                boolean updated = maybeEpisode.updateIfChanged(novel,
+                maybeEpisode.updateIfChanged(novel,
                         context.getTitle().getRawJa(), context.getTitle().getJa(), context.getTitle().getKo());
-
-                if (updated) {
-                    processedList.add(maybeEpisode);
-                }
+                // 변경이 없는 캐시 적중도 입력에 대응하는 회차를 반드시 반환한다.
+                processedList.add(maybeEpisode);
             } else {
                 // [INSERT] 없다면 새로 생성
                 processedList.add(this.episodeRepository.save(

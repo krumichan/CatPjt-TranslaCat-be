@@ -1,4 +1,4 @@
-name: BE Deploy to OCI
+﻿name: BE Deploy to OCI
 
 on:
   push:
@@ -8,13 +8,11 @@ on:
 permissions:
   contents: read
 
-# 진행 중인 stop/rollback을 새 push가 취소하지 않도록 전체 release를 직렬화한다.
-concurrency:
-  group: translacat-be-production
-  cancel-in-progress: false
-
 jobs:
   verify:
+    # main push에서는 기존 검증을 유지한다.
+    # 수동 production dispatch에서는 이미 완료된 push 검증을 다시 기다리지 않는다.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -38,12 +36,16 @@ jobs:
           ./gradlew test bootJar --no-daemon
 
   release:
-    needs: verify
-    # 내장 소설의 수동 SQL 백업·적용 확인 전에는 main push만으로 운영 앱을 바꾸지 않는다.
-    if: github.event_name == 'workflow_dispatch'
+    # 운영 반영은 main의 명시적 workflow_dispatch에서만 수행한다.
+    # push verify와는 병렬 실행할 수 있지만 production release끼리는 직렬화한다.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    concurrency:
+      group: translacat-be-production
+      cancel-in-progress: false
+
     runs-on: ubuntu-latest
-    # 서버 build 90분과 readiness/rollback, SSH 전송에 별도 여유를 둔다.
     timeout-minutes: 125
+
     steps:
       - name: Encode the environment as data
         env:
@@ -53,62 +55,146 @@ jobs:
           import base64
           import os
           from pathlib import Path
+
           value = os.environ['ENV_FILE_CONTENT']
           if not value.strip():
               raise SystemExit('ENV_FILE_CONTENT is empty')
+
           encoded = base64.b64encode(value.encode('utf-8')).decode('ascii')
           print('::add-mask::' + encoded)
+
           with Path(os.environ['GITHUB_ENV']).open('a', encoding='utf-8') as output:
               output.write('DEPLOY_ENV_B64=' + encoded + '\n')
-      - name: Release the verified SHA via SSH
-        uses: appleboy/ssh-action@v1.0.3
+
+      - name: Prepare strict BE SSH
         env:
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+
+          key="$RUNNER_TEMP/translacat-be-deploy-key"
+          candidate="$RUNNER_TEMP/translacat-be-known-hosts.candidate"
+          known="$RUNNER_TEMP/translacat-be-known-hosts"
+
+          # GitHub Secret의 user-auth private key를 runner 임시 파일에만 둔다.
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > "$key"
+          chmod 600 "$key"
+
+          # 사용자가 독립적으로 검증한 BE ED25519 host fingerprint.
+          expected='SHA256:iHsMnLENMuXeRoIEBlZAEAUu2W0bnlEU5+oEm975cc4'
+
+          # ssh-keyscan 결과 자체를 신뢰하지 않고 위 고정 fingerprint와 대조한다.
+          ssh-keyscan -T 10 -t ed25519 "$OCI_HOST" 2>/dev/null > "$candidate"
+          test -s "$candidate"
+
+          actual="$(ssh-keygen -lf "$candidate" -E sha256 | awk 'NR == 1 { print $2 }')"
+
+          if [[ "$actual" != "$expected" ]]; then
+            echo "BE SSH ED25519 host fingerprint mismatch" >&2
+            echo "expected=$expected" >&2
+            echo "actual=$actual" >&2
+            exit 1
+          fi
+
+          mv "$candidate" "$known"
+          chmod 600 "$known"
+
+          {
+            echo "BE_SSH_KEY=$key"
+            echo "BE_KNOWN_HOSTS=$known"
+          } >> "$GITHUB_ENV"
+
+          echo "BE SSH ED25519 host fingerprint verified."
+
+      - name: Release selected main SHA via native OpenSSH
+        timeout-minutes: 115
+        env:
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          OCI_USERNAME: ${{ secrets.OCI_USERNAME }}
           RELEASE_SHA: ${{ github.sha }}
-        with:
-          host: ${{ secrets.OCI_HOST }}
-          username: ${{ secrets.OCI_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # 기존 strict known_hosts 접속으로 대조한 BE 서버 ED25519 host key이다.
-          fingerprint: SHA256:iHsMnLENMuXeRoIEBlZAEAUu2W0bnlEU5+oEm975cc4
-          debug: false
-          envs: RELEASE_SHA,DEPLOY_ENV_B64
-          command_timeout: 115m
-          script: |
-            set -Eeuo pipefail
-            umask 077
-            [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
-            cd "$HOME/CatPjt-TranslaCat-be"
+        shell: bash
+        run: |
+          set -Eeuo pipefail
 
-            # checkout부터 rollback까지 같은 잠금을 상속한다. 잠금은 repo 밖에 둔다.
-            mkdir -p "$HOME/.translacat-deploy"
-            exec 9> "$HOME/.translacat-deploy/be.lock"
-            flock --nonblock 9 || { echo 'Another BE deployment holds the lock' >&2; exit 2; }
-            export DEPLOY_LOCK_FD=9
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
 
-            # 첫 배포의 기존 .env와 운영 사전만 정확한 untracked 예외로 인정한다.
-            # 기존 .env를 읽거나 이동하지 않으며 symlink/추적된 비밀 파일은 거부한다.
-            git diff --quiet
-            git diff --cached --quiet
-            if git ls-files --error-unmatch .env >/dev/null 2>&1; then
-              echo 'Tracked production environment blocks the deployment' >&2
-              exit 2
-            fi
-            untracked_file="$(mktemp /tmp/translacat-be-worktree.XXXXXX)"
-            trap 'rm -f "$untracked_file"' EXIT
-            git ls-files --others --exclude-standard -z > "$untracked_file"
-            while IFS= read -r -d '' path; do
-              case "$path" in
-                .env|sudachi/system_full.dic)
-                  [[ -f "$path" && ! -L "$path" ]] || { echo 'Untracked runtime input must be a regular file' >&2; exit 2; }
-                  ;;
-                *) echo 'Unreviewed untracked files block the deployment' >&2; exit 2 ;;
-              esac
-            done < "$untracked_file"
-            rm -f "$untracked_file"
-            trap - EXIT
+          ssh \
+            -i "$BE_SSH_KEY" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$BE_KNOWN_HOSTS" \
+            -o GlobalKnownHostsFile=/dev/null \
+            -o HostKeyAlgorithms=ssh-ed25519 \
+            -o ConnectTimeout=20 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=3 \
+            "$OCI_USERNAME@$OCI_HOST" \
+            "RELEASE_SHA='$RELEASE_SHA' DEPLOY_ENV_B64='$DEPLOY_ENV_B64' bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          umask 077
 
-            # main의 최신 tip이 아닌 verify가 성공한 commit 하나만 선택한다.
-            GIT_LFS_SKIP_SMUDGE=1 git fetch --no-tags origin "$RELEASE_SHA"
-            GIT_LFS_SKIP_SMUDGE=1 git checkout --detach "$RELEASE_SHA"
-            test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-            bash scripts/deploy-release.sh "$RELEASE_SHA"
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          cd "$HOME/CatPjt-TranslaCat-be"
+
+          # checkout부터 rollback까지 같은 잠금을 상속한다.
+          mkdir -p "$HOME/.translacat-deploy"
+          exec 9> "$HOME/.translacat-deploy/be.lock"
+          flock --nonblock 9 || {
+            echo 'Another BE deployment holds the lock' >&2
+            exit 2
+          }
+          export DEPLOY_LOCK_FD=9
+
+          # 기존 .env와 운영 사전만 정확한 untracked 예외로 인정한다.
+          git diff --quiet
+          git diff --cached --quiet
+
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo 'Tracked production environment blocks the deployment' >&2
+            exit 2
+          fi
+
+          untracked_file="$(mktemp /tmp/translacat-be-worktree.XXXXXX)"
+          trap 'rm -f "$untracked_file"' EXIT
+
+          git ls-files --others --exclude-standard -z > "$untracked_file"
+
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              .env|sudachi/system_full.dic)
+                [[ -f "$path" && ! -L "$path" ]] || {
+                  echo 'Untracked runtime input must be a regular file' >&2
+                  exit 2
+                }
+                ;;
+              *)
+                echo 'Unreviewed untracked files block the deployment' >&2
+                exit 2
+                ;;
+            esac
+          done < "$untracked_file"
+
+          rm -f "$untracked_file"
+          trap - EXIT
+
+          # workflow_dispatch가 선택한 정확한 main SHA만 배포한다.
+          GIT_LFS_SKIP_SMUDGE=1 git fetch --no-tags origin "$RELEASE_SHA"
+          GIT_LFS_SKIP_SMUDGE=1 git checkout --detach "$RELEASE_SHA"
+
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+
+          bash scripts/deploy-release.sh "$RELEASE_SHA"
+          REMOTE
+
+      - name: Remove temporary SSH material
+        if: always()
+        shell: bash
+        run: |
+          rm -f \
+            "${BE_SSH_KEY:-}" \
+            "${BE_KNOWN_HOSTS:-}" \
+            "$RUNNER_TEMP/translacat-be-known-hosts.candidate"

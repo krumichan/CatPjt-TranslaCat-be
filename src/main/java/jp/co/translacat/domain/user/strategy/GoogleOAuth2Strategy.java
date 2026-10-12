@@ -1,31 +1,17 @@
 package jp.co.translacat.domain.user.strategy;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
+import jp.co.translacat.domain.user.auth.account.GoogleIdentityVerifier;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.enums.SocialType;
 import jp.co.translacat.domain.user.service.UserService;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
-import java.util.Objects;
-
 @Component
+@RequiredArgsConstructor
 public class GoogleOAuth2Strategy implements OAuth2Strategy {
-    private final GoogleIdTokenVerifier verifier;
+    private final GoogleIdentityVerifier verifier;
     private final UserService userService;
-
-    public GoogleOAuth2Strategy(
-            @Value("${spring.security.oauth2.client.registration.google.client-id}") String clientId,
-            UserService userService) {
-        this.userService = userService;
-        this.verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
-                .setAudience(Collections.singletonList(clientId))
-                .build();
-    }
 
     @Override
     public SocialType getProviderType() {
@@ -34,22 +20,12 @@ public class GoogleOAuth2Strategy implements OAuth2Strategy {
 
     @Override
     public User authenticate(String idTokenString) {
-        try {
-            GoogleIdToken idToken = verifier.verify(idTokenString);
-            if (Objects.isNull(idToken)) {
-                throw new RuntimeException("Invalid Token: " + idTokenString);
-            }
+        // 외부 토큰 검증을 DB 저장 트랜잭션보다 먼저 수행한다.
+        var identity = verifier.verify(idTokenString);
 
-            GoogleIdToken.Payload payload = idToken.getPayload();
-            return userService.getOrRegisterSocialUser(
-                    payload.getEmail(),
-                    (String) payload.get("name"),
-                    payload.getSubject(),
-                    SocialType.GOOGLE
-            );
-        } catch (Exception e) {
-            throw new RuntimeException("Google Verification Failed.", e);
-        }
+        // 이메일 충돌은 연결 안내로 유지하고 Google 검증 오류로 덮어쓰지 않는다.
+        return userService.getOrRegisterSocialUser(identity.email(), identity.name(),
+                identity.subject(), SocialType.GOOGLE);
     }
 }
 

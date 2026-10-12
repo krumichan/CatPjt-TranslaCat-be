@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         controllers = PlatformController.class,
         properties = {
                 "cors.allowed-origin=http://localhost:3000",
-                "jwt.token.secret-key=dGVzdC1zZWNyZXQta2V5LXRlc3Qtc2VjcmV0LWtleQ==",
+                "jwt.token.secret-key=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
                 "jwt.token.expired.access=86400000",
                 "jwt.token.expired.refresh=604800000"
         }
@@ -48,6 +48,34 @@ class SecurityConfigNovelAccessTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JWTService jwt;
+
+    @Test
+    void refreshAndBasicCannotAuthenticateAccountApis() throws Exception {
+        // 준비: 갱신 토큰과 Basic 인증은 비밀번호 확인 API 제한을 우회해서는 안 된다.
+        String refresh = jwt.generateRefreshToken(1L, "fixture@example.com");
+
+        // 실행 / 검증
+        mockMvc.perform(get("/api/v1/auth/account").header("Authorization", "Bearer " + refresh))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/auth/account")
+                        .with(SecurityMockMvcRequestPostProcessors.httpBasic("fixture@example.com", "password")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(result -> assertThat(result.getResponse().getHeader("WWW-Authenticate")).isNull());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"google/start", "google/complete", "email/challenges", "password"})
+    void accountChangesRequireAuthentication(String path) throws Exception {
+        // 준비
+        String endpoint = "/api/v1/auth/account/" + path;
+
+        // 실행 / 검증: 이메일 인증 공개 경로가 계정 변경 경로까지 열지 않는다.
+        mockMvc.perform(post(endpoint).contentType("application/json").content("{}"))
+                .andExpect(status().isUnauthorized());
+    }
 
     @Test
     void adminCanAccessNovelApi() throws Exception {

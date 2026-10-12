@@ -3,8 +3,10 @@ package jp.co.translacat.domain.user.service;
 import jp.co.translacat.domain.user.dto.UserLoginResponseDto;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.strategy.OAuth2Strategy;
+import jp.co.translacat.domain.user.auth.AuthException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 
@@ -18,7 +20,8 @@ public class OAuth2AuthenticationService {
         OAuth2Strategy strategy = strategies.stream()
                 .filter(p -> p.getProviderType().name().equalsIgnoreCase(providerName))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unsupported Provider: " + providerName));
+                .orElseThrow(() -> new AuthException(HttpStatus.BAD_REQUEST, "AUTH_PROVIDER_UNSUPPORTED",
+                        "지원하지 않는 로그인 방식입니다."));
 
         User user = strategy.authenticate(idToken);
 

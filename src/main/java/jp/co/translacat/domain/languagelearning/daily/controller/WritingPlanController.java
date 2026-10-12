@@ -71,6 +71,12 @@ public class WritingPlanController {
         return ResponseUtil.ok(client().writingPlanAnswer(SecurityUtil.getLoginUserId(principal), itemId, body));
     }
 
+    @PostMapping("/{setId}/delete")
+    public ResponseDto<JsonNode> delete(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long setId,
+                                        @RequestBody JsonNode body) {
+        return ResponseUtil.ok(client().writingPlanDelete(SecurityUtil.getLoginUserId(principal), setId, body));
+    }
+
     @PostMapping("/answers/{answerId}/feedback/retry")
     public ResponseDto<JsonNode> retryFeedback(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long answerId) {
         return ResponseUtil.ok(client().writingPlanFeedbackRetry(SecurityUtil.getLoginUserId(principal), answerId));

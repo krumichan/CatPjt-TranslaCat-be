@@ -1,15 +1,19 @@
 package jp.co.translacat.domain.user.entity;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.domain.user.enums.SocialType;
 import jp.co.translacat.global.jpa.BaseAuditable;
 import lombok.*;
+import java.time.LocalDate;
+import java.time.Instant;
 
 @Entity
 @Getter
 @Setter
-@Table(name = "user")
+@Table(name = "user", uniqueConstraints = @UniqueConstraint(
+        name = "uk_user_google_identity", columnNames = {"social_type", "social_id"}))
 @NoArgsConstructor
 public class User extends BaseAuditable {
 
@@ -33,7 +37,16 @@ public class User extends BaseAuditable {
     private String email;
 
     @Column
+    @JsonIgnore
     private String password;
+
+    @Column(name = "birth_date")
+    @JsonIgnore
+    private LocalDate birthDate;
+
+    @Column(name = "email_verified_at")
+    @JsonIgnore
+    private Instant emailVerifiedAt;
 
     @Column
     private String username;
@@ -49,6 +62,19 @@ public class User extends BaseAuditable {
 
     @Column(name = "public_id", nullable = false, unique = true, updatable = false, length = 20)
     private String publicId;
+
+    public boolean hasPassword() {
+        return password != null && !password.isBlank();
+    }
+
+    public boolean isGoogleLinked() {
+        return socialType == SocialType.GOOGLE && socialId != null && !socialId.isBlank();
+    }
+
+    public void linkGoogle(String subject) {
+        this.socialType = SocialType.GOOGLE;
+        this.socialId = subject;
+    }
 
     public static User createLocalUser(String email, String password, String username, Role authority,
                                        String publicId) {

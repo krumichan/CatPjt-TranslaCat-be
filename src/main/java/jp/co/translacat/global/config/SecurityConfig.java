@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -95,6 +94,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",
+                                "/api/v1/auth/email/challenges",
+                                "/api/v1/auth/email/verify",
                                 "/api/v1/auth/token/refresh",
                                 "/api/v1/auth/social/**",
                                 "/api/v1/health",
@@ -107,13 +108,17 @@ public class SecurityConfig {
                                 "/swagger-ui.html"
                         ).permitAll()  // 위 경로는 인증 없이 접근 허용
                         .anyRequest().authenticated())  // 나머지 경로는 인증 필요
-//                .formLogin(Customizer.withDefaults()) // login default form 사용.
-                .httpBasic(Customizer.withDefaults()) // HTTP Basic 인증 사용
+                // 비밀번호 확인은 시도 제한이 있는 로그인 API로만 받는다.
+                .httpBasic(AbstractHttpConfigurer::disable)
                 .exceptionHandling(exception -> exception
                         .defaultAuthenticationEntryPointFor(
                                 (request, response, authException) ->
                                         response.setStatus(HttpServletResponse.SC_NOT_FOUND),
                                 NOVEL_API_REQUESTS)
+                        .defaultAuthenticationEntryPointFor(
+                                (request, response, authException) ->
+                                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED),
+                                AnyRequestMatcher.INSTANCE)
                         .defaultAccessDeniedHandlerFor(
                                 (request, response, accessDeniedException) ->
                                         response.setStatus(HttpServletResponse.SC_NOT_FOUND),

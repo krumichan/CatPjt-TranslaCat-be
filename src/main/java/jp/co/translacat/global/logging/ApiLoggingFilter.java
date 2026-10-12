@@ -107,6 +107,11 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     }
 
     private String sensitiveBodyLabel(String uri) {
+        // 비공개 문의·개인 메시지·수신자 검색에는 본문과 계정 정보를 로그에 남기지 않는다.
+        if (uri.equals("/api/v1/support") || uri.startsWith("/api/v1/support/")) {
+            return "SUPPORT_REDACTED";
+        }
+
         // 회차 원문/번역/음성은 긴 본문·개인 읽기 정보를 포함하므로 메타데이터만 기록한다.
         if (uri.matches("/api/v1/[^/]+/[^/]+/episodes(?:/.*)?")) {
             return "NOVEL_REDACTED";

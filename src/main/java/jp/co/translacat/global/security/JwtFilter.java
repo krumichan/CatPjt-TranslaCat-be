@@ -4,10 +4,12 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -58,30 +60,27 @@ public class JwtFilter extends OncePerRequestFilter {
         String token = null;
         String username = null;
 
-        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-            token = authorizationHeader.substring(7); // "Bearer " 제거
-            username = jwtService.extractUsername(token);
-        }
-
-        // 2. SecurityContext에 인증 정보가 없으면 JWT 검증 수행
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-
-            // UserDetailsService를 통해 사용자 정보 로드
-            UserDetails userDetails = context.getBean(MyUserDetailsService.class).loadUserByUsername(username);
-
-            // JWT 토큰 유효성 검증
-            if (jwtService.validateToken(token, userDetails)) {
-
-                // UsernamePasswordAuthenticationToken 생성 (Spring Security 인증 객체)
-                UsernamePasswordAuthenticationToken authenticationToken =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-
-                // 추가 정보(request 등) 설정
-                authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                // SecurityContext에 인증 정보 저장
-                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+        try {
+            // 서명·만료·access 용도를 먼저 확인한다. 갱신 토큰으로 보호 API에 접근할 수 없다.
+            if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+                token = authorizationHeader.substring(7);
+                jwtService.getAccessId(token);
+                username = jwtService.extractUsername(token);
             }
+
+            // 현재 DB 사용자를 확인한 뒤에만 인증 주체를 저장한다.
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = context.getBean(MyUserDetailsService.class).loadUserByUsername(username);
+                if (jwtService.validateToken(token, userDetails)) {
+                    UsernamePasswordAuthenticationToken authenticationToken =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                }
+            }
+        } catch (JwtException | IllegalArgumentException | AuthenticationException invalidCredentials) {
+            // 토큰 원문이나 파서 예외를 노출하지 않고 기존 경로별 인증 거부 정책으로 넘긴다.
+            SecurityContextHolder.clearContext();
         }
 
         // 다음 필터로 요청 전달

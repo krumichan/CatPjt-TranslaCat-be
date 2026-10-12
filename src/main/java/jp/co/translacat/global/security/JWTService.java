@@ -2,6 +2,7 @@ package jp.co.translacat.global.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +13,7 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 /**
@@ -52,6 +54,7 @@ public class JWTService {
     public String generateAccessToken(Long userId, String email) {
         Map<String, Object> claims = new HashMap<>();
         claims.put(this.KEY_ID, userId);
+        claims.put("token_use", "access");
         return this.generateToken(email, claims, accessTokenExpiredAt);
     }
 
@@ -65,6 +68,7 @@ public class JWTService {
     public String generateRefreshToken(Long userId, String email) {
         Map<String, Object> claims = new HashMap<>();
         claims.put(this.KEY_ID, userId);
+        claims.put("token_use", "refresh");
         return this.generateToken(email, claims, refreshTokenExpiredAt);
     }
 
@@ -82,6 +86,7 @@ public class JWTService {
                 .claims()
                 .add(claims)
                 .subject(subject)
+                .id(UUID.randomUUID().toString())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + expiredAt))
                 .and()
@@ -142,15 +147,47 @@ public class JWTService {
      * @return 유효하면 true
      */
     public boolean validateToken(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+        // 보호 API에서는 access만 허용한다. 사용자 조회 결과와 토큰의 회원 ID도 일치해야 한다.
+        Claims claims = extractAllClaims(token);
+        if (!isAccessToken(claims) || !userDetails.getUsername().equals(claims.getSubject())) {
+            return false;
+        }
+        return !(userDetails instanceof UserPrincipal principal)
+                || principal.getId().equals(claims.get(KEY_ID, Long.class));
     }
 
-    /**
-     * JWT 만료 여부 확인
-     */
-    private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+    public Long getAccessId(String token) {
+        Claims claims = extractAllClaims(token);
+        if (!isAccessToken(claims)) {
+            throw new JwtException("Access token required");
+        }
+        return claims.get(KEY_ID, Long.class);
+    }
+
+    public Long getRefreshId(String token) {
+        Claims claims = extractAllClaims(token);
+        String purpose = claims.get("token_use", String.class);
+        // 기존 refresh는 DB에 저장된 원문과의 일치 검증을 서비스에서 계속 수행한다.
+        if (purpose != null && !"refresh".equals(purpose)) {
+            throw new JwtException("Refresh token required");
+        }
+        return claims.get(KEY_ID, Long.class);
+    }
+
+    private boolean isAccessToken(Claims claims) {
+        String purpose = claims.get("token_use", String.class);
+        if (purpose != null) {
+            return "access".equals(purpose);
+        }
+
+        // 이전 발급기가 만든 짧은 access만 호환한다. 긴 refresh나 수명이 구분되지 않는 설정은 거부한다.
+        Date issued = claims.getIssuedAt();
+        Date expires = claims.getExpiration();
+        if (issued == null || expires == null || refreshTokenExpiredAt <= accessTokenExpiredAt) {
+            return false;
+        }
+        long lifetime = expires.getTime() - issued.getTime();
+        return lifetime > 0 && lifetime <= accessTokenExpiredAt;
     }
 
     /**

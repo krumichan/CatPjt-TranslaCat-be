@@ -154,6 +154,15 @@ public class LanguageLearningWritingClient {
                 "/plans/" + learningId(setId) + "/restore", request, JsonNode.class));
     }
 
+    /** 삭제는 인증된 소유자의 계획과 비점수 활동에만 적용한다. 응답의 대상 ID도 대조한다. */
+    public JsonNode writingPlanDelete(Long userId, Long setId, JsonNode request) {
+        String publicId = String.valueOf(learningId(setId));
+        JsonNode result = postAt(CURATED_ROOT, userId, "/plans/" + publicId + "/delete", request, JsonNode.class);
+        if (result == null || !result.path("deleted").isBoolean() || !result.path("deleted").booleanValue()
+                || !publicId.equals(result.path("dailySetId").asText())) throw contractFailure();
+        return result;
+    }
+
     public JsonNode writingPlanAnswer(Long userId, Long itemId, JsonNode request) {
         return WritingPlanContract.plan(postAt(CURATED_ROOT, userId,
                 "/plans/items/" + learningId(itemId) + "/answers", request, JsonNode.class));

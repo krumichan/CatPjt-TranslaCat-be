@@ -20,10 +20,10 @@ public class UserController {
     private final OAuth2AuthenticationService oAuthService;
 
     @PostMapping("/register")
-    public ResponseDto<User> register(@RequestBody @Valid UserCreateRequestDto userCreateRequestDto) {
+    public ResponseDto<UserRegistrationResponseDto> register(@RequestBody @Valid UserCreateRequestDto userCreateRequestDto) {
         User createdUser = userService.register(userCreateRequestDto);
-        createdUser.setPassword(null);
-        return ResponseUtil.ok(createdUser);
+        return ResponseUtil.ok(new UserRegistrationResponseDto(
+                createdUser.getPublicId(), createdUser.getEmail(), createdUser.getUsername()));
     }
 
     @PostMapping("/login")

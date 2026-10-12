@@ -36,6 +36,31 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ProductionPropertyBindingTest {
     @Test
+    void productionMailUsesProfilePropertiesAndEnvironmentValues() throws Exception {
+        // 준비: 운영 프로필에는 합성 메일 계정과 인증 코드 비밀만 주입한다.
+        var values = values();
+        values.put("TRANSLACAT_MAIL_ENABLED", "true");
+        values.put("TRANSLACAT_MAIL_USERNAME", "sender@example.com");
+        values.put("TRANSLACAT_MAIL_APP_PASSWORD", "synthetic-app-password");
+        values.put("TRANSLACAT_EMAIL_CODE_SECRET", "synthetic-code-secret-with-at-least-32-bytes");
+        var base = new PropertiesPropertySourceLoader()
+                .load("base-mail-check", new ClassPathResource("application.properties")).getFirst();
+
+        // 실행
+        var environment = environment(values);
+
+        // 검증: 공통 설정은 발신 비밀을 갖지 않고, 운영 설정은 환경값을 해석한다.
+        assertThat(base.containsProperty("spring.mail.username")).isFalse();
+        assertThat(environment.getRequiredProperty("translacat.auth.mail.enabled")).isEqualTo("true");
+        assertThat(environment.getRequiredProperty("spring.mail.username")).isEqualTo("sender@example.com");
+        assertThat(environment.getRequiredProperty("spring.mail.password")).isEqualTo("synthetic-app-password");
+        assertThat(environment.getRequiredProperty("translacat.auth.email.code-secret"))
+                .isEqualTo("synthetic-code-secret-with-at-least-32-bytes");
+        assertThat(environment.getRequiredProperty("spring.mail.properties.mail.smtp.starttls.required"))
+                .isEqualTo("true");
+    }
+
+    @Test
     void productionNovelUsesEmbeddedReaderAndDedicatedAiKeyWithoutAvailabilitySwitches() throws Exception {
         // 준비: 실제 base/prod에 합성 전용키를 공급한다. 독립 NOVEL 목적지/DB는 없다.
         var environment = environment(values());

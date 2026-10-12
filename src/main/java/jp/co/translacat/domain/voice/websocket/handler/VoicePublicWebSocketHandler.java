@@ -23,6 +23,7 @@ import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.dao.DataAccessException;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 
@@ -30,7 +31,9 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static jp.co.translacat.domain.voice.websocket.interceptor.VoiceWebSocketHandshakeInterceptor.*;
@@ -119,7 +122,7 @@ public class VoicePublicWebSocketHandler
 
                     VoiceRelayConnection current =
                             connections.get(connectionId);
-                    if (current == null) {
+                    if (current == null || current.isTerminated()) {
                         ai.abort();
                         return;
                     }
@@ -228,22 +231,30 @@ public class VoicePublicWebSocketHandler
             WebSocketSession session,
             CloseStatus status
     ) {
-        VoiceRelayConnection relay = connections.remove(
+        VoiceRelayConnection relay = connections.get(
                 session.getId()
         );
         if (relay == null) {
             return;
         }
 
+        // DB 결과를 먼저 기록한다. registry를 먼저 제거하면 후속 complete HTTP가
+        // 실패한 closeFuture와 아직 저장되지 않은 ERROR를 모두 놓칠 수 있다.
+        try {
+            if ((relay.isCloseRequested() || relay.isReady()) && !relay.isGracefullyClosed()) {
+                streamCommandService.markError(relay.context());
+            } else {
+                streamCommandService.markDisconnected(relay.context());
+            }
+        } catch (RuntimeException ignored) {
+            // Stale-session cleanup is the final DB safety net.
+        }
+
+        connections.remove(session.getId(), relay);
         connectionRegistry.remove(
                 relay.context().sessionId(),
                 session.getId()
         );
-        try {
-            streamCommandService.markDisconnected(relay.context());
-        } catch (RuntimeException ignored) {
-            // Stale-session cleanup is the final DB safety net.
-        }
         relay.forceClose(status);
     }
 
@@ -263,7 +274,7 @@ public class VoicePublicWebSocketHandler
             String rawJson
     ) {
         VoiceRelayConnection relay = connections.get(connectionId);
-        if (relay == null) {
+        if (relay == null || relay.isTerminated()) {
             return;
         }
 
@@ -298,28 +309,19 @@ public class VoicePublicWebSocketHandler
 
     private void onAiClosed(String connectionId) {
         VoiceRelayConnection relay = connections.get(connectionId);
-        if (relay == null) {
+        if (relay == null || relay.isTerminated()) {
             return;
         }
 
-        if (!relay.isCloseRequested()) {
-            onAsyncError(
-                    connectionId,
-                    new BusinessException(
-                            "Voice AI WebSocket closed unexpectedly.",
-                            VoiceErrorCode.AI_CONNECTION_CLOSED
-                    )
-            );
-            return;
-        }
-
-        try {
-            streamCommandService.markDisconnected(relay.context());
-        } catch (RuntimeException ignored) {
-            // best effort cleanup
-        }
-        relay.markClosed();
-        relay.forceClose(CloseStatus.NORMAL);
+        // 종료 요청을 보냈다는 사실만으로 미완료 Final 처리까지 성공했다고 판단하지 않는다.
+        // 정상 종료는 STREAM_CLOSED 이벤트 처리에서 이미 확정되고 소켓도 닫힌다.
+        onAsyncError(
+                connectionId,
+                new BusinessException(
+                        "Voice AI WebSocket closed before STREAM_CLOSED acknowledgement.",
+                        VoiceErrorCode.AI_CONNECTION_CLOSED
+                )
+        );
     }
 
     private void onAsyncError(
@@ -327,15 +329,33 @@ public class VoicePublicWebSocketHandler
             Throwable error
     ) {
         VoiceRelayConnection relay = connections.get(connectionId);
-        if (relay == null) {
+        // 오류 알림 전송도 실패할 수 있으므로 같은 연결의 오류 처리는 한 번만 수행한다.
+        if (relay == null || !relay.beginFailure()) {
             return;
         }
 
+        // 비동기 wrapper 안의 도메인 오류 코드를 보존해 timeout/계약/연결 오류를 구분한다.
+        Throwable cause = unwrapAsyncError(error);
+        String code = cause instanceof BusinessException business
+                && business.getErrorCode() != null
+                && !business.getErrorCode().isBlank()
+                ? business.getErrorCode()
+                : cause instanceof DataAccessException
+                        ? VoiceErrorCode.BE_INTERNAL_ERROR
+                        : VoiceErrorCode.AI_CONNECTION_FAILED;
+        boolean retryable = isRetryableStreamError(code);
+
+        // 같은 연결의 종료를 기다리는 HTTP 요청에도 WS 이벤트와 동일한 원인을 전달한다.
+        relay.markFailed(cause instanceof DataAccessException
+                ? new BusinessException("Failed to persist Voice results.", code)
+                : cause);
+
         log.warn(
-                "Voice stream failed session={} channel={} errorType={}",
+                "Voice stream failed session={} channel={} code={} errorType={}",
                 relay.context().sessionId(),
                 relay.context().channel(),
-                error.getClass().getSimpleName()
+                code,
+                cause.getClass().getSimpleName()
         );
 
         try {
@@ -344,14 +364,34 @@ public class VoicePublicWebSocketHandler
             // Preserve the original stream failure.
         }
 
-        relay.sendPublic(
-                gatewayErrorEvent(
-                        relay,
-                        VoiceErrorCode.AI_CONNECTION_FAILED,
-                        true
-                )
-        );
-        relay.forceClose(CloseStatus.SERVER_ERROR);
+        try {
+            relay.sendPublic(
+                    gatewayErrorEvent(
+                            relay,
+                            code,
+                            retryable
+                    )
+            );
+        } finally {
+            relay.forceClose(CloseStatus.SERVER_ERROR);
+        }
+    }
+
+    private Throwable unwrapAsyncError(Throwable error) {
+        Throwable cause = error;
+        while ((cause instanceof CompletionException || cause instanceof ExecutionException)
+                && cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+        return cause;
+    }
+
+    private boolean isRetryableStreamError(String code) {
+        // 저장/내부 오류는 같은 입력을 재연결로 반복해도 복구되지 않으므로 자동 재접속하지 않는다.
+        return VoiceErrorCode.AI_CONNECTION_FAILED.equals(code)
+                || VoiceErrorCode.AI_CONNECTION_CLOSED.equals(code)
+                || VoiceErrorCode.AI_READY_TIMEOUT.equals(code)
+                || VoiceErrorCode.AI_CIRCUIT_OPEN.equals(code);
     }
 
     private void scheduleReadyTimeout(String connectionId) {
@@ -360,7 +400,7 @@ public class VoicePublicWebSocketHandler
                 TimeUnit.MILLISECONDS
         ).execute(() -> {
             VoiceRelayConnection relay = connections.get(connectionId);
-            if (relay != null && !relay.isReady()) {
+            if (relay != null && !relay.isCloseRequested() && !relay.isReady()) {
                 onAsyncError(
                         connectionId,
                         new BusinessException(
@@ -426,7 +466,7 @@ public class VoicePublicWebSocketHandler
         } catch (Exception e) {
             return "{\"type\":\"VOICE_PIPELINE_FAILED\","
                     + "\"error\":{\"code\":\"VOICE_BE_INTERNAL_ERROR\","
-                    + "\"retryable\":true}}";
+                    + "\"stage\":\"STREAM\",\"retryable\":false}}";
         }
     }
 

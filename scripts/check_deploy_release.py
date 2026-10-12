@@ -69,7 +69,8 @@ if args[:2] == ["container", "ls"]:
 if args[0] == "inspect":
     item = state.get(args[-1])
     if item is None: end(1)
-    fmt = args[2]
+    if "--format" not in args: end()
+    fmt = args[args.index("--format") + 1]
     if ".Id" in fmt: end(0, item["id"])
     if "Running" in fmt: end(0, str(item["running"]).lower())
     end(0, "0" * 40 if fault == "revision" else item["sha"])
@@ -89,6 +90,8 @@ if args[0] == "run":
     target = args[args.index("--name") + 1]
     state[target] = {"id": "new-id", "running": True, "sha": sha, "env": "new-env", "mount": "new-mount"}
     end(0, "new-container-id")
+if args[0] == "logs":
+    end(0, "synthetic replacement startup failure")
 if args[0] == "start":
     if fault == "rollback_start": end(12)
     state[args[-1]]["running"] = True
@@ -211,6 +214,14 @@ def main() -> None:
             assert not list(root.glob("translacat-be-worktree.*")), (fault, "temporary worktree file leaked")
             if fault != "env_directory":
                 assert (root / ".env").read_text() == "EXISTING=preserve-exactly\n", "existing env was modified"
+            failure_logs = list((root / ".translacat-deploy" / "failures").glob("*.log"))
+            log_faults = {"revision", "health", "health_body", "health_timeout", "rollback_start",
+                          "rollback_rename", "rollback_remove", "rollback_health"}
+            if fault in log_faults:
+                assert len(failure_logs) == 1, (fault, failure_logs)
+                assert "synthetic replacement startup failure" in failure_logs[0].read_text()
+            else:
+                assert not failure_logs, (fault, failure_logs)
             if fault == "success":
                 assert process.returncode == 0, process.stderr
                 assert after[NAME]["sha"] == SHA and after[NAME]["running"]

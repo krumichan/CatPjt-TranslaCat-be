@@ -12,9 +12,9 @@ AUDIO_VOLUME="translacat-be-novel-audio-spool"
 BACKUP="${CONTAINER}-rollback-$(date -u +%Y%m%dT%H%M%S)-$$"
 ATTEMPTS="${DEPLOY_HEALTH_ATTEMPTS:-60}"
 DELAY="${DEPLOY_HEALTH_DELAY_SECONDS:-5}"
-ROLLBACK_ATTEMPTS="${DEPLOY_ROLLBACK_ATTEMPTS:-12}"
+ROLLBACK_ATTEMPTS="${DEPLOY_ROLLBACK_ATTEMPTS:-36}"
 [[ "$ATTEMPTS" =~ ^[1-9][0-9]*$ && "$DELAY" =~ ^[0-9]+$ && "$ROLLBACK_ATTEMPTS" =~ ^[1-9][0-9]*$ ]]
-(( ATTEMPTS <= 60 && DELAY <= 5 && ROLLBACK_ATTEMPTS <= 12 ))
+(( ATTEMPTS <= 60 && DELAY <= 5 && ROLLBACK_ATTEMPTS <= 60 ))
 
 # workflow의 checkout 잠금을 상속하거나 직접 실행에서도 같은 잠금을 획득한다.
 if [[ "${DEPLOY_LOCK_FD:-}" == "9" ]]; then
@@ -89,8 +89,17 @@ rollback() {
     set +e
     echo "Deployment failed (exit $original_exit); restoring the previous container." >&2
 
-    # 원문 애플리케이션 로그에는 credential/사용자 데이터가 있을 수 있어 CI에 출력하지 않는다.
+    # 실패 로그는 CI에 출력하지 않고 서버의 보호 디렉터리에 제한된 길이로 보존한다.
     if [ "$REPLACEMENT_ATTEMPTED" = true ]; then
+        if timeout --kill-after=5s 15s docker inspect "$CONTAINER" >/dev/null 2>&1; then
+            failure_dir="$HOME/.translacat-deploy/failures"
+            failure_log="$failure_dir/${SHA}-$(date -u +%Y%m%dT%H%M%S)-$$.log"
+            mkdir -p "$failure_dir"
+            timeout --kill-after=5s 20s docker logs --tail 2000 "$CONTAINER" > "$failure_log" 2>&1 || true
+            chmod 600 "$failure_log"
+            echo "Failed replacement log retained on the server: $failure_log" >&2
+        fi
+
         if ! timeout --kill-after=5s 30s docker rm -f "$CONTAINER" >/dev/null; then
             echo "CRITICAL: failed replacement could not be removed" >&2
             rollback_failed=true

@@ -98,6 +98,11 @@ public class VoiceAiEventProcessor {
             VoiceRelayConnection connection,
             ObjectNode event
     ) {
+        // 연결 준비 중 종료한 채널을 늦은 ready 이벤트로 다시 활성화하지 않는다.
+        if (connection.isCloseRequested()) {
+            return ProcessedEvent.suppressed(VoiceAiEventType.STREAM_READY);
+        }
+
         streamCommandService.markStreaming(connection.context());
         return normal(VoiceAiEventType.STREAM_READY, event);
     }

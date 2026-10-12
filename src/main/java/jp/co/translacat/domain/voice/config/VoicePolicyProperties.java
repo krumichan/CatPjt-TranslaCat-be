@@ -46,7 +46,7 @@ public class VoicePolicyProperties {
             int aiCircuitOpenSeconds,
             @Value("${translacat.voice.ai-circuit-failure-threshold:3}")
             int aiCircuitFailureThreshold,
-            @Value("${translacat.voice.session-complete-timeout-ms:5000}")
+            @Value("${translacat.voice.session-complete-timeout-ms:25000}")
             int sessionCompleteTimeoutMs,
             @Value("${translacat.voice.stale-session-minutes:90}")
             int staleSessionMinutes,

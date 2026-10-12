@@ -12,7 +12,9 @@ import jp.co.translacat.domain.voice.dto.request.VoiceSessionUpdateRequestDto;
 import jp.co.translacat.domain.voice.entity.VoiceSession;
 import jp.co.translacat.domain.voice.entity.VoiceSessionChannel;
 import jp.co.translacat.domain.voice.enums.VoiceChannel;
+import jp.co.translacat.domain.voice.enums.VoiceChannelStatus;
 import jp.co.translacat.domain.voice.enums.VoiceMode;
+import jp.co.translacat.domain.voice.enums.VoiceSegmentStatus;
 import jp.co.translacat.domain.voice.enums.VoiceSessionStatus;
 import jp.co.translacat.domain.voice.enums.VoiceSourceLanguageMode;
 import jp.co.translacat.domain.voice.repository.VoiceSegmentRepository;
@@ -134,8 +136,7 @@ public class VoiceSessionCommandService {
             Long userId,
             String sessionId
     ) {
-        VoiceSession session = sessionRepository
-                .findOwnedForUpdate(sessionId, userId)
+        VoiceSession session = findFreshSessionForCompletion(sessionId, userId)
                 .orElseThrow(this::notFound);
 
         if (session.getStatus() == VoiceSessionStatus.COMPLETED) {
@@ -147,21 +148,31 @@ public class VoiceSessionCommandService {
     }
 
     @Transactional
-    public void finishCompletion(
+    public boolean finishCompletion(
             Long userId,
             String sessionId
     ) {
-        VoiceSession session = sessionRepository
-                .findOwnedForUpdate(sessionId, userId)
+        VoiceSession session = findFreshSessionForCompletion(sessionId, userId)
                 .orElseThrow(this::notFound);
 
         if (session.getStatus() != VoiceSessionStatus.COMPLETED) {
+            // 브라우저가 먼저 소켓을 닫아 registry에서 사라진 실패도 DB 채널 상태로 확인한다.
+            // 재연결에 성공한 채널은 ERROR가 해제되어 정상 완료할 수 있다.
+            if (channelRepository.countBySession_IdAndStatusIn(
+                    sessionId,
+                    EnumSet.of(VoiceChannelStatus.ERROR)
+            ) > 0) {
+                session.fail();
+                cleanupFailedTranscripts(session, sessionId);
+                return false;
+            }
+
             session.complete();
         }
 
-        if (!session.isSaveTranscript()) {
-            segmentRepository.deleteBySession_Id(sessionId);
-        }
+        // 재연결 전 유실된 번역과 이전 버전이 남긴 미완료 행도 정상 API 재호출로 정리한다.
+        cleanupTranscripts(session, sessionId, VoiceErrorCode.AI_CONNECTION_CLOSED);
+        return true;
     }
 
     @Transactional
@@ -169,15 +180,21 @@ public class VoiceSessionCommandService {
             Long userId,
             String sessionId
     ) {
-        sessionRepository.findOwnedForUpdate(sessionId, userId)
-                .ifPresent(VoiceSession::fail);
+        // Final 저장과 같은 세션 잠금 안에서 상태 확정과 미보관 데이터 삭제를 함께 처리한다.
+        VoiceSession session = findFreshSessionForCompletion(sessionId, userId)
+                .orElse(null);
+        if (session == null) {
+            return;
+        }
+
+        session.fail();
+        cleanupFailedTranscripts(session, sessionId);
     }
 
     @Transactional
     public void cleanupStale(
             Long userId,
-            String sessionId,
-            boolean saveTranscript
+            String sessionId
     ) {
         VoiceSession session = sessionRepository
                 .findOwnedForUpdate(sessionId, userId)
@@ -187,9 +204,30 @@ public class VoiceSessionCommandService {
         }
 
         session.fail();
-        if (!saveTranscript) {
+        cleanupFailedTranscripts(session, sessionId);
+    }
+
+    private void cleanupFailedTranscripts(VoiceSession session, String sessionId) {
+        cleanupTranscripts(session, sessionId, VoiceErrorCode.COMPLETE_TIMEOUT);
+    }
+
+    private void cleanupTranscripts(VoiceSession session, String sessionId, String errorCode) {
+        if (!session.isSaveTranscript()) {
             segmentRepository.deleteBySession_Id(sessionId);
+            return;
         }
+
+        // 보관한 원문은 유지하되 끝나지 않은 번역을 영구 진행 중 상태로 남기지 않는다.
+        segmentRepository.findBySession_IdAndStatus(sessionId, VoiceSegmentStatus.TRANSLATING)
+                .forEach(segment -> segment.markTranslationFailed(errorCode));
+    }
+
+    private Optional<VoiceSession> findFreshSessionForCompletion(String sessionId, Long userId) {
+        // 완료/실패 트랜잭션 진입점에서만 사용한다. OSIV가 이전 트랜잭션의 엔티티를 보유해도
+        // refresh와 row lock을 함께 적용해 flush 대기 중 worker가 commit한 사용량/version을 읽는다.
+        var owned = sessionRepository.findByIdAndUser_Id(sessionId, userId);
+        owned.ifPresent(session -> entityManager.refresh(session, LockModeType.PESSIMISTIC_WRITE));
+        return owned;
     }
 
     @Transactional

@@ -77,6 +77,14 @@ public class VoiceStreamCommandService {
     @Transactional
     public void markStreaming(VoiceStreamContext context) {
         VoiceSession session = requireSession(context);
+        // open 이후 registry 등록/AI 연결 사이에 세션 완료가 먼저 일어날 수 있다.
+        if (!session.getStatus().isOpen()) {
+            throw new BusinessException(
+                    "Voice session finished before the stream became ready.",
+                    VoiceErrorCode.SESSION_NOT_STREAMABLE
+            );
+        }
+
         VoiceSessionChannel channel = requireChannel(context);
         channel.streaming(context.connectionId());
         recomputeSession(session);

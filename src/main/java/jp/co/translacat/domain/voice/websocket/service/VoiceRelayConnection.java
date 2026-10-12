@@ -33,6 +33,8 @@ public class VoiceRelayConnection
     private final AtomicLong pendingAiBytes = new AtomicLong();
     private final AtomicBoolean ready = new AtomicBoolean();
     private final AtomicBoolean closeRequested = new AtomicBoolean();
+    private final AtomicBoolean terminated = new AtomicBoolean();
+    private final AtomicBoolean handlingFailure = new AtomicBoolean();
     private final CompletableFuture<Void> closedFuture = new CompletableFuture<>();
 
     private volatile VoiceAiStreamClient.Connection aiConnection;
@@ -59,6 +61,18 @@ public class VoiceRelayConnection
 
     public boolean isCloseRequested() {
         return closeRequested.get();
+    }
+
+    public boolean isTerminated() {
+        return terminated.get();
+    }
+
+    public boolean isGracefullyClosed() {
+        return closedFuture.isDone() && !closedFuture.isCompletedExceptionally();
+    }
+
+    public boolean beginFailure() {
+        return !terminated.get() && handlingFailure.compareAndSet(false, true);
     }
 
     public long globalSequence(long aiLocalSequence) {
@@ -97,6 +111,12 @@ public class VoiceRelayConnection
     public synchronized void attachAi(
             VoiceAiStreamClient.Connection connection
     ) {
+        // 연결 준비 중 사용자가 종료했다면 늦게 도착한 AI 소켓도 즉시 폐기한다.
+        if (terminated.get() || closeRequested.get()) {
+            connection.abort();
+            return;
+        }
+
         this.aiConnection = connection;
         if (ready.get()) {
             drainPreReadyAudio();
@@ -104,6 +124,10 @@ public class VoiceRelayConnection
     }
 
     public synchronized void markReady() {
+        if (terminated.get() || closeRequested.get()) {
+            return;
+        }
+
         ready.set(true);
         if (aiConnection != null) {
             drainPreReadyAudio();
@@ -141,6 +165,13 @@ public class VoiceRelayConnection
     }
 
     public void sendControl(String json) {
+        if (terminated.get() || closeRequested.get()) {
+            throw new BusinessException(
+                    "Voice stream is closing.",
+                    VoiceErrorCode.STREAM_CLOSING
+            );
+        }
+
         VoiceAiStreamClient.Connection ai = aiConnection;
         if (ai == null) {
             throw new BusinessException(
@@ -157,7 +188,7 @@ public class VoiceRelayConnection
     }
 
     public void sendPublic(String json) {
-        if (!publicSession.isOpen()) {
+        if (terminated.get() || !publicSession.isOpen()) {
             return;
         }
 
@@ -169,20 +200,23 @@ public class VoiceRelayConnection
     }
 
     @Override
-    public CompletableFuture<Void> closeGracefully(String reason) {
+    public synchronized CompletableFuture<Void> closeGracefully(String reason) {
         if (!closeRequested.compareAndSet(false, true)) {
             return closedFuture;
         }
 
         VoiceAiStreamClient.Connection ai = aiConnection;
         if (ai == null) {
+            // 완료 future만 끝내면 이후 attach/ready가 옛 음성을 다시 전송할 수 있다.
             markClosed();
+            forceClose(CloseStatus.NORMAL);
             return closedFuture;
         }
 
-        String escaped = reason == null
-                ? "REQUESTED"
-                : reason.replace("\"", "");
+        // Control reason은 JSON 문자열로 안전하게 보낼 수 있는 식별자로 제한한다.
+        String escaped = reason != null && reason.matches("[A-Za-z0-9_-]{1,80}")
+                ? reason
+                : "REQUESTED";
         ai.sendText(
                         "{\"type\":\"STREAM_FLUSH\",\"reason\":\""
                                 + escaped
@@ -196,7 +230,8 @@ public class VoiceRelayConnection
                 .whenComplete((ignored, error) -> {
                     if (error != null) {
                         asyncError.accept(error);
-                        markClosed();
+                        closedFuture.completeExceptionally(error);
+                        forceClose(CloseStatus.SERVER_ERROR);
                     }
                 });
 
@@ -204,13 +239,27 @@ public class VoiceRelayConnection
     }
 
     public void markClosed() {
+        closeRequested.set(true);
         if (!closedFuture.isDone()) {
             closedFuture.complete(null);
         }
     }
 
-    public void forceClose(CloseStatus status) {
+    public void markFailed(Throwable failure) {
         closeRequested.set(true);
+        closedFuture.completeExceptionally(failure);
+    }
+
+    @Override
+    public synchronized void forceClose(CloseStatus status) {
+        if (!terminated.compareAndSet(false, true)) {
+            return;
+        }
+
+        // 종료한 연결은 준비 큐를 비우고 모든 추가 송신/늦은 ready를 차단한다.
+        closeRequested.set(true);
+        preReadyAudio.clear();
+        bufferedBytes.set(0L);
 
         VoiceAiStreamClient.Connection ai = aiConnection;
         if (ai != null) {
@@ -224,7 +273,14 @@ public class VoiceRelayConnection
                 // best effort cleanup
             }
         }
-        markClosed();
+        // transport의 정상 close code만으로 Final drain 완료를 증명할 수 없다.
+        // STREAM_CLOSED 확인 또는 AI 연결 전 취소만 markClosed로 먼저 성공을 확정한다.
+        if (!closedFuture.isDone()) {
+            closedFuture.completeExceptionally(new BusinessException(
+                    "Voice stream closed before graceful completion.",
+                    VoiceErrorCode.AI_CONNECTION_CLOSED
+            ));
+        }
     }
 
     public long bufferedAudioMs() {

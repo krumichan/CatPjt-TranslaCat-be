@@ -93,7 +93,8 @@ public class VoiceSession extends BaseAuditable {
     @Lob
     @Column(
             name = "policy_snapshot",
-            nullable = false
+            nullable = false,
+            columnDefinition = "LONGTEXT"
     )
     private String policySnapshot;
 

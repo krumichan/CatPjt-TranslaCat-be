@@ -35,6 +35,8 @@ public class VoiceFinalResultCommandService {
             JsonNode event,
             long globalSequence
     ) {
+        // 세션 종료/삭제와 동일한 row lock을 먼저 잡아 늦은 결과의 재생성을 막는다.
+        VoiceSession session = requireActiveSession(context);
         String eventId = requiredText(event, "eventId");
         VoiceSegment duplicate = segmentRepository
                 .findByTranscriptFinalEventId(eventId)
@@ -63,7 +65,7 @@ public class VoiceFinalResultCommandService {
             );
         }
 
-        VoiceSession session = requireActiveSession(context);
+        // 저장과 사용량은 같은 트랜잭션에서 확정한다.
         long speechDurationMs = longValue(event, "speechDurationMs");
         VoiceSegment segment = VoiceSegment.transcriptFinal(
                 session,
@@ -93,6 +95,8 @@ public class VoiceFinalResultCommandService {
             long globalSequence,
             long beRelayAndPersistMs
     ) {
+        // 기존 세그먼트 갱신도 terminal 상태의 저장 금지 규칙을 적용한다.
+        VoiceSession session = requireActiveSession(context);
         String completedEventId = requiredText(event, "eventId");
         VoiceSegment duplicate = segmentRepository
                 .findByPipelineCompletedEventId(completedEventId)
@@ -114,6 +118,7 @@ public class VoiceFinalResultCommandService {
                         globalSequence
                 )
                 .orElseGet(() -> persistTranscriptFromCompleted(
+                        session,
                         context,
                         event,
                         globalSequence
@@ -162,6 +167,8 @@ public class VoiceFinalResultCommandService {
             Long segmentId,
             long beRelayAndPersistMs
     ) {
+        // 완료 이벤트의 후속 latency 쓰기도 미보관 삭제보다 늦게 되살아나지 않게 한다.
+        requireActiveSession(context);
         VoiceSegment segment = segmentRepository
                 .findOwnedForUpdate(
                         segmentId,
@@ -179,11 +186,14 @@ public class VoiceFinalResultCommandService {
             long globalSequence
     ) {
         JsonNode error = event.path("error");
-        if (!"TRANSLATION".equals(nullableText(error, "stage"))
+        String stage = nullableText(error, "stage");
+        if (!("TRANSLATION".equals(stage) || "LANGUAGE".equals(stage))
                 || nullableText(event, "sourceText") == null) {
             return;
         }
 
+        // 언어 거절도 이력에 보존하고 timeout 정리와 동일한 세션 잠금 순서를 사용한다.
+        requireActiveSession(context);
         segmentRepository
                 .findBySession_IdAndChannelAndUtteranceSequence(
                         context.sessionId(),
@@ -196,11 +206,11 @@ public class VoiceFinalResultCommandService {
     }
 
     private VoiceSegment persistTranscriptFromCompleted(
+            VoiceSession session,
             VoiceStreamContext context,
             JsonNode event,
             long globalSequence
     ) {
-        VoiceSession session = requireActiveSession(context);
         long speechDurationMs = longValue(event, "speechDurationMs");
         VoiceSegment segment = VoiceSegment.transcriptFinal(
                 session,

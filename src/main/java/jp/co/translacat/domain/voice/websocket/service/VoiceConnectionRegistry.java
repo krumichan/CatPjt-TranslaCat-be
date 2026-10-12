@@ -1,6 +1,7 @@
 package jp.co.translacat.domain.voice.websocket.service;
 
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -61,7 +62,21 @@ public class VoiceConnectionRegistry {
         );
     }
 
+    public void forceCloseSession(String sessionId) {
+        // 먼저 registry에서 분리해 늦은 종료 콜백과 반복 요청이 같은 연결을 재사용하지 않게 한다.
+        Map<String, GracefulConnection> current = sessions.remove(sessionId);
+        if (current == null) {
+            return;
+        }
+
+        current.values().forEach(connection ->
+                connection.forceClose(CloseStatus.SERVER_ERROR)
+        );
+    }
+
     public interface GracefulConnection {
         CompletableFuture<Void> closeGracefully(String reason);
+
+        void forceClose(CloseStatus status);
     }
 }

@@ -2,10 +2,12 @@ package jp.co.translacat.domain.voice.repository;
 
 import jp.co.translacat.domain.voice.entity.VoiceSegment;
 import jp.co.translacat.domain.voice.enums.VoiceChannel;
+import jp.co.translacat.domain.voice.enums.VoiceSegmentStatus;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.List;
 
 public interface VoiceSegmentRepository
         extends JpaRepository<VoiceSegment, Long>, VoiceSegmentRepositoryCustom {
@@ -27,4 +29,6 @@ public interface VoiceSegmentRepository
     );
 
     void deleteBySession_Id(String sessionId);
+
+    List<VoiceSegment> findBySession_IdAndStatus(String sessionId, VoiceSegmentStatus status);
 }

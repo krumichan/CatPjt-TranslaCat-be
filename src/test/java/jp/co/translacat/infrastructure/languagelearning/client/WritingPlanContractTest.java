@@ -317,6 +317,176 @@ class WritingPlanContractTest {
         return alternative;
     }
 
+    private ObjectNode prescribedPlan() {
+        var value = structuredPlan();
+        value.put("writingType", "GUIDED");
+        var item = (ObjectNode) value.path("items").get(0);
+        item.putArray("requiredIntents").add("").add("원래 예정 시각임을 나타낸다.")
+                .add("원래 예정 시각임을 나타낸다.").add("변경 결정을 나타낸다.");
+        result(value).put("policyVersion", "curated-writing-feedback-v8");
+        var part = (ObjectNode) result(value).path("observations").get(0).path("requirementParts").get(0);
+        part.putArray("taskConditionIds").add("P1").add("P2");
+        return value;
+    }
+
+    private ObjectNode conditionCorrection(ObjectNode value) {
+        var observation = (ObjectNode) result(value).path("observations").get(0);
+        observation.put("status", "UNMET");
+        ((ObjectNode) observation.path("relationChecks")).put("chronology", "CONFLICT");
+        ((ObjectNode) observation.path("requirementParts").get(0)).put("status", "CONFLICT");
+        var correction = result(value).withArray("necessaryCorrections").addObject()
+                .put("requirementId", "C1").put("segmentId", "S1")
+                .put("original", "午前九時に始まります。").put("replacement", "午前九時に始まる予定でした。")
+                .put("issueType", "TASK_CONDITION_CONFLICT").put("sourceFactId", "")
+                .put("sourceAuthorityId", "P1").put("formReason", "NONE");
+        correction.putObject("patch").put("original", "始まります").put("replacement", "始まる予定でした");
+        return correction;
+    }
+
+    @Test
+    void v8GuidedConditionAuthorityIsDistinctFromFactAndLanguageForm() {
+        // 준비: 명시된 과제 지시는 실제 학습자 사실이나 활용 오류와 다르다.
+        var value = prescribedPlan();
+        var correction = conditionCorrection(value);
+
+        // 실행·검증: 정상 조건 교정은 전달하고 권한 혼합은 거절한다.
+        assertSame(value, WritingPlanContract.plan(value));
+        correction.put("sourceFactId", "T1");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        correction.put("sourceFactId", "").put("formReason", "INFLECTION");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        correction.put("formReason", "NONE").put("sourceAuthorityId", "T1");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+    }
+
+    @Test
+    void v9ServerAssembledResultStillRequiresExactPrescribedAuthority() {
+        // 준비: v9 모델 출력이 아니라 LL 서버가 조립해 저장한 v8 호환 결과다.
+        var value = prescribedPlan();
+        result(value).put("policyVersion", "curated-writing-feedback-v9");
+        conditionCorrection(value);
+
+        // 실행·검증: 정상 결과를 중계하고 P 연결을 지운 결과는 그대로 거절한다.
+        assertSame(value, WritingPlanContract.plan(value));
+        var part = (ObjectNode) result(value).path("observations").get(0).path("requirementParts").get(0);
+        part.putArray("taskConditionIds").add("P2");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+    }
+
+    @Test
+    void v8ConditionIdsUseDistinctNonblankGuidedIntentsAndRejectUnknownOrDuplicateIds() {
+        // 준비: 빈 항목·중복을 제거한 실제 P1/P2만 유효하다.
+        var value = prescribedPlan();
+        var part = (ObjectNode) result(value).path("observations").get(0).path("requirementParts").get(0);
+        part.putArray("taskConditionIds").add("P1").add("P2");
+        assertSame(value, WritingPlanContract.plan(value));
+
+        // 검증: 모델이 새 ID를 만들거나 같은 권한을 중복 배정할 수 없다.
+        for (String invalid : new String[] {"P0", "P3", "T1", "C1", ""}) {
+            part.putArray("taskConditionIds").add(invalid);
+            assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        }
+        part.putArray("taskConditionIds").add("P1").add("P1");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        part.putArray("taskConditionIds").add("P2");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        part.remove("taskConditionIds");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+    }
+
+    @Test
+    void v8FreeAndTranslationHaveNoPrescribedConditionAuthority() {
+        // 준비: 공개 requiredIntents가 있어도 FREE의 개인 선택을 대신 고칠 권한은 없다.
+        for (String type : new String[] {"FREE", "TRANSLATION"}) {
+            var value = prescribedPlan();
+            value.put("writingType", type);
+            conditionCorrection(value);
+            assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+
+            // 실행·검증: P 연결을 지운 단순 관찰은 기존과 같이 조회한다.
+            result(value).withArray("necessaryCorrections").removeAll();
+            ((ObjectNode) result(value).path("observations").get(0).path("requirementParts").get(0)).putArray("taskConditionIds");
+            assertSame(value, WritingPlanContract.plan(value));
+        }
+    }
+
+    @Test
+    void v8ConditionPatchUsesOnlyTheSameConflictingPartEvidence() {
+        // 준비: 정상 시각과 잘못된 현재/과거 표현이 같은 문장에 있어도 근거를 섞지 않는다.
+        var value = prescribedPlan();
+        var correction = conditionCorrection(value);
+        var observation = (ObjectNode) result(value).path("observations").get(0);
+        var first = (ObjectNode) observation.path("requirementParts").get(0);
+        first.put("requirementQuote", "시각 ").put("status", "PRESENT");
+        first.putArray("taskConditionIds").add("P2");
+        first.putArray("evidence").addObject().put("segmentId", "S1").put("quote", "午前九時");
+        var conflict = observation.withArray("requirementParts").addObject().put("requirementQuote", "전달").put("status", "CONFLICT");
+        conflict.putArray("taskFactIds");
+        conflict.putArray("taskConditionIds").add("P1");
+        conflict.putArray("evidence").addObject().put("segmentId", "S1").put("quote", "始まります");
+        assertSame(value, WritingPlanContract.plan(value));
+
+        // 검증: 다른 유효 P나 같은 문장의 정상 부분은 이 교정의 근거가 아니다.
+        correction.put("sourceAuthorityId", "P2");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        correction.put("sourceAuthorityId", "P1").put("replacement", "午後十時に始まります。");
+        correction.putObject("patch").put("original", "午前九時").put("replacement", "午後十時");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+    }
+
+    @Test
+    void v8LanguageAndFactCorrectionsCannotBorrowConditionAuthority() {
+        // 준비: v8의 새 ID 필드는 구형 언어/사실 교정에서는 명시적으로 비어 있어야 한다.
+        var value = prescribedPlan();
+        var correction = conditionCorrection(value);
+        correction.put("issueType", "TASK_FACT_CONFLICT").put("sourceFactId", "T1").put("sourceAuthorityId", "");
+        assertSame(value, WritingPlanContract.plan(value));
+        correction.put("sourceAuthorityId", "P1");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        correction.put("issueType", "LANGUAGE_FORM").put("sourceFactId", "").put("sourceAuthorityId", "").put("formReason", "INFLECTION");
+        assertSame(value, WritingPlanContract.plan(value));
+        correction.remove("sourceAuthorityId");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+    }
+
+    @Test
+    void v8PartialMissingCannotBecomeMetOrAuthorizeMissingContentCorrection() {
+        // 준비: 실제 표현 근거를 유지하면서 요구의 다른 부분은 누락되어 있다.
+        var value = prescribedPlan();
+        var observation = (ObjectNode) result(value).path("observations").get(0);
+        observation.put("status", "UNMET");
+        var present = (ObjectNode) observation.path("requirementParts").get(0);
+        present.put("requirementQuote", "시각 ").putArray("taskConditionIds").add("P2");
+        var absent = observation.withArray("requirementParts").addObject().put("requirementQuote", "전달").put("status", "ABSENT");
+        absent.putArray("evidence");
+        absent.putArray("taskFactIds");
+        absent.putArray("taskConditionIds").add("P1");
+        assertSame(value, WritingPlanContract.plan(value));
+
+        // 검증: 누락을 충족으로 바꾸거나 다른 부분의 인용으로 내용 보충을 강제하지 않는다.
+        observation.put("status", "MET");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        observation.put("status", "UNMET");
+        conditionCorrection(value);
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+    }
+
+    @Test
+    void v8StillRequiresExactServerRestoredCoverageAndExistingObservationIds() {
+        // 준비·실행: 모델 원문 복사를 없애도 저장 결과의 실제 원문 coverage는 그대로다.
+        var value = prescribedPlan();
+        assertSame(value, WritingPlanContract.plan(value));
+        var observation = (ObjectNode) result(value).path("observations").get(0);
+        var part = (ObjectNode) observation.path("requirementParts").get(0);
+
+        // 검증: 잘못 복원한 문자열이나 존재하지 않는 요구 ID를 중계하지 않는다.
+        part.put("requirementQuote", "시각을 전달함");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        part.put("requirementQuote", "시각 전달");
+        observation.put("requirementId", "C9");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+    }
+
     @Test
     void v6PartsRequireCompleteRequirementAndActualEvidence() {
         // 준비·실행: 공개 조건 전체와 학습자 원문에 연결된 요소를 그대로 읽는다.

@@ -61,6 +61,14 @@ public class VoiceErrorCode {
             "VOICE_AI_CONNECTION_CLOSED";
     public static final String AI_READY_TIMEOUT =
             "VOICE_AI_READY_TIMEOUT";
+    public static final String AI_LANGUAGE_UNDETERMINED =
+            "VOICE_AI_LANGUAGE_UNDETERMINED";
+    public static final String AI_UNSUPPORTED_LANGUAGE =
+            "VOICE_AI_UNSUPPORTED_LANGUAGE";
+    public static final String AI_LANGUAGE_MISMATCH =
+            "VOICE_AI_LANGUAGE_MISMATCH";
+    public static final String AI_TRANSLATION_TIMEOUT =
+            "VOICE_AI_TRANSLATION_TIMEOUT";
     public static final String AI_CIRCUIT_OPEN =
             "VOICE_AI_CIRCUIT_OPEN";
     public static final String AI_STREAM_OPEN_FAILED =

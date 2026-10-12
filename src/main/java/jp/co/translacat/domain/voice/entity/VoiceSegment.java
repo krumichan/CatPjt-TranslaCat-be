@@ -132,11 +132,11 @@ public class VoiceSegment extends Base {
     private String lockedLanguage;
 
     @Lob
-    @Column(name = "source_text")
+    @Column(name = "source_text", columnDefinition = "LONGTEXT")
     private String sourceText;
 
     @Lob
-    @Column(name = "source_reading_tokens")
+    @Column(name = "source_reading_tokens", columnDefinition = "LONGTEXT")
     private String sourceReadingTokens;
 
     @Column(
@@ -147,7 +147,7 @@ public class VoiceSegment extends Base {
     private String targetLanguage;
 
     @Lob
-    @Column(name = "translated_text")
+    @Column(name = "translated_text", columnDefinition = "LONGTEXT")
     private String translatedText;
 
     @Column(

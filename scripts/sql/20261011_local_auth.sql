@@ -1,43 +1,11 @@
--- 일반 회원가입 / 이메일 인증 / 명시적 Google 연결 (MySQL 8).
+-- 일반 회원가입 / 이메일 인증 / 명시적 Google 연결 (TiDB 8.5+).
 -- 운영 DB에 자동 실행하지 않는다. 백업 후 대상 schema를 선택하고 유지보수 창에서 실행한다.
--- DDL은 자동 커밋된다. 사전 검사 실패 시 기존 계정을 임의로 병합하거나 삭제하지 않는다.
+-- TiDB가 지원하지 않는 stored procedure는 사용하지 않는다. 적용자는 정규화 이메일과
+-- 소셜 identity 중복이 0인지 read-only preflight로 먼저 확인해야 한다.
 
-DELIMITER $$
-DROP PROCEDURE IF EXISTS migrate_local_auth_20261011$$
-CREATE PROCEDURE migrate_local_auth_20261011()
-BEGIN
-    IF DATABASE() IS NULL THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Select the target database first';
-    END IF;
-    IF EXISTS (
-        SELECT 1 FROM `user` GROUP BY LOWER(TRIM(email)) HAVING COUNT(*) > 1
-    ) THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Duplicate normalized emails require manual account review';
-    END IF;
-    IF EXISTS (
-        SELECT 1 FROM `user` WHERE social_id IS NOT NULL
-        GROUP BY social_type, social_id HAVING COUNT(*) > 1
-    ) THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Duplicate social identities require manual account review';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                   WHERE table_schema = DATABASE() AND table_name = 'user' AND column_name = 'birth_date') THEN
-        ALTER TABLE `user` ADD COLUMN birth_date DATE NULL;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                   WHERE table_schema = DATABASE() AND table_name = 'user' AND column_name = 'email_verified_at') THEN
-        ALTER TABLE `user` ADD COLUMN email_verified_at DATETIME(6) NULL;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.statistics
-                   WHERE table_schema = DATABASE() AND table_name = 'user' AND index_name = 'uk_user_google_identity') THEN
-        ALTER TABLE `user` ADD CONSTRAINT uk_user_google_identity UNIQUE (social_type, social_id);
-    END IF;
-END$$
-DELIMITER ;
-
-CALL migrate_local_auth_20261011();
-DROP PROCEDURE migrate_local_auth_20261011;
+ALTER TABLE `user` ADD COLUMN IF NOT EXISTS birth_date DATE NULL;
+ALTER TABLE `user` ADD COLUMN IF NOT EXISTS email_verified_at DATETIME(6) NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_user_google_identity ON `user` (social_type, social_id);
 
 CREATE TABLE IF NOT EXISTS auth_email_challenge (
     id VARCHAR(36) NOT NULL PRIMARY KEY,
@@ -67,7 +35,7 @@ CREATE TABLE IF NOT EXISTS auth_email_quota (
 
 -- quota가 없으면 애플리케이션은 발송을 거부한다. 재실행해도 사용 중인 카운터는 초기화하지 않는다.
 INSERT INTO auth_email_quota (id, quota_date, reserved_count)
-SELECT 1, UTC_DATE(), 0
+SELECT 1, CURRENT_DATE, 0
 WHERE NOT EXISTS (SELECT 1 FROM auth_email_quota WHERE id = 1);
 
 CREATE TABLE IF NOT EXISTS auth_google_intent (

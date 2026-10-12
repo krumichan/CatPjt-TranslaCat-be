@@ -77,7 +77,7 @@ final class WritingPlanContract {
                             .contains(state.path("status").asText())) fail();
                     if (succeeded) {
                         JsonNode result = state.path("result");
-                        if (!Set.of("curated-writing-feedback-v1", "curated-writing-feedback-v2", "curated-writing-feedback-v3", "curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7")
+                        if (!Set.of("curated-writing-feedback-v1", "curated-writing-feedback-v2", "curated-writing-feedback-v3", "curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9")
                                 .contains(result.path("policyVersion").asText())
                                 || !"REFERENCE_ONLY".equals(result.path("resultPolicy").asText())
                                 || !result.path("observations").isArray()
@@ -88,8 +88,9 @@ final class WritingPlanContract {
                             if (!attempt.path("answer").asText().contains(correction.path("original").asText())) fail();
                         }
                         // 저장된 v1 결과는 바꾸지 않고 새 계약의 누락 근거와 가상 예시 분류를 확인한다.
-                        if (Set.of("curated-writing-feedback-v2", "curated-writing-feedback-v3", "curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7").contains(result.path("policyVersion").asText())) {
-                            validateGroundedFeedback(result, attempt.path("answer").asText(), item.path("taskRequirements"));
+                        if (Set.of("curated-writing-feedback-v2", "curated-writing-feedback-v3", "curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9").contains(result.path("policyVersion").asText())) {
+                            validateGroundedFeedback(result, attempt.path("answer").asText(), item.path("taskRequirements"),
+                                    value.path("writingType").asText(), item.path("requiredIntents"));
                         }
                     }
                 } else if (!state.isMissingNode()) fail();
@@ -106,10 +107,13 @@ final class WritingPlanContract {
         return value;
     }
 
-    private static void validateGroundedFeedback(JsonNode result, String answer, JsonNode requirements) {
+    private static void validateGroundedFeedback(JsonNode result, String answer, JsonNode requirements, String writingType, JsonNode intents) {
         java.util.Map<String, JsonNode> observations = new java.util.HashMap<>();
-        boolean typed = Set.of("curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7").contains(result.path("policyVersion").asText());
-        boolean structured = Set.of("curated-writing-feedback-v6", "curated-writing-feedback-v7").contains(result.path("policyVersion").asText());
+        boolean typed = Set.of("curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9").contains(result.path("policyVersion").asText());
+        boolean prescribed = Set.of("curated-writing-feedback-v8", "curated-writing-feedback-v9").contains(result.path("policyVersion").asText());
+        boolean structured = Set.of("curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9").contains(result.path("policyVersion").asText());
+        Set<String> conditionIds = prescribed ? conditionAuthorities(writingType, intents) : Set.of();
+        Set<String> referencedConditions = new HashSet<>();
         for (JsonNode observation : result.path("observations")) {
             String id = observation.path("requirementId").asText();
             String evidence = observation.path("evidenceKind").asText();
@@ -123,9 +127,15 @@ final class WritingPlanContract {
             for (JsonNode quote : observation.path("answerQuotes")) {
                 if (!quote.isTextual() || quote.asText().isEmpty() || !answer.contains(quote.asText())) fail();
             }
-            if (structured) validateRequirementParts(observation, answer, requirements);
+            if (structured) validateRequirementParts(observation, answer, requirements, prescribed, conditionIds);
             else if (typed) validateRelations(observation);
+            if (prescribed) {
+                for (JsonNode part : observation.path("requirementParts")) {
+                    for (JsonNode condition : part.path("taskConditionIds")) referencedConditions.add(condition.asText());
+                }
+            }
         }
+        if (prescribed && !referencedConditions.equals(conditionIds)) fail();
 
         // 개인 사실을 채운 문장을 필수 교정으로 중계하지 않는다. 누락 설명은 observations에 남는다.
         for (JsonNode correction : result.path("necessaryCorrections")) {
@@ -148,6 +158,13 @@ final class WritingPlanContract {
                         }
                         if (!"CONFLICT".equals(part.path("status").asText()) || !matchingFact) continue;
                     }
+                    if ("TASK_CONDITION_CONFLICT".equals(correction.path("issueType").asText())) {
+                        boolean matchingCondition = false;
+                        for (JsonNode condition : part.path("taskConditionIds")) {
+                            if (condition.asText().equals(correction.path("sourceAuthorityId").asText())) matchingCondition = true;
+                        }
+                        if (!"CONFLICT".equals(part.path("status").asText()) || !matchingCondition) continue;
+                    }
                     for (JsonNode evidence : part.path("evidence")) {
                         if (evidence.path("segmentId").asText().equals(correction.path("segmentId").asText())
                                 && evidence.path("quote").asText().contains(correction.path("patch").path("original").asText())) grounded = true;
@@ -162,11 +179,19 @@ final class WritingPlanContract {
                 String reason = correction.path("formReason").asText();
                 JsonNode fact = correction.path("sourceFactId");
                 if (!fact.isTextual()) fail();
+                if (prescribed) {
+                    JsonNode authority = correction.path("sourceAuthorityId");
+                    if (!authority.isTextual() || ("TASK_CONDITION_CONFLICT".equals(issue)
+                            ? !conditionIds.contains(authority.asText()) : !authority.asText().isEmpty())) fail();
+                }
                 if ("LANGUAGE_FORM".equals(issue)) {
                     if (!fact.asText().isEmpty() || !Set.of("SPELLING", "INFLECTION", "SYNTAX").contains(reason)) fail();
                     String original = java.text.Normalizer.normalize(correction.path("original").asText(), java.text.Normalizer.Form.NFKC).replaceAll("[^\\p{L}\\p{N}]", "");
                     String replacement = java.text.Normalizer.normalize(correction.path("replacement").asText(), java.text.Normalizer.Form.NFKC).replaceAll("[^\\p{L}\\p{N}]", "");
                     if (original.equals(replacement)) fail();
+                } else if (prescribed && "TASK_CONDITION_CONFLICT".equals(issue)) {
+                    if (!fact.asText().isEmpty() || !"NONE".equals(reason)
+                            || !"UNMET".equals(observation.path("status").asText()) || !hasRelation(observation, "CONFLICT")) fail();
                 } else if (!"TASK_FACT_CONFLICT".equals(issue) || !fact.asText().matches("T[1-9][0-9]*") || !"NONE".equals(reason)
                         || !"UNMET".equals(observation.path("status").asText()) || !hasRelation(observation, "CONFLICT")) fail();
             }
@@ -175,7 +200,7 @@ final class WritingPlanContract {
             if (!Set.of("EXPRESSION_ONLY", "HYPOTHETICAL_EXAMPLE").contains(alternative.path("suggestionKind").asText())
                     || alternative.path("original").asText().isEmpty()
                     || !answer.contains(alternative.path("original").asText())) fail();
-            if (Set.of("curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7").contains(result.path("policyVersion").asText())) {
+            if (Set.of("curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9").contains(result.path("policyVersion").asText())) {
                 // 표현만 다듬는 제안이 사실·순서·입장을 바꾸지 않도록 새 계약의 관계 근거를 확인한다.
                 for (String key : Set.of("causality", "chronology", "specificity", "stance")) {
                     String check = alternative.path("relationChecks").path(key).asText();
@@ -203,7 +228,22 @@ final class WritingPlanContract {
         }
     }
 
-    private static void validateRequirementParts(JsonNode observation, String answer, JsonNode requirements) {
+    private static Set<String> conditionAuthorities(String writingType, JsonNode intents) {
+        // 과제의 명시 지시와 제공 사실은 다른 권한이다. FREE의 개인 선택에는 P 권한이 없다.
+        if (!"GUIDED".equals(writingType)) return Set.of();
+        if (!intents.isArray()) fail();
+        Set<String> texts = new java.util.LinkedHashSet<>();
+        for (JsonNode intent : intents) {
+            if (!intent.isTextual()) fail();
+            if (!intent.asText().isBlank()) texts.add(intent.asText());
+        }
+        Set<String> ids = new HashSet<>();
+        for (int index = 1; index <= texts.size(); index++) ids.add("P" + index);
+        return ids;
+    }
+
+    private static void validateRequirementParts(JsonNode observation, String answer, JsonNode requirements,
+                                                 boolean prescribed, Set<String> conditionIds) {
         // 요소별 존재 근거로 집계한 상태를 확인한다. 부분 누락의 정상 근거는 parts 안에 남긴다.
         JsonNode parts = observation.path("requirementParts");
         if (!parts.isArray() || parts.isEmpty() || !observation.path("requirementId").asText().matches("C[1-9][0-9]*")) fail();
@@ -225,6 +265,13 @@ final class WritingPlanContract {
             }
             for (JsonNode fact : part.path("taskFactIds")) {
                 if (!fact.isTextual() || !fact.asText().matches("T[1-9][0-9]*")) fail();
+            }
+            if (prescribed) {
+                if (!part.path("taskConditionIds").isArray()) fail();
+                Set<String> seen = new HashSet<>();
+                for (JsonNode condition : part.path("taskConditionIds")) {
+                    if (!condition.isTextual() || !conditionIds.contains(condition.asText()) || !seen.add(condition.asText())) fail();
+                }
             }
         }
         if (requirements.isArray() && !requirements.isEmpty()) {

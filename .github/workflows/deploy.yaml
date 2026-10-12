@@ -10,9 +10,7 @@ permissions:
 
 jobs:
   verify:
-    # main push에서는 기존 검증을 유지한다.
-    # 수동 production dispatch에서는 이미 완료된 push 검증을 다시 기다리지 않는다.
-    if: github.event_name == 'push'
+    # main push와 수동 실행 모두 선택된 SHA를 먼저 검증한다.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -36,9 +34,11 @@ jobs:
           ./gradlew test bootJar --no-daemon
 
   release:
-    # 운영 반영은 main의 명시적 workflow_dispatch에서만 수행한다.
-    # push verify와는 병렬 실행할 수 있지만 production release끼리는 직렬화한다.
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: verify
+    # main의 검증 성공 SHA만 같은 workflow run에서 운영에 반영한다.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     concurrency:
       group: translacat-be-production
       cancel-in-progress: false
@@ -181,7 +181,7 @@ jobs:
           rm -f "$untracked_file"
           trap - EXIT
 
-          # workflow_dispatch가 선택한 정확한 main SHA만 배포한다.
+          # 현재 workflow가 검증한 정확한 main SHA만 배포한다.
           GIT_LFS_SKIP_SMUDGE=1 git fetch --no-tags origin "$RELEASE_SHA"
           GIT_LFS_SKIP_SMUDGE=1 git checkout --detach "$RELEASE_SHA"
 

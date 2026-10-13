@@ -61,4 +61,31 @@ class ReceiptAmountPolicyTest {
         assertThat(result.bookAmount()).isEqualByComparingTo("9.00");
         assertThat(result.warnings()).contains("CASH_TENDERED_NOT_DOUBLE_COUNTED");
     }
+
+    @Test
+    void uncertainAiAllocationCannotRestoreAnIncorrectBookAmount() {
+        // 준비: AI가 세전 금액을 포인트로 잘못 분류한 항목을 UNKNOWN으로 전달한다.
+        var items = List.of(
+                new ReceiptPaymentItemDto("UNKNOWN", new BigDecimal("1080"), "今回買上金額(税抜) 1,080", "points1"),
+                payment("CREDIT_CARD", "108", "card2"));
+
+        // 실행: 합계가 맞아도 확정되지 않은 결제 수단을 서버에서 다시 계산한다.
+        var result = ReceiptAmountPolicy.decide(new BigDecimal("1188"), items, null, null);
+
+        // 검증: 잘못된 108엔이 환산·등록 가능한 금액으로 복구되지 않는다.
+        assertThat(result.status()).isEqualTo("NEEDS_REVIEW");
+        assertThat(result.bookAmount()).isNull();
+        assertThat(result.warnings()).contains("INVALID_PAYMENT_ALLOCATION");
+    }
+
+    @Test
+    void confirmedCardCorrectionCanBeRecalculatedNormally() {
+        // 준비 / 실행: 원본 확인 후 정정한 실제 카드 결제 금액을 사용한다.
+        var result = ReceiptAmountPolicy.decide(new BigDecimal("1188"),
+                List.of(payment("CREDIT_CARD", "1188", null)), null, null);
+
+        // 검증: 과거 오분류와 무관하게 현재의 올바른 지급액을 환산할 수 있다.
+        assertThat(result.status()).isEqualTo("READY");
+        assertThat(result.bookAmount()).isEqualByComparingTo("1188");
+    }
 }

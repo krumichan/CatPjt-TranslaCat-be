@@ -71,6 +71,12 @@ public class WritingPlanController {
         return ResponseUtil.ok(client().writingPlanAnswer(SecurityUtil.getLoginUserId(principal), itemId, body));
     }
 
+    @PostMapping("/items/{itemId}/replacement")
+    public ResponseDto<JsonNode> replacement(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long itemId,
+                                             @RequestBody JsonNode body) {
+        return ResponseUtil.ok(client().writingPlanReplacement(SecurityUtil.getLoginUserId(principal), itemId, body));
+    }
+
     @PostMapping("/{setId}/delete")
     public ResponseDto<JsonNode> delete(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long setId,
                                         @RequestBody JsonNode body) {

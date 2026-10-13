@@ -139,7 +139,9 @@ public class VoiceSessionCommandService {
         VoiceSession session = findFreshSessionForCompletion(sessionId, userId)
                 .orElseThrow(this::notFound);
 
-        if (session.getStatus() == VoiceSessionStatus.COMPLETED) {
+        // 이미 확정된 종료를 다시 요청해도 실패 세션을 재활성화하거나 INVALID_STATE로 덮지 않는다.
+        if (session.getStatus() == VoiceSessionStatus.COMPLETED
+                || session.getStatus() == VoiceSessionStatus.FAILED) {
             return false;
         }
 
@@ -154,6 +156,12 @@ public class VoiceSessionCommandService {
     ) {
         VoiceSession session = findFreshSessionForCompletion(sessionId, userId)
                 .orElseThrow(this::notFound);
+
+        // 다른 종료 요청이 먼저 실패를 확정했어도 같은 정리를 반복하고 실패 상태를 보존한다.
+        if (session.getStatus() == VoiceSessionStatus.FAILED) {
+            cleanupFailedTranscripts(session, sessionId);
+            return false;
+        }
 
         if (session.getStatus() != VoiceSessionStatus.COMPLETED) {
             // 브라우저가 먼저 소켓을 닫아 registry에서 사라진 실패도 DB 채널 상태로 확인한다.

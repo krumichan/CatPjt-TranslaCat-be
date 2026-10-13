@@ -77,7 +77,7 @@ final class WritingPlanContract {
                             .contains(state.path("status").asText())) fail();
                     if (succeeded) {
                         JsonNode result = state.path("result");
-                        if (!Set.of("curated-writing-feedback-v1", "curated-writing-feedback-v2", "curated-writing-feedback-v3", "curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9")
+                        if (!Set.of("curated-writing-feedback-v1", "curated-writing-feedback-v2", "curated-writing-feedback-v3", "curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10")
                                 .contains(result.path("policyVersion").asText())
                                 || !"REFERENCE_ONLY".equals(result.path("resultPolicy").asText())
                                 || !result.path("observations").isArray()
@@ -88,7 +88,7 @@ final class WritingPlanContract {
                             if (!attempt.path("answer").asText().contains(correction.path("original").asText())) fail();
                         }
                         // 저장된 v1 결과는 바꾸지 않고 새 계약의 누락 근거와 가상 예시 분류를 확인한다.
-                        if (Set.of("curated-writing-feedback-v2", "curated-writing-feedback-v3", "curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9").contains(result.path("policyVersion").asText())) {
+                        if (Set.of("curated-writing-feedback-v2", "curated-writing-feedback-v3", "curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10").contains(result.path("policyVersion").asText())) {
                             validateGroundedFeedback(result, attempt.path("answer").asText(), item.path("taskRequirements"),
                                     value.path("writingType").asText(), item.path("requiredIntents"));
                         }
@@ -109,9 +109,9 @@ final class WritingPlanContract {
 
     private static void validateGroundedFeedback(JsonNode result, String answer, JsonNode requirements, String writingType, JsonNode intents) {
         java.util.Map<String, JsonNode> observations = new java.util.HashMap<>();
-        boolean typed = Set.of("curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9").contains(result.path("policyVersion").asText());
-        boolean prescribed = Set.of("curated-writing-feedback-v8", "curated-writing-feedback-v9").contains(result.path("policyVersion").asText());
-        boolean structured = Set.of("curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9").contains(result.path("policyVersion").asText());
+        boolean typed = Set.of("curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10").contains(result.path("policyVersion").asText());
+        boolean prescribed = Set.of("curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10").contains(result.path("policyVersion").asText());
+        boolean structured = Set.of("curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10").contains(result.path("policyVersion").asText());
         Set<String> conditionIds = prescribed ? conditionAuthorities(writingType, intents) : Set.of();
         Set<String> referencedConditions = new HashSet<>();
         for (JsonNode observation : result.path("observations")) {
@@ -200,7 +200,7 @@ final class WritingPlanContract {
             if (!Set.of("EXPRESSION_ONLY", "HYPOTHETICAL_EXAMPLE").contains(alternative.path("suggestionKind").asText())
                     || alternative.path("original").asText().isEmpty()
                     || !answer.contains(alternative.path("original").asText())) fail();
-            if (Set.of("curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9").contains(result.path("policyVersion").asText())) {
+            if (Set.of("curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10").contains(result.path("policyVersion").asText())) {
                 // 표현만 다듬는 제안이 사실·순서·입장을 바꾸지 않도록 새 계약의 관계 근거를 확인한다.
                 for (String key : Set.of("causality", "chronology", "specificity", "stance")) {
                     String check = alternative.path("relationChecks").path(key).asText();

@@ -106,14 +106,17 @@ public class VoiceSessionFacade {
             flushConnections(userId, sessionId);
         }
 
-        // 이미 완료된 세션도 이전 연결/버전이 남긴 미완료 문장은 정리할 수 있어야 한다.
+        // 이미 종료된 세션도 미완료 문장을 정리하되 실패를 정상 완료로 바꾸지 않는다.
         boolean completed = sessionCommandService.finishCompletion(userId, sessionId);
         if (!completed) {
             connectionRegistry.forceCloseSession(sessionId);
-            throw new BusinessException(
-                    "A Voice channel closed without completing its final results.",
-                    VoiceErrorCode.AI_CONNECTION_CLOSED
-            );
+            // 진행 중이던 이번 종료의 손실은 오류로 알린다. 실패 후 반복 정리는 FAILED 응답으로 확인한다.
+            if (shouldFlush) {
+                throw new BusinessException(
+                        "A Voice channel closed without completing its final results.",
+                        VoiceErrorCode.AI_CONNECTION_CLOSED
+                );
+            }
         }
 
         return sessionQueryService.get(userId, sessionId);

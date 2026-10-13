@@ -374,6 +374,41 @@ class WritingPlanContractTest {
     }
 
     @Test
+    void oldAndNewSemanticFeedbackPreservesStoredResultAndExactPatchAuthority() {
+        for (String version : new String[] {"curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10"}) {
+            // 준비: 의미 판정 버전이 달라도 저장 DTO의 기존 권한 경계를 유지한다.
+            var value = prescribedPlan();
+            result(value).put("policyVersion", version);
+            var correction = conditionCorrection(value);
+            var original = value.deepCopy();
+
+            // 실행·검증: 조회는 결과를 바꾸지 않고 원문과 다른 부분 교정은 거절한다.
+            assertSame(value, WritingPlanContract.plan(value));
+            assertEquals(original, value);
+            ((ObjectNode) correction.path("patch")).put("original", "答えにない引用");
+            assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        }
+    }
+
+    @Test
+    void v10FreePersonalContentDoesNotAcquirePrescribedAuthorityOrUnknownVersion() {
+        // 준비: 필수 교정이 없는 자유 작문 충족 결과도 중계할 수 있어야 한다.
+        var value = prescribedPlan();
+        value.put("writingType", "FREE");
+        result(value).put("policyVersion", "curated-writing-feedback-v10");
+        var part = (ObjectNode) result(value).path("observations").get(0).path("requirementParts").get(0);
+        part.putArray("taskConditionIds");
+
+        // 실행·검증: 개인 선택에 P 권한을 붙이거나 알 수 없는 계약을 표시하지 않는다.
+        assertSame(value, WritingPlanContract.plan(value));
+        part.putArray("taskConditionIds").add("P1");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        part.putArray("taskConditionIds");
+        result(value).put("policyVersion", "curated-writing-feedback-v11");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+    }
+
+    @Test
     void v8ConditionIdsUseDistinctNonblankGuidedIntentsAndRejectUnknownOrDuplicateIds() {
         // 준비: 빈 항목·중복을 제거한 실제 P1/P2만 유효하다.
         var value = prescribedPlan();

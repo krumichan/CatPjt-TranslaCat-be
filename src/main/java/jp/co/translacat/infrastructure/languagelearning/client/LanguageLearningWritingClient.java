@@ -168,6 +168,29 @@ public class LanguageLearningWritingClient {
                 "/plans/items/" + learningId(itemId) + "/answers", request, JsonNode.class));
     }
 
+    /** 저장된 수정 후보 적용만 전달한다. 원본·revision 검사는 LL 소유자 트랜잭션에서 수행한다. */
+    public JsonNode writingPlanReplacement(Long userId, Long itemId, JsonNode request) {
+        return WritingPlanContract.plan(postAt(CURATED_ROOT, userId,
+                "/plans/items/" + learningId(itemId) + "/replacement", request, JsonNode.class));
+    }
+
+    /** 명시적 준비 명령은 한 번만 전달하고, 응답을 요청 식별자와 대조한다. */
+    public JsonNode writingPreparationStart(Long userId, JsonNode request) {
+        JsonNode result = WritingPreparationContract.response(
+                postAt(CURATED_ROOT, userId, "/preparations", request, JsonNode.class));
+        return WritingPreparationContract.matchesRequest(result, request);
+    }
+
+    /** 조회에는 복구 POST나 모델 재실행을 추가하지 않는다. */
+    public JsonNode writingPreparationGet(Long userId, String requestKey) {
+        if (requestKey == null || !requestKey.matches("[a-zA-Z0-9._-]{1,80}"))
+            throw new IllegalArgumentException("올바른 Writing 준비 식별자가 필요합니다.");
+        JsonNode result = WritingPreparationContract.response(
+                getAt(CURATED_ROOT, userId, "/preparations/" + requestKey, JsonNode.class));
+        if (!requestKey.equals(result.path("requestKey").textValue())) throw contractFailure();
+        return result;
+    }
+
     /** 실패한 답안의 명시적 피드백 재시도만 중계한다. */
     public JsonNode writingPlanFeedbackRetry(Long userId, Long answerId) {
         return WritingPlanContract.plan(postAt(CURATED_ROOT, userId,

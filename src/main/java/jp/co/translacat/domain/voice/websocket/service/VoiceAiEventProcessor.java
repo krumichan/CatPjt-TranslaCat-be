@@ -12,6 +12,7 @@ import jp.co.translacat.domain.voice.support.VoiceErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Component;
 
@@ -19,7 +20,11 @@ import java.util.concurrent.TimeUnit;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class VoiceAiEventProcessor {
+
+    private static final int MAX_PREVIEW_TEXT_LENGTH = 10_000;
+    private static final long MAX_SAFE_REVISION = 9_007_199_254_740_991L;
 
     private final ObjectMapper objectMapper;
     private final VoiceFinalResultCommandService finalResultCommandService;
@@ -113,13 +118,45 @@ public class VoiceAiEventProcessor {
             Long globalSequence
     ) {
         requireSequence(globalSequence, "Partial");
-        int revision = event.path("revision").asInt(-1);
-        requiredText(event, "sourceText");
+        long revision = requiredPreviewRevision(event);
+        validatePreviewText(requiredText(event, "sourceText"), "sourceText");
 
+        // 임시 번역은 원문과 같은 revision의 전체 스냅샷이다. 저장과 사용량에는 반영하지 않는다.
+        JsonNode translatedText = event.get("translatedText");
+        boolean hasTranslation = translatedText != null && !translatedText.isNull();
+        if (hasTranslation) {
+            validatePreviewText(requiredText(event, "translatedText"), "translatedText");
+        }
+        JsonNode targetLanguage = event.get("targetLanguage");
+        if (hasTranslation || (targetLanguage != null && !targetLanguage.isNull())) {
+            if (!connection.context().targetLanguage().equals(requiredText(event, "targetLanguage"))) {
+                throw invalidSchema("Partial target language does not match the Voice session.");
+            }
+        }
+
+        // 확정 결과 또는 더 최신 스냅샷이 도착한 발화를 늦은 preview로 되돌리지 않는다.
         if (!connection.acceptPartial(globalSequence, revision)) {
             return ProcessedEvent.suppressed(VoiceAiEventType.TRANSCRIPT_PARTIAL);
         }
         return normal(VoiceAiEventType.TRANSCRIPT_PARTIAL, event);
+    }
+
+    private long requiredPreviewRevision(ObjectNode event) {
+        JsonNode value = event.get("revision");
+        if (value == null
+                || !value.isIntegralNumber()
+                || !value.canConvertToLong()
+                || value.asLong() < 1L
+                || value.asLong() > MAX_SAFE_REVISION) {
+            throw invalidSchema("Partial revision must be a positive safe integer.");
+        }
+        return value.asLong();
+    }
+
+    private void validatePreviewText(String value, String field) {
+        if (value.codePointCount(0, value.length()) > MAX_PREVIEW_TEXT_LENGTH) {
+            throw invalidSchema("Voice preview field is too long: " + field);
+        }
     }
 
     private ProcessedEvent processFinal(
@@ -190,6 +227,18 @@ public class VoiceAiEventProcessor {
             ObjectNode event,
             Long globalSequence
     ) {
+        // STT 단계 실패는 원문/DB 행이 없을 수 있으므로 내용 없이 세션과 실패 단계만 추적한다.
+        JsonNode error = event.path("error");
+        log.warn(
+                "Voice pipeline failed session={} channel={} sequence={} code={} stage={} retryable={}",
+                connection.context().sessionId(),
+                connection.context().channel(),
+                globalSequence,
+                error.path("code").asText("UNKNOWN"),
+                error.path("stage").asText("UNKNOWN"),
+                error.path("retryable").asBoolean(false)
+        );
+
         if (globalSequence != null) {
             finalResultCommandService.persistTranslationFailure(
                     connection.context(),
@@ -269,7 +318,7 @@ public class VoiceAiEventProcessor {
         if (value == null || value.isNull()) {
             return null;
         }
-        if (!value.canConvertToLong()) {
+        if (!value.isIntegralNumber() || !value.canConvertToLong()) {
             throw invalidSchema(
                     "utteranceSequence must be an integer."
             );

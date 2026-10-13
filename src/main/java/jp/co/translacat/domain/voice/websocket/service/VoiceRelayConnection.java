@@ -22,12 +22,14 @@ import java.util.function.Consumer;
 public class VoiceRelayConnection
         implements VoiceConnectionRegistry.GracefulConnection {
 
+    private static final long MAX_SAFE_UTTERANCE_SEQUENCE = 9_007_199_254_740_991L;
+
     private final VoiceStreamContext context;
     private final WebSocketSession publicSession;
     private final VoicePolicyProperties policy;
     private final Consumer<Throwable> asyncError;
     private final ArrayDeque<byte[]> preReadyAudio = new ArrayDeque<>();
-    private final Map<Long, Integer> partialRevisions = new ConcurrentHashMap<>();
+    private final Map<Long, Long> partialRevisions = new ConcurrentHashMap<>();
     private final Map<Long, Boolean> finalizedSequences = new ConcurrentHashMap<>();
     private final AtomicLong bufferedBytes = new AtomicLong();
     private final AtomicLong pendingAiBytes = new AtomicLong();
@@ -76,25 +78,30 @@ public class VoiceRelayConnection
     }
 
     public long globalSequence(long aiLocalSequence) {
-        if (aiLocalSequence < 1) {
+        // FE의 정수 표현 범위와 reconnect offset을 함께 검사해 서로 다른 발화의 충돌을 막는다.
+        long offset = context.sequenceOffset();
+        if (aiLocalSequence < 1
+                || aiLocalSequence > MAX_SAFE_UTTERANCE_SEQUENCE
+                || offset < 0
+                || offset > MAX_SAFE_UTTERANCE_SEQUENCE - aiLocalSequence) {
             throw new BusinessException(
-                    "Voice utteranceSequence must be positive.",
+                    "Voice utteranceSequence and offset must produce a positive safe integer.",
                     VoiceErrorCode.INVALID_EVENT_SCHEMA
             );
         }
-        return context.sequenceOffset() + aiLocalSequence;
+        return offset + aiLocalSequence;
     }
 
     public synchronized boolean acceptPartial(
             long globalSequence,
-            int revision
+            long revision
     ) {
         if (revision < 1
                 || finalizedSequences.containsKey(globalSequence)) {
             return false;
         }
 
-        Integer previous = partialRevisions.get(globalSequence);
+        Long previous = partialRevisions.get(globalSequence);
         if (previous != null && revision <= previous) {
             return false;
         }
@@ -103,7 +110,8 @@ public class VoiceRelayConnection
         return true;
     }
 
-    public void markFinalized(long globalSequence) {
+    public synchronized void markFinalized(long globalSequence) {
+        // preview의 revision 확인과 같은 잠금을 사용해 확정 후 갱신을 차단한다.
         finalizedSequences.put(globalSequence, Boolean.TRUE);
         partialRevisions.remove(globalSequence);
     }

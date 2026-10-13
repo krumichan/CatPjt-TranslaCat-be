@@ -1,8 +1,12 @@
 package jp.co.translacat.domain.voice;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import jakarta.persistence.EntityManager;
 import jp.co.translacat.domain.voice.config.VoicePolicyProperties;
+import jp.co.translacat.domain.voice.dto.response.VoiceSessionResponseDto;
 import jp.co.translacat.domain.voice.enums.*;
 import jp.co.translacat.domain.voice.facade.VoiceSessionFacade;
 import jp.co.translacat.domain.voice.model.VoiceStreamContext;
@@ -17,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.socket.WebSocketSession;
@@ -210,6 +215,61 @@ class VoiceStreamLifecycleTest {
         // 검증: 소켓을 다시 열거나 flush하지 않고 DB terminal 정리를 수행한다.
         verify(commands).finishCompletion(1L, "audit");
         verifyNoInteractions(registry);
+    }
+
+    @Test
+    void repeatedFailedCompletionReturnsFailedStateWithoutReportingSuccessOrInvalidState() {
+        // 준비: 이전 종료에서 실패가 확정된 세션을 화면 정리가 다시 종료한다.
+        var commands = mock(VoiceSessionCommandService.class);
+        var queries = mock(VoiceSessionQueryService.class);
+        var registry = mock(VoiceConnectionRegistry.class);
+        when(commands.startCompleting(1L, "audit")).thenReturn(false);
+        when(commands.finishCompletion(1L, "audit")).thenReturn(false);
+        var failedSession = new VoiceSessionResponseDto("audit", VoiceMode.MEDIA,
+                VoiceSourceLanguageMode.AUTO, "ko", true, VoiceSessionStatus.FAILED,
+                "Voice", 900, null, null, null, List.of());
+        when(queries.get(1L, "audit")).thenReturn(failedSession);
+        var facade = new VoiceSessionFacade(commands, queries, null, null,
+                null, null, registry, policy(25000));
+
+        // 실행
+        var response = facade.complete(1L, "audit");
+
+        // 검증: 정리는 멱등적으로 끝나지만 소비자에게 전달되는 결과는 명시적으로 FAILED다.
+        assertThat(response.status()).isEqualTo(VoiceSessionStatus.FAILED);
+        verify(commands).finishCompletion(1L, "audit");
+        verify(registry).forceCloseSession("audit");
+        verify(registry, never()).closeSession(any(), any());
+    }
+
+    @Test
+    void speechFailureDiagnosticOmitsTranscriptAndProviderMessage() {
+        // 준비: DB 행이 없는 STT 실패도 세션/발화 식별자로 추적하되 내용을 기록하지 않는다.
+        var processor = new VoiceAiEventProcessor(mapper, mock(VoiceFinalResultCommandService.class),
+                mock(VoiceStreamCommandService.class), mock(VoiceUsageQueryService.class));
+        var logger = (Logger) LoggerFactory.getLogger(VoiceAiEventProcessor.class);
+        var captured = new ListAppender<ILoggingEvent>();
+        captured.start();
+        logger.addAppender(captured);
+
+        try {
+            // 실행: 공급자 메시지와 회의 원문은 로그에 포함되면 안 된다.
+            processor.process(relay(mock(WebSocketSession.class)), """
+                {"type":"VOICE_PIPELINE_FAILED","eventId":"timeout-1","sessionId":"audit","channel":"REMOTE",
+                 "utteranceSequence":3,"sourceText":"private meeting text",
+                 "error":{"code":"VOICE_STT_TIMEOUT","stage":"STT","retryable":true,
+                          "message":"private provider detail"}}
+                """);
+
+            // 검증
+            assertThat(captured.list).hasSize(1);
+            assertThat(captured.list.getFirst().getFormattedMessage())
+                    .contains("session=audit", "channel=REMOTE", "sequence=3", "code=VOICE_STT_TIMEOUT", "stage=STT")
+                    .doesNotContain("private meeting text", "private provider detail");
+        } finally {
+            logger.detachAppender(captured);
+            captured.stop();
+        }
     }
 
     @Test

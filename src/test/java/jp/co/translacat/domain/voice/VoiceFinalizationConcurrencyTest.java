@@ -323,6 +323,75 @@ class VoiceFinalizationConcurrencyTest {
         assertThat(usage.count()).isEqualTo(1);
     }
 
+    @Test
+    void repeatedFailedCompletionPreservesFailureTimestampAndRetainedSource() {
+        // 준비: 종료 실패 전에 확정 원문을 저장한 보관 세션이다.
+        var retained = createRetainedSession();
+        finals.persistTranscriptFinal(retained, transcript("before-failed-complete"), 1);
+        commands.startCompleting(retained.userId(), retained.sessionId());
+        commands.fail(retained.userId(), retained.sessionId());
+        var failedAt = sessions.findById(retained.sessionId()).orElseThrow().getCompletedAt();
+
+        // 실행: 재시도와 unmount 정리가 반복되어도 실패를 재활성화하지 않는다.
+        for (int attempt = 0; attempt < 2; attempt++) {
+            assertThat(commands.startCompleting(retained.userId(), retained.sessionId())).isFalse();
+            assertThat(commands.finishCompletion(retained.userId(), retained.sessionId())).isFalse();
+        }
+
+        // 검증: 실패 상태/시각/원문과 사용량을 보존하고 번역 성공으로 바꾸지 않는다.
+        var failed = sessions.findById(retained.sessionId()).orElseThrow();
+        assertThat(failed.getStatus()).isEqualTo(VoiceSessionStatus.FAILED);
+        assertThat(failed.getCompletedAt()).isEqualTo(failedAt);
+        var segment = segments.findAll().getFirst();
+        assertThat(segment.getSourceText()).isEqualTo("The meeting is over.");
+        assertThat(segment.getStatus()).isEqualTo(VoiceSegmentStatus.TRANSLATION_FAILED);
+        assertThat(segment.getErrorCode()).isEqualTo(VoiceErrorCode.COMPLETE_TIMEOUT);
+        assertThat(usage.count()).isEqualTo(1);
+    }
+
+    @Test
+    void concurrentCleanupWaitsForFailureAndCannotTurnItIntoCompleted() throws Exception {
+        // 준비: 첫 종료 요청이 시작된 뒤 실패 트랜잭션이 row lock을 보유한다.
+        finals.persistTranscriptFinal(stream, transcript("before-concurrent-close"), 1);
+        assertThat(commands.startCompleting(stream.userId(), stream.sessionId())).isTrue();
+        var failureApplied = new CountDownLatch(1);
+        var releaseFailure = new CountDownLatch(1);
+        var cleanupStarted = new CountDownLatch(1);
+
+        try (var workers = Executors.newFixedThreadPool(2)) {
+            var failure = CompletableFuture.runAsync(() -> transactions.executeWithoutResult(status -> {
+                commands.fail(stream.userId(), stream.sessionId());
+                failureApplied.countDown();
+                await(releaseFailure);
+            }), workers);
+
+            try {
+                assertThat(failureApplied.await(5, TimeUnit.SECONDS)).isTrue();
+
+                // 실행: 동시에 도착한 정리 요청은 실패 commit을 기다린 뒤 같은 terminal 상태를 읽는다.
+                var cleanup = CompletableFuture.supplyAsync(() -> {
+                    cleanupStarted.countDown();
+                    return commands.startCompleting(stream.userId(), stream.sessionId());
+                }, workers);
+                assertThat(cleanupStarted.await(5, TimeUnit.SECONDS)).isTrue();
+                assertThatThrownBy(() -> cleanup.get(150, TimeUnit.MILLISECONDS))
+                        .isInstanceOf(TimeoutException.class);
+                releaseFailure.countDown();
+                failure.get(5, TimeUnit.SECONDS);
+
+                // 검증: 반복 시작과 먼저 시작했던 종료의 후처리 모두 실패를 보존한다.
+                assertThat(cleanup.get(5, TimeUnit.SECONDS)).isFalse();
+                assertThat(commands.finishCompletion(stream.userId(), stream.sessionId())).isFalse();
+                assertThat(sessions.findById(stream.sessionId()).orElseThrow().getStatus())
+                        .isEqualTo(VoiceSessionStatus.FAILED);
+                assertThat(segments.count()).isZero();
+                assertThat(usage.count()).isEqualTo(1);
+            } finally {
+                releaseFailure.countDown();
+            }
+        }
+    }
+
     private VoiceStreamContext createRetainedSession() {
         return transactions.execute(status -> {
             var owner = sessions.findById(stream.sessionId()).orElseThrow().getUser();

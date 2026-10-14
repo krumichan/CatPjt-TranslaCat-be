@@ -11,8 +11,9 @@ public final class CatalogModels {
         public Selector {
             if (!("RANKING".equals(kind) || "SEARCH".equals(kind)) || page < 1 || page > 10000
                     || !("ja".equals(language) || "ko".equals(language))) invalid();
+            // 공개 장르 식별자(_201 등)는 DB와 화면 selector에서도 같은 값으로 유지한다.
             if ("RANKING".equals(kind) && (period == null || !period.matches("[a-zA-Z]{1,20}")
-                    || genreId == null || !genreId.matches("[A-Za-z0-9]{1,20}"))) invalid();
+                    || genreId == null || !genreId.matches("[A-Za-z0-9_]{1,20}"))) invalid();
             if ("SEARCH".equals(kind) && (keyword == null || keyword.isBlank() || keyword.length() > 100)) invalid();
         }
     }

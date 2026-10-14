@@ -224,13 +224,12 @@ public class SyosetuParser {
     public PageNumberContext parseEpisodeListPageNumbers(Element element) {
         Elements pages = element.select(".c-pager__item");
         if (!pages.isEmpty()) {
+            // 첫/마지막 페이지는 반대 방향 링크를 생략한다. 없는 링크는 이동 불가로 반환한다.
             return PageNumberContext.builder()
-                    .first(this.extractPageNumber(
-                            Objects.requireNonNull(pages.select(".c-pager__item--first").first())))
-                    .prev(this.extractPageNumber(
-                            Objects.requireNonNull(pages.select(".c-pager__item--before").first())))
-                    .next(this.extractPageNumber(Objects.requireNonNull(pages.select(".c-pager__item--next").first())))
-                    .last(this.extractPageNumber(Objects.requireNonNull(pages.select(".c-pager__item--last").first())))
+                    .first(this.extractPageNumber(pages.select(".c-pager__item--first").first()))
+                    .prev(this.extractPageNumber(pages.select(".c-pager__item--before").first()))
+                    .next(this.extractPageNumber(pages.select(".c-pager__item--next").first()))
+                    .last(this.extractPageNumber(pages.select(".c-pager__item--last").first()))
                     .build();
         }
 

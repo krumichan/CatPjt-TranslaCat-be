@@ -375,7 +375,7 @@ class WritingPlanContractTest {
 
     @Test
     void oldAndNewSemanticFeedbackPreservesStoredResultAndExactPatchAuthority() {
-        for (String version : new String[] {"curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10"}) {
+        for (String version : new String[] {"curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12"}) {
             // 준비: 의미 판정 버전이 달라도 저장 DTO의 기존 권한 경계를 유지한다.
             var value = prescribedPlan();
             result(value).put("policyVersion", version);
@@ -391,11 +391,11 @@ class WritingPlanContractTest {
     }
 
     @Test
-    void v10FreePersonalContentDoesNotAcquirePrescribedAuthorityOrUnknownVersion() {
+    void v12FreePersonalContentDoesNotAcquirePrescribedAuthorityOrUnknownVersion() {
         // 준비: 필수 교정이 없는 자유 작문 충족 결과도 중계할 수 있어야 한다.
         var value = prescribedPlan();
         value.put("writingType", "FREE");
-        result(value).put("policyVersion", "curated-writing-feedback-v10");
+        result(value).put("policyVersion", "curated-writing-feedback-v12");
         var part = (ObjectNode) result(value).path("observations").get(0).path("requirementParts").get(0);
         part.putArray("taskConditionIds");
 
@@ -404,7 +404,7 @@ class WritingPlanContractTest {
         part.putArray("taskConditionIds").add("P1");
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
         part.putArray("taskConditionIds");
-        result(value).put("policyVersion", "curated-writing-feedback-v11");
+        result(value).put("policyVersion", "curated-writing-feedback-v13");
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
     }
 

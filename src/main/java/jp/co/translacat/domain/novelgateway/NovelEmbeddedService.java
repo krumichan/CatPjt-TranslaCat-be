@@ -3,8 +3,10 @@ package jp.co.translacat.domain.novelgateway;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.co.translacat.infrastructure.novel.client.NovelGatewayException;
+import jp.co.translacat.infrastructure.novel.client.NovelGatewayTrace;
 import jp.co.translacat.novel.application.CatalogFacade;
 import jp.co.translacat.novel.application.NovelFacade;
+import jp.co.translacat.novel.application.RequestTrace;
 import jp.co.translacat.novel.domain.CatalogModels;
 import jp.co.translacat.novel.domain.EpisodeKey;
 import jp.co.translacat.novel.domain.NovelProblem;
@@ -100,11 +102,16 @@ public class NovelEmbeddedService {
     private JsonNode call(Supplier<?> command) {
         // 같은 JVM의 소설 기능을 호출한다. actor와 ADMIN 검증은 공개 facade가 담당한다.
         try {
+            // HTTP 상관 ID를 내장 모듈과 비동기 작업의 저장 trace에 연결한다.
+            RequestTrace.begin(NovelGatewayTrace.validatedCurrentId());
             return json.valueToTree(command.get());
         } catch (NovelProblem problem) {
             throw new NovelGatewayException(problem.status(), problem.code(), problem.retryable());
         } catch (IllegalArgumentException problem) {
             throw new NovelGatewayException(400, "NOVEL_REQUEST_INVALID", false);
+        } finally {
+            // 성공·실패 모두에서 요청 스레드의 추적값을 정리한다.
+            RequestTrace.clear();
         }
     }
 }

@@ -46,6 +46,13 @@ public final class NovelGatewayTrace {
         return new NovelGatewayTrace(null, false);
     }
 
+    public static String validatedCurrentId() {
+        // 내장 모듈도 기존 HTTP 경계의 단일·유효 UUID만 사용한다.
+        var trace = current();
+        trace.requireValid();
+        return trace.id();
+    }
+
     void requireValid() {
         // 인증은 기존 보안 경계에서 먼저 처리한다. 잘못된 ID는 유료 중계 전에 거절한다.
         if (invalid) {

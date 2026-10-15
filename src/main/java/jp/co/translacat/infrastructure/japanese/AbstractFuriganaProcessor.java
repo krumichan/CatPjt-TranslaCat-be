@@ -1,46 +1,54 @@
 package jp.co.translacat.infrastructure.japanese;
 
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class AbstractFuriganaProcessor {
 
-    protected final Map<String, String> cachedDict = new ConcurrentHashMap<>();
+    protected volatile Map<String, String> cachedDict = Map.of();
 
     protected abstract String analyzeWithEngine(String segment);
 
     public void syncCachedDict(Map<String, String> newDict) {
-        this.cachedDict.clear();
-        this.cachedDict.putAll(newDict);
+        // 긴 등록어부터 적용하고, 요청 중에는 비워진 사전이 보이지 않도록 한 번에 교체한다.
+        Map<String, String> ordered = new LinkedHashMap<>();
+        newDict.entrySet().stream()
+                .sorted(Map.Entry.<String, String>comparingByKey(
+                        Comparator.comparingInt(String::length).reversed().thenComparing(Comparator.naturalOrder())))
+                .forEach(entry -> ordered.put(entry.getKey(), entry.getValue()));
+        this.cachedDict = Collections.unmodifiableMap(ordered);
     }
 
     protected String preProcessWithDict(String rawJa) {
-        if (rawJa == null || rawJa.isBlank() || cachedDict.isEmpty()) return rawJa;
+        Map<String, String> dictionary = cachedDict;
+        if (rawJa == null || rawJa.isBlank() || dictionary.isEmpty()) return rawJa;
 
-        // 1. 이미 루비 태그가 달린 부분과 일반 텍스트 부분을 분리 (정규식 활용)
-        // (?=<ruby)|(?<=</ruby>) 로 쪼개어서, 태그 영역과 비태그 영역 분리.
+        // 이미 발음이 지정된 부분을 보존하고 일반 텍스트에서만 사용자 사전을 적용한다.
         String[] parts = rawJa.split("(?=<ruby)|(?<=</ruby>)");
         StringBuilder sb = new StringBuilder();
 
         for (String part : parts) {
             if (part.startsWith("<ruby")) {
-                // 2. 이미 루비 태그인 부분은 건드리지 않고 그대로 유지
                 sb.append(part);
             } else {
-                // 3. 루비 태그가 없는 일반 텍스트 영역에서만 사전 치환 수행
-                String processedPart = part;
-                for (Map.Entry<String, String> entry : cachedDict.entrySet()) {
-                    String surface = entry.getKey();
-                    String reading = entry.getValue();
-
-                    if (processedPart.contains(surface)) {
-                        // 단순히 전체를 묶는 게 아니라 상세 로직 태움
-                        // 결과: <ruby>突き<rt>つき</rt></ruby>刺<rt>さ</rt></ruby>さる
-                        String fineRuby = this.makeFineGrainedRuby(surface, reading);
-                        processedPart = processedPart.replace(surface, fineRuby);
+                // 가장 긴 일치를 한 번만 소비한다. 삽입한 ruby를 짧은 항목으로 다시 치환하지 않는다.
+                for (int offset = 0; offset < part.length();) {
+                    Map.Entry<String, String> match = null;
+                    for (Map.Entry<String, String> entry : dictionary.entrySet()) {
+                        if (!entry.getKey().isEmpty() && part.startsWith(entry.getKey(), offset)) {
+                            match = entry;
+                            break;
+                        }
+                    }
+                    if (match == null) {
+                        sb.append(part.charAt(offset++));
+                    } else {
+                        sb.append(this.makeFineGrainedRuby(match.getKey(), match.getValue()));
+                        offset += match.getKey().length();
                     }
                 }
-                sb.append(processedPart);
             }
         }
         return sb.toString();

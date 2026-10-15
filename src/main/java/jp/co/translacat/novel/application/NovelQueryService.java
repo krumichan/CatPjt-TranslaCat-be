@@ -4,6 +4,7 @@ import jp.co.translacat.novel.domain.EpisodeKey;
 import jp.co.translacat.novel.domain.NovelProblem;
 import jp.co.translacat.novel.domain.SourceEpisode;
 import jp.co.translacat.novel.domain.TranslationPolicy;
+import jp.co.translacat.novel.infrastructure.japanese.NovelRubyFormatter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -16,21 +17,24 @@ public class NovelQueryService {
     private final NovelPorts.Ai ai;
     private final long ttlMillis;
     private final NovelExecutionSettings settings;
+    private final NovelRubyFormatter ruby;
     private final Object[] fetchLocks = java.util.stream.IntStream.range(0, 64).mapToObj(ignored -> new Object()).toArray();
     private final Semaphore sourceSlots = new Semaphore(4);
 
     public NovelQueryService(NovelRepository store, NovelPorts.Source sourcePort, NovelPorts.Ai ai, long ttlSeconds) {
-        this(store, sourcePort, ai, ttlSeconds, NovelExecutionSettings.baseline());
+        this(store, sourcePort, ai, ttlSeconds, NovelExecutionSettings.baseline(), null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
     public NovelQueryService(NovelRepository store, NovelPorts.Source sourcePort, NovelPorts.Ai ai,
-                             @Value("${novel.source.ttl-seconds:600}") long ttlSeconds, NovelExecutionSettings settings) {
+                             @Value("${novel.source.ttl-seconds:600}") long ttlSeconds, NovelExecutionSettings settings,
+                             NovelRubyFormatter ruby) {
         this.store = store;
         this.sourcePort = sourcePort;
         this.ai = ai;
         this.ttlMillis = Math.clamp(ttlSeconds, 1, 86400) * 1000;
         this.settings = settings;
+        this.ruby = ruby;
     }
 
     public ReaderSnapshot reader(EpisodeKey key, long actorId) {
@@ -134,8 +138,9 @@ public class NovelQueryService {
     }
     public ReaderSnapshot snapshot(EpisodeKey key, SourceEpisode source, NovelRepository.Job job, String glossary) {
         var repair = job == null ? null : store.latestRepair(job).orElse(null);
-        return ReaderSnapshot.of(key, source, job, glossary).withDiagnostics(job == null ? java.util.Map.of() : store.diagnostics(job))
+        ReaderSnapshot snapshot = ReaderSnapshot.of(key, source, job, glossary).withDiagnostics(job == null ? java.util.Map.of() : store.diagnostics(job))
                 .withRecovery(repair, job == null ? null : store.initialAttemptState(job), repair == null ? java.util.Map.of() : store.repairDiagnostics(repair))
                 .withAudioPolicy(NovelAudioService.POLICY_VERSION + "|" + ai.speechModel());
+        return ruby == null ? snapshot : snapshot.withRuby(ruby);
     }
 }

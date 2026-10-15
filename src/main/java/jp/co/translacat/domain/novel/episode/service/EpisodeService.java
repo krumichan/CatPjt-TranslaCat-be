@@ -19,6 +19,7 @@ import jp.co.translacat.infrastructure.client.ai.TranslationExecutor;
 import jp.co.translacat.infrastructure.client.ai.common.TranslationType;
 import jp.co.translacat.infrastructure.client.ai.server.AiRuleType;
 import jp.co.translacat.infrastructure.japanese.FuriganaProcessor;
+import jp.co.translacat.novel.infrastructure.japanese.NovelRubyFormatter;
 import jp.co.translacat.infrastructure.scraping.common.strategy.EpisodeStrategy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,6 +45,7 @@ public class EpisodeService {
 
     private final TranslationExecutor translationExecutor;
     private final FuriganaProcessor furiganaProcessor;
+    private final NovelRubyFormatter rubyFormatter;
 
     private final int BATCH_SIZE = 1;
 
@@ -173,7 +175,7 @@ public class EpisodeService {
                 scrappedEpisodeDetail.getEpisodePagerContext(),
                 TranslationUnit.of(existingEpisode.getTitle(), existingEpisode.getTitleJa(),
                         existingEpisode.getTitleKo())
-                , scrappedEpisodeContents);
+                , scrappedEpisodeContents, rubyFormatter);
     }
 
     public Episode saveAndGetEpisode(Novel novel, Episode episode, RawEpisodeContext ctx) {

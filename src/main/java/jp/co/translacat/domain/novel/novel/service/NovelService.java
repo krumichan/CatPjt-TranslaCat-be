@@ -24,6 +24,7 @@ import jp.co.translacat.global.utils.TransactionUtil;
 import jp.co.translacat.infrastructure.client.ai.TranslationExecutor;
 import jp.co.translacat.infrastructure.client.ai.server.AiRuleType;
 import jp.co.translacat.infrastructure.japanese.FuriganaProcessor;
+import jp.co.translacat.novel.infrastructure.japanese.NovelRubyFormatter;
 import jp.co.translacat.infrastructure.scraping.common.strategy.NovelStrategy;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -53,6 +54,7 @@ public class NovelService {
 
     private final TranslationExecutor translationExecutor;
     private final FuriganaProcessor furiganaProcessor;
+    private final NovelRubyFormatter rubyFormatter;
 
     public Optional<Novel> findNovel(Long platformId, String identifier) {
         return this.novelRepository.findByPlatformIdAndIdentifier(platformId, identifier);
@@ -138,15 +140,17 @@ public class NovelService {
 
         List<NovelResponseDto> episodes = scrappedEpisodes.stream()
                 .sorted(Comparator.comparingInt(RawEpisodeContext::getSequence))
-                .map(NovelResponseDto::of)
+                .map(context -> NovelResponseDto.of(context, rubyFormatter))
                 .toList();
 
+        // 기존 DB의 ja가 평문이어도 응답에서만 현재 사전 발음을 복구한다.
+        // 이미 저장된 한국어와 원문, 번역 재사용 판정은 변경하지 않는다.
         return new NovelPageResponseDto(
                 PageNumberResponseDto.of(scrappedNovelDetail.getPageNumberContext()),
-                TranslationUnit.of(existingNovel.getTitle(), existingNovel.getTitleJa(), existingNovel.getTitleKo()),
-                TranslationUnit.of(existingNovel.getAuthor().getName(), existingNovel.getAuthor().getNameJa(),
+                TranslationUnit.of(existingNovel.getTitle(), rubyFormatter.markup(existingNovel.getTitle()), existingNovel.getTitleKo()),
+                TranslationUnit.of(existingNovel.getAuthor().getName(), rubyFormatter.markup(existingNovel.getAuthor().getName()),
                         existingNovel.getAuthor().getNameKo()),
-                TranslationUnit.of(existingNovel.getSynopsis(), existingNovel.getSynopsisJa(),
+                TranslationUnit.of(existingNovel.getSynopsis(), rubyFormatter.markup(existingNovel.getSynopsis()),
                         existingNovel.getSynopsisKo()),
                 episodes);
     }

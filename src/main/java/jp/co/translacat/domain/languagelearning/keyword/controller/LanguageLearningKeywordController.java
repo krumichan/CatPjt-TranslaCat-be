@@ -3,6 +3,7 @@ package jp.co.translacat.domain.languagelearning.keyword.controller;
 import jp.co.translacat.domain.languagelearning.keyword.dto.request.KeywordCreateRequestDto;
 import jp.co.translacat.domain.languagelearning.keyword.dto.request.KeywordUpdateRequestDto;
 import jp.co.translacat.domain.languagelearning.keyword.dto.request.SystemKeywordSelectionRequestDto;
+import jp.co.translacat.domain.languagelearning.keyword.dto.response.EffectiveKeywordsResponseDto;
 import jp.co.translacat.domain.languagelearning.keyword.dto.response.KeywordListResponseDto;
 import jp.co.translacat.domain.languagelearning.keyword.dto.response.KeywordResponseDto;
 import jp.co.translacat.domain.languagelearning.keyword.facade.LanguageLearningKeywordFacade;
@@ -34,6 +35,15 @@ public class LanguageLearningKeywordController {
                         SecurityUtil.getLoginUserId(userPrincipal),
                         uiLocale
                 )
+        );
+    }
+
+    @GetMapping("/effective")
+    public ResponseDto<EffectiveKeywordsResponseDto> getEffectiveKeywords(
+            @AuthenticationPrincipal UserPrincipal userPrincipal
+    ) {
+        return ResponseUtil.ok(
+                keywordFacade.getEffectiveKeywords(SecurityUtil.getLoginUserId(userPrincipal))
         );
     }
 

@@ -15,8 +15,8 @@ class SettingsSnapshotTest {
     void mutableInputListCannotChangeThePublicResponseLater() {
         // 준비
         var tasks = new ArrayList<>(List.of(ListeningTaskType.DICTATION));
-        var dto = new UserSettingResponseDto("ko", "ja", "Asia/Tokyo", 5, 5, "marin", "NORMAL", 5,
-                tasks, null, null, null, null, null, null, null, 1, 20, 3, 20, 1, 20, true);
+        var dto = new UserSettingResponseDto("ko", "ja", "ko", "Asia/Tokyo", 5, 5, "marin", "NORMAL", 5,
+                tasks, null, null, null, null, null, null, null, null, 1, 20, 3, 20, 1, 20, true);
 
         // 실행
         tasks.add(ListeningTaskType.SUMMARY);

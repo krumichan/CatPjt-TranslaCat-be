@@ -6,5 +6,6 @@ public enum LearningSource {
     LISTENING,
     READING,
     VOCABULARY,
-    LEVEL_TEST
+    LEVEL_TEST,
+    WEB_AI
 }

@@ -20,6 +20,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
@@ -61,6 +62,7 @@ class LanguageLearningSettingsClientTest {
 
     @Test
     void getUserSettingsUsesInternalBearerTokenAndMapsBody() {
+        // 준비: 설명 언어와 다음 학습일에 적용할 설명 언어를 구분해 전달한다.
         server.expect(requestTo(
                         "http://ll.test/internal/v1/language-learning/settings"
                 ))
@@ -68,10 +70,14 @@ class LanguageLearningSettingsClientTest {
                 .andExpect(header("Authorization", org.hamcrest.Matchers.startsWith("Bearer ")))
                 .andRespond(withSuccess(userResponseJson(), MediaType.APPLICATION_JSON));
 
+        // 실행
         UserSettingResponseDto response = client.getUserSettings(123L);
 
+        // 검증
         assertEquals("ko", response.originLanguage());
         assertEquals("ja", response.learningLanguage());
+        assertEquals("en", response.feedbackLanguage());
+        assertEquals("ko", response.pendingFeedbackLanguage());
         assertEquals(List.of(ListeningTaskType.DICTATION), response.defaultListeningTaskTypes());
         assertEquals(1, response.minDailySentenceCount());
         assertEquals(20, response.maxDailySentenceCount());
@@ -80,6 +86,7 @@ class LanguageLearningSettingsClientTest {
 
     @Test
     void patchSerializesExistingExternalRequestContract() {
+        // 준비: 설명 언어가 없는 기존 요청도 기존 필드와 함께 전달된다.
         server.expect(requestTo(
                         "http://ll.test/internal/v1/language-learning/settings"
                 ))
@@ -88,6 +95,7 @@ class LanguageLearningSettingsClientTest {
                 .andExpect(jsonPath("$.defaultListeningTaskTypes[0]").value("DICTATION"))
                 .andRespond(withSuccess(userResponseJson(), MediaType.APPLICATION_JSON));
 
+        // 실행
         client.updateUserSettings(
                 123L,
                 new UserSettingUpdateRequestDto(
@@ -103,6 +111,63 @@ class LanguageLearningSettingsClientTest {
                 )
         );
 
+        // 검증
+        server.verify();
+    }
+
+    @Test
+    void patchForwardsFeedbackLanguageWithoutChangingTheLearningPair() {
+        // 준비: 설명 언어만 변경할 때 원문·학습 언어는 지정하지 않는다.
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/settings"))
+                .andExpect(method(HttpMethod.PATCH))
+                .andExpect(jsonPath("$.feedbackLanguage").value("en"))
+                .andExpect(jsonPath("$.originLanguage").doesNotExist())
+                .andExpect(jsonPath("$.learningLanguage").doesNotExist())
+                .andRespond(withSuccess(userResponseJson(), MediaType.APPLICATION_JSON));
+        var request = new UserSettingUpdateRequestDto(
+                null, null, "en", null, null, null, null, null, null, null
+        );
+
+        // 실행
+        var response = client.updateUserSettings(123L, request);
+
+        // 검증: 예약 적용 여부는 LL 응답을 그대로 보존한다.
+        assertEquals("en", response.feedbackLanguage());
+        assertEquals("ko", response.pendingFeedbackLanguage());
+        server.verify();
+    }
+
+    @Test
+    void legacyJsonRequestKeepsFeedbackLanguageUnspecified() throws Exception {
+        // 준비: 기존 FE의 설명 언어 없는 요청 형태를 사용한다.
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+        // 실행
+        var request = mapper.readValue("""
+                {"originLanguage":"ko","learningLanguage":"ja","timezone":"Asia/Tokyo"}
+                """, UserSettingUpdateRequestDto.class);
+
+        // 검증: 기본값과 기존 설정 보존은 LL이 판단한다.
+        assertNull(request.feedbackLanguage());
+        assertEquals("ko", request.originLanguage());
+        assertEquals("ja", request.learningLanguage());
+    }
+
+    @Test
+    void olderLlResponseUsesOriginLanguageForMissingFeedbackFields() {
+        // 준비: LL 순차 배포 중 이전 계약의 응답을 받는다.
+        var legacyResponse = userResponseJson()
+                .replace("\"feedbackLanguage\":\"en\",", "")
+                .replace("\"pendingFeedbackLanguage\":\"ko\",", "");
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/settings"))
+                .andRespond(withSuccess(legacyResponse, MediaType.APPLICATION_JSON));
+
+        // 실행
+        var response = client.getUserSettings(123L);
+
+        // 검증: 새 필드의 누락으로 기존 설정 조회 전체가 실패하지 않는다.
+        assertEquals("ko", response.feedbackLanguage());
+        assertNull(response.pendingFeedbackLanguage());
         server.verify();
     }
 
@@ -185,6 +250,7 @@ class LanguageLearningSettingsClientTest {
                 {
                   "originLanguage":"ko",
                   "learningLanguage":"ja",
+                  "feedbackLanguage":"en",
                   "timezone":"Asia/Tokyo",
                   "dailySentenceCount":5,
                   "dailySpeakingGoalMinutes":5,
@@ -194,6 +260,7 @@ class LanguageLearningSettingsClientTest {
                   "defaultListeningTaskTypes":["DICTATION"],
                   "pendingOriginLanguage":null,
                   "pendingLearningLanguage":null,
+                  "pendingFeedbackLanguage":"ko",
                   "pendingTimezone":null,
                   "pendingDailySentenceCount":null,
                   "pendingDailySpeakingGoalMinutes":null,

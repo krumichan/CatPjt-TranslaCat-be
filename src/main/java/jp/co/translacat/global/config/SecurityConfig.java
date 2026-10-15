@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -91,6 +92,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(request -> request // URL별 접근 권한 설정
                         .requestMatchers(NOVEL_API_REQUESTS).hasRole("ADMIN")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        // 외부 AI는 계획별 capability로 인증하며 나머지 계획 관리는 계정 인증을 요구한다.
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/language-learning/web-ai/external/prompt",
+                                "/api/v1/language-learning/web-ai/external/results").permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",

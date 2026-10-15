@@ -19,6 +19,46 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ApiLoggingFilterTest {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "/api/v1/language-learning/web-ai/plans/plan-1/connection",
+            "/api/v1/language-learning/web-ai/external/results"
+    })
+    void webAiTokensAndOriginalFeedbackAreNeverLoggedOrBuffered(String path) throws Exception {
+        // 준비
+        var request = new MockHttpServletRequest("POST", path);
+        request.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        request.setContent("{\"originalFeedbackMarkdown\":\"synthetic-feedback-secret\"}"
+                .getBytes(StandardCharsets.UTF_8));
+        var response = new MockHttpServletResponse();
+        Logger logger = (Logger) LoggerFactory.getLogger(ApiLoggingFilter.class);
+        Level previousLevel = logger.getLevel();
+        var appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.INFO);
+
+        // 실행
+        try {
+            new ApiLoggingFilter().doFilter(request, response, (req, res) -> {
+                assertThat(req).isSameAs(request);
+                assertThat(res).isSameAs(response);
+                res.getWriter().write("{\"token\":\"synthetic-capability-secret\"}");
+            });
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(previousLevel);
+            appender.stop();
+        }
+
+        // 검증
+        String logs = appender.list.stream().map(ILoggingEvent::getFormattedMessage)
+                .collect(java.util.stream.Collectors.joining("\n"));
+        assertThat(logs).contains("WEB_AI_REDACTED")
+                .doesNotContain("synthetic-feedback-secret", "synthetic-capability-secret");
+        assertThat(response.getContentAsString()).contains("synthetic-capability-secret");
+    }
+
     @Test
     void novelSourceAndAudioBodiesAreNeverLoggedOrBuffered() throws Exception {
         // 준비

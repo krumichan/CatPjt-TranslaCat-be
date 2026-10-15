@@ -35,9 +35,11 @@ public class JwtFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        // Chat 내부 서비스 JWT는 전용 SecurityFilterChain이 검증한다. 외부 사용자 JWT 키와 혼용하지 않는다.
+        // Web AI capability는 LL이 검증하고 Chat JWT는 전용 체인이 검증한다. 계정 JWT 키와 혼용하지 않는다.
         String path = request.getServletPath();
-        return path.equals("/internal/v1/chat") || path.startsWith("/internal/v1/chat/")
+        return path.equals("/api/v1/language-learning/web-ai/external/prompt")
+                || path.equals("/api/v1/language-learning/web-ai/external/results")
+                || path.equals("/internal/v1/chat") || path.startsWith("/internal/v1/chat/")
                 || (path.equals("/ws/chat") || path.startsWith("/ws/chat/")
                 || path.equals("/api/v1/chat") || path.startsWith("/api/v1/chat/")
                 || path.equals("/api/v1/admin/chat") || path.startsWith("/api/v1/admin/chat/")

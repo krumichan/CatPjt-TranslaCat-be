@@ -2,6 +2,7 @@ package jp.co.translacat.infrastructure.languagelearning.client;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import jp.co.translacat.domain.languagelearning.listening.setting.model.ListeningPolicySnapshot;
 import jp.co.translacat.domain.languagelearning.setting.dto.request.AdminSettingUpdateRequestDto;
 import jp.co.translacat.domain.languagelearning.setting.dto.request.UserSettingUpdateRequestDto;
@@ -82,7 +83,7 @@ public class LanguageLearningSettingsClient {
                 throw failure("LL_EMPTY_RESPONSE", "Language Learning 서비스가 빈 응답을 반환했습니다.");
             if (bytes.length > 1_048_576)
                 throw failure("LL_SETTINGS_CONTRACT_ERROR", "Language Learning 설정 응답이 너무 큽니다.");
-            T value = objectMapper.readValue(bytes, type);
+            T value = readResponse(bytes, type);
             if (value == null) throw failure("LL_EMPTY_RESPONSE", "Language Learning 서비스가 빈 응답을 반환했습니다.");
             validateResponse(value);
             return value;
@@ -95,6 +96,25 @@ public class LanguageLearningSettingsClient {
             throw new LanguageLearningServiceException(HttpStatus.BAD_GATEWAY, "LL_SERVICE_RESPONSE_ERROR",
                     "Language Learning 서비스 응답을 처리할 수 없습니다.", e);
         }
+    }
+
+    private <T> T readResponse(byte[] bytes, Class<T> type) throws IOException {
+        if (type != UserSettingResponseDto.class) {
+            return objectMapper.readValue(bytes, type);
+        }
+
+        // LL 순차 배포 중 새 설명 언어 필드만 없으면 원문언어 기본값으로 보완한다.
+        // 기존 필수 설정 필드는 동일한 엄격 역직렬화로 검사한다.
+        var body = objectMapper.readTree(bytes);
+        if (body instanceof ObjectNode settings) {
+            if (!settings.has("feedbackLanguage")) {
+                settings.set("feedbackLanguage", settings.get("originLanguage"));
+            }
+            if (!settings.has("pendingFeedbackLanguage")) {
+                settings.putNull("pendingFeedbackLanguage");
+            }
+        }
+        return objectMapper.treeToValue(body, type);
     }
 
     private static void validateResponse(Object value) {

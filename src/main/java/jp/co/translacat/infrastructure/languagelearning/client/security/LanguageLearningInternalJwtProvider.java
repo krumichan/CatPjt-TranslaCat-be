@@ -63,6 +63,22 @@ public class LanguageLearningInternalJwtProvider {
                 .compact();
     }
 
+    /** 계획 capability의 소유자 검증은 LL이 하며 서비스 토큰에 임의 userId를 넣지 않는다. */
+    public String issueWebAiServiceToken() {
+        Instant now = clock.instant();
+        return Jwts.builder()
+                .issuer(issuer)
+                .audience().add(audience).and()
+                .subject(callerService)
+                .claim("service", callerService)
+                .claim("tokenUse", "ll-web-ai-service")
+                .claim("scopes", List.of("web-ai:external"))
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(ttlSeconds)))
+                .signWith(key, Jwts.SIG.HS256)
+                .compact();
+    }
+
     /**
      * 인증된 주체만 전달한다. 키워드 적용 시점에 필요한 학습 사실은 LL이 조회한다.
      */

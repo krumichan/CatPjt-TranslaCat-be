@@ -21,8 +21,8 @@ public final class SettingsSnapshotFixtures {
     }
 
     public static UserSettingResponseDto userDto() {
-        return new UserSettingResponseDto("ko", "ja", "Asia/Tokyo", 5, 5, "marin", "NORMAL", 5,
-                List.of(ListeningTaskType.DICTATION), null, null, null, null, null, null, null,
+        return new UserSettingResponseDto("ko", "ja", "ko", "Asia/Tokyo", 5, 5, "marin", "NORMAL", 5,
+                List.of(ListeningTaskType.DICTATION), null, null, null, null, null, null, null, null,
                 1, 20, 3, 20, 1, 20, true);
     }
 

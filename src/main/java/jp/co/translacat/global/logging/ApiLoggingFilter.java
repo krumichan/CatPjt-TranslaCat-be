@@ -107,6 +107,11 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     }
 
     private String sensitiveBodyLabel(String uri) {
+        // 연결 응답의 비밀 토큰과 학습 원문·답안·전체 피드백을 요청 및 응답 로그에서 제외한다.
+        if (uri.equals("/api/v1/language-learning/web-ai")
+                || uri.startsWith("/api/v1/language-learning/web-ai/")) {
+            return "WEB_AI_REDACTED";
+        }
         // 비공개 문의·개인 메시지·수신자 검색에는 본문과 계정 정보를 로그에 남기지 않는다.
         if (uri.equals("/api/v1/support") || uri.startsWith("/api/v1/support/")) {
             return "SUPPORT_REDACTED";

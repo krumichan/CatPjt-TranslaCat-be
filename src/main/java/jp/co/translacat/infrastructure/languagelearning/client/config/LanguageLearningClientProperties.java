@@ -15,6 +15,13 @@ public class LanguageLearningClientProperties {
     private LevelTest levelTest = new LevelTest();
     private Writing writing = new Writing();
     private Speaking speaking = new Speaking();
+    private WebAi webAi = new WebAi();
+
+    @Getter
+    @Setter
+    public static class WebAi {
+        private int readTimeoutMs = 270000;
+    }
 
     @Getter
     @Setter

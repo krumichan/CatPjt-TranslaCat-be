@@ -4,12 +4,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 @RequiredArgsConstructor
 public class FuriganaProcessor {
     private final KuromojiFuriganaProcessor kuromojiFuriganaProcessor;
     private final SudachiFuriganaProcessor sudachiFuriganaProcessor;
+    private final AtomicLong dictionaryRevision = new AtomicLong();
 
     public String convertToRuby(String rawJa) {
         return this.convertToRuby(rawJa, true);
@@ -34,5 +36,10 @@ public class FuriganaProcessor {
     public void syncCachedDict(Map<String, String> newDict) {
         kuromojiFuriganaProcessor.syncCachedDict(newDict);
         sudachiFuriganaProcessor.syncCachedDict(newDict);
+        dictionaryRevision.incrementAndGet();
+    }
+
+    public long dictionaryRevision() {
+        return dictionaryRevision.get();
     }
 }

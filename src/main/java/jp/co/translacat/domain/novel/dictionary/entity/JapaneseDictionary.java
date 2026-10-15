@@ -32,4 +32,8 @@ public class JapaneseDictionary extends BaseAuditable {
     public static JapaneseDictionary create(String surface, String reading) {
         return JapaneseDictionary.builder().surface(surface).reading(reading).build();
     }
+
+    public void updateReading(String reading) {
+        this.reading = reading;
+    }
 }

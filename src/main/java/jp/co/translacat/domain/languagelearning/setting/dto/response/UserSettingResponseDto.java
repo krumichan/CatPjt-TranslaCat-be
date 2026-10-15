@@ -8,6 +8,7 @@ import java.util.List;
 public record UserSettingResponseDto(
         String originLanguage,
         String learningLanguage,
+        String feedbackLanguage,
         String timezone,
         int dailySentenceCount,
         int dailySpeakingGoalMinutes,
@@ -17,6 +18,7 @@ public record UserSettingResponseDto(
         List<ListeningTaskType> defaultListeningTaskTypes,
         String pendingOriginLanguage,
         String pendingLearningLanguage,
+        String pendingFeedbackLanguage,
         String pendingTimezone,
         Integer pendingDailySentenceCount,
         Integer pendingDailySpeakingGoalMinutes,

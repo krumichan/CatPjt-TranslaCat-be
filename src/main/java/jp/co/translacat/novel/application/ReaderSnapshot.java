@@ -2,6 +2,7 @@ package jp.co.translacat.novel.application;
 
 import jp.co.translacat.novel.domain.EpisodeKey;
 import jp.co.translacat.novel.domain.SourceEpisode;
+import jp.co.translacat.novel.infrastructure.japanese.NovelRubyFormatter;
 
 import java.util.List;
 import java.util.Map;
@@ -82,6 +83,19 @@ public record ReaderSnapshot(String revision, String segmentationVersion, Title 
         return new ReaderSnapshot(revision, segmentationVersion, title, pagerInfo, segments, totalSegments,
                 completedSegments, state, jobId, eventSequence, durableComplete, policyVersion, glossaryVersion,
                 traceId, runTraceId, value, progress, execution, timings, recovery, initialAttemptState);
+    }
+
+    public ReaderSnapshot withRuby(NovelRubyFormatter ruby) {
+        // 원문 출처의 ruby는 먼저 보존하고, 비어 있는 범위에만 Sudachi 발음을 보충한다.
+        List<Segment> displayed = segments.stream().map(segment -> new Segment(
+                segment.id(), segment.paragraphId(), segment.order(), segment.paragraphIndex(),
+                segment.startOffset(), segment.endOffset(), segment.rawJa(), segment.plainJa(), segment.ko(),
+                segment.status(), segment.errorCode(), ruby.tokens(segment.plainJa(), segment.rubyTokens()))).toList();
+        return new ReaderSnapshot(revision, segmentationVersion,
+                new Title(title.rawJa(), ruby.markup(title.rawJa()), title.ko()), pagerInfo,
+                displayed, totalSegments, completedSegments, state, jobId, eventSequence, durableComplete,
+                policyVersion, glossaryVersion, traceId, runTraceId, audioPolicyVersion, progress,
+                execution, timings, recovery, initialAttemptState);
     }
 
     public ReaderSnapshot withRecovery(NovelRepository.Repair repair, String initial, Map<String,Object> diagnostics) {

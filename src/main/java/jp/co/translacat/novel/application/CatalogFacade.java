@@ -19,5 +19,8 @@ public class CatalogFacade {
         commands.retry(actor, id, item, request.idempotencyKey());
         return queries.snapshot(actor, id);
     }
-    public CatalogModels.Snapshot cancel(long actor, String id) { return commands.cancel(actor, id); }
+    public CatalogModels.Snapshot cancel(long actor, String id) {
+        commands.cancel(actor, id);
+        return queries.snapshot(actor, id);
+    }
 }

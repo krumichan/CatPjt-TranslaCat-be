@@ -7,6 +7,7 @@ import jp.co.translacat.domain.voice.entity.VoiceSegment;
 import jp.co.translacat.domain.voice.enums.*;
 import jp.co.translacat.domain.voice.model.VoiceStreamContext;
 import jp.co.translacat.domain.voice.service.VoiceFinalResultCommandService;
+import jp.co.translacat.domain.voice.service.VoiceSourceReadingService;
 import jp.co.translacat.domain.voice.service.VoiceStreamCommandService;
 import jp.co.translacat.domain.voice.service.VoiceUsageQueryService;
 import jp.co.translacat.domain.voice.support.VoiceErrorCode;
@@ -37,7 +38,8 @@ class VoicePartialEventTest {
     private final VoiceFinalResultCommandService finals = mock(VoiceFinalResultCommandService.class);
     private final VoiceStreamCommandService streams = mock(VoiceStreamCommandService.class);
     private final VoiceUsageQueryService usage = mock(VoiceUsageQueryService.class);
-    private final VoiceAiEventProcessor processor = new VoiceAiEventProcessor(mapper, finals, streams, usage);
+    private final VoiceAiEventProcessor processor = new VoiceAiEventProcessor(mapper, finals, streams, usage,
+            mock(VoiceSourceReadingService.class));
     private final WebSocketSession socket = mock(WebSocketSession.class);
     private final VoiceRelayConnection relay = new VoiceRelayConnection(context, socket, policy,
             error -> { throw new AssertionError(error); });

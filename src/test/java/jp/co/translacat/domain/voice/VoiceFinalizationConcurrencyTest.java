@@ -14,6 +14,7 @@ import jp.co.translacat.domain.voice.repository.*;
 import jp.co.translacat.domain.voice.service.*;
 import jp.co.translacat.domain.voice.support.VoiceErrorCode;
 import jp.co.translacat.global.exception.BusinessException;
+import jp.co.translacat.infrastructure.japanese.SudachiFuriganaProcessor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,7 @@ import java.util.UUID;
 import java.util.concurrent.*;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 class VoiceFinalizationConcurrencyTest {
     private AnnotationConfigApplicationContext beans;
@@ -487,6 +489,12 @@ class VoiceFinalizationConcurrencyTest {
         @Bean
         ObjectMapper objectMapper() {
             return new ObjectMapper();
+        }
+
+        @Bean
+        VoiceSourceReadingService voiceSourceReadingService(ObjectMapper objectMapper) {
+            // 준비: 트랜잭션 경계 테스트에서는 사전 파일을 열지 않고 실제 읽기 폴백 정책을 사용한다.
+            return new VoiceSourceReadingService(mock(SudachiFuriganaProcessor.class), objectMapper);
         }
 
         @Bean

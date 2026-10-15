@@ -60,7 +60,8 @@ class VoiceStreamLifecycleTest {
         var finals = mock(VoiceFinalResultCommandService.class);
         var streams = mock(VoiceStreamCommandService.class);
         var usage = mock(VoiceUsageQueryService.class);
-        var processor = new VoiceAiEventProcessor(mapper, finals, streams, usage);
+        var processor = new VoiceAiEventProcessor(mapper, finals, streams, usage,
+                mock(VoiceSourceReadingService.class));
         var relay = relay(mock(WebSocketSession.class));
 
         // 실행
@@ -82,7 +83,8 @@ class VoiceStreamLifecycleTest {
         var finals = mock(VoiceFinalResultCommandService.class);
         var streams = mock(VoiceStreamCommandService.class);
         var usage = mock(VoiceUsageQueryService.class);
-        var processor = new VoiceAiEventProcessor(mapper, finals, streams, usage);
+        var processor = new VoiceAiEventProcessor(mapper, finals, streams, usage,
+                mock(VoiceSourceReadingService.class));
 
         // 실행 및 검증
         assertThatThrownBy(() -> processor.process(relay(mock(WebSocketSession.class)), """
@@ -246,7 +248,8 @@ class VoiceStreamLifecycleTest {
     void speechFailureDiagnosticOmitsTranscriptAndProviderMessage() {
         // 준비: DB 행이 없는 STT 실패도 세션/발화 식별자로 추적하되 내용을 기록하지 않는다.
         var processor = new VoiceAiEventProcessor(mapper, mock(VoiceFinalResultCommandService.class),
-                mock(VoiceStreamCommandService.class), mock(VoiceUsageQueryService.class));
+                mock(VoiceStreamCommandService.class), mock(VoiceUsageQueryService.class),
+                mock(VoiceSourceReadingService.class));
         var logger = (Logger) LoggerFactory.getLogger(VoiceAiEventProcessor.class);
         var captured = new ListAppender<ILoggingEvent>();
         captured.start();
@@ -549,7 +552,8 @@ class VoiceStreamLifecycleTest {
         when(session.getStatus()).thenReturn(VoiceSessionStatus.COMPLETED);
         when(sessions.findOwnedForUpdate("audit", 1L)).thenReturn(Optional.of(session));
         var finals = new VoiceFinalResultCommandService(sessions, segments, usage,
-                mock(VoiceStreamCommandService.class), mapper);
+                mock(VoiceStreamCommandService.class), mapper,
+                mock(VoiceSourceReadingService.class));
         var event = mapper.readTree("""
                 {"eventId":"late","sourceText":"The meeting is over",
                  "error":{"stage":"TRANSLATION","code":"VOICE_AI_TRANSLATION_TIMEOUT"}}
@@ -575,7 +579,8 @@ class VoiceStreamLifecycleTest {
         when(session.getStatus()).thenReturn(VoiceSessionStatus.FAILED);
         when(sessions.findOwnedForUpdate("audit", 1L)).thenReturn(Optional.of(session));
         var finals = new VoiceFinalResultCommandService(sessions, segments, usage,
-                mock(VoiceStreamCommandService.class), mapper);
+                mock(VoiceStreamCommandService.class), mapper,
+                mock(VoiceSourceReadingService.class));
         var event = mapper.readTree("{\"eventId\":\"late\",\"sourceText\":\"The meeting is over\"}");
 
         // 실행 및 검증: 뒤늦게 도착한 마지막 문장은 저장되지 않는다.

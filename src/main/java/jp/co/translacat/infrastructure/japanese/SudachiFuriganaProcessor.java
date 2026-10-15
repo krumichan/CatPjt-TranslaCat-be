@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -96,7 +97,7 @@ public class SudachiFuriganaProcessor extends AbstractFuriganaProcessor {
     }
 
     @Override
-    protected String analyzeWithEngine(String segment) {
+    protected synchronized String analyzeWithEngine(String segment) {
         if (segment == null || segment.isBlank()) return segment;
 
         // Mode.A를 사용하여 세밀하게 분절 (루비 생성에 최적)
@@ -118,5 +119,55 @@ public class SudachiFuriganaProcessor extends AbstractFuriganaProcessor {
             sb.append(makeFineGrainedRuby(surface, hiraganaReading));
         }
         return sb.toString();
+    }
+
+    public record ReadingToken(String surface, String reading) {
+    }
+
+    public synchronized List<ReadingToken> tokenizeWithReadings(String sourceText) {
+        if (sourceText == null || sourceText.isEmpty()) {
+            return List.of();
+        }
+
+        // Sudachi의 tokenizer는 lattice를 재사용한다. 기존 HTML 변환과 Voice 분석을 같은 잠금으로 보호한다.
+        List<Morpheme> morphemes = tokenizer.tokenize(Tokenizer.SplitMode.A, sourceText);
+        List<ReadingToken> tokens = new ArrayList<>();
+        int cursor = 0;
+
+        // 형태소의 원문 UTF-16 위치를 사용해 Sudachi가 건너뛴 공백과 기호도 순서대로 보존한다.
+        for (Morpheme morpheme : morphemes) {
+            int begin = morpheme.begin();
+            int end = morpheme.end();
+            if (begin < cursor || end < begin || end > sourceText.length()) {
+                throw new IllegalStateException("Sudachi Voice token offsets are invalid.");
+            }
+            if (begin > cursor) {
+                tokens.add(new ReadingToken(sourceText.substring(cursor, begin), null));
+            }
+            if (begin == end) {
+                cursor = end;
+                continue;
+            }
+
+            String surface = sourceText.substring(begin, end);
+            if (!surface.equals(morpheme.surface())) {
+                throw new IllegalStateException("Sudachi Voice token surface does not match source.");
+            }
+            String reading = morpheme.readingForm();
+            if (!containsKanji(surface) || reading == null || reading.isBlank() || reading.equals("*")) {
+                reading = null;
+            } else {
+                reading = convertKatakanaToHiragana(reading);
+                if (reading.equals(surface) || containsKanji(reading)) {
+                    reading = null;
+                }
+            }
+            tokens.add(new ReadingToken(surface, reading));
+            cursor = end;
+        }
+        if (cursor < sourceText.length()) {
+            tokens.add(new ReadingToken(sourceText.substring(cursor), null));
+        }
+        return tokens;
     }
 }

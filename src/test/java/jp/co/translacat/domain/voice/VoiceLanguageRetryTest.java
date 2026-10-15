@@ -35,7 +35,8 @@ class VoiceLanguageRetryTest {
                 .thenReturn(Optional.of(segment));
         var mapper = new ObjectMapper();
         var finals = new VoiceFinalResultCommandService(sessions, segments, mock(VoiceUsageLedgerRepository.class),
-                mock(VoiceStreamCommandService.class), mapper);
+                mock(VoiceStreamCommandService.class), mapper,
+                mock(VoiceSourceReadingService.class));
         var event = mapper.createObjectNode();
         event.put("sourceText", "A rejected utterance");
         event.putObject("error").put("stage", "LANGUAGE").put("code", code);
@@ -71,6 +72,46 @@ class VoiceLanguageRetryTest {
     }
 
     @Test
+    void trustedJapaneseDetectionWithoutNumericConfidenceCanRetryWithoutLock() {
+        // 준비: 운영 STT는 일본어를 신뢰하지만 confidence 숫자와 채널 lock을 보내지 않는다.
+        var segment = retryableSegment();
+        when(segment.getDetectedLanguage()).thenReturn("ja");
+        when(segment.getLanguageConfidence()).thenReturn(null);
+
+        // 실행
+        var context = retry.prepare(1L, "voice", 2L);
+
+        // 검증: 번역 단계에서 실패한 일본어 원문을 재시도할 수 있다.
+        assertThat(context.sourceLanguage()).isEqualTo("ja");
+    }
+
+    @Test
+    void missingConfidenceAndConflictingOldLockCannotGuessRetryLanguage() {
+        // 준비: 이전 연결의 영어 잠금과 현재 일본어 감지가 다르고 신뢰 여부는 저장되지 않았다.
+        var segment = retryableSegment();
+        when(segment.getDetectedLanguage()).thenReturn("ja");
+        when(segment.getLanguageConfidence()).thenReturn(null);
+        when(segment.getLockedLanguage()).thenReturn("en");
+
+        // 실행 및 검증: 실제 번역 입력 언어를 추측하지 않고 명시적 오류를 반환한다.
+        assertThatThrownBy(() -> retry.prepare(1L, "voice", 2L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo(VoiceErrorCode.RETRY_LANGUAGE_UNAVAILABLE));
+    }
+
+    @Test
+    void missingConfidenceWithMatchingLockCanRetryJapanese() {
+        // 준비: 수동 일본어 또는 동일한 AUTO 잠금과 현재 감지가 일치한다.
+        var segment = retryableSegment();
+        when(segment.getDetectedLanguage()).thenReturn("ja");
+        when(segment.getLanguageConfidence()).thenReturn(null);
+        when(segment.getLockedLanguage()).thenReturn("ja");
+
+        // 실행 및 검증
+        assertThat(retry.prepare(1L, "voice", 2L).sourceLanguage()).isEqualTo("ja");
+    }
+
+    @Test
     void uncertainDetectionFallsBackToSupportedLock() {
         // 준비
         var segment = retryableSegment();
@@ -102,6 +143,19 @@ class VoiceLanguageRetryTest {
         when(segment.getDetectedLanguage()).thenReturn("fr");
         when(segment.getLanguageConfidence()).thenReturn(0.9);
         when(segment.getLockedLanguage()).thenReturn("en");
+
+        // 실행 및 검증
+        assertThatThrownBy(() -> retry.prepare(1L, "voice", 2L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo(VoiceErrorCode.RETRY_LANGUAGE_UNAVAILABLE));
+    }
+
+    @Test
+    void unsupportedDetectionWithoutConfidenceStillCannotUseOldLock() {
+        // 준비: 비지원 언어에는 confidence가 없어도 과거 일본어 잠금을 적용하면 안 된다.
+        var segment = retryableSegment();
+        when(segment.getDetectedLanguage()).thenReturn("zh");
+        when(segment.getLockedLanguage()).thenReturn("ja");
 
         // 실행 및 검증
         assertThatThrownBy(() -> retry.prepare(1L, "voice", 2L))

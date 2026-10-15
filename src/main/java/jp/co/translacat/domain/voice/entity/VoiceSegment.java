@@ -282,6 +282,10 @@ public class VoiceSegment extends Base {
         return Objects.equals(this.sourceText, sourceText);
     }
 
+    public void applySourceReadingTokens(String readingTokens) {
+        sourceReadingTokens = readingTokens;
+    }
+
     public void applyCompleted(
             String completedEventId,
             String translatedText,

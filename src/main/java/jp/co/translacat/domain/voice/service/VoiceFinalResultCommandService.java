@@ -28,6 +28,7 @@ public class VoiceFinalResultCommandService {
     private final VoiceUsageLedgerRepository usageRepository;
     private final VoiceStreamCommandService streamCommandService;
     private final ObjectMapper objectMapper;
+    private final VoiceSourceReadingService sourceReadingService;
 
     @Transactional
     public VoiceSegment persistTranscriptFinal(
@@ -81,6 +82,7 @@ public class VoiceFinalResultCommandService {
                 nullableText(event, "lockedLanguage"),
                 requiredText(event, "sourceText")
         );
+        segment.applySourceReadingTokens(writeJson(event.path("sourceReadingTokens")));
         segmentRepository.saveAndFlush(segment);
         recordUsage(session, segment, speechDurationMs);
         updateLockedLanguage(context, event);
@@ -140,12 +142,19 @@ public class VoiceFinalResultCommandService {
             );
         }
 
+        // 완료 단계에서 Sudachi가 일시적으로 실패했다면 확정 원문 때 저장한 읽기를 유지한다.
+        String readingTokens = sourceReadingService.preserveStoredWhenGenerationFails(
+                writeJson(event.path("sourceReadingTokens")),
+                segment.getSourceReadingTokens(),
+                segment.getSourceText()
+        );
+
         JsonNode latency = event.path("latency");
         JsonNode model = event.path("model");
         segment.applyCompleted(
                 completedEventId,
                 requiredText(event, "translatedText"),
-                writeJson(event.path("sourceReadingTokens")),
+                readingTokens,
                 event.path("translationSkipped").asBoolean(false),
                 nullableLong(latency, "endpointingMs"),
                 nullableLong(latency, "sttFinalizeMs"),
@@ -226,6 +235,7 @@ public class VoiceFinalResultCommandService {
                 nullableText(event, "lockedLanguage"),
                 requiredText(event, "sourceText")
         );
+        segment.applySourceReadingTokens(writeJson(event.path("sourceReadingTokens")));
         segmentRepository.saveAndFlush(segment);
         recordUsage(session, segment, speechDurationMs);
 

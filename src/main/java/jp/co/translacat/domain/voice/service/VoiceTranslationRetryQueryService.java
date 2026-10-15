@@ -59,8 +59,8 @@ public class VoiceTranslationRetryQueryService {
             );
         }
 
-        // AUTO 전환 초기에는 대표 언어 lock이 과거 발화를 가리키므로 실제 감지 언어를 우선한다.
-        // 실시간 AI resolver와 동일하게 신뢰도 0.5 이상일 때만 감지 결과를 채택한다.
+        // AUTO 전환 초기에는 대표 언어 lock이 과거 발화를 가리킬 수 있다.
+        // 운영 STT의 신뢰된 감지는 수치 신뢰도 없이 도착하지만, 그 신뢰 여부 자체는 DB에 저장되지 않는다.
         String detectedLanguage = normalizeLanguage(segment.getDetectedLanguage());
         String observedLanguage = segment.getDetectedLanguage();
         if (observedLanguage != null && !observedLanguage.isBlank()
@@ -72,12 +72,24 @@ public class VoiceTranslationRetryQueryService {
         }
 
         Double confidence = segment.getLanguageConfidence();
-        String sourceLanguage = detectedLanguage != null
-                && confidence != null
-                && Double.isFinite(confidence)
-                && confidence >= 0.5
-                ? detectedLanguage
-                : normalizeLanguage(segment.getLockedLanguage());
+        String lockedLanguage = normalizeLanguage(segment.getLockedLanguage());
+        String sourceLanguage;
+        if (detectedLanguage != null && confidence != null
+                && Double.isFinite(confidence) && confidence >= 0.5) {
+            sourceLanguage = detectedLanguage;
+        } else if (detectedLanguage != null && confidence == null) {
+            // 번역 단계까지 간 발화에서 잠금이 없거나 같은 경우에는 감지 언어를 재사용할 수 있다.
+            // 다른 과거 잠금이 있으면 AI가 어느 쪽을 택했는지 알 수 없으므로 추측해 재시도하지 않는다.
+            if (lockedLanguage != null && !lockedLanguage.equals(detectedLanguage)) {
+                throw new BusinessException(
+                        "Voice source language cannot be resolved safely for retry.",
+                        VoiceErrorCode.RETRY_LANGUAGE_UNAVAILABLE
+                );
+            }
+            sourceLanguage = detectedLanguage;
+        } else {
+            sourceLanguage = lockedLanguage;
+        }
         if (sourceLanguage == null) {
             throw new BusinessException(
                     "Voice source language is unavailable.",

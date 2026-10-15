@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import jp.co.translacat.domain.voice.entity.VoiceSegment;
 import jp.co.translacat.domain.voice.enums.VoiceAiEventType;
 import jp.co.translacat.domain.voice.service.VoiceFinalResultCommandService;
+import jp.co.translacat.domain.voice.service.VoiceSourceReadingService;
 import jp.co.translacat.domain.voice.service.VoiceStreamCommandService;
 import jp.co.translacat.domain.voice.service.VoiceUsageQueryService;
 import jp.co.translacat.domain.voice.support.VoiceErrorCode;
@@ -30,6 +31,7 @@ public class VoiceAiEventProcessor {
     private final VoiceFinalResultCommandService finalResultCommandService;
     private final VoiceStreamCommandService streamCommandService;
     private final VoiceUsageQueryService usageQueryService;
+    private final VoiceSourceReadingService sourceReadingService;
 
     public ProcessedEvent process(
             VoiceRelayConnection connection,
@@ -165,6 +167,8 @@ public class VoiceAiEventProcessor {
             Long globalSequence
     ) {
         requireSequence(globalSequence, "Final");
+        // 확정 원문을 먼저 로컬 Sudachi로 분석해 번역 대기 중인 화면과 저장 이력에 즉시 반영한다.
+        event.set("sourceReadingTokens", sourceReadingService.forFinal(connection.context(), event));
         finalResultCommandService.persistTranscriptFinal(
                 connection.context(),
                 event,
@@ -183,12 +187,22 @@ public class VoiceAiEventProcessor {
         requireSequence(globalSequence, "Completed");
 
         long startedNanos = System.nanoTime();
+        // AI의 읽기 토큰에 의존하지 않고 완료 이벤트와 DB에 동일한 BE 생성 결과를 기록한다.
+        event.set("sourceReadingTokens", sourceReadingService.forFinal(connection.context(), event));
         VoiceSegment segment = finalResultCommandService.persistCompleted(
                 connection.context(),
                 event,
                 globalSequence,
                 0L
         );
+        // 확정 원문의 저장된 읽기를 재사용한 경우에도 public 완료 이벤트를 DB 결과와 일치시킨다.
+        try {
+            if (segment.getSourceReadingTokens() != null) {
+                event.set("sourceReadingTokens", objectMapper.readTree(segment.getSourceReadingTokens()));
+            }
+        } catch (Exception ignored) {
+            // 읽기 JSON의 손상은 번역 완료 이벤트를 막지 않는다.
+        }
         long relayPersistMs = Math.max(
                 0L,
                 TimeUnit.NANOSECONDS.toMillis(

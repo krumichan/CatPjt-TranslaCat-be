@@ -25,6 +25,7 @@ public class VoiceTranslationRetryCommandService {
     private final VoiceSegmentRepository segmentRepository;
     private final VoiceResponseMapper responseMapper;
     private final ObjectMapper objectMapper;
+    private final VoiceSourceReadingService sourceReadingService;
 
     @Transactional
     public VoiceSegmentResponseDto apply(
@@ -51,9 +52,21 @@ public class VoiceTranslationRetryCommandService {
         }
 
         AiVoiceModelResponse model = response.model();
+        // 재시도에서도 원문 언어와 텍스트는 저장된 스냅샷을 기준으로 로컬에서 읽기를 다시 만든다.
+        String readingTokens = writeJson(
+                sourceReadingService.forLanguage(context.sourceText(), context.sourceLanguage())
+        );
+        if ("ja".equals(context.sourceLanguage())) {
+            // 일시적인 Sudachi 실패가 이전 확정 원문의 유효한 읽기까지 지우지 않게 한다.
+            readingTokens = sourceReadingService.preserveStoredWhenGenerationFails(
+                    readingTokens,
+                    segment.getSourceReadingTokens(),
+                    segment.getSourceText()
+            );
+        }
         segment.applyRetry(
                 requireTranslatedText(response.translatedText()),
-                writeJson(response.sourceReadingTokens()),
+                readingTokens,
                 response.translationSkipped(),
                 model == null ? null : model.translationVersion(),
                 model == null ? null : model.promptVersion()

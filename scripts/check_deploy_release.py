@@ -51,8 +51,11 @@ if name == "sleep": end()
 if name == "flock": end(1 if fault == "lock" else 0)
 if name == "curl":
     new = state.get(container, {}).get("sha") == sha
+    if new and fault == "transient_health":
+        state[container]["health_checks"] = state[container].get("health_checks", 0) + 1
     failed = fault in ("health", "rollback_start", "rollback_rename", "rollback_remove", "rollback_health")
-    code = "503" if (new and failed) or fault == "rollback_health" else "200"
+    temporarily_unhealthy = new and fault == "transient_health" and state[container]["health_checks"] <= 2
+    code = "503" if (new and failed) or fault == "rollback_health" or temporarily_unhealthy else "200"
     body = {"resultCode": 200, "body": "WRONG" if new and fault == "health_body" else "OK"}
     Path(args[args.index("--output") + 1]).write_text(json.dumps(body))
     end(28 if new and fault == "health_timeout" else 0, code)
@@ -157,9 +160,9 @@ def main() -> None:
     python_for_bash = path_for_bash(bash, sys.executable)
     raw = synthetic_environment()
     results = []
-    faults = ("checkout", "lock", "dirty", "tracked_env", "untracked", "worktree_list", "env_directory", "environment", "dictionary", "network", "volume", "volume_foreign", "build", "build_timeout",
+    faults = ("checkout", "lock", "dirty", "tracked_env", "untracked", "worktree_list", "env_directory", "environment", "dictionary", "network", "volume", "volume_foreign", "build", "build_timeout", "attempts_over_limit",
               "image_revision", "image_runtime", "inspect_unavailable", "stop", "rename", "run", "revision", "health",
-              "health_body", "health_timeout", "success", "rollback_start", "rollback_rename", "rollback_remove", "rollback_health")
+              "health_body", "health_timeout", "success", "transient_health", "rollback_start", "rollback_rename", "rollback_remove", "rollback_health")
     cases = [(name, True, True) for name in faults]
     cases += [("health", True, False), ("success", False, False), ("health", False, False)]
     for fault, exists, running in cases:
@@ -195,10 +198,13 @@ def main() -> None:
                 "PROBE_STATE": str(root / "state.json"), "PROBE_CALLS": str(root / "calls.jsonl"),
                 "PROBE_FAULT": fault, "PROBE_CONTAINER": NAME, "PROBE_SHA": SHA,
                 "DEPLOY_ENV_B64": "%%%bad-base64" if fault == "environment" else base64.b64encode(raw).decode(),
-                "DEPLOY_HEALTH_ATTEMPTS": "2", "DEPLOY_HEALTH_DELAY_SECONDS": "0", "DEPLOY_ROLLBACK_ATTEMPTS": "2",
+                "DEPLOY_HEALTH_ATTEMPTS": "121" if fault == "attempts_over_limit" else "2",
+                "DEPLOY_HEALTH_DELAY_SECONDS": "0", "DEPLOY_ROLLBACK_ATTEMPTS": "2",
                 "PROBE_HOME": path_for_bash(bash, root),
             }
             environment.pop("DEPLOY_LOCK_FD", None)
+            if fault == "transient_health":
+                environment.pop("DEPLOY_HEALTH_ATTEMPTS")
 
             # 실행: fake PATH를 login shell 초기화 이후 설정하며 timeout으로 테스트 자체도 제한한다.
             process = subprocess.run([
@@ -222,9 +228,11 @@ def main() -> None:
                 assert "synthetic replacement startup failure" in failure_logs[0].read_text()
             else:
                 assert not failure_logs, (fault, failure_logs)
-            if fault == "success":
+            if fault in ("success", "transient_health"):
                 assert process.returncode == 0, process.stderr
                 assert after[NAME]["sha"] == SHA and after[NAME]["running"]
+                if fault == "transient_health":
+                    assert after[NAME]["health_checks"] == 3, after[NAME]
                 create_volume = next(i for i, call in enumerate(calls) if call[:3] == ["docker", "volume", "create"])
                 replacement = next(i for i, call in enumerate(calls) if call[:2] == ["docker", "run"] and "--name" in call)
                 assert create_volume < replacement
@@ -243,7 +251,7 @@ def main() -> None:
                     assert len(preserved) == 1 and preserved[0]["env"] == "old-env" and preserved[0]["mount"] == "old-mount"
                 else:
                     assert after == original, (fault, original, after, process.stderr)
-                if fault in ("checkout", "lock", "dirty", "tracked_env", "untracked", "worktree_list", "env_directory", "environment", "dictionary", "network", "volume", "volume_foreign", "build", "build_timeout", "image_revision", "image_runtime", "inspect_unavailable"):
+                if fault in ("checkout", "lock", "dirty", "tracked_env", "untracked", "worktree_list", "env_directory", "environment", "dictionary", "network", "volume", "volume_foreign", "build", "build_timeout", "attempts_over_limit", "image_revision", "image_runtime", "inspect_unavailable"):
                     assert not any(call[:2] == ["docker", "stop"] for call in calls), (fault, calls)
             results.append({"fault": fault, "previous_exists": exists, "previous_running": running,
                             "exit": process.returncode, "assertions": "PASS"})

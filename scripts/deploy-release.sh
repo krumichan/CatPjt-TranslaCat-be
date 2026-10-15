@@ -10,11 +10,11 @@ IMAGE="translacat-api:$SHA"
 CONTAINER="translacat-api-container"
 AUDIO_VOLUME="translacat-be-novel-audio-spool"
 BACKUP="${CONTAINER}-rollback-$(date -u +%Y%m%dT%H%M%S)-$$"
-ATTEMPTS="${DEPLOY_HEALTH_ATTEMPTS:-60}"
+ATTEMPTS="${DEPLOY_HEALTH_ATTEMPTS:-120}"
 DELAY="${DEPLOY_HEALTH_DELAY_SECONDS:-5}"
 ROLLBACK_ATTEMPTS="${DEPLOY_ROLLBACK_ATTEMPTS:-36}"
 [[ "$ATTEMPTS" =~ ^[1-9][0-9]*$ && "$DELAY" =~ ^[0-9]+$ && "$ROLLBACK_ATTEMPTS" =~ ^[1-9][0-9]*$ ]]
-(( ATTEMPTS <= 60 && DELAY <= 5 && ROLLBACK_ATTEMPTS <= 60 ))
+(( ATTEMPTS <= 120 && DELAY <= 5 && ROLLBACK_ATTEMPTS <= 60 ))
 
 # workflow의 checkout 잠금을 상속하거나 직접 실행에서도 같은 잠금을 획득한다.
 if [[ "${DEPLOY_LOCK_FD:-}" == "9" ]]; then
@@ -188,6 +188,8 @@ timeout --kill-after=5s 45s docker run -d --name "$CONTAINER" --restart unless-s
 
 actual_revision="$(timeout --kill-after=5s 15s docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$CONTAINER")"
 [[ "$actual_revision" == "$SHA" ]] || { echo "Running container revision mismatch" >&2; false; }
+# DB 연결 재시도 뒤 자동 재기동이 발생해도 실제 준비 완료를 확인할 시간을 준다.
+# 상한을 넘기면 기존 컨테이너로 롤백하는 검사는 그대로 유지한다.
 for ((attempt = 1; attempt <= ATTEMPTS; attempt++)); do
     if health_ready; then
         echo "Released $SHA as $CONTAINER (HTTP liveness only; post-release acceptance is still required)."

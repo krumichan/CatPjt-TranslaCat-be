@@ -66,6 +66,12 @@ public class NovelAudioService {
 
     public Audio synthesize(EpisodeKey key, long actor, String revision, String segmentId,
                             String language, int partIndex) {
+        return synthesize(key, actor, revision, segmentId, language, partIndex, "ko");
+    }
+
+    public Audio synthesize(EpisodeKey key, long actor, String revision, String segmentId,
+                            String language, int partIndex, String targetLanguage) {
+        String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
         long started = System.nanoTime();
         String traceId = RequestTrace.idOrNew();
 
@@ -78,8 +84,8 @@ public class NovelAudioService {
         String text;
         if ("ja".equals(language)) {
             text = segment.plainJa();
-        } else if ("ko".equals(language)) {
-            translationKey = query.cacheKey(key, source, actor, store.glossary(key, actor).version());
+        } else if (java.util.Set.of("ko", "en").contains(language) && target.equals(language)) {
+            translationKey = query.cacheKey(key, source, actor, store.glossary(key, actor, target).version(), query.resolve(source), target);
             String finalKey = translationKey;
             text = store.byCache(finalKey).map(job -> job.results().get(segmentId))
                     .orElseThrow(() -> new NovelProblem("TRANSLATION_NOT_READY", 409));

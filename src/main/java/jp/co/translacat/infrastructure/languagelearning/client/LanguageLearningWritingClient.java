@@ -229,7 +229,7 @@ public class LanguageLearningWritingClient {
                 byte[] bytes = response.getBody().readNBytes(MAX_BODY + 1);
                 if (bytes.length == 0 || bytes.length > MAX_BODY) throw contractFailure();
                 try {
-                    T value = json.readValue(bytes, type);
+                    T value = HistoryLanguageMetadata.readValue(json, bytes, type);
                     if (value == null) throw contractFailure();
                     return value;
                 } catch (IOException | IllegalArgumentException failure) {

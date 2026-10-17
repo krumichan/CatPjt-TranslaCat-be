@@ -69,6 +69,12 @@ public class NovelStore implements NovelRepository {
     }
 
     public Job create(EpisodeKey key, SourceEpisode source, long actorId, String cacheKey, String requestKey) {
+        return create(key, source, actorId, cacheKey, requestKey, "ko");
+    }
+
+    @Override
+    public Job create(EpisodeKey key, SourceEpisode source, long actorId, String cacheKey, String requestKey, String targetLanguage) {
+        String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
         if (requestKey == null || !requestKey.matches("[A-Za-z0-9._:-]{1,100}")) {
             throw new NovelProblem("IDEMPOTENCY_KEY_INVALID", 400);
         }
@@ -85,13 +91,15 @@ public class NovelStore implements NovelRepository {
         }
         try {
             jdbc.update("INSERT INTO novel_translation_job(cache_key,job_id,source_key,revision,actor_id,state,"
-                            + "result_json,errors_json,owner_token,fence,lease_until,event_sequence,provider_calls,input_tokens,output_tokens,updated_at) "
-                            + "VALUES(?,?,?,?,?,'QUEUED','{}','{}',NULL,0,0,0,0,0,0,?)",
-                    cacheKey, UUID.randomUUID().toString(), key.value(), source.revision(), actorId, System.currentTimeMillis());
+                            + "result_json,errors_json,owner_token,fence,lease_until,event_sequence,provider_calls,input_tokens,output_tokens,updated_at,target_language) "
+                            + "VALUES(?,?,?,?,?,'QUEUED','{}','{}',NULL,0,0,0,0,0,0,?,?)",
+                    cacheKey, UUID.randomUUID().toString(), key.value(), source.revision(), actorId, System.currentTimeMillis(), target);
         } catch (DuplicateKeyException ignored) {
             // 원문+정책+actor cache unique는 서로 다른 멱등 키도 동일 작업으로 합친다.
         }
-        return byCache(cacheKey).orElseThrow();
+        Job job = byCache(cacheKey).orElseThrow();
+        if (!target.equals(job.targetLanguage())) throw new NovelProblem("IDEMPOTENCY_CONFLICT", 409);
+        return job;
     }
 
     public Optional<Job> byCache(String cacheKey) {
@@ -230,12 +238,24 @@ public class NovelStore implements NovelRepository {
     }
 
     public Glossary glossary(EpisodeKey key, long actorId) {
-        return jdbc.query("SELECT glossary_version,terms_json FROM novel_glossary WHERE work_key=? AND actor_id=?",
-                (rs, row) -> new Glossary(rs.getString(1), map(rs.getString(2))), workKey(key), actorId)
-                .stream().findFirst().orElse(new Glossary(TranslationPolicy.GLOSSARY_VERSION, Map.of()));
+        return glossary(key, actorId, "ko");
+    }
+
+    @Override
+    public Glossary glossary(EpisodeKey key, long actorId, String targetLanguage) {
+        String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
+        return jdbc.query("SELECT glossary_version,terms_json FROM novel_glossary WHERE work_key=? AND actor_id=? AND target_language=?",
+                (rs, row) -> new Glossary(rs.getString(1), map(rs.getString(2)), target), workKey(key), actorId, target)
+                .stream().findFirst().orElse(new Glossary(TranslationPolicy.GLOSSARY_VERSION, Map.of(), target));
     }
 
     public Glossary saveGlossary(EpisodeKey key, long actorId, String expectedVersion, Map<String, String> terms) {
+        return saveGlossary(key, actorId, expectedVersion, terms, "ko");
+    }
+
+    @Override
+    public Glossary saveGlossary(EpisodeKey key, long actorId, String expectedVersion, Map<String, String> terms, String targetLanguage) {
+        String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
         if (terms == null || terms.size() > 100 || terms.entrySet().stream().anyMatch(entry -> entry.getKey() == null
                 || entry.getValue() == null || entry.getKey().isBlank() || entry.getValue().isBlank()
                 || entry.getKey().length() > 128 || entry.getValue().length() > 128)
@@ -250,24 +270,24 @@ public class NovelStore implements NovelRepository {
                 : SentenceSegmenter.hash("glossary-context-v1:" + encoded);
         return transactions.execute(status -> {
             List<Glossary> found = jdbc.query("SELECT glossary_version,terms_json FROM novel_glossary "
-                            + "WHERE work_key=? AND actor_id=? FOR UPDATE",
-                    (rs, row) -> new Glossary(rs.getString(1), map(rs.getString(2))), workKey(key), actorId);
+                            + "WHERE work_key=? AND actor_id=? AND target_language=? FOR UPDATE",
+                    (rs, row) -> new Glossary(rs.getString(1), map(rs.getString(2)), target), workKey(key), actorId, target);
             String current = found.isEmpty() ? TranslationPolicy.GLOSSARY_VERSION : found.getFirst().version();
             if (!current.equals(expectedVersion)) {
                 throw new NovelProblem("GLOSSARY_VERSION_CHANGED", 409);
             }
             if (found.isEmpty()) {
                 try {
-                    jdbc.update("INSERT INTO novel_glossary(work_key,actor_id,glossary_version,terms_json) VALUES(?,?,?,?)",
-                            workKey(key), actorId, version, encoded);
+                    jdbc.update("INSERT INTO novel_glossary(work_key,actor_id,glossary_version,terms_json,target_language) VALUES(?,?,?,?,?)",
+                            workKey(key), actorId, version, encoded, target);
                 } catch (DuplicateKeyException conflict) {
                     throw new NovelProblem("GLOSSARY_VERSION_CHANGED", 409);
                 }
             } else {
-                jdbc.update("UPDATE novel_glossary SET glossary_version=?,terms_json=? WHERE work_key=? AND actor_id=?",
-                        version, encoded, workKey(key), actorId);
+                jdbc.update("UPDATE novel_glossary SET glossary_version=?,terms_json=? WHERE work_key=? AND actor_id=? AND target_language=?",
+                        version, encoded, workKey(key), actorId, target);
             }
-            return new Glossary(version, Map.copyOf(terms));
+            return new Glossary(version, Map.copyOf(terms), target);
         });
     }
 
@@ -460,7 +480,7 @@ public class NovelStore implements NovelRepository {
                 rs.getString("revision"), rs.getLong("actor_id"), rs.getString("state"),
                 map(rs.getString("result_json")), map(rs.getString("errors_json")), rs.getString("owner_token"),
                 rs.getLong("fence"), rs.getLong("lease_until"), rs.getLong("event_sequence"),
-                rs.getInt("provider_calls"), rs.getLong("input_tokens"), rs.getLong("output_tokens"));
+                rs.getInt("provider_calls"), rs.getLong("input_tokens"), rs.getLong("output_tokens"), rs.getString("target_language"));
     }
 
     private Map<String, String> map(String value) {

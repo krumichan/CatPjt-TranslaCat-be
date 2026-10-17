@@ -38,7 +38,8 @@ public class CatalogCommandService {
 
         // 순위/검색어는 cache identity에서 제외하고 원문과 확정 용어의 실제 내용을 포함한다.
         for (var card : request.source().cards()) {
-            var glossary = repository.glossary(new EpisodeKey(normalized, card.identifier(), "1"), actor);
+            var glossary = repository.glossary(new EpisodeKey(normalized, card.identifier(), "1"), actor,
+                    request.selector().language().equals("en") ? "en" : "ko");
             String revision = hash(json(new TreeMap<>(card.text())));
             String key = hash(actor + "|" + normalized + "|" + card.identifier() + "|" + revision + "|"
                     + request.selector().language() + "|" + policy + "|" + json(new TreeMap<>(glossary.terms())));
@@ -101,7 +102,7 @@ public class CatalogCommandService {
         var translated = ai.translate(work.traceId(), UUID.randomUUID().toString(), items,
                 items.stream().map(SourceEpisode.Segment::plainJa).toList(), work.glossary(),
                 CatalogExecutionBudget.PROVIDER_MS, options.responseShape(),
-                options.validationPolicy(), TranslationOptions.AnnotationPolicy.NONE);
+                options.validationPolicy(), TranslationOptions.AnnotationPolicy.NONE, work.language());
         var expected = items.stream().map(SourceEpisode.Segment::id).collect(java.util.stream.Collectors.toSet());
         if (!translated.items().keySet().equals(expected)
                 || translated.items().values().stream().anyMatch(value -> value == null || value.isBlank())) {

@@ -13,6 +13,8 @@ public record LearningHistoryItemResponseDto(
         long durationSeconds,
         Double overallScore,
         String completionStatus,
-        String evaluationStatus
+        String evaluationStatus,
+        String originLanguage,
+        String learningLanguage
 ) {
 }

@@ -107,7 +107,7 @@ public class LanguageLearningListeningClient implements ListeningGateway {
             if (!json.readTree(bytes).isNull()) throw contractFailure();
             return null;
         }
-        T value = json.readValue(bytes, type);
+        T value = HistoryLanguageMetadata.readValue(json, bytes, type);
         if (value == null) throw contractFailure();
         return value;
     }

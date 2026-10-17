@@ -38,16 +38,21 @@ public class NovelQueryService {
     }
 
     public ReaderSnapshot reader(EpisodeKey key, long actorId) {
+        return reader(key, actorId, "ko");
+    }
+
+    public ReaderSnapshot reader(EpisodeKey key, long actorId, String targetLanguage) {
+        String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
         SourceEpisode source = source(key);
-        String glossaryVersion = store.glossary(key, actorId).version();
+        String glossaryVersion = store.glossary(key, actorId, target).version();
         long started = System.nanoTime();
-        String cacheKey = cacheKey(key, source, actorId, glossaryVersion);
+        String cacheKey = cacheKey(key, source, actorId, glossaryVersion, resolve(source), target);
         NovelRepository.Job job = store.byCache(cacheKey).orElse(null);
         if (job != null) {
             job = store.expireAbandoned(job, source);
         }
         RequestTrace.duration("dbCacheMs", started);
-        return snapshot(key, source, job, glossaryVersion);
+        return snapshot(key, source, job, glossaryVersion, target);
     }
 
     public SourceEpisode source(EpisodeKey key) {
@@ -93,8 +98,8 @@ public class NovelQueryService {
         NovelRepository.Job job = store.byId(key, jobId, actorId);
         SourceEpisode current = requireCurrentRevision(key, job.revision());
         job = store.expireAbandoned(job, current);
-        String glossaryVersion = store.glossary(key, actorId).version();
-        String expectedCache = cacheKey(key, current, actorId, glossaryVersion);
+        String glossaryVersion = store.glossary(key, actorId, job.targetLanguage()).version();
+        String expectedCache = cacheKey(key, current, actorId, glossaryVersion, resolve(current), job.targetLanguage());
         if (!job.cacheKey().equals(expectedCache)) {
             throw new NovelProblem("TRANSLATION_POLICY_CHANGED", 409);
         }
@@ -117,14 +122,23 @@ public class NovelQueryService {
         return store.glossary(key, actorId);
     }
 
+    public NovelRepository.Glossary glossary(EpisodeKey key, long actorId, String targetLanguage) {
+        return store.glossary(key, actorId, targetLanguage);
+    }
+
     public String cacheKey(EpisodeKey key, SourceEpisode source, long actor, String glossary) {
         return cacheKey(key, source, actor, glossary, resolve(source));
     }
     public String cacheKey(EpisodeKey key, SourceEpisode source, long actor, String glossary,
                            jp.co.translacat.novel.domain.TranslationLengthPolicy.Resolution selection) {
+        return cacheKey(key, source, actor, glossary, selection, "ko");
+    }
+
+    public String cacheKey(EpisodeKey key, SourceEpisode source, long actor, String glossary,
+                           jp.co.translacat.novel.domain.TranslationLengthPolicy.Resolution selection, String targetLanguage) {
         requireSegmentationPolicy(source);
         if (!source.revision().equals(selection.sourceRevision())) throw new NovelProblem("SOURCE_REVISION_CHANGED", 409);
-        return new TranslationPolicy().cacheKey(key, source, actor, ai.model(), glossary, selection.options());
+        return new TranslationPolicy().cacheKey(key, source, actor, ai.model(), glossary, selection.options(), targetLanguage);
     }
     public jp.co.translacat.novel.domain.TranslationLengthPolicy.Resolution resolve(SourceEpisode source) {
         requireSegmentationPolicy(source);
@@ -137,8 +151,12 @@ public class NovelQueryService {
         }
     }
     public ReaderSnapshot snapshot(EpisodeKey key, SourceEpisode source, NovelRepository.Job job, String glossary) {
+        return snapshot(key, source, job, glossary, job == null ? "ko" : job.targetLanguage());
+    }
+
+    public ReaderSnapshot snapshot(EpisodeKey key, SourceEpisode source, NovelRepository.Job job, String glossary, String targetLanguage) {
         var repair = job == null ? null : store.latestRepair(job).orElse(null);
-        ReaderSnapshot snapshot = ReaderSnapshot.of(key, source, job, glossary).withDiagnostics(job == null ? java.util.Map.of() : store.diagnostics(job))
+        ReaderSnapshot snapshot = ReaderSnapshot.of(key, source, job, glossary, targetLanguage).withDiagnostics(job == null ? java.util.Map.of() : store.diagnostics(job))
                 .withRecovery(repair, job == null ? null : store.initialAttemptState(job), repair == null ? java.util.Map.of() : store.repairDiagnostics(repair))
                 .withAudioPolicy(NovelAudioService.POLICY_VERSION + "|" + ai.speechModel());
         return ruby == null ? snapshot : snapshot.withRuby(ruby);

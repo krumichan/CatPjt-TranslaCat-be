@@ -9,10 +9,14 @@ public class RespLanguageDto {
     private String name;
 
     public static RespLanguageDto of(Language language) {
+        return of(language.getCode(), language.getName());
+    }
+
+    public static RespLanguageDto of(String code, String name) {
         RespLanguageDto dto = new RespLanguageDto();
 
-        dto.code = language.getCode();
-        dto.name = language.getName();
+        dto.code = code;
+        dto.name = name;
 
         return dto;
     }

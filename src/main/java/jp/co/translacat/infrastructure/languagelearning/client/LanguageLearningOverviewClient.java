@@ -75,7 +75,7 @@ public class LanguageLearningOverviewClient implements OverviewGateway {
                         }
                         if (status < 200 || status >= 300) throw contractFailure();
                         try {
-                            T value = json.readValue(bytes, type);
+                            T value = HistoryLanguageMetadata.readValue(json, bytes, type);
                             if (value == null) throw contractFailure();
                             return value;
                         } catch (IOException | IllegalArgumentException failure) {

@@ -8,6 +8,8 @@ import jp.co.translacat.infrastructure.languagelearning.client.config.LanguageLe
 import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -134,6 +136,34 @@ class LanguageLearningSettingsClientTest {
         // 검증: 예약 적용 여부는 LL 응답을 그대로 보존한다.
         assertEquals("en", response.feedbackLanguage());
         assertEquals("ko", response.pendingFeedbackLanguage());
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ko, ja", "ja, ko", "ko, en", "en, ko", "ja, en", "en, ja"})
+    void patchPreservesAllSupportedLearningPairsAcrossTheLlBoundary(String origin, String learning) {
+        // 준비: UI 언어와 분리된 원문·학습 언어 조합을 LL 요청과 응답에 사용한다.
+        var responseBody = userResponseJson()
+                .replace("\"originLanguage\":\"ko\"", "\"originLanguage\":\"" + origin + "\"")
+                .replace("\"learningLanguage\":\"ja\"", "\"learningLanguage\":\"" + learning + "\"");
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/settings"))
+                .andExpect(method(HttpMethod.PATCH))
+                .andExpect(header("Authorization", org.hamcrest.Matchers.startsWith("Bearer ")))
+                .andExpect(jsonPath("$.originLanguage").value(origin))
+                .andExpect(jsonPath("$.learningLanguage").value(learning))
+                .andExpect(jsonPath("$.feedbackLanguage").value("ko"))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+        var request = new UserSettingUpdateRequestDto(
+                origin, learning, "ko", null, null, null, null, null, null, null
+        );
+
+        // 실행
+        var response = client.updateUserSettings(123L, request);
+
+        // 검증: 영어를 포함한 조합과 LL의 설명 언어를 기존 DTO 그대로 전달한다.
+        assertEquals(origin, response.originLanguage());
+        assertEquals(learning, response.learningLanguage());
+        assertEquals("en", response.feedbackLanguage());
         server.verify();
     }
 

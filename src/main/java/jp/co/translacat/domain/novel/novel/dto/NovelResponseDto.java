@@ -12,6 +12,14 @@ public class NovelResponseDto {
 
     private TranslationUnit title;
 
+    public NovelResponseDto forTarget(String targetLanguage) {
+        NovelResponseDto copy = new NovelResponseDto();
+        copy.sequence = sequence;
+        copy.identifier = identifier;
+        copy.title = title.forTarget(targetLanguage, null);
+        return copy;
+    }
+
     public static NovelResponseDto of(RawEpisodeContext context) {
         NovelResponseDto result = new NovelResponseDto();
         result.sequence = context.getSequence();

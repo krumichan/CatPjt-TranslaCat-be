@@ -115,7 +115,15 @@ public class OpenAiExecutionAdapter implements NovelPorts.Ai {
                                  List<String> context, Map<String, String> glossary, long remainingMillis,
                                  TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
                                  TranslationOptions.AnnotationPolicy annotation) {
-        var prepared = new TranslationRequestFactory().prepare(items, context, glossary, shape, annotation);
+        return translate(rootTraceId, callId, items, context, glossary, remainingMillis, shape, validation, annotation, "ko");
+    }
+
+    @Override
+    public Translation translate(String rootTraceId, String callId, List<SourceEpisode.Segment> items,
+                                 List<String> context, Map<String, String> glossary, long remainingMillis,
+                                 TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
+                                 TranslationOptions.AnnotationPolicy annotation, String targetLanguage) {
+        var prepared = new TranslationRequestFactory().prepare(items, context, glossary, shape, annotation, targetLanguage);
         return translatePrepared(rootTraceId, callId, remainingMillis, shape, validation, prepared);
     }
 
@@ -123,8 +131,15 @@ public class OpenAiExecutionAdapter implements NovelPorts.Ai {
             List<String> context, Map<String,String> glossary, List<Map<String,String>> acceptedReferences,
             long remainingMillis, TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
             TranslationOptions.AnnotationPolicy annotation) {
+        return repair(rootTraceId, callId, items, context, glossary, acceptedReferences, remainingMillis, shape, validation, annotation, "ko");
+    }
+
+    @Override public Translation repair(String rootTraceId, String callId, List<SourceEpisode.Segment> items,
+            List<String> context, Map<String,String> glossary, List<Map<String,String>> acceptedReferences,
+            long remainingMillis, TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
+            TranslationOptions.AnnotationPolicy annotation, String targetLanguage) {
         return translatePrepared(rootTraceId, callId, remainingMillis, shape, validation,
-                new TranslationRequestFactory().repair(items, context, glossary, acceptedReferences, shape, annotation));
+                new TranslationRequestFactory().repair(items, context, glossary, acceptedReferences, shape, annotation, targetLanguage));
     }
 
     private Translation translatePrepared(String rootTraceId, String callId, long remainingMillis,
@@ -179,9 +194,17 @@ public class OpenAiExecutionAdapter implements NovelPorts.Ai {
             TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
             TranslationOptions.AnnotationPolicy annotation, BiConsumer<SourceEpisode.Segment,String> onSentence,
             BiConsumer<SourceEpisode.Segment,String> onFailure) {
+        return translateProgressive(rootTraceId, callId, items, context, glossary, remainingMillis, shape, validation, annotation, onSentence, onFailure, "ko");
+    }
+
+    @Override public Translation translateProgressive(String rootTraceId, String callId, List<SourceEpisode.Segment> items,
+            List<String> context, Map<String,String> glossary, long remainingMillis,
+            TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
+            TranslationOptions.AnnotationPolicy annotation, BiConsumer<SourceEpisode.Segment,String> onSentence,
+            BiConsumer<SourceEpisode.Segment,String> onFailure, String targetLanguage) {
         if (!progressiveA || profile.id().isBlank() || shape != TranslationOptions.ResponseShape.KEYED_V4)
             throw new NovelProblem("PROGRESSIVE_PROFILE_INVALID", 503);
-        var prepared = new TranslationRequestFactory().prepare(items, context, glossary, shape, annotation);
+        var prepared = new TranslationRequestFactory().prepare(items, context, glossary, shape, annotation, targetLanguage);
         var command = new AiExecutionDtos.ProfileCommand(callId, prepared.instructions(),
                 List.of(new AiExecutionDtos.Message("user", encode(prepared.data()))), profile.id(),
                 profile.maxOutputTokens(), remainingMillis, 1, prepared.schema(), prepared.schemaName(), true, "NOVEL_EPISODE");

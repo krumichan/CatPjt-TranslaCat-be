@@ -37,6 +37,50 @@ class CatalogProgressionTest {
     }
     @AfterEach void close() { scheduler.close(); }
 
+    @Test void englishCatalogHasItsOwnProviderTargetStoredResultAndGenericTextAfterRestart() throws Exception {
+        // 준비: 실제 목록 orchestration과 저장소를 사용하되 언어별 결과를 구분하는 합성 AI를 둔다.
+        AtomicInteger calls = new AtomicInteger();
+        NovelPorts.Ai ai = new NovelPorts.Ai() {
+            public String model() { return "test-openai"; }
+            public String speechModel() { return "test-speech"; }
+            public NovelPorts.Translation translate(String trace, List<SourceEpisode.Segment> items, List<String> context, long remaining) {
+                throw new AssertionError("명시 목표 언어를 잃으면 안 됩니다.");
+            }
+            @Override public NovelPorts.Translation translate(String trace, String call, List<SourceEpisode.Segment> items,
+                    List<String> context, Map<String,String> glossary, long remaining, TranslationOptions.ResponseShape shape,
+                    TranslationOptions.ValidationPolicy validation, TranslationOptions.AnnotationPolicy annotation, String target) {
+                calls.incrementAndGet();
+                Map<String,String> translated = new HashMap<>();
+                items.forEach(item -> translated.put(item.id(), target.equals("en") ? "English " + item.id() : "한국어 " + item.id()));
+                return new NovelPorts.Translation(translated, "OPENAI", model(), 10, 10);
+            }
+            public NovelPorts.Speech synthesize(String id, String text, String language, long remaining) {
+                throw new AssertionError("목록 조회는 음성을 합성하지 않습니다.");
+            }
+        };
+        var commands = new CatalogCommandService(store, novels, ai, NovelExecutionSettings.baseline(), scheduler, mapper);
+        var source = new CatalogModels.SourcePage(cards(1), Map.of(), 0);
+
+        // 실행: 같은 원문의 영어/한국어를 별도로 완료하고 새 목록에서도 기존 영어를 재사용한다.
+        String english = commands.start(1, "syosetu", new CatalogModels.Start(selector("RANKING", "en", null), "en-first", source), "trace-en");
+        awaitReady(english);
+        String korean = commands.start(1, "syosetu", new CatalogModels.Start(selector("RANKING", "ko", null), "ko-first", source), "trace-ko");
+        awaitReady(korean);
+        String reused = commands.start(1, "syosetu", new CatalogModels.Start(selector("SEARCH", "en", "猫"), "en-search", source), "trace-search");
+        awaitReady(reused);
+        var englishItem = new CatalogStore(jdbc, mapper, manager).snapshot(1, english).items().getFirst();
+
+        // 검증: 영어를 한국어 필드로 노출하지 않고 중복 조회도 유료 실행을 추가하지 않는다.
+        assertThat(englishItem.title().translatedText()).isEqualTo("English title");
+        assertThat(englishItem.title().targetLanguage()).isEqualTo("en");
+        assertThat(englishItem.title().ko()).isNull();
+        assertThat(store.snapshot(1, korean).items().getFirst().title().ko()).isEqualTo("한국어 title");
+        assertThat(calls.get()).isEqualTo(2);
+        assertThatThrownBy(() -> commands.start(1, "syosetu", new CatalogModels.Start(selector("RANKING", "ko", null), "en-first", source), "conflict"))
+                .hasMessage("IDEMPOTENCY_CONFLICT");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_catalog_translation", Integer.class)).isEqualTo(2);
+    }
+
     @Test void fiftyCardsPersistCompletionOrderAndOriginalRankAcrossRestart() {
         // 준비: 순위순 원문은 아직 화면에 도착하지 않았다.
         var cards = cards(50);

@@ -152,7 +152,27 @@ public class NovelService {
                         existingNovel.getAuthor().getNameKo()),
                 TranslationUnit.of(existingNovel.getSynopsis(), rubyFormatter.markup(existingNovel.getSynopsis()),
                         existingNovel.getSynopsisKo()),
-                episodes);
+                episodes, existingNovel.getIsShortStory());
+    }
+
+    @SneakyThrows
+    public NovelPageResponseDto episodes(PlatformCode platformCode, String novelIdentifier, int page, String targetLanguage) {
+        String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
+        if ("ko".equals(target)) return episodes(platformCode, novelIdentifier, page);
+
+        // 영어 상세 GET은 원문만 수집한다. 한국어 번역을 새로 생성하거나 legacy 저장값을 변경하지 않는다.
+        Platform platform = platformService.getPlatformByCode(platformCode);
+        PlatformUrlTemplate template = platformService.getUrlTemplate(platform.getId(), URL_TYPE);
+        NovelStrategy strategy = strategy(platformCode)
+                .orElseThrow(() -> new EntityNotFoundException("지원하지 않는 플랫폼입니다: " + platformCode));
+        NovelDetailContext detail = strategy.scrape(strategy.getUrl(template.getUrlPattern(), novelIdentifier, page));
+        NovelContext source = detail.getNovelContext();
+        java.util.function.Function<TranslationUnit, TranslationUnit> raw = unit -> TranslationUnit.of(
+                unit.getRawJa(), rubyFormatter.markup(unit.getRawJa()), null).forTarget(target, null);
+        return new NovelPageResponseDto(PageNumberResponseDto.of(detail.getPageNumberContext()),
+                raw.apply(source.getTitle()), raw.apply(source.getAuthor()), raw.apply(source.getSynopsis()),
+                detail.getRawEpisodeContexts().stream().sorted(Comparator.comparingInt(RawEpisodeContext::getSequence))
+                        .map(context -> NovelResponseDto.of(context, rubyFormatter).forTarget(target)).toList(), source.isShortStory());
     }
 
     public Novel saveAndGetNovel(Platform platform, Novel novel, NovelContext ctx) {

@@ -10,6 +10,8 @@ public record LevelTestHistoryItemResponseDto(
         Integer overallScore,
         String proficiencyBand,
         LevelTestDomainScoresResponseDto domainScores,
-        LocalDateTime completedAt
+        LocalDateTime completedAt,
+        String originLanguage,
+        String learningLanguage
 ) {
 }

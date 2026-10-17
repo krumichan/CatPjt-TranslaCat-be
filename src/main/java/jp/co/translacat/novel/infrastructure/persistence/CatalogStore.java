@@ -34,6 +34,22 @@ public class CatalogStore {
                            Map<String, String> glossary) {}
     public record Work(String cacheKey, long actor, String language, CatalogModels.SourceCard source,
                        Map<String, String> glossary, String owner, long fence, String traceId) {}
+
+    public Map<String, String> readyMetadata(long actor, String platform, String work, Map<String, String> raw, Map<String, String> glossary) {
+        Map<String, String> result = new java.util.LinkedHashMap<>();
+        // 조회는 저장된 영어만 재사용한다. 다른 actor/목표 언어/변경 원문/용어집의 값은 섞지 않는다.
+        jdbc.query("SELECT source_json,result_json,glossary_json FROM novel_catalog_translation "
+                + "WHERE actor_id=? AND platform=? AND work_id=? AND language='en' AND state='READY' ORDER BY updated_at DESC", row -> {
+            if (!strings(row.getString("glossary_json")).equals(glossary)) return;
+            var source = read(row.getString("source_json"), CatalogModels.SourceCard.class);
+            var translated = strings(row.getString("result_json"));
+            raw.forEach((field, value) -> {
+                if (java.util.Objects.equals(value, source.text().get(field)) && translated.get(field) != null)
+                    result.putIfAbsent(field, translated.get(field));
+            });
+        }, actor, platform, work);
+        return Map.copyOf(result);
+    }
     private record Page(String id, long actor, CatalogModels.Selector selector, CatalogModels.SourcePage source,
                         boolean cancelled, long sequence, String traceId, String selectorHash) {}
 
@@ -234,7 +250,8 @@ public class CatalogStore {
     }
 
     private CatalogModels.Text text(String raw, String translated, String language) {
-        return new CatalogModels.Text(raw, raw, language.equals("ko") ? translated : null);
+        return new CatalogModels.Text(raw, raw, language.equals("ko") ? translated : null,
+                language.equals("ja") ? null : translated, language);
     }
 
     private String json(Object value) {

@@ -9,6 +9,7 @@ import jp.co.translacat.domain.languagelearning.profile.dto.response.DifficultyP
 import jp.co.translacat.domain.languagelearning.profile.dto.response.ProfileResponseDto;
 import jp.co.translacat.domain.languagelearning.profile.dto.response.ProfileSignalResponseDto;
 import jp.co.translacat.domain.languagelearning.profile.dto.response.SkillScoresResponseDto;
+import jp.co.translacat.domain.languagelearning.setting.port.UserSettingsGateway;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,8 +23,11 @@ import java.util.List;
 public class LearningProfileQueryService {
     private final GrowthReadGateway growth;
     private final VocabularyMasteryQueryService vocabulary;
+    private final UserSettingsGateway settings;
 
     public ProfileResponseDto getProfile(Long userId) {
+        // 익일 예약 언어를 LL에서 먼저 승격해 성장·어휘 조회가 같은 활성 언어를 사용하게 한다.
+        settings.get(userId);
         GrowthSnapshot value = growth.snapshot(userId);
         var p = value.profile();
         if (p == null)

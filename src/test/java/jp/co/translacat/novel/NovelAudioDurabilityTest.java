@@ -60,6 +60,33 @@ class NovelAudioDurabilityTest {
 
     @AfterEach void finish() { scheduler.close(); }
 
+    @Test void englishSpeechReadsOnlyEnglishCommittedTextAndHasSeparateDurableIdentity() {
+        // 준비: 같은 원문에 영어와 한국어 작업을 따로 저장한 계약을 가짜 번역 저장소로 고정한다.
+        String segment = source.segments().getFirst().id();
+        when(translations.glossary(key, 7, "en")).thenReturn(new NovelRepository.Glossary("empty-v1", Map.of(), "en"));
+        when(translations.glossary(key, 7, "ko")).thenReturn(new NovelRepository.Glossary("empty-v1", Map.of(), "ko"));
+        when(query.cacheKey(eq(key), eq(source), eq(7L), eq("empty-v1"), any(), eq("en"))).thenReturn("english-cache");
+        when(query.cacheKey(eq(key), eq(source), eq(7L), eq("empty-v1"), any(), eq("ko"))).thenReturn("korean-cache");
+        when(translations.byCache("english-cache")).thenReturn(Optional.of(new NovelRepository.Job("english-cache", "english", key.value(),
+                source.revision(), 7, "SUCCEEDED", Map.of(segment, "A cat."), Map.of(), null, 0, 0, 0, 0, 0, 0, "en")));
+        when(translations.byCache("korean-cache")).thenReturn(Optional.of(new NovelRepository.Job("korean-cache", "korean", key.value(),
+                source.revision(), 7, "SUCCEEDED", Map.of(segment, "고양이."), Map.of(), null, 0, 0, 0, 0, 0, 0, "ko")));
+
+        // 실행
+        var english = service().synthesize(key, 7, source.revision(), segment, "en", 0, "en");
+        var korean = service().synthesize(key, 7, source.revision(), segment, "ko", 0);
+        var repeated = service().synthesize(key, 7, source.revision(), segment, "en", 0, "en");
+
+        // 검증: 같은 revision/segment라도 목표 언어별 텍스트와 음성 자산을 구분하고 재시작 후 재사용한다.
+        assertThat(english.language()).isEqualTo("en");
+        assertThat(korean.language()).isEqualTo("ko");
+        assertThat(repeated.cacheDisposition()).isEqualTo("HIT");
+        verify(ai).synthesize(anyString(), anyString(), eq("A cat."), eq("en"), anyLong());
+        verify(ai).synthesize(anyString(), anyString(), eq("고양이."), eq("ko"), anyLong());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_audio_asset", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT translation_cache_key) FROM novel_audio_segment_link", Integer.class)).isEqualTo(2);
+    }
+
 
     @Test void processRestartAndUnchangedSentenceReuseDurableObjectWithoutAnotherSynthesis() {
         var first = service();

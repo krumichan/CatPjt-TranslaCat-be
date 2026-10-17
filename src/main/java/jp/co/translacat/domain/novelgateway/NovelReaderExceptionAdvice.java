@@ -12,8 +12,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.Map;
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@RestControllerAdvice(assignableTypes = {NovelReaderController.class, NovelCatalogController.class})
+@RestControllerAdvice(assignableTypes = {NovelReaderController.class, NovelCatalogController.class,
+        jp.co.translacat.domain.novel.novel.controller.NovelController.class})
 public class NovelReaderExceptionAdvice {
+    @ExceptionHandler(jp.co.translacat.novel.domain.NovelProblem.class)
+    public ResponseEntity<?> invalidTarget(jp.co.translacat.novel.domain.NovelProblem failure) {
+        return failure(new NovelGatewayException(failure.status(), failure.code(), failure.retryable()));
+    }
     @ExceptionHandler(NovelGatewayException.class)
     public ResponseEntity<?> failure(NovelGatewayException failure) {
         return ResponseEntity.status(failure.status()).header("Cache-Control", "no-store")

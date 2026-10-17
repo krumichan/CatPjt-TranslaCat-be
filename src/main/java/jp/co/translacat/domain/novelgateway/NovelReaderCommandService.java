@@ -10,17 +10,22 @@ import org.springframework.stereotype.Service;
 public class NovelReaderCommandService {
     private final NovelEmbeddedService embedded;
 
-    public record TranslationStart(String revision, String idempotencyKey, boolean retryFailed) {
+    public record TranslationStart(String revision, String idempotencyKey, boolean retryFailed, String targetLanguage) {
+        public TranslationStart(String revision, String idempotencyKey, boolean retryFailed) { this(revision, idempotencyKey, retryFailed, "ko"); }
         public TranslationStart {
+            targetLanguage = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
             requireToken(revision, 128);
             requireToken(idempotencyKey, 128);
         }
     }
-    public record AudioRequest(String revision, String segmentId, String language, Integer partIndex) {
+    public record AudioRequest(String revision, String segmentId, String language, Integer partIndex, String targetLanguage) {
+        public AudioRequest(String revision, String segmentId, String language, Integer partIndex) { this(revision, segmentId, language, partIndex, "ko"); }
         public AudioRequest {
+            targetLanguage = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
             requireToken(revision, 128);
             requireToken(segmentId, 160);
-            if (!java.util.Set.of("ja", "ko").contains(language == null ? "" : language)
+            if (!java.util.Set.of("ja", "ko", "en").contains(language == null ? "" : language)
+                    || (!"ja".equals(language) && !targetLanguage.equals(language))
                     || (partIndex != null && (partIndex < 0 || partIndex > 4095))) {
                 throw new NovelGatewayException(400, "NOVEL_REQUEST_INVALID", false);
             }
@@ -39,8 +44,10 @@ public class NovelReaderCommandService {
         return embedded.repair(actor, address, jobId, request);
     }
 
-    public record GlossaryUpdate(String expectedVersion, java.util.Map<String, String> terms) {
+    public record GlossaryUpdate(String expectedVersion, java.util.Map<String, String> terms, String targetLanguage) {
+        public GlossaryUpdate(String expectedVersion, java.util.Map<String, String> terms) { this(expectedVersion, terms, "ko"); }
         public GlossaryUpdate {
+            targetLanguage = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
             requireToken(expectedVersion, 128);
             if (terms == null || terms.size() > 100 || terms.entrySet().stream().anyMatch(entry ->
                     entry.getKey() == null || entry.getValue() == null || entry.getKey().isBlank()

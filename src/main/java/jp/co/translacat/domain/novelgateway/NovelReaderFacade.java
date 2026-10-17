@@ -14,6 +14,7 @@ public class NovelReaderFacade {
     private final NovelReaderCommandService commands;
 
     public JsonNode reader(NovelReaderAddress address) { return queries.reader(actor(), address); }
+    public JsonNode reader(NovelReaderAddress address, String targetLanguage) { return queries.reader(actor(), address, targetLanguage); }
     public JsonNode status(NovelReaderAddress address, String jobId) { return queries.status(actor(), address, jobId); }
     public JsonNode start(NovelReaderAddress address, NovelReaderCommandService.TranslationStart request) {
         return commands.start(actor(), address, request);
@@ -25,6 +26,7 @@ public class NovelReaderFacade {
         return commands.audio(actor(), address, request);
     }
     public JsonNode glossary(NovelReaderAddress address) { return queries.glossary(actor(), address); }
+    public JsonNode glossary(NovelReaderAddress address, String targetLanguage) { return queries.glossary(actor(), address, targetLanguage); }
     public JsonNode glossary(NovelReaderAddress address, NovelReaderCommandService.GlossaryUpdate request) {
         return commands.glossary(actor(), address, request);
     }

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import jp.co.translacat.domain.common.enums.PlatformCode;
 import jp.co.translacat.domain.user.enums.RecentViewType;
 import lombok.Getter;
@@ -37,4 +39,12 @@ public class RecentViewSaveRequestDto {
 
     @Schema(description = "제목 한국어")
     private String titleKo;
+
+    @Size(max = 2000)
+    @Schema(description = "영어 번역 제목. 없으면 일본어 원제를 표시한다.")
+    private String titleEn;
+
+    @Pattern(regexp = "ko|en")
+    @Schema(description = "마지막 방문 번역 언어 (ko/en). 생략하면 기존 한국어 방문이다.", defaultValue = "ko")
+    private String targetLanguage = "ko";
 }

@@ -42,10 +42,15 @@ public class NovelCommandService {
     }
 
     public ReaderSnapshot start(EpisodeKey key, long actorId, String revision, String idempotencyKey, boolean retry) {
+        return start(key, actorId, revision, idempotencyKey, retry, "ko");
+    }
+
+    public ReaderSnapshot start(EpisodeKey key, long actorId, String revision, String idempotencyKey, boolean retry, String targetLanguage) {
+        String target = NovelTargetLanguage.normalize(targetLanguage);
         // 현재 원문과 actor의 용어집을 고정한 뒤 같은 정책으로 계획과 캐시 identity를 만든다.
         long started = System.nanoTime();
         SourceEpisode source = query.requireCurrentRevision(key, revision);
-        NovelRepository.Glossary glossary = store.glossary(key, actorId);
+        NovelRepository.Glossary glossary = store.glossary(key, actorId, target);
         var selection = query.resolve(source);
         if (selection.options().lengthPolicy() == TranslationOptions.LengthPolicy.QUALITY_LENGTH_V1
                 && (deadlineMillis != 300_000 || scheduler.globalLimit() != 10)) {
@@ -57,8 +62,8 @@ public class NovelCommandService {
         RequestTrace.duration("planningMs", planningStarted);
 
         // 중복 요청은 저장된 작업을 공유한다. 거절 우회와 누적 호출 상한 초과는 lease 전에 막는다.
-        String cacheKey = query.cacheKey(key, source, actorId, glossary.version(), selection);
-        NovelRepository.Job job = store.create(key, source, actorId, cacheKey, idempotencyKey);
+        String cacheKey = query.cacheKey(key, source, actorId, glossary.version(), selection, target);
+        NovelRepository.Job job = store.create(key, source, actorId, cacheKey, idempotencyKey, target);
         // A의 부분 prefix는 마지막 provider 응답 검증을 통과한 캐시가 아니다.
         // 미완료 suffix만 재요청하면 서로 다른 응답을 합쳐 전체 성공으로 승격할 수 있다.
         if (ai.progressiveAEnabled() && retry && "PARTIAL".equals(job.state()))
@@ -119,6 +124,10 @@ public class NovelCommandService {
         return store.saveGlossary(key, actorId, expectedVersion, terms);
     }
 
+    public NovelRepository.Glossary glossary(EpisodeKey key, long actorId, String expectedVersion, Map<String, String> terms, String targetLanguage) {
+        return store.saveGlossary(key, actorId, expectedVersion, terms, targetLanguage);
+    }
+
     public ReaderSnapshot repair(EpisodeKey key, long actorId, String jobId, String revision, String requestKey, String segmentId) {
         // client가 보낸 문장·상태를 사용하지 않는다. 현재 actor/원문/정책과 저장된 실패만 복구 대상이다.
         ReaderSnapshot snapshot = query.status(key, actorId, jobId);
@@ -171,7 +180,7 @@ public class NovelCommandService {
             var targets = source.segments().stream().filter(s -> owner.targetIds().contains(s.id()) && !reusable.containsKey(s.id())).toList();
             if (targets.isEmpty()) return;
             var options = query.resolve(source).options();
-            var glossary = store.glossary(key, actor);
+            var glossary = store.glossary(key, actor, job.targetLanguage());
             var references = new ArrayList<Map<String,String>>();
             var contextSegments = new ArrayList<SourceEpisode.Segment>();
             int contextChars = 0, referenceChars = 0;
@@ -190,11 +199,13 @@ public class NovelCommandService {
             var context = contextSegments.stream().sorted(Comparator.comparingInt(SourceEpisode.Segment::order)).map(SourceEpisode.Segment::plainJa).toList();
             call = scheduler.submitRepair(job.id(), deadline, queueMillis::set, () -> {
                 // 실제 dispatch 직전 policy와 DB 소유권을 재검사한다. 자동 유료 재시도는 하지 않는다.
-                if (!query.cacheKey(key, query.requireCurrentRevision(key, source.revision()), actor, store.glossary(key, actor).version()).equals(job.cacheKey()))
+                var currentSource = query.requireCurrentRevision(key, source.revision());
+                if (!query.cacheKey(key, currentSource, actor, store.glossary(key, actor, job.targetLanguage()).version(),
+                        query.resolve(currentSource), job.targetLanguage()).equals(job.cacheKey()))
                     throw new NovelProblem("TRANSLATION_POLICY_CHANGED", 409);
                 if (!store.reserveRepairCall(owner)) throw new NovelProblem("REPAIR_LEASE_LOST", 409);
                 return ai.repair(owner.traceId(), owner.id() + ":repair:0", targets, context, glossary.terms(), references,
-                        Math.min(300_000, remaining(deadline)), options.responseShape(), options.validationPolicy(), options.annotationPolicy());
+                        Math.min(300_000, remaining(deadline)), options.responseShape(), options.validationPolicy(), options.annotationPolicy(), job.targetLanguage());
             });
             var translated = call.get(Math.max(1, remaining(deadline)), TimeUnit.MILLISECONDS);
             telemetry.putAll(translated.timings()); telemetry.put("inputTokens", translated.inputTokens()); telemetry.put("outputTokens", translated.outputTokens());
@@ -205,7 +216,8 @@ public class NovelCommandService {
             telemetry.put("novelValidationMs", RequestTrace.elapsed(validationStarted));
             remember(job.cacheKey(), translated.items());
             if (remaining(deadline) <= 0 || !query.cacheKey(key, query.requireCurrentRevision(key, source.revision()), actor,
-                    store.glossary(key, actor).version()).equals(job.cacheKey())) throw new NovelProblem("REPAIR_LEASE_LOST", 409);
+                    store.glossary(key, actor, job.targetLanguage()).version(), query.resolve(source), job.targetLanguage())
+                    .equals(job.cacheKey())) throw new NovelProblem("REPAIR_LEASE_LOST", 409);
             long commit = System.nanoTime();
             if (store.mergeRepair(owner, translated.items(), Map.of(), translated.inputTokens(), translated.outputTokens())) forget(job.cacheKey(), translated.items().keySet());
             telemetry.put("commitMs", RequestTrace.elapsed(commit));
@@ -252,7 +264,7 @@ public class NovelCommandService {
             FutureTask<Void> running = runningJobs.get(jobId);
             if (running != null) running.cancel(true);
         }
-        return query.snapshot(key, source, cancelled, store.glossary(key, actorId).version());
+        return query.snapshot(key, source, cancelled, store.glossary(key, actorId, cancelled.targetLanguage()).version());
     }
 
     private void execute(NovelRepository.Job owner, SourceEpisode source, NovelRepository.Glossary glossary,
@@ -318,7 +330,7 @@ public class NovelCommandService {
                     }
                     var context = chunk.context().stream().map(SourceEpisode.Segment::plainJa).toList();
                     if (!ai.progressiveAEnabled()) return ai.translate(traceId, callId, batch, context,
-                            glossary.terms(), Math.min(300_000, remaining(deadline)), shape, validation, annotation);
+                            glossary.terms(), Math.min(300_000, remaining(deadline)), shape, validation, annotation, owner.targetLanguage());
                     return ai.translateProgressive(traceId, callId, batch, context, glossary.terms(),
                             Math.min(300_000, remaining(deadline)), shape, validation, annotation, (segment, text) -> {
                                 TranslationContentGuard.validate(List.of(segment), Map.of(segment.id(), text), validation);
@@ -338,7 +350,7 @@ public class NovelCommandService {
                                 }
                                 span.putIfAbsent("novelFirstSentenceMs", RequestTrace.elapsed(attemptStarted));
                                 progressivePublished.set(true);
-                            }, (segment, code) -> store.merge(owner, Map.of(), Map.of(segment.id(), code), 0, 0));
+                            }, (segment, code) -> store.merge(owner, Map.of(), Map.of(segment.id(), code), 0, 0), owner.targetLanguage());
                 });
                 NovelPorts.Translation translated = call.get(Math.max(1, remaining(deadline)), TimeUnit.MILLISECONDS);
 
@@ -401,7 +413,8 @@ public class NovelCommandService {
         String[] parts = owner.sourceKey().split(":", -1);
         var key = new EpisodeKey(parts[0], parts[1], parts[2]);
         var source = query.requireCurrentRevision(key, owner.revision());
-        if (!query.cacheKey(key, source, owner.actorId(), store.glossary(key, owner.actorId()).version()).equals(owner.cacheKey()))
+        if (!query.cacheKey(key, source, owner.actorId(), store.glossary(key, owner.actorId(), owner.targetLanguage()).version(),
+                query.resolve(source), owner.targetLanguage()).equals(owner.cacheKey()))
             throw new NovelProblem("TRANSLATION_POLICY_CHANGED", 409);
     }
 

@@ -14,7 +14,12 @@ public final class TranslationRequestFactory {
     public Prepared repair(List<SourceEpisode.Segment> items, List<String> context, Map<String,String> glossary,
                             List<Map<String,String>> acceptedReferences, TranslationOptions.ResponseShape shape,
                             TranslationOptions.AnnotationPolicy annotation) {
-        Prepared base = prepare(items, context, glossary, shape, annotation);
+        return repair(items, context, glossary, acceptedReferences, shape, annotation, "ko");
+    }
+    public Prepared repair(List<SourceEpisode.Segment> items, List<String> context, Map<String,String> glossary,
+                            List<Map<String,String>> acceptedReferences, TranslationOptions.ResponseShape shape,
+                            TranslationOptions.AnnotationPolicy annotation, String targetLanguage) {
+        Prepared base = prepare(items, context, glossary, shape, annotation, targetLanguage);
         if (acceptedReferences.size() > 12 || acceptedReferences.stream().flatMap(m -> m.values().stream()).mapToInt(String::length).sum() > 8000)
             throw new jp.co.translacat.novel.domain.NovelProblem("REPAIR_REFERENCE_LIMIT", 422);
         var data = new LinkedHashMap<>(base.data());
@@ -34,6 +39,11 @@ public final class TranslationRequestFactory {
     }
     public Prepared prepare(List<SourceEpisode.Segment> items, List<String> context, Map<String, String> glossary,
                             TranslationOptions.ResponseShape shape, TranslationOptions.AnnotationPolicy annotationPolicy) {
+        return prepare(items, context, glossary, shape, annotationPolicy, "ko");
+    }
+    public Prepared prepare(List<SourceEpisode.Segment> items, List<String> context, Map<String, String> glossary,
+                            TranslationOptions.ResponseShape shape, TranslationOptions.AnnotationPolicy annotationPolicy, String targetLanguage) {
+        String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
         CompactTranslationBatch batch = CompactTranslationBatch.of(items);
         // 참고 독음의 입력 팽창을 제한한다. 초과한 독음을 삭제해 유료 호출을 계속하지 않는다.
         if (annotationPolicy == TranslationOptions.AnnotationPolicy.SOURCE_RUBY_V1) {
@@ -46,8 +56,13 @@ public final class TranslationRequestFactory {
         // 원문과 annotation은 실행 지시가 아닌 JSON 데이터이며 기존 문맥 목록은 유지한다.
         data.put("items", batch.wireSegments().stream().map(segment -> item(segment, annotationPolicy)).toList());
         data.put("context", context);
-        String instructions = TranslationPolicy.INSTRUCTIONS;
-        String instructionVersion = TranslationPolicy.VERSION;
+        String instructions = TranslationPolicy.instructions(target);
+        String instructionVersion = TranslationPolicy.version(target);
+        // 기본 한국어 전송은 보존하고 영어 실행에는 명시 언어 정보도 원문 데이터와 함께 전달한다.
+        if ("en".equals(target)) {
+            data.put("sourceLanguage", "ja");
+            data.put("targetLanguage", target);
+        }
         // 실제 선택된 참고 정보만 일반 지침으로 설명하며 원문 값을 지시문에 삽입하지 않는다.
         if (!glossary.isEmpty()) {
             data.put("glossary", glossary);

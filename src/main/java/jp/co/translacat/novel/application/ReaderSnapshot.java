@@ -13,29 +13,37 @@ public record ReaderSnapshot(String revision, String segmentationVersion, Title 
                              String state, String jobId, long eventSequence, boolean durableComplete,
                              String policyVersion, String glossaryVersion, String traceId, String runTraceId,
                              String audioPolicyVersion, Progress progress, Map<String, Object> execution,
-                             Map<String, Object> timings, Recovery recovery, String initialAttemptState) {
+                             Map<String, Object> timings, Recovery recovery, String initialAttemptState, String targetLanguage) {
     public record Recovery(String repairId, String state, List<String> targetIds, List<String> committedIds,
                            String errorCode, String traceId, Map<String,Object> diagnostics) {}
     public record Progress(long sourceCodePoints, long completedSourceCodePoints, long contiguousPrefixCodePoints,
                            long totalTargetSegments, long completedTargetSegments) {}
-    public record Title(String rawJa, String ja, String ko) {}
+    public record Title(String rawJa, String ja, String ko, String translatedText) {
+        public Title(String rawJa, String ja, String ko) { this(rawJa, ja, ko, ko); }
+    }
     public record Pager(String prevEpisodeId, String nextEpisodeId, String indexUrl,
                         String prevIdentifier, String nextIdentifier, String listIdentifier) {}
     public record Segment(String id, String paragraphId, int order, int paragraphIndex,
                           int startOffset, int endOffset, String rawJa, String plainJa,
-                          String ko, String status, String errorCode, List<SourceEpisode.RubyToken> rubyTokens) {}
+                          String ko, String status, String errorCode, List<SourceEpisode.RubyToken> rubyTokens, String translatedText) {}
 
     public static ReaderSnapshot of(EpisodeKey key, SourceEpisode source, NovelRepository.Job job) {
         return of(key, source, job, jp.co.translacat.novel.domain.TranslationPolicy.GLOSSARY_VERSION);
     }
 
     public static ReaderSnapshot of(EpisodeKey key, SourceEpisode source, NovelRepository.Job job, String glossaryVersion) {
+        return of(key, source, job, glossaryVersion, job == null ? "ko" : job.targetLanguage());
+    }
+
+    public static ReaderSnapshot of(EpisodeKey key, SourceEpisode source, NovelRepository.Job job, String glossaryVersion, String targetLanguage) {
+        String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
+        if (job != null && !target.equals(job.targetLanguage())) throw new jp.co.translacat.novel.domain.NovelProblem("TRANSLATION_TARGET_MISMATCH", 409);
         List<Segment> segments = source.segments().stream().map(segment -> {
             String translated = jp.co.translacat.novel.domain.SourceText.isBlank(segment.plainJa()) ? "" : job == null ? null : job.results().get(segment.id());
             String error = job == null ? null : job.errors().get(segment.id());
             return new Segment(segment.id(), segment.paragraphId(), segment.order(), segment.paragraphIndex(),
-                    segment.startOffset(), segment.endOffset(), segment.rawJa(), segment.plainJa(), translated,
-                    translated != null ? "SUCCEEDED" : error != null ? "FAILED" : "PENDING", error, segment.rubyTokens());
+                    segment.startOffset(), segment.endOffset(), segment.rawJa(), segment.plainJa(), "ko".equals(target) ? translated : null,
+                    translated != null ? "SUCCEEDED" : error != null ? "FAILED" : "PENDING", error, segment.rubyTokens(), translated);
         }).toList();
         return new ReaderSnapshot(source.revision(), source.segmentationVersion(),
                 new Title(source.title(), source.title(), null),
@@ -44,8 +52,8 @@ public record ReaderSnapshot(String revision, String segmentationVersion, Title 
                 segments.stream().filter(segment -> segment.status().equals("SUCCEEDED")).count(),
                 job == null ? "SOURCE_READY" : job.state(), job == null ? null : job.id(),
                 job == null ? 0 : job.eventSequence(), job != null && job.state().equals("SUCCEEDED"),
-                jp.co.translacat.novel.domain.TranslationPolicy.VERSION, glossaryVersion,
-                null, null, NovelAudioService.POLICY_VERSION, progress(segments), Map.of(), Map.of(), null, job == null ? null : job.state());
+                jp.co.translacat.novel.domain.TranslationPolicy.version(target), glossaryVersion,
+                null, null, NovelAudioService.POLICY_VERSION, progress(segments), Map.of(), Map.of(), null, job == null ? null : job.state(), target);
     }
 
     private static Progress progress(List<Segment> segments) {
@@ -68,7 +76,7 @@ public record ReaderSnapshot(String revision, String segmentationVersion, Title 
         String run = diagnostics.get("traceId") instanceof String value ? value : null;
         return new ReaderSnapshot(revision, segmentationVersion, title, pagerInfo, segments, totalSegments,
                 completedSegments, state, jobId, eventSequence, durableComplete, policyVersion, glossaryVersion,
-                traceId, run, audioPolicyVersion, progress, diagnostics, timings, recovery, initialAttemptState);
+                traceId, run, audioPolicyVersion, progress, diagnostics, timings, recovery, initialAttemptState, targetLanguage);
     }
 
     public ReaderSnapshot observed() {
@@ -76,13 +84,13 @@ public record ReaderSnapshot(String revision, String segmentationVersion, Title 
         return new ReaderSnapshot(revision, segmentationVersion, title, pagerInfo, segments, totalSegments,
                 completedSegments, state, jobId, eventSequence, durableComplete, policyVersion, glossaryVersion,
                 current == null ? null : current.id(), runTraceId, audioPolicyVersion, progress, execution,
-                current == null ? Map.of() : current.snapshot(), recovery, initialAttemptState);
+                current == null ? Map.of() : current.snapshot(), recovery, initialAttemptState, targetLanguage);
     }
 
     public ReaderSnapshot withAudioPolicy(String value) {
         return new ReaderSnapshot(revision, segmentationVersion, title, pagerInfo, segments, totalSegments,
                 completedSegments, state, jobId, eventSequence, durableComplete, policyVersion, glossaryVersion,
-                traceId, runTraceId, value, progress, execution, timings, recovery, initialAttemptState);
+                traceId, runTraceId, value, progress, execution, timings, recovery, initialAttemptState, targetLanguage);
     }
 
     public ReaderSnapshot withRuby(NovelRubyFormatter ruby) {
@@ -90,12 +98,12 @@ public record ReaderSnapshot(String revision, String segmentationVersion, Title 
         List<Segment> displayed = segments.stream().map(segment -> new Segment(
                 segment.id(), segment.paragraphId(), segment.order(), segment.paragraphIndex(),
                 segment.startOffset(), segment.endOffset(), segment.rawJa(), segment.plainJa(), segment.ko(),
-                segment.status(), segment.errorCode(), ruby.tokens(segment.plainJa(), segment.rubyTokens()))).toList();
+                segment.status(), segment.errorCode(), ruby.tokens(segment.plainJa(), segment.rubyTokens()), segment.translatedText())).toList();
         return new ReaderSnapshot(revision, segmentationVersion,
-                new Title(title.rawJa(), ruby.markup(title.rawJa()), title.ko()), pagerInfo,
+                new Title(title.rawJa(), ruby.markup(title.rawJa()), title.ko(), title.translatedText()), pagerInfo,
                 displayed, totalSegments, completedSegments, state, jobId, eventSequence, durableComplete,
                 policyVersion, glossaryVersion, traceId, runTraceId, audioPolicyVersion, progress,
-                execution, timings, recovery, initialAttemptState);
+                execution, timings, recovery, initialAttemptState, targetLanguage);
     }
 
     public ReaderSnapshot withRecovery(NovelRepository.Repair repair, String initial, Map<String,Object> diagnostics) {
@@ -104,6 +112,6 @@ public record ReaderSnapshot(String revision, String segmentationVersion, Title 
                 repair.errors().values().stream().findFirst().orElse(null), repair.traceId(), diagnostics);
         return new ReaderSnapshot(revision, segmentationVersion, title, pagerInfo, segments, totalSegments,
                 completedSegments, state, jobId, eventSequence, durableComplete, policyVersion, glossaryVersion,
-                traceId, runTraceId, audioPolicyVersion, progress, execution, timings, value, initial);
+                traceId, runTraceId, audioPolicyVersion, progress, execution, timings, value, initial, targetLanguage);
     }
 }

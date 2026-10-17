@@ -31,6 +31,9 @@ public class NovelEmbeddedService {
     public JsonNode reader(long actor, NovelReaderAddress address) {
         return call(() -> reader.reader(key(address), actor).observed());
     }
+    public JsonNode reader(long actor, NovelReaderAddress address, String targetLanguage) {
+        return call(() -> reader.reader(key(address), actor, targetLanguage).observed());
+    }
 
     public JsonNode status(long actor, NovelReaderAddress address, String jobId) {
         return call(() -> reader.status(key(address), actor, jobId).observed());
@@ -38,8 +41,9 @@ public class NovelEmbeddedService {
 
     public JsonNode start(long actor, NovelReaderAddress address,
                           NovelReaderCommandService.TranslationStart request) {
-        return call(() -> reader.start(key(address), actor, request.revision(),
-                request.idempotencyKey(), request.retryFailed()).observed());
+        return call(() -> ("ko".equals(request.targetLanguage())
+                ? reader.start(key(address), actor, request.revision(), request.idempotencyKey(), request.retryFailed())
+                : reader.start(key(address), actor, request.revision(), request.idempotencyKey(), request.retryFailed(), request.targetLanguage())).observed());
     }
 
     public JsonNode repair(long actor, NovelReaderAddress address, String jobId,
@@ -55,17 +59,22 @@ public class NovelEmbeddedService {
     public JsonNode glossary(long actor, NovelReaderAddress address) {
         return call(() -> reader.glossary(key(address), actor));
     }
+    public JsonNode glossary(long actor, NovelReaderAddress address, String targetLanguage) {
+        return call(() -> reader.glossary(key(address), actor, targetLanguage));
+    }
 
     public JsonNode glossary(long actor, NovelReaderAddress address,
                              NovelReaderCommandService.GlossaryUpdate request) {
-        return call(() -> reader.glossary(key(address), actor,
-                request.expectedVersion(), request.terms()));
+        return call(() -> "ko".equals(request.targetLanguage())
+                ? reader.glossary(key(address), actor, request.expectedVersion(), request.terms())
+                : reader.glossary(key(address), actor, request.expectedVersion(), request.terms(), request.targetLanguage()));
     }
 
     public JsonNode audio(long actor, NovelReaderAddress address,
                           NovelReaderCommandService.AudioRequest request) {
-        return call(() -> reader.audio(key(address), actor, request.revision(), request.segmentId(),
-                request.language(), request.partIndex() == null ? 0 : request.partIndex()));
+        return call(() -> "ko".equals(request.targetLanguage())
+                ? reader.audio(key(address), actor, request.revision(), request.segmentId(), request.language(), request.partIndex() == null ? 0 : request.partIndex())
+                : reader.audio(key(address), actor, request.revision(), request.segmentId(), request.language(), request.partIndex() == null ? 0 : request.partIndex(), request.targetLanguage()));
     }
 
     public JsonNode catalogStart(long actor, String platform, NovelCatalogRequest request,

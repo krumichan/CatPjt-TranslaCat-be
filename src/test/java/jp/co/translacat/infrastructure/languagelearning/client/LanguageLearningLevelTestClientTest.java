@@ -84,4 +84,32 @@ class LanguageLearningLevelTestClientTest {
         assertEquals("audio/wav", result.contentType());
         server.verify();
     }
+
+    @Test
+    void historyPreservesLanguagePairsAndAcceptsOlderHistoryWithoutTags() {
+        // 준비: 완료 원본의 영어 언어쌍과 이전 nullable 메타데이터 계약을 함께 검증한다.
+        String legacy = """
+                {"sessionId":1,"sessionType":"INITIAL","overallScore":80,"proficiencyBand":"ADVANCED",
+                 "domainScores":null,"completedAt":"2026-10-16T01:00:00"}
+                """;
+        String tagged = legacy.strip();
+        tagged = tagged.substring(0, tagged.length() - 1) + ",\"originLanguage\":\"ko\",\"learningLanguage\":\"en\"}";
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/level-test/history"))
+                .andRespond(withSuccess("[" + tagged + "]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/level-test/history"))
+                .andRespond(withSuccess("[" + legacy + "]", MediaType.APPLICATION_JSON));
+        var client = client();
+
+        // 실행
+        var current = client.history(123L).getFirst();
+        var older = client.history(123L).getFirst();
+
+        // 검증
+        assertEquals("ko", current.originLanguage());
+        assertEquals("en", current.learningLanguage());
+        assertNull(older.originLanguage());
+        assertNull(older.learningLanguage());
+        assertEquals(80, older.overallScore());
+        server.verify();
+    }
 }

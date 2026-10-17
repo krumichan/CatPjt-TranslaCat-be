@@ -71,21 +71,31 @@ public class RecentViewService {
     public boolean save(RecentViewSaveRequestDto requestDto) {
         this.save(requestDto.getPlatformCode(), requestDto.getType(),
                 requestDto.getNovelId(), requestDto.getEpisodeId(),
-                requestDto.getTitle(), requestDto.getTitleJa(), requestDto.getTitleKo());
+                requestDto.getTitle(), requestDto.getTitleJa(), requestDto.getTitleKo(),
+                requestDto.getTitleEn(), requestDto.getTargetLanguage());
         return true;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void save(PlatformCode platformCode, RecentViewType recentViewType,
                      String novelId, String episodeId, String title, String titleJa, String titleKo) {
+        save(platformCode, recentViewType, novelId, episodeId, title, titleJa, titleKo, null, "ko");
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void save(PlatformCode platformCode, RecentViewType recentViewType,
+                     String novelId, String episodeId, String title, String titleJa, String titleKo,
+                     String titleEn, String targetLanguage) {
+        // 언어는 마지막 방문 정보다. 기존 사용자·책·에피소드 소유권과 조회 키는 유지한다.
+        String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
         User user = userService.findByEmail(SecurityUtil.getUsername());
         Platform platform = platformService.getPlatformByCode(platformCode);
 
         this.findBy(user.getId(), platform.getId(), recentViewType, novelId, episodeId)
                 .ifPresentOrElse(
-                        recentView -> recentView.update(title, titleJa, titleKo),
+                        recentView -> recentView.update(title, titleJa, titleKo, titleEn, target),
                         () -> recentViewRepository.save(RecentView.create(
-                                user, platform, recentViewType, novelId, episodeId, title, titleJa, titleKo
+                                user, platform, recentViewType, novelId, episodeId, title, titleJa, titleKo, titleEn, target
                         ))
                 );
     }

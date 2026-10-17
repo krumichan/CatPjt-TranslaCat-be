@@ -10,7 +10,7 @@ public final class CatalogModels {
     public record Selector(String kind, String period, String genreId, String keyword, int page, String language) {
         public Selector {
             if (!("RANKING".equals(kind) || "SEARCH".equals(kind)) || page < 1 || page > 10000
-                    || !("ja".equals(language) || "ko".equals(language))) invalid();
+                    || !java.util.Set.of("ja", "ko", "en").contains(language == null ? "" : language)) invalid();
             // 공개 장르 식별자(_201 등)는 DB와 화면 selector에서도 같은 값으로 유지한다.
             if ("RANKING".equals(kind) && (period == null || !period.matches("[a-zA-Z]{1,20}")
                     || genreId == null || !genreId.matches("[A-Za-z0-9_]{1,20}"))) invalid();
@@ -46,7 +46,9 @@ public final class CatalogModels {
 
     public record Start(Selector selector, String idempotencyKey, SourcePage source) {}
     public record Retry(String idempotencyKey) {}
-    public record Text(String rawJa, String ja, String ko) {}
+    public record Text(String rawJa, String ja, String ko, String translatedText, String targetLanguage) {
+        public Text(String rawJa, String ja, String ko) { this(rawJa, ja, ko, ko, "ko"); }
+    }
     public record Item(String itemId, String identifier, int rank, int sourcePosition, String status,
                        Text title, Text author, Text synopsis, Text statusText, String genreText,
                        boolean isShortStory, long arrivalSequence, String errorCode, boolean cached) {}

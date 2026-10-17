@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS novel_translation_job (
     provider_calls INT NOT NULL,
     input_tokens BIGINT NOT NULL,
     output_tokens BIGINT NOT NULL,
-    updated_at BIGINT NOT NULL
+    updated_at BIGINT NOT NULL,
+    target_language VARCHAR(2) NOT NULL DEFAULT 'ko'
 );
 CREATE TABLE IF NOT EXISTS novel_idempotency (
     actor_id BIGINT NOT NULL,
@@ -58,7 +59,8 @@ CREATE TABLE IF NOT EXISTS novel_glossary (
     actor_id BIGINT NOT NULL,
     glossary_version VARCHAR(80) NOT NULL,
     terms_json CLOB NOT NULL,
-    PRIMARY KEY (work_key, actor_id)
+    target_language VARCHAR(2) NOT NULL DEFAULT 'ko',
+    PRIMARY KEY (work_key, actor_id, target_language)
 );
 
 CREATE TABLE IF NOT EXISTS novel_initial_attempt (

@@ -25,8 +25,9 @@ public class LanguageLearningLevelTestFacade {
     private final LevelTestBaselineBridge baselineBridge;
 
     public LevelStatusResponseDto getStatus(Long userId) {
-        var state = baselineBridge.synchronize(userId);
+        // LL 상태 조회가 익일 예약 언어를 승격한 뒤 같은 현재 언어의 성장 상태를 읽는다.
         var value = gateway.status(userId);
+        var state = baselineBridge.synchronize(userId);
         return new LevelStatusResponseDto(state == null ? value.profileState() : state,
                 value.initialLevelTestCompleted(), value.recheckRecommended(), value.activeSessionId(),
                 value.currentQuestionNumber(), value.baseLevelScore(), value.proficiencyBand());
@@ -46,9 +47,9 @@ public class LanguageLearningLevelTestFacade {
 
     public LevelAnswerResultResponseDto submit(Long userId, Long sessionId, Long itemId,
                                                LevelAnswerRequestDto request) {
-        var value = gateway.submit(userId, sessionId, itemId, request);
-        if (value.completed()) baselineBridge.requireCompleted(userId);
-        return value;
+        // LL이 소유 세션의 완료와 생성 당시 언어 기준점 저장을 함께 확정한다.
+        // 현재 언어의 기준점 유무를 옛 세션의 완료 후조건으로 다시 사용하지 않는다.
+        return gateway.submit(userId, sessionId, itemId, request);
     }
 
     public LevelAudioAnswerResultResponseDto submitAudio(Long userId, Long sessionId, Long itemId, MultipartFile audio,
@@ -64,26 +65,22 @@ public class LanguageLearningLevelTestFacade {
                     LanguageLearningErrorCode.LEVEL_TEST_AUDIO_INVALID);
         }
         try {
-            var value = gateway.submitAudio(userId, sessionId, itemId, audio.getBytes(),
+            // 텍스트 제출과 같이 LL의 해당 세션 완료 계약을 그대로 보존한다.
+            return gateway.submitAudio(userId, sessionId, itemId, audio.getBytes(),
                     audio.getContentType() == null ? "application/octet-stream" : audio.getContentType(), durationMs,
                     key);
-            if (value.completed()) baselineBridge.requireCompleted(userId);
-            return value;
         } catch (IOException error) {
             throw new BusinessException("녹음을 읽을 수 없습니다.", LanguageLearningErrorCode.LEVEL_TEST_AUDIO_INVALID);
         }
     }
 
     public LevelAnswerResultResponseDto retryEvaluation(Long userId, Long sessionId, Long itemId) {
-        var value = gateway.retry(userId, sessionId, itemId);
-        if (value.completed()) baselineBridge.requireCompleted(userId);
-        return value;
+        return gateway.retry(userId, sessionId, itemId);
     }
 
     public LevelTestResultResponseDto getResult(Long userId, Long sessionId) {
-        var value = gateway.result(userId, sessionId);
-        baselineBridge.requireCompleted(userId);
-        return value;
+        // LL은 이 ID의 소유권과 COMPLETED 상태를 검사한다. 새 학습 언어의 INITIAL 상태와 독립된 옛 결과다.
+        return gateway.result(userId, sessionId);
     }
 
     public List<LevelTestHistoryItemResponseDto> getHistory(Long userId) {

@@ -71,6 +71,36 @@ public final class NovelPorts {
                 jp.co.translacat.novel.domain.TranslationOptions.AnnotationPolicy annotation) {
             return translate(traceId, callId, items, context, glossary, remainingMillis, shape, validation, annotation);
         }
+        default Translation translate(String traceId, String callId, List<SourceEpisode.Segment> items,
+                List<String> context, Map<String,String> glossary, long remainingMillis,
+                jp.co.translacat.novel.domain.TranslationOptions.ResponseShape shape,
+                jp.co.translacat.novel.domain.TranslationOptions.ValidationPolicy validation,
+                jp.co.translacat.novel.domain.TranslationOptions.AnnotationPolicy annotation, String targetLanguage) {
+            requireLegacyTarget(targetLanguage);
+            return translate(traceId, callId, items, context, glossary, remainingMillis, shape, validation, annotation);
+        }
+        default Translation repair(String traceId, String callId, List<SourceEpisode.Segment> items,
+                List<String> context, Map<String,String> glossary, List<Map<String,String>> acceptedReferences,
+                long remainingMillis, jp.co.translacat.novel.domain.TranslationOptions.ResponseShape shape,
+                jp.co.translacat.novel.domain.TranslationOptions.ValidationPolicy validation,
+                jp.co.translacat.novel.domain.TranslationOptions.AnnotationPolicy annotation, String targetLanguage) {
+            requireLegacyTarget(targetLanguage);
+            return repair(traceId, callId, items, context, glossary, acceptedReferences, remainingMillis, shape, validation, annotation);
+        }
+        default Translation translateProgressive(String traceId, String callId, List<SourceEpisode.Segment> items,
+                List<String> context, Map<String,String> glossary, long remainingMillis,
+                jp.co.translacat.novel.domain.TranslationOptions.ResponseShape shape,
+                jp.co.translacat.novel.domain.TranslationOptions.ValidationPolicy validation,
+                jp.co.translacat.novel.domain.TranslationOptions.AnnotationPolicy annotation,
+                java.util.function.BiConsumer<SourceEpisode.Segment,String> onSentence,
+                java.util.function.BiConsumer<SourceEpisode.Segment,String> onFailure, String targetLanguage) {
+            requireLegacyTarget(targetLanguage);
+            return translateProgressive(traceId, callId, items, context, glossary, remainingMillis, shape, validation, annotation, onSentence, onFailure);
+        }
+        private static void requireLegacyTarget(String targetLanguage) {
+            if (!"ko".equals(jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage)))
+                throw new jp.co.translacat.novel.domain.NovelProblem("AI_TARGET_LANGUAGE_UNSUPPORTED", 503);
+        }
         Speech synthesize(String requestId, String text, String language, long remainingMillis);
         default Speech synthesize(String traceId, String callId, String text, String language, long remainingMillis) {
             return synthesize(callId, text, language, remainingMillis);

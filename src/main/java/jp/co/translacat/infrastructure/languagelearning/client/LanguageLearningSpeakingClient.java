@@ -124,7 +124,7 @@ public class LanguageLearningSpeakingClient implements SpeakingGateway {
             if (!json.readTree(bytes).isNull()) throw contractFailure();
             return null;
         }
-        T value = json.readValue(bytes, type);
+        T value = HistoryLanguageMetadata.readValue(json, bytes, type);
         if (value == null && !optional) throw contractFailure();
         return value;
     }

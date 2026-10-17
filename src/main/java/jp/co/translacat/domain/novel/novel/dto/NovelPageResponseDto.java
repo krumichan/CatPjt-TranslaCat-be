@@ -10,5 +10,10 @@ public record NovelPageResponseDto(
         TranslationUnit title,
         TranslationUnit author,
         TranslationUnit synopsis,
-        List<NovelResponseDto> episodes) {
+        List<NovelResponseDto> episodes,
+        boolean isShortStory) {
+    public NovelPageResponseDto(PageNumberResponseDto pageInfo, TranslationUnit title, TranslationUnit author,
+                                TranslationUnit synopsis, List<NovelResponseDto> episodes) {
+        this(pageInfo, title, author, synopsis, episodes, false);
+    }
 }

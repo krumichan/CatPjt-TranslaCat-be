@@ -9,11 +9,21 @@ import java.util.Optional;
 /** 소설 저장 port. JDBC/DB transaction 구현은 infrastructure가 소유한다. */
 public interface NovelRepository {
     record StoredSource(SourceEpisode source, long fetchedAt) {}
-    record Glossary(String version, Map<String, String> terms) {}
+    record Glossary(String version, Map<String, String> terms, String targetLanguage) {
+        public Glossary(String version, Map<String, String> terms) { this(version, terms, "ko"); }
+    }
     record Job(String cacheKey, String id, String sourceKey, String revision, long actorId,
                String state, Map<String, String> results, Map<String, String> errors,
                String owner, long fence, long leaseUntil, long eventSequence,
-               int providerCalls, long inputTokens, long outputTokens) {}
+               int providerCalls, long inputTokens, long outputTokens, String targetLanguage) {
+        public Job(String cacheKey, String id, String sourceKey, String revision, long actorId,
+                   String state, Map<String, String> results, Map<String, String> errors,
+                   String owner, long fence, long leaseUntil, long eventSequence,
+                   int providerCalls, long inputTokens, long outputTokens) {
+            this(cacheKey, id, sourceKey, revision, actorId, state, results, errors, owner, fence, leaseUntil,
+                    eventSequence, providerCalls, inputTokens, outputTokens, "ko");
+        }
+    }
     record Repair(String id, String cacheKey, String state, java.util.List<String> targetIds,
                   Map<String,String> results, Map<String,String> errors, String owner, long fence,
                   long leaseUntil, String traceId) {}
@@ -23,6 +33,11 @@ public interface NovelRepository {
     SourceEpisode revision(EpisodeKey key, String revision);
     SourceEpisode saveSource(EpisodeKey key, SourceEpisode source, long fetchedAt);
     Job create(EpisodeKey key, SourceEpisode source, long actorId, String cacheKey, String requestKey);
+    default Job create(EpisodeKey key, SourceEpisode source, long actorId, String cacheKey, String requestKey, String targetLanguage) {
+        if (!"ko".equals(jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage)))
+            throw new UnsupportedOperationException("Target-aware repository required");
+        return create(key, source, actorId, cacheKey, requestKey);
+    }
     Optional<Job> byCache(String cacheKey);
     Job byId(EpisodeKey key, String id, long actorId);
     Optional<Job> claim(String cacheKey, boolean retry, long leaseMillis);
@@ -37,6 +52,16 @@ public interface NovelRepository {
     Job expireAbandoned(Job job, SourceEpisode source);
     Glossary glossary(EpisodeKey key, long actorId);
     Glossary saveGlossary(EpisodeKey key, long actorId, String expectedVersion, Map<String, String> terms);
+    default Glossary glossary(EpisodeKey key, long actorId, String targetLanguage) {
+        if (!"ko".equals(jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage)))
+            throw new UnsupportedOperationException("Target-aware repository required");
+        return glossary(key, actorId);
+    }
+    default Glossary saveGlossary(EpisodeKey key, long actorId, String expectedVersion, Map<String, String> terms, String targetLanguage) {
+        if (!"ko".equals(jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage)))
+            throw new UnsupportedOperationException("Target-aware repository required");
+        return saveGlossary(key, actorId, expectedVersion, terms);
+    }
     Map<String, Object> diagnostics(Job job);
     boolean saveDiagnostics(Job owner, Map<String, Object> diagnostics);
     Job cancel(EpisodeKey key, String jobId, long actorId, SourceEpisode source);

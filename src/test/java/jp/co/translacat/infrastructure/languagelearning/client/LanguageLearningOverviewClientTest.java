@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import jp.co.translacat.domain.languagelearning.dashboard.dto.response.StreakResponseDto;
 import jp.co.translacat.domain.languagelearning.history.dto.response.LearningHistoryDetailResponseDto;
+import jp.co.translacat.domain.languagelearning.history.dto.response.LearningHistoryItemResponseDto;
 import jp.co.translacat.infrastructure.languagelearning.client.config.LanguageLearningClientProperties;
 import jp.co.translacat.infrastructure.languagelearning.client.security.LanguageLearningInternalJwtProvider;
 import org.junit.jupiter.api.Test;
@@ -126,6 +127,34 @@ class LanguageLearningOverviewClientTest {
         assertEquals("DASHBOARD_SOURCE_INVALID", business.getErrorCode());
         assertEquals(HttpStatus.BAD_REQUEST, business.getStatus());
         assertEquals("LL_OVERVIEW_CONTRACT_ERROR", invalid.getErrorCode());
+        server.verify();
+    }
+
+    @Test
+    void 이력의_원본_언어를_보존하고_이전_LL의_누락_언어만_null로_보완한다() {
+        // 준비: 새 응답과 순차 배포 중 이전 응답의 필수 이력 필드는 동일하다.
+        String legacy = """
+                {"activityId":"WRITING:-1","source":"WRITING","learningDate":"2026-10-16",
+                 "title":"Daily Writing","topic":"FREE","durationSeconds":0,"overallScore":80.0,
+                 "completionStatus":"COMPLETED","evaluationStatus":"SUCCESS"}
+                """;
+        String tagged = legacy.strip().replace("}\n", "}");
+        tagged = tagged.substring(0, tagged.length() - 1) + ",\"originLanguage\":\"ko\",\"learningLanguage\":\"en\"}";
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/overview/history"))
+                .andRespond(withSuccess("[" + tagged + "]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/overview/history"))
+                .andRespond(withSuccess("[" + legacy + "]", MediaType.APPLICATION_JSON));
+
+        // 실행
+        var current = client.list(101L, "/history", Map.of(), LearningHistoryItemResponseDto.class).getFirst();
+        var older = client.list(101L, "/history", Map.of(), LearningHistoryItemResponseDto.class).getFirst();
+
+        // 검증: 표시 언어·현재 설정으로 과거 언어를 추정하지 않는다.
+        assertEquals("ko", current.originLanguage());
+        assertEquals("en", current.learningLanguage());
+        assertNull(older.originLanguage());
+        assertNull(older.learningLanguage());
+        assertEquals("WRITING:-1", older.activityId());
         server.verify();
     }
 }

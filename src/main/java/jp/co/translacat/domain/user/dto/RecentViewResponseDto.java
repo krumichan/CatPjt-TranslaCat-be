@@ -16,6 +16,8 @@ public class RecentViewResponseDto {
     private String novelId;
     private String episodeId;
     private TranslationUnit title;
+    private String titleEn;
+    private String targetLanguage;
     private LocalDateTime viewedAt;
 
     public static RecentViewResponseDto of(RecentView recentView) {
@@ -26,6 +28,8 @@ public class RecentViewResponseDto {
         response.novelId = recentView.getNovelId();
         response.episodeId = recentView.getEpisodeId();
         response.title = TranslationUnit.of(recentView.getTitle(), recentView.getTitleJa(), recentView.getTitleKo());
+        response.titleEn = recentView.getTitleEn();
+        response.targetLanguage = recentView.getTargetLanguage();
         response.viewedAt = recentView.getViewedAt();
         return response;
     }

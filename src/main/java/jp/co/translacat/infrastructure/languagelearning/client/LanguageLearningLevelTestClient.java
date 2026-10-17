@@ -154,7 +154,7 @@ public class LanguageLearningLevelTestClient {
                 if (bytes.length == 0 || bytes.length > MAX_BODY)
                     throw failure("LL_LEVEL_RESPONSE_INVALID", "레벨 테스트 응답 크기를 확인해 주세요.");
                 try {
-                    T value = json.readValue(bytes, type);
+                    T value = HistoryLanguageMetadata.readValue(json, bytes, type);
                     if (value == null) throw failure("LL_LEVEL_RESPONSE_INVALID", "레벨 테스트 응답이 비어 있습니다.");
                     return value;
                 } catch (IOException | IllegalArgumentException error) {

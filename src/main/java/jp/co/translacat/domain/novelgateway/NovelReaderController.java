@@ -16,8 +16,9 @@ public class NovelReaderController {
 
     @GetMapping("/reader")
     public ResponseEntity<ResponseDto<JsonNode>> reader(@PathVariable String platform, @PathVariable String novel,
-                                                       @PathVariable String episode) {
-        return success(facade.reader(new NovelReaderAddress(platform, novel, episode)));
+                                                       @PathVariable String episode, @RequestParam(required = false) String targetLanguage) {
+        var address = new NovelReaderAddress(platform, novel, episode);
+        return success(targetLanguage == null ? facade.reader(address) : facade.reader(address, targetLanguage));
     }
     @PostMapping("/translations")
     public ResponseEntity<ResponseDto<JsonNode>> start(@PathVariable String platform, @PathVariable String novel,
@@ -50,8 +51,9 @@ public class NovelReaderController {
 
     @GetMapping("/glossary")
     public ResponseEntity<ResponseDto<JsonNode>> glossary(@PathVariable String platform, @PathVariable String novel,
-            @PathVariable String episode) {
-        return success(facade.glossary(new NovelReaderAddress(platform, novel, episode)));
+            @PathVariable String episode, @RequestParam(required = false) String targetLanguage) {
+        var address = new NovelReaderAddress(platform, novel, episode);
+        return success(targetLanguage == null ? facade.glossary(address) : facade.glossary(address, targetLanguage));
     }
 
     @PostMapping("/glossary")

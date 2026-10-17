@@ -39,6 +39,12 @@ public interface NovelRepository {
         return create(key, source, actorId, cacheKey, requestKey);
     }
     Optional<Job> byCache(String cacheKey);
+    default Optional<Job> sharedCompleted(String identity) { return Optional.empty(); }
+    default java.util.List<Job> completedCandidates(EpisodeKey key, String revision, String target) { return java.util.List.of(); }
+    default void publishShared(String identity, Job candidate, SourceEpisode source) {}
+    default Job attachShared(String identity, Job job, SourceEpisode source) { return job; }
+    default Job attachShared(String identity, Job job, SourceEpisode source, boolean explicitResume) { return attachShared(identity, job, source); }
+    default Job syncShared(Job job, SourceEpisode source) { return job; }
     Job byId(EpisodeKey key, String id, long actorId);
     Optional<Job> claim(String cacheKey, boolean retry, long leaseMillis);
     boolean reserveCall(Job job);

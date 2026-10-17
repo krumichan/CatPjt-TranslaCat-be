@@ -216,7 +216,7 @@ class CatalogProgressionTest {
         assertThat(jdbc.queryForObject("SELECT attempt_count FROM novel_catalog_translation", Integer.class)).isEqualTo(1);
     }
 
-    @Test void commandReusesTranslationAcrossRankAndQueryButNotActorOrSourceChange() throws Exception {
+    @Test void commandReusesTranslationAcrossRankQueryAndActorButNotSourceChange() throws Exception {
         // 준비: 실제 service orchestration, 제어된 AI port.
         AtomicInteger calls = new AtomicInteger();
         CountDownLatch entered = new CountDownLatch(1);
@@ -255,15 +255,16 @@ class CatalogProgressionTest {
         commands.start(1, "syosetu", new CatalogModels.Start(selector("SEARCH", "ko", "다른검색"), "other-search", ranking.source()), "trace");
         assertThat(calls.get()).isEqualTo(1);
 
-        // 검증: 사용자와 원문이 달라지면 별도 identity로 번역한다.
+        // 검증: 다른 사용자도 같은 공개 번역을 재사용하고 변경된 원문만 새로 번역한다.
         String third = commands.start(2, "syosetu", ranking, "trace");
         awaitReady(2, third);
-        assertThat(calls.get()).isEqualTo(2);
+        assertThat(calls.get()).isEqualTo(1);
+        assertThat(store.snapshot(2, third).items().getFirst().cached()).isTrue();
         var changed = new CatalogModels.SourceCard("n1a", 1, 0, "新しい題", "著者", "物語1", "", "", false);
         String fourth = commands.start(1, "syosetu", new CatalogModels.Start(ranking.selector(), "changed",
                 new CatalogModels.SourcePage(List.of(changed), Map.of(), 0)), "trace");
         awaitReady(fourth);
-        assertThat(calls.get()).isEqualTo(3);
+        assertThat(calls.get()).isEqualTo(2);
     }
 
     private void awaitReady(String id) throws Exception { awaitReady(1, id); }

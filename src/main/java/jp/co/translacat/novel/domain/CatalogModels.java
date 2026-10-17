@@ -21,7 +21,7 @@ public final class CatalogModels {
     public record SourceCard(String identifier, int rank, int sourcePosition, String title, String author,
                              String synopsis, String statusText, String genreText, boolean isShortStory) {
         public SourceCard {
-            if (identifier == null || !identifier.matches("n[0-9]{1,8}[a-z]{1,4}")
+            if (identifier == null || !(identifier.matches("n[0-9]{1,8}[a-z]{1,4}") || EpisodeKey.numericId(identifier))
                     || rank < 0 || sourcePosition < 0 || sourcePosition > 49
                     || title == null || title.isBlank() || title.length() > 1000) invalid();
             author = bounded(author, 500);

@@ -64,6 +64,7 @@ public class NovelCommandService {
         // 중복 요청은 저장된 작업을 공유한다. 거절 우회와 누적 호출 상한 초과는 lease 전에 막는다.
         String cacheKey = query.cacheKey(key, source, actorId, glossary.version(), selection, target);
         NovelRepository.Job job = store.create(key, source, actorId, cacheKey, idempotencyKey, target);
+        job = query.share(key, source, actorId, glossary.version(), target, job, true);
         // A의 부분 prefix는 마지막 provider 응답 검증을 통과한 캐시가 아니다.
         // 미완료 suffix만 재요청하면 서로 다른 응답을 합쳐 전체 성공으로 승격할 수 있다.
         if (ai.progressiveAEnabled() && retry && "PARTIAL".equals(job.state()))
@@ -117,7 +118,7 @@ public class NovelCommandService {
                 throw exception;
             }
         });
-        return query.snapshot(key, source, store.byCache(cacheKey).orElseThrow(), glossary.version());
+        return query.snapshot(key, source, store.syncShared(store.byCache(cacheKey).orElseThrow(), source), glossary.version());
     }
 
     public NovelRepository.Glossary glossary(EpisodeKey key, long actorId, String expectedVersion, Map<String, String> terms) {

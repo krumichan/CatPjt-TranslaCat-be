@@ -48,8 +48,10 @@ public class NovelQueryService {
         long started = System.nanoTime();
         String cacheKey = cacheKey(key, source, actorId, glossaryVersion, resolve(source), target);
         NovelRepository.Job job = store.byCache(cacheKey).orElse(null);
+        job = share(key, source, actorId, glossaryVersion, target, job);
         if (job != null) {
             job = store.expireAbandoned(job, source);
+            job = store.syncShared(job, source);
         }
         RequestTrace.duration("dbCacheMs", started);
         return snapshot(key, source, job, glossaryVersion, target);
@@ -97,12 +99,14 @@ public class NovelQueryService {
         long started = System.nanoTime();
         NovelRepository.Job job = store.byId(key, jobId, actorId);
         SourceEpisode current = requireCurrentRevision(key, job.revision());
-        job = store.expireAbandoned(job, current);
         String glossaryVersion = store.glossary(key, actorId, job.targetLanguage()).version();
         String expectedCache = cacheKey(key, current, actorId, glossaryVersion, resolve(current), job.targetLanguage());
         if (!job.cacheKey().equals(expectedCache)) {
             throw new NovelProblem("TRANSLATION_POLICY_CHANGED", 409);
         }
+        job = share(key, current, actorId, glossaryVersion, job.targetLanguage(), job);
+        job = store.expireAbandoned(job, current);
+        job = store.syncShared(job, current);
         RequestTrace.duration("dbCacheMs", started);
         return snapshot(key, current, job, glossaryVersion);
     }
@@ -139,6 +143,38 @@ public class NovelQueryService {
         requireSegmentationPolicy(source);
         if (!source.revision().equals(selection.sourceRevision())) throw new NovelProblem("SOURCE_REVISION_CHANGED", 409);
         return new TranslationPolicy().cacheKey(key, source, actor, ai.model(), glossary, selection.options(), targetLanguage);
+    }
+
+    public NovelRepository.Job share(EpisodeKey key, SourceEpisode source, long actor, String glossary,
+                                    String target, NovelRepository.Job job) {
+        return share(key, source, actor, glossary, target, job, false);
+    }
+
+    public NovelRepository.Job share(EpisodeKey key, SourceEpisode source, long actor, String glossary,
+                                    String target, NovelRepository.Job job, boolean explicitResume) {
+        var selection = resolve(source);
+        var policy = new TranslationPolicy();
+        String identity = policy.sharedCacheKey(key, source, ai.model(), glossary, selection.options(), target);
+
+        // 과거 계정별 성공본도 저장 당시 키를 재계산해 정책·용어집이 정확히 같은 경우에만 연결한다.
+        NovelRepository.Job common = store.sharedCompleted(identity).orElse(null);
+        if (common == null) {
+            for (var candidate : store.completedCandidates(key, source.revision(), target)) {
+                String expected = policy.cacheKey(key, source, candidate.actorId(), ai.model(), glossary, selection.options(), target);
+                if (candidate.cacheKey().equals(expected)) {
+                    store.publishShared(identity, candidate, source);
+                    common = store.sharedCompleted(identity).orElse(null);
+                    if (common != null) break;
+                }
+            }
+        }
+
+        // 조회 자체는 AI를 시작하지 않는다. 완료본이 있을 때만 계정 소유의 조회용 작업을 만든다.
+        if (job == null && common != null) {
+            String actorKey = cacheKey(key, source, actor, glossary, selection, target);
+            job = store.create(key, source, actor, actorKey, "shared:" + identity, target);
+        }
+        return job == null ? null : store.attachShared(identity, job, source, explicitResume);
     }
     public jp.co.translacat.novel.domain.TranslationLengthPolicy.Resolution resolve(SourceEpisode source) {
         requireSegmentationPolicy(source);

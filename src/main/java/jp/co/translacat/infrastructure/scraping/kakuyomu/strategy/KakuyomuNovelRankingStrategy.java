@@ -7,8 +7,10 @@ import jp.co.translacat.domain.novel.ranking.novel.model.NovelRankingContext;
 import jp.co.translacat.infrastructure.client.legacy.LegacyApiClientFacade;
 import jp.co.translacat.infrastructure.scraping.common.strategy.NovelRankingStrategy;
 import jp.co.translacat.infrastructure.scraping.kakuyomu.enums.KakuyomuRankingPeriod;
+import jp.co.translacat.infrastructure.scraping.kakuyomu.KakuyomuUrls;
+import jp.co.translacat.infrastructure.scraping.kakuyomu.parser.KakuyomuParser;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
+import org.jsoup.Jsoup;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -18,6 +20,7 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class KakuyomuNovelRankingStrategy implements NovelRankingStrategy {
     private final LegacyApiClientFacade legacyApiClientFacade;
+    private final KakuyomuParser kakuyomuParser;
 
     @Override
     public PlatformCode getPlatformCode() {
@@ -33,19 +36,17 @@ public class KakuyomuNovelRankingStrategy implements NovelRankingStrategy {
 
     @Override
     public String getUrl(String pattern, Object... urlArgs) {
-        // TODO: 구현 필요.
-
-        return "";
+        Object[] args = urlArgs.clone();
+        String period = String.valueOf(args[0]);
+        args[0] = "entire".equalsIgnoreCase(period) ? "entire" : parsePeriod(period).getUrlParam();
+        return KakuyomuUrls.requirePublic(String.format(pattern, args)).toString();
     }
 
-    @SneakyThrows
     @Override
     public NovelRankingContext scrape(String url) {
-        String response = this.legacyApiClientFacade.get(url, String.class);
-
-        // TODO: 구현 필요.
-
-        return NovelRankingContext.builder().build();
+        String sourceUrl = KakuyomuUrls.requirePublic(url).toString();
+        String response = this.legacyApiClientFacade.get(sourceUrl, String.class);
+        return kakuyomuParser.parseNovelRanking(Jsoup.parse(response, sourceUrl));
     }
 
     private RankingPeriod parsePeriod(String periodCode) {

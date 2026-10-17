@@ -85,7 +85,9 @@ public class NovelAudioService {
         if ("ja".equals(language)) {
             text = segment.plainJa();
         } else if (java.util.Set.of("ko", "en").contains(language) && target.equals(language)) {
-            translationKey = query.cacheKey(key, source, actor, store.glossary(key, actor, target).version(), query.resolve(source), target);
+            String glossary = store.glossary(key, actor, target).version();
+            translationKey = query.cacheKey(key, source, actor, glossary, query.resolve(source), target);
+            query.share(key, source, actor, glossary, target, store.byCache(translationKey).orElse(null));
             String finalKey = translationKey;
             text = store.byCache(finalKey).map(job -> job.results().get(segmentId))
                     .orElseThrow(() -> new NovelProblem("TRANSLATION_NOT_READY", 409));

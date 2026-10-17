@@ -35,21 +35,24 @@ public class CatalogStore {
     public record Work(String cacheKey, long actor, String language, CatalogModels.SourceCard source,
                        Map<String, String> glossary, String owner, long fence, String traceId) {}
 
-    public Map<String, String> readyMetadata(long actor, String platform, String work, Map<String, String> raw, Map<String, String> glossary) {
-        Map<String, String> result = new java.util.LinkedHashMap<>();
-        // 조회는 저장된 영어만 재사용한다. 다른 actor/목표 언어/변경 원문/용어집의 값은 섞지 않는다.
-        jdbc.query("SELECT source_json,result_json,glossary_json FROM novel_catalog_translation "
-                + "WHERE actor_id=? AND platform=? AND work_id=? AND language='en' AND state='READY' ORDER BY updated_at DESC", row -> {
-            if (!strings(row.getString("glossary_json")).equals(glossary)) return;
-            var source = read(row.getString("source_json"), CatalogModels.SourceCard.class);
-            var translated = strings(row.getString("result_json"));
-            raw.forEach((field, value) -> {
-                if (java.util.Objects.equals(value, source.text().get(field)) && translated.get(field) != null)
-                    result.putIfAbsent(field, translated.get(field));
-            });
-        }, actor, platform, work);
-        return Map.copyOf(result);
+    public Map<String, String> readyMetadata(String platform, String work, Map<String, String> raw,
+                                              Map<String, String> glossary, String policy) {
+        // 상세 조회도 현재 정책·용어집·전체 요청 원문이 일치하는 완료 결과 하나만 공유한다.
+        // 서로 다른 원문 revision의 필드를 조합하거나 조회에서 새 유료 작업을 시작하지 않는다.
+        var saved = readyCandidates(platform, work, "en", policy, null);
+        for (Saved candidate : saved) {
+            if (!candidate.glossary().equals(glossary) || !validResult(candidate.source(), candidate.result())) continue;
+            boolean sameSource = raw.entrySet().stream()
+                    .allMatch(field -> java.util.Objects.equals(field.getValue(), candidate.source().text().get(field.getKey())));
+            if (sameSource) {
+                Map<String, String> result = new java.util.LinkedHashMap<>();
+                raw.keySet().forEach(field -> result.put(field, candidate.result().get(field)));
+                return Map.copyOf(result);
+            }
+        }
+        return Map.of();
     }
+    private record Saved(CatalogModels.SourceCard source, Map<String, String> glossary, Map<String, String> result) {}
     private record Page(String id, long actor, CatalogModels.Selector selector, CatalogModels.SourcePage source,
                         boolean cancelled, long sequence, String traceId, String selectorHash) {}
 
@@ -69,19 +72,29 @@ public class CatalogStore {
             transaction.executeWithoutResult(status -> {
                 jdbc.update("INSERT INTO novel_catalog_snapshot(snapshot_id,actor_id,platform,selector_hash,selector_json,source_json,request_key,cancelled,event_sequence,trace_id,created_at) VALUES(?,?,?,?,?,?,?,FALSE,0,?,?)",
                         id, actor, platform, selectorHash, json(selector), json(source), requestKey, traceId, System.currentTimeMillis());
+                if (selector.language().equals("ja")) {
+                    createOriginalItems(id, actor, platform, prepared, traceId);
+                    return;
+                }
                 for (Prepared item : prepared) {
                     var states = jdbc.query("SELECT state FROM novel_catalog_translation WHERE cache_key=?",
                             (row, index) -> row.getString(1), item.cacheKey());
                     boolean cached = !states.isEmpty() && "READY".equals(states.getFirst());
                     if (states.isEmpty()) {
                         boolean original = selector.language().equals("ja");
+                        // 기존 계정 전용 READY 행을 훼손하지 않고 공통 키에 같은 결과만 복사한다.
+                        Saved reusable = original ? null : reusable(platform, selector.language(), item);
+                        cached = reusable != null;
                         try {
                             jdbc.update("INSERT INTO novel_catalog_translation(cache_key,actor_id,platform,work_id,source_revision,language,policy_identity,source_json,glossary_json,state,result_json,trace_id,diagnostics_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                     item.cacheKey(), actor, platform, item.source().identifier(), item.revision(), selector.language(),
-                                    item.policy(), json(item.source()), json(item.glossary()), original ? "READY" : "PENDING",
-                                    json(original ? item.source().text() : Map.of()), traceId, "{}", System.currentTimeMillis());
+                                    item.policy(), json(item.source()), json(item.glossary()), original || reusable != null ? "READY" : "PENDING",
+                                    json(original ? item.source().text() : reusable == null ? Map.of() : reusable.result()), traceId,
+                                    reusable == null ? "{}" : json(Map.of("sharedCacheReuse", true)), System.currentTimeMillis());
                         } catch (DuplicateKeyException race) {
-                            // 다른 목록이 같은 작품을 먼저 등록했다. 동일 cache key만 연결한다.
+                            // 계정이 달라도 공통 PK와 DB claim을 사용해 provider 중복 실행을 막는다.
+                            cached = "READY".equals(jdbc.queryForObject("SELECT state FROM novel_catalog_translation WHERE cache_key=?",
+                                    String.class, item.cacheKey()));
                         }
                     }
                     jdbc.update("INSERT INTO novel_catalog_item(snapshot_id,item_id,cache_key,actual_rank,source_position,cached) VALUES(?,?,?,?,?,?)",
@@ -97,6 +110,74 @@ public class CatalogStore {
             return create(actor, platform, requestKey, selectorHash, selector, source, prepared, traceId);
         }
         return id;
+    }
+
+    private void createOriginalItems(String id, long actor, String platform, List<Prepared> prepared, String traceId) {
+        if (prepared.isEmpty()) return;
+
+        // 공개 원문의 공유 행은 한 번에 조회한다. 다른 언어 번역의 claim·완료 순서 경로는 변경하지 않는다.
+        Map<String, String> states = new java.util.HashMap<>();
+        String placeholders = String.join(",", java.util.Collections.nCopies(prepared.size(), "?"));
+        jdbc.query("SELECT cache_key,state FROM novel_catalog_translation WHERE cache_key IN (" + placeholders + ")",
+                row -> { states.put(row.getString("cache_key"), row.getString("state")); },
+                prepared.stream().map(Prepared::cacheKey).toArray());
+        List<Object[]> translations = new ArrayList<>();
+        long now = System.currentTimeMillis();
+        for (Prepared item : prepared) {
+            if (states.containsKey(item.cacheKey())) continue;
+            translations.add(new Object[]{item.cacheKey(), actor, platform, item.source().identifier(), item.revision(),
+                    "ja", item.policy(), json(item.source()), json(item.glossary()), "READY", json(item.source().text()),
+                    traceId, "{}", now});
+        }
+        if (!translations.isEmpty()) {
+            // 중복 삽입 경합은 외부 create의 트랜잭션 재시도로 처리하며 기존 행을 덮어쓰지 않는다.
+            jdbc.batchUpdate("INSERT INTO novel_catalog_translation(cache_key,actor_id,platform,work_id,source_revision,language,policy_identity,source_json,glossary_json,state,result_json,trace_id,diagnostics_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    translations);
+        }
+
+        // 원문은 처음부터 준비되어 있다. 새 snapshot의 도착 번호를 같은 순서로 한 번에 확정한다.
+        List<Object[]> items = new ArrayList<>();
+        long sequence = 0;
+        for (Prepared item : prepared) {
+            String state = states.getOrDefault(item.cacheKey(), "READY");
+            Long arrival = List.of("READY", "FAILED").contains(state) ? ++sequence : null;
+            items.add(new Object[]{id, item.source().identifier(), item.cacheKey(), item.source().rank(),
+                    item.source().sourcePosition(), arrival, "READY".equals(states.get(item.cacheKey()))});
+        }
+        jdbc.batchUpdate("INSERT INTO novel_catalog_item(snapshot_id,item_id,cache_key,actual_rank,source_position,arrival_sequence,cached) VALUES(?,?,?,?,?,?,?)", items);
+        jdbc.update("UPDATE novel_catalog_snapshot SET event_sequence=? WHERE snapshot_id=?", sequence, id);
+    }
+
+    private Saved reusable(String platform, String language, Prepared item) {
+        return readyCandidates(platform, item.source().identifier(), language, item.policy(), item.revision()).stream()
+                .filter(candidate -> candidate.glossary().equals(item.glossary())
+                        && candidate.source().text().equals(item.source().text())
+                        && validResult(candidate.source(), candidate.result()))
+                .findFirst().orElse(null);
+    }
+
+    private List<Saved> readyCandidates(String platform, String work, String language, String policy, String revision) {
+        // 기존 배포의 계정별 키도 같은 내용 검사를 거친다. actor는 번역 내용의 identity가 아니다.
+        String sql = "SELECT source_json,glossary_json,result_json FROM novel_catalog_translation "
+                + "WHERE platform=? AND work_id=? AND language=? AND policy_identity=? AND state='READY'"
+                + (revision == null ? "" : " AND source_revision=?") + " ORDER BY updated_at DESC";
+        List<Object> arguments = new ArrayList<>(List.of(platform, work, language, policy));
+        if (revision != null) arguments.add(revision);
+        return jdbc.query(sql, (row, index) -> {
+            try {
+                return new Saved(read(row.getString("source_json"), CatalogModels.SourceCard.class),
+                        strings(row.getString("glossary_json")), strings(row.getString("result_json")));
+            } catch (IllegalStateException invalidStoredValue) {
+                // 과거 직렬화 오류는 캐시에서 제외한다. DB 연결/권한 오류까지 miss로 삼지 않는다.
+                return null;
+            }
+        }, arguments.toArray()).stream().filter(java.util.Objects::nonNull).toList();
+    }
+
+    private boolean validResult(CatalogModels.SourceCard source, Map<String, String> result) {
+        if (!result.keySet().equals(source.text().keySet())) return false;
+        return source.text().entrySet().stream().allMatch(field -> result.get(field.getKey()) != null
+                && (field.getValue().isBlank() || !result.get(field.getKey()).isBlank()));
     }
 
     public List<String> pending(long actor, String snapshotId) {

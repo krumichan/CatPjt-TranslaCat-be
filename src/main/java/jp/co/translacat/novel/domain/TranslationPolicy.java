@@ -72,6 +72,15 @@ public final class TranslationPolicy {
                 model, Long.toString(actorId), options.fingerprint()));
     }
 
+    public String sharedCacheKey(EpisodeKey key, SourceEpisode source, String model, String glossaryVersion,
+                                 TranslationOptions options, String targetLanguage) {
+        String target = NovelTargetLanguage.normalize(targetLanguage);
+        // 계정별 작업 키는 유지하고, 같은 번역 입력의 결과/실행만 공통 identity로 연결한다.
+        return SentenceSegmenter.hash(String.join("|", "shared-translation-v1", key.value(), source.revision(),
+                source.segmentationVersion(), target, version(target), SCHEMA_VERSION, glossaryVersion,
+                model, options.fingerprint()));
+    }
+
     public Map<String, Object> schema(List<SourceEpisode.Segment> segments) {
         return Map.of("type", "object", "additionalProperties", false, "required", List.of("items"),
                 "properties", Map.of("items", Map.of("type", "array", "items", Map.of(

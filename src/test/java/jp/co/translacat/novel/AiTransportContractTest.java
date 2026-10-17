@@ -192,6 +192,73 @@ class AiTransportContractTest {
     }
 
     @Test
+    void tocReviewUsesTheSameProfileWithBoundedPatchOutputAndNoPaidRetry() throws Exception {
+        // 준비: 기존 profile의 모델/추론 설정과 작업 trace를 유지한다.
+        adapter.configureProfile(new jp.co.translacat.novel.infrastructure.ai.NovelAiProfile("verified-profile", "v1", "low", "default", 32768));
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("provider", "openai");
+        result.put("model", "expected-model");
+        result.put("providerCalls", 1);
+        result.put("profileId", "verified-profile");
+        result.put("profileVersion", "v1");
+        result.put("reasoningEffort", "low");
+        result.put("serviceTier", "default");
+        result.put("inputTokens", 100);
+        result.put("outputTokens", 50);
+        result.put("cachedInputTokens", 0);
+        result.put("reasoningTokens", 0);
+        result.put("metadata", Map.of());
+        result.put("output", Map.of("corrections", List.of(Map.of("id", "chapter-4", "translation", "아오야마 레이코의 방문",
+                "sourceTerm", "青山玲子", "referenceTranslation", "아오야마 레이코"))));
+        response = json.writeValueAsString(result);
+        var candidates = List.of(new jp.co.translacat.novel.application.NovelPorts.TitleCandidate("chapter-4", "青山玲子の訪問", "청산 레이코의 방문"));
+        var references = List.of(new jp.co.translacat.novel.application.NovelPorts.TitleReference("青山玲子は歩く。", "아오야마 레이코는 걷는다."));
+        String trace = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
+
+        // 실행
+        var review = adapter.reviewTitles(trace, "toc:0:1", candidates, references, Map.of(), 3000, "ko");
+
+        // 검증: 본문 maxOutputTokens 설정은 그대로 두고 교정 목록 요청만 작게 제한한다.
+        var request = json.readTree(body);
+        assertThat(requestedPath).isEqualTo("/internal/v1/model/execute-profile");
+        assertThat(traceHeader).isEqualTo(trace);
+        assertThat(request.path("profileId").asText()).isEqualTo("verified-profile");
+        assertThat(request.path("maxOutputTokens").asInt()).isEqualTo(8192);
+        assertThat(adapter.maxOutputTokens()).isEqualTo(32768);
+        assertThat(request.path("maxProviderCalls").asInt()).isEqualTo(1);
+        assertThat(request.path("strict").asBoolean()).isTrue();
+        assertThat(review.corrections()).containsEntry("chapter-4", "아오야마 레이코의 방문");
+        assertThat(requests.get()).isEqualTo(1);
+
+        // 실행 및 검증: 신규 제목도 같은 문맥으로 생성하고 제목 전용 출력 한도를 사용한다.
+        String raw = "青山玲子の訪問";
+        var title = new SourceEpisode.Segment("chapter-4", "toc", 4, 0, 0, raw.length(), raw, raw);
+        result.put("output", Map.of("items", List.of(Map.of("id", "s0", "text", "아오야마 레이코의 방문"))));
+        response = json.writeValueAsString(result);
+        var generated = adapter.translateTitles(trace, "toc:generate:1", List.of(title), List.of(references.getFirst().source()),
+                Map.of(), List.of(Map.of("source", references.getFirst().source(), "translation", references.getFirst().translation())),
+                3000, jp.co.translacat.novel.domain.TranslationOptions.ResponseShape.ARRAY_V2,
+                jp.co.translacat.novel.domain.TranslationOptions.ValidationPolicy.MINIMUM_LETTER_DIGIT_V2,
+                jp.co.translacat.novel.domain.TranslationOptions.AnnotationPolicy.NONE, "ko");
+        var generatedRequest = json.readTree(body);
+        var generatedData = json.readTree(generatedRequest.path("messages").get(0).path("content").asText());
+        assertThat(generatedRequest.path("maxOutputTokens").asInt()).isEqualTo(8192);
+        assertThat(adapter.maxOutputTokens()).isEqualTo(32768);
+        assertThat(generatedData.path("acceptedNeighborTranslations").get(0).path("translation").asText())
+                .isEqualTo(references.getFirst().translation());
+        assertThat(generated.items()).containsEntry("chapter-4", "아오야마 레이코의 방문");
+        assertThat(requests.get()).isEqualTo(2);
+
+        // 실행 및 검증: 잘못된 교정 응답을 재과금으로 보정하지 않는다.
+        result.put("output", Map.of("corrections", List.of(Map.of("id", "foreign", "translation", "아오야마 레이코의 방문",
+                "sourceTerm", "青山玲子", "referenceTranslation", "아오야마 레이코"))));
+        response = json.writeValueAsString(result);
+        assertThatThrownBy(() -> adapter.reviewTitles(trace, "toc:0:2", candidates, references, Map.of(), 3000, "ko"))
+                .hasMessage("TOC_REVIEW_RESPONSE_INVALID");
+        assertThat(requests.get()).isEqualTo(3);
+    }
+
+    @Test
     void keyedResponseUsesRequiredPropertiesAndDuplicateJsonKeysCannotOverwriteTranslation() throws Exception {
         response = "{\"provider\":\"openai\",\"model\":\"expected-model\",\"providerCalls\":1,\"inputTokens\":10,\"outputTokens\":20,"
                 + "\"output\":{\"s1\":\"개\",\"s0\":\"고양이\"}}";

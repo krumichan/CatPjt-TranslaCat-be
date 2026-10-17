@@ -63,7 +63,8 @@ class DomainInvariantTest {
                 .isNotEqualTo(policy.cacheKey(key, first, 1, "model-b"))
                 .isNotEqualTo(policy.cacheKey(key, edited, 1, "model-a"));
         assertThatThrownBy(() -> new EpisodeKey("syosyetu", "../../localhost", "1")).isInstanceOf(NovelProblem.class);
-        assertThatThrownBy(() -> new EpisodeKey("kakuyomu", "n123aa", "1")).hasMessage("PLATFORM_NOT_SUPPORTED");
+        assertThatThrownBy(() -> new EpisodeKey("unsupported", "n123aa", "1")).hasMessage("PLATFORM_NOT_SUPPORTED");
+        assertThatThrownBy(() -> new EpisodeKey("kakuyomu", "n123aa", "1")).hasMessage("EPISODE_ID_INVALID");
     }
 
     @Test

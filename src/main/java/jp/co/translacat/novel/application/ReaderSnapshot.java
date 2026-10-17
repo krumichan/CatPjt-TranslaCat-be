@@ -47,7 +47,7 @@ public record ReaderSnapshot(String revision, String segmentationVersion, Title 
         }).toList();
         return new ReaderSnapshot(source.revision(), source.segmentationVersion(),
                 new Title(source.title(), source.title(), null),
-                new Pager(source.prevEpisodeId(), source.nextEpisodeId(), "https://ncode.syosetu.com/" + key.novel() + "/",
+                new Pager(source.prevEpisodeId(), source.nextEpisodeId(), key.indexUrl(),
                         source.prevEpisodeId(), source.nextEpisodeId(), key.novel()), segments, segments.size(),
                 segments.stream().filter(segment -> segment.status().equals("SUCCEEDED")).count(),
                 job == null ? "SOURCE_READY" : job.state(), job == null ? null : job.id(),

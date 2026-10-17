@@ -145,12 +145,28 @@ public class OpenAiExecutionAdapter implements NovelPorts.Ai {
     private Translation translatePrepared(String rootTraceId, String callId, long remainingMillis,
             TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
             TranslationRequestFactory.Prepared prepared) {
+        return translatePrepared(rootTraceId, callId, remainingMillis, shape, validation, prepared, maxOutputTokens());
+    }
+
+    @Override public Translation translateTitles(String rootTraceId, String callId, List<SourceEpisode.Segment> items,
+            List<String> context, Map<String, String> glossary, List<Map<String, String>> acceptedReferences,
+            long remainingMillis, TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
+            TranslationOptions.AnnotationPolicy annotation, String targetLanguage) {
+        // 본문·복구의 모델/지시는 유지하고 짧은 목차 제목의 출력 예산만 제한한다.
+        return translatePrepared(rootTraceId, callId, remainingMillis, shape, validation,
+                new TranslationRequestFactory().repair(items, context, glossary, acceptedReferences, shape, annotation, targetLanguage),
+                Math.min(maxOutputTokens(), 8192));
+    }
+
+    private Translation translatePrepared(String rootTraceId, String callId, long remainingMillis,
+            TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
+            TranslationRequestFactory.Prepared prepared, int outputLimit) {
         var messages = List.of(new AiExecutionDtos.Message("user", encode(prepared.data())));
         Map<String, Object> timings = new java.util.LinkedHashMap<>();
         JsonNode output; String provider; String actualModel; int calls; long inputTokens; long outputTokens;
         if (profile.id().isBlank()) {
             var command = new AiExecutionDtos.ModelCommand(callId, prepared.instructions(), messages, tier, effort(), "low",
-                    8192, remainingMillis, 1, prepared.schema(), prepared.schemaName(), true, "NOVEL_EPISODE");
+                    outputLimit, remainingMillis, 1, prepared.schema(), prepared.schemaName(), true, "NOVEL_EPISODE");
             var response = post("/internal/v1/model/execute", command, AiExecutionDtos.ModelResult.class, remainingMillis, 500_000, rootTraceId);
             var result = response.result();
             timings.putAll(response.timings());
@@ -159,7 +175,7 @@ public class OpenAiExecutionAdapter implements NovelPorts.Ai {
             timings.put("providerMs", null); timings.put("aiQueueMs", null);
         } else {
             var command = new AiExecutionDtos.ProfileCommand(callId, prepared.instructions(), messages, profile.id(),
-                    profile.maxOutputTokens(), remainingMillis, 1, prepared.schema(), prepared.schemaName(), true, "NOVEL_EPISODE");
+                    outputLimit, remainingMillis, 1, prepared.schema(), prepared.schemaName(), true, "NOVEL_EPISODE");
             var response = post("/internal/v1/model/execute-profile", command, AiExecutionDtos.ProfileResult.class, remainingMillis, 1_500_000, rootTraceId);
             var result = response.result();
             if (!profile.id().equals(result.profileId()) || !profile.version().equals(result.profileVersion())
@@ -177,6 +193,69 @@ public class OpenAiExecutionAdapter implements NovelPorts.Ai {
         var restored = prepared.batch().restore(output, shape, validation);
         timings.put("validationMs", RequestTrace.elapsed(validationStarted)); timings.put("providerTtftMs", null);
         return new Translation(restored, provider, actualModel, inputTokens, outputTokens, timings);
+    }
+
+    @Override
+    public NovelPorts.TitleReview reviewTitles(String rootTraceId, String callId,
+            List<NovelPorts.TitleCandidate> titles, List<NovelPorts.TitleReference> references,
+            Map<String, String> glossary, long remainingMillis, String targetLanguage) {
+        var factory = new TitleReviewRequestFactory();
+        var prepared = factory.prepare(titles, references, glossary, targetLanguage);
+        var messages = List.of(new AiExecutionDtos.Message("user", encode(prepared.data())));
+        Map<String, Object> timings = new java.util.LinkedHashMap<>();
+        JsonNode output;
+        String provider;
+        String actualModel;
+        int calls;
+        long inputTokens;
+        long outputTokens;
+
+        // 기존 소설 profile을 사용한다. 작은 교정 목록의 출력 한도만 제한하고 본문 설정은 건드리지 않는다.
+        int outputLimit = Math.min(maxOutputTokens(), 8192);
+        if (profile.id().isBlank()) {
+            var command = new AiExecutionDtos.ModelCommand(callId, prepared.instructions(), messages, tier, effort(), "low",
+                    outputLimit, remainingMillis, 1, prepared.schema(), "novel_toc_review_v1", true, "NOVEL_TOC_REVIEW");
+            var response = post("/internal/v1/model/execute", command, AiExecutionDtos.ModelResult.class,
+                    remainingMillis, 500_000, rootTraceId);
+            var result = response.result();
+            timings.putAll(response.timings());
+            output = result.output();
+            provider = result.provider();
+            actualModel = result.model();
+            calls = result.providerCalls();
+            inputTokens = result.inputTokens();
+            outputTokens = result.outputTokens();
+        } else {
+            var command = new AiExecutionDtos.ProfileCommand(callId, prepared.instructions(), messages, profile.id(),
+                    outputLimit, remainingMillis, 1, prepared.schema(), "novel_toc_review_v1", true, "NOVEL_TOC_REVIEW");
+            var response = post("/internal/v1/model/execute-profile", command, AiExecutionDtos.ProfileResult.class,
+                    remainingMillis, 1_500_000, rootTraceId);
+            var result = response.result();
+            if (!profile.id().equals(result.profileId()) || !profile.version().equals(result.profileVersion())
+                    || !profile.reasoningEffort().equals(result.reasoningEffort()) || !profile.serviceTier().equals(result.serviceTier())
+                    || result.cachedInputTokens() < 0 || result.reasoningTokens() < 0) {
+                throw new NovelProblem("AI_PROFILE_IDENTITY_MISMATCH", 502);
+            }
+            timings.putAll(response.timings());
+            timings.put("cachedInputTokens", result.cachedInputTokens());
+            timings.put("reasoningTokens", result.reasoningTokens());
+            copyProviderTimings(result.metadata(), timings);
+            output = result.output();
+            provider = result.provider();
+            actualModel = result.model();
+            calls = result.providerCalls();
+            inputTokens = result.inputTokens();
+            outputTokens = result.outputTokens();
+        }
+
+        // 교정 근거·ID 검사를 모두 통과해야 저장 계층에 전달한다. 실패 시 provider를 다시 호출하지 않는다.
+        verifyProvider(provider, actualModel, model, calls);
+        if (inputTokens < 0 || outputTokens < 0) throw new NovelProblem("AI_USAGE_INVALID", 502);
+        long validationStarted = System.nanoTime();
+        var corrections = factory.restore(prepared, output);
+        timings.put("validationMs", RequestTrace.elapsed(validationStarted));
+        timings.put("reviewPolicy", TitleReviewRequestFactory.POLICY);
+        return new NovelPorts.TitleReview(corrections, provider, actualModel, inputTokens, outputTokens, timings);
     }
 
     @Override

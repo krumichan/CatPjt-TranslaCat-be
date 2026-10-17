@@ -101,11 +101,29 @@ public final class NovelPorts {
             if (!"ko".equals(jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage)))
                 throw new jp.co.translacat.novel.domain.NovelProblem("AI_TARGET_LANGUAGE_UNSUPPORTED", 503);
         }
+        default Translation translateTitles(String traceId, String callId, List<SourceEpisode.Segment> items,
+                List<String> context, Map<String, String> glossary, List<Map<String, String>> acceptedReferences,
+                long remainingMillis, jp.co.translacat.novel.domain.TranslationOptions.ResponseShape shape,
+                jp.co.translacat.novel.domain.TranslationOptions.ValidationPolicy validation,
+                jp.co.translacat.novel.domain.TranslationOptions.AnnotationPolicy annotation, String targetLanguage) {
+            return repair(traceId, callId, items, context, glossary, acceptedReferences, remainingMillis,
+                    shape, validation, annotation, targetLanguage);
+        }
+        default TitleReview reviewTitles(String traceId, String callId, List<TitleCandidate> titles,
+                List<TitleReference> references, Map<String, String> glossary, long remainingMillis,
+                String targetLanguage) {
+            throw new jp.co.translacat.novel.domain.NovelProblem("AI_TITLE_REVIEW_UNSUPPORTED", 503);
+        }
         Speech synthesize(String requestId, String text, String language, long remainingMillis);
         default Speech synthesize(String traceId, String callId, String text, String language, long remainingMillis) {
             return synthesize(callId, text, language, remainingMillis);
         }
     }
+
+    public record TitleCandidate(String id, String source, String translation) {}
+    public record TitleReference(String source, String translation) {}
+    public record TitleReview(Map<String, String> corrections, String provider, String model,
+                              long inputTokens, long outputTokens, Map<String, Object> timings) {}
 
     public record Translation(Map<String, String> items, String provider, String model,
                               long inputTokens, long outputTokens, Map<String, Object> timings) {

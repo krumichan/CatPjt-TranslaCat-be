@@ -30,6 +30,17 @@ CREATE TABLE IF NOT EXISTS novel_translation_job (
     updated_at BIGINT NOT NULL,
     target_language VARCHAR(2) NOT NULL DEFAULT 'ko'
 );
+CREATE TABLE IF NOT EXISTS novel_translation_shared (
+    shared_key VARCHAR(64) PRIMARY KEY,
+    producer_cache_key VARCHAR(64)
+);
+CREATE TABLE IF NOT EXISTS novel_translation_shared_job (
+    cache_key VARCHAR(64) PRIMARY KEY,
+    shared_key VARCHAR(64) NOT NULL,
+    producer_cache_key VARCHAR(64)
+);
+CREATE INDEX IF NOT EXISTS ix_novel_shared_job_identity ON novel_translation_shared_job(shared_key);
+CREATE INDEX IF NOT EXISTS ix_novel_job_shared_lookup ON novel_translation_job(source_key, revision, target_language, state);
 CREATE TABLE IF NOT EXISTS novel_idempotency (
     actor_id BIGINT NOT NULL,
     request_key VARCHAR(100) NOT NULL,

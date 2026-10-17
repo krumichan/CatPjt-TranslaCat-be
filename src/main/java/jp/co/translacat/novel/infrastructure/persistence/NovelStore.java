@@ -25,12 +25,14 @@ public class NovelStore implements NovelRepository {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
     private final ObjectMapper json;
+    private final NovelSharedCache shared;
 
     public NovelStore(JdbcTemplate jdbc, org.springframework.transaction.PlatformTransactionManager manager,
                       ObjectMapper json) {
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(manager);
         this.json = json;
+        this.shared = new NovelSharedCache(jdbc, transactions, json, this);
     }
 
     public Optional<StoredSource> current(EpisodeKey key) {
@@ -106,6 +108,18 @@ public class NovelStore implements NovelRepository {
         return jdbc.query("SELECT * FROM novel_translation_job WHERE cache_key=?", mapper(), cacheKey).stream().findFirst();
     }
 
+    @Override public Optional<Job> sharedCompleted(String identity) { return shared.completed(identity); }
+    @Override public void publishShared(String identity, Job job, SourceEpisode source) { shared.publish(identity, job, source); }
+    @Override public Job attachShared(String identity, Job job, SourceEpisode source) { return shared.attach(identity, job, source); }
+    @Override public Job attachShared(String identity, Job job, SourceEpisode source, boolean explicitResume) { return shared.attach(identity, job, source, explicitResume); }
+    @Override public Job syncShared(Job job, SourceEpisode source) { return shared.sync(job, source); }
+
+    @Override
+    public List<Job> completedCandidates(EpisodeKey key, String revision, String target) {
+        return jdbc.query("SELECT * FROM novel_translation_job WHERE source_key=? AND revision=? AND target_language=? AND state='SUCCEEDED' ORDER BY updated_at DESC",
+                mapper(), key.value(), revision, target);
+    }
+
     public Job byId(EpisodeKey key, String id, long actorId) {
         List<Job> jobs = jdbc.query("SELECT * FROM novel_translation_job WHERE job_id=? AND source_key=? AND actor_id=?",
                 mapper(), id, key.value(), actorId);
@@ -116,6 +130,10 @@ public class NovelStore implements NovelRepository {
     }
 
     public Optional<Job> claim(String cacheKey, boolean retry, long leaseMillis) {
+        return shared.claim(cacheKey, () -> claimLocal(cacheKey, retry, leaseMillis));
+    }
+
+    private Optional<Job> claimLocal(String cacheKey, boolean retry, long leaseMillis) {
         long now = System.currentTimeMillis();
         String owner = UUID.randomUUID().toString();
         // 모든 인스턴스가 같은 DB predicate로 lease를 얻는다. 외부 호출 중 DB lock은 없다.
@@ -328,6 +346,11 @@ public class NovelStore implements NovelRepository {
 
     public RepairClaim claimRepair(Job job, SourceEpisode source, List<String> requested, String requestKey,
                                    String traceId, long leaseMillis) {
+        return shared.repair(job, requested, () -> claimLocalRepair(job, source, requested, requestKey, traceId, leaseMillis));
+    }
+
+    private RepairClaim claimLocalRepair(Job job, SourceEpisode source, List<String> requested, String requestKey,
+                                         String traceId, long leaseMillis) {
         if (requestKey == null || !requestKey.matches("[A-Za-z0-9._:-]{1,100}")) throw new NovelProblem("IDEMPOTENCY_KEY_INVALID", 400);
         return transactions.execute(status -> {
             Job current = jdbc.queryForObject("SELECT * FROM novel_translation_job WHERE cache_key=? FOR UPDATE", mapper(), job.cacheKey());
@@ -429,6 +452,8 @@ public class NovelStore implements NovelRepository {
             jdbc.update("UPDATE novel_repair SET state=?,lease_until=0 WHERE repair_id=?", state, owner.id());
             refreshAggregate(job, source);
         });
+        // 정상 문장은 기존 작업에 남기고 완전 복구된 결과만 다른 계정의 재사용 후보로 발행한다.
+        shared.publishLinked(byCache(owner.cacheKey()).orElseThrow(), source);
     }
 
     private void expireRepairs(Job job, SourceEpisode source) {

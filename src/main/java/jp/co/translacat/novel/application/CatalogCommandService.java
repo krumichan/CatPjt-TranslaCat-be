@@ -31,19 +31,21 @@ public class CatalogCommandService {
     public String start(long actor, String platform, CatalogModels.Start request, String traceId) {
         if (request == null || request.selector() == null || request.source() == null) invalid();
         token(request.idempotencyKey());
-        String normalized = new EpisodeKey(platform, "n1a", "1").platform();
+        String normalized = EpisodeKey.normalizePlatform(platform);
         String selectorHash = hash(normalized + "|" + json(request.selector()));
-        String policy = "catalog-v1|" + settings.options(ai).fingerprint();
+        String policy = policyIdentity(settings, ai);
         List<CatalogStore.Prepared> prepared = new ArrayList<>();
 
-        // 순위/검색어는 cache identity에서 제외하고 원문과 확정 용어의 실제 내용을 포함한다.
+        // 공개 작품 번역은 계정·순위·검색어와 독립적으로 공유한다. 실제 원문·언어·정책·용어집이 같아야 한다.
         for (var card : request.source().cards()) {
-            var glossary = repository.glossary(new EpisodeKey(normalized, card.identifier(), "1"), actor,
-                    request.selector().language().equals("en") ? "en" : "ko");
+            // 원문 표시는 번역 용어집을 사용하지 않는다. 50개 작품의 불필요한 DB 조회도 만들지 않는다.
+            Map<String, String> glossary = request.selector().language().equals("ja") ? Map.of()
+                    : repository.glossary(new EpisodeKey(normalized, card.identifier(), "1"), actor,
+                            request.selector().language().equals("en") ? "en" : "ko").terms();
             String revision = hash(json(new TreeMap<>(card.text())));
-            String key = hash(actor + "|" + normalized + "|" + card.identifier() + "|" + revision + "|"
-                    + request.selector().language() + "|" + policy + "|" + json(new TreeMap<>(glossary.terms())));
-            prepared.add(new CatalogStore.Prepared(key, revision, policy, card, glossary.terms()));
+            String key = hash(json(List.of("catalog-shared-v1", normalized, card.identifier(), revision,
+                    request.selector().language(), policy, new TreeMap<>(glossary))));
+            prepared.add(new CatalogStore.Prepared(key, revision, policy, card, glossary));
         }
         String id = store.create(actor, normalized, request.idempotencyKey(), selectorHash, request.selector(),
                 request.source(), prepared, traceId);
@@ -126,6 +128,9 @@ public class CatalogCommandService {
     private String json(Object value) {
         try { return mapper.writeValueAsString(value); }
         catch (Exception failure) { throw new IllegalArgumentException("Catalog identity invalid", failure); }
+    }
+    public static String policyIdentity(NovelExecutionSettings settings, NovelPorts.Ai ai) {
+        return "catalog-v1|" + settings.options(ai).fingerprint();
     }
     private static String hash(String value) { return SentenceSegmenter.hash(value); }
     private static void token(String value) {

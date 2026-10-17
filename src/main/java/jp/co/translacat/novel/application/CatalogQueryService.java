@@ -29,6 +29,10 @@ public class CatalogQueryService {
     }
 
     private CatalogModels.Text display(CatalogModels.Text value) {
-        return new CatalogModels.Text(value.rawJa(), ruby.markup(value.rawJa()), value.ko());
+        // 원문 selector와 번역 목표 언어는 별개다. 기존 FE의 ko/en unit 계약을 유지하며
+        // JA 원문을 번역문으로 채우지 않고 영어의 실제 번역·언어도 그대로 보존한다.
+        boolean original = "ja".equals(value.targetLanguage());
+        return new CatalogModels.Text(value.rawJa(), ruby.markup(value.rawJa()), original ? null : value.ko(),
+                original ? null : value.translatedText(), original ? "ko" : value.targetLanguage());
     }
 }

@@ -18,6 +18,7 @@ public record NovelCatalogRequest(String kind, String period, String genreId, St
     public record Selector(String kind, String period, String genreId, String keyword, int page, String language) {}
     public record Retry(String idempotencyKey) { public Retry { token(idempotencyKey); } }
     public static String platform(String value) {
+        if ("kakuyomu".equals(value)) return "kakuyomu";
         if (!("syosetu".equals(value) || "syosyetu".equals(value))) invalid();
         return "syosyetu";
     }

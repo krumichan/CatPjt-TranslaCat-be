@@ -195,7 +195,9 @@ class ProductionClientTlsTest {
             var arguments = directory.resolve(name + ".args");
             var lines = command.subList(1, command.size()).stream()
                     .map(value -> "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"").toList();
-            Files.write(arguments, lines);
+            // Java launcher의 argfile 문자셋에 맞춰 한글 경로도 같은 native.encoding으로 기록한다.
+            Files.write(arguments, lines, java.nio.charset.Charset.forName(
+                    System.getProperty("native.encoding", java.nio.charset.StandardCharsets.UTF_8.name())));
             command = List.of(command.getFirst(), "@" + arguments);
         }
         var process = new ProcessBuilder(command).directory(directory.toFile()).redirectErrorStream(true)

@@ -77,18 +77,21 @@ final class WritingPlanContract {
                             .contains(state.path("status").asText())) fail();
                     if (succeeded) {
                         JsonNode result = state.path("result");
-                        if (!Set.of("curated-writing-feedback-v1", "curated-writing-feedback-v2", "curated-writing-feedback-v3", "curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12")
+                        if (!Set.of("curated-writing-feedback-v1", "curated-writing-feedback-v2", "curated-writing-feedback-v3", "curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12", "curated-writing-feedback-v13", "curated-writing-feedback-v14")
                                 .contains(result.path("policyVersion").asText())
                                 || !"REFERENCE_ONLY".equals(result.path("resultPolicy").asText())
                                 || !result.path("observations").isArray()
                                 || !result.path("necessaryCorrections").isArray()
                                 || !result.path("optionalAlternatives").isArray()) fail();
                         if (result.path("observations").size() != item.path("reference").path("checklist").size()) fail();
+                        if ("curated-writing-feedback-v14".equals(result.path("policyVersion").asText())) {
+                            validateServerRepairMetadata(result);
+                        }
                         for (JsonNode correction : result.path("necessaryCorrections")) {
                             if (!attempt.path("answer").asText().contains(correction.path("original").asText())) fail();
                         }
                         // 저장된 v1 결과는 바꾸지 않고 새 계약의 누락 근거와 가상 예시 분류를 확인한다.
-                        if (Set.of("curated-writing-feedback-v2", "curated-writing-feedback-v3", "curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12").contains(result.path("policyVersion").asText())) {
+                        if (Set.of("curated-writing-feedback-v2", "curated-writing-feedback-v3", "curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12", "curated-writing-feedback-v13", "curated-writing-feedback-v14").contains(result.path("policyVersion").asText())) {
                             validateGroundedFeedback(result, attempt.path("answer").asText(), item.path("taskRequirements"),
                                     value.path("writingType").asText(), item.path("requiredIntents"));
                         }
@@ -107,11 +110,27 @@ final class WritingPlanContract {
         return value;
     }
 
+    private static void validateServerRepairMetadata(JsonNode result) {
+        // 서버 수리 identity와 선택 제안 상태를 분리한다. 실패한 선택 제안의 문구는 중계하지 않는다.
+        if (!"server-repair-plan-v1".equals(result.path("repairPlanVersion").asText())
+                || !result.path("repairPlanHash").asText().matches("[a-f0-9]{64}")
+                || result.path("meaningContractId").asText().isBlank()
+                || !"curated-writing-meaning-contract-v1".equals(result.path("meaningContractVersion").asText())
+                || !result.path("meaningContractHash").asText().matches("[a-f0-9]{64}")) fail();
+        String status = result.path("optionalSuggestionsStatus").asText();
+        if (!Set.of("SUCCEEDED", "FAILED", "NOT_RUN_LIMIT", "NOT_APPLICABLE").contains(status)) fail();
+        JsonNode code = result.path("optionalSuggestionsFailureCode");
+        if (Set.of("FAILED", "NOT_RUN_LIMIT").contains(status)) {
+            if (!code.isTextual() || !code.asText().matches("[A-Z][A-Z0-9_]{0,79}")) fail();
+        } else if (!code.isNull()) fail();
+        if (!"SUCCEEDED".equals(status) && !result.path("optionalAlternatives").isEmpty()) fail();
+    }
+
     private static void validateGroundedFeedback(JsonNode result, String answer, JsonNode requirements, String writingType, JsonNode intents) {
         java.util.Map<String, JsonNode> observations = new java.util.HashMap<>();
-        boolean typed = Set.of("curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12").contains(result.path("policyVersion").asText());
-        boolean prescribed = Set.of("curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12").contains(result.path("policyVersion").asText());
-        boolean structured = Set.of("curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12").contains(result.path("policyVersion").asText());
+        boolean typed = Set.of("curated-writing-feedback-v4", "curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12", "curated-writing-feedback-v13", "curated-writing-feedback-v14").contains(result.path("policyVersion").asText());
+        boolean prescribed = Set.of("curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12", "curated-writing-feedback-v13", "curated-writing-feedback-v14").contains(result.path("policyVersion").asText());
+        boolean structured = Set.of("curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12", "curated-writing-feedback-v13", "curated-writing-feedback-v14").contains(result.path("policyVersion").asText());
         Set<String> conditionIds = prescribed ? conditionAuthorities(writingType, intents) : Set.of();
         Set<String> referencedConditions = new HashSet<>();
         for (JsonNode observation : result.path("observations")) {
@@ -169,6 +188,12 @@ final class WritingPlanContract {
                         if (evidence.path("segmentId").asText().equals(correction.path("segmentId").asText())
                                 && evidence.path("quote").asText().contains(correction.path("patch").path("original").asText())) grounded = true;
                     }
+                    // v14의 합성 충돌 수리는 같은 권한의 같은 part 안에서 정확히 이어지는 원문 인용만 묶는다.
+                    // 구형 결과와 실제 언어 형태 교정은 기존 단일 인용 검사를 그대로 유지한다.
+                    if (!grounded && "curated-writing-feedback-v14".equals(result.path("policyVersion").asText())
+                            && Set.of("TASK_FACT_CONFLICT", "TASK_CONDITION_CONFLICT").contains(correction.path("issueType").asText())) {
+                        grounded = contiguousConflictQuotesCoverPatch(part, correction);
+                    }
                 }
                 if (!grounded) fail();
                 validateFullSegment(correction, observation);
@@ -200,7 +225,7 @@ final class WritingPlanContract {
             if (!Set.of("EXPRESSION_ONLY", "HYPOTHETICAL_EXAMPLE").contains(alternative.path("suggestionKind").asText())
                     || alternative.path("original").asText().isEmpty()
                     || !answer.contains(alternative.path("original").asText())) fail();
-            if (Set.of("curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12").contains(result.path("policyVersion").asText())) {
+            if (Set.of("curated-writing-feedback-v5", "curated-writing-feedback-v6", "curated-writing-feedback-v7", "curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12", "curated-writing-feedback-v13", "curated-writing-feedback-v14").contains(result.path("policyVersion").asText())) {
                 // 표현만 다듬는 제안이 사실·순서·입장을 바꾸지 않도록 새 계약의 관계 근거를 확인한다.
                 for (String key : Set.of("causality", "chronology", "specificity", "stance")) {
                     String check = alternative.path("relationChecks").path(key).asText();
@@ -226,6 +251,45 @@ final class WritingPlanContract {
                 }
             }
         }
+    }
+
+    private static boolean contiguousConflictQuotesCoverPatch(JsonNode part, JsonNode correction) {
+        String segment = correction.path("original").asText();
+        String patch = correction.path("patch").path("original").asText();
+        String segmentId = correction.path("segmentId").asText();
+        int patchStart = segment.indexOf(patch);
+        if (patch.isEmpty() || patchStart < 0 || patchStart != segment.lastIndexOf(patch)) return false;
+        int patchEnd = patchStart + patch.length();
+        var intervals = new java.util.ArrayList<int[]>();
+        Set<String> seen = new HashSet<>();
+
+        // 같은 CONFLICT part·권한에 대해서만 호출한다. 다른 문장은 제외하고 실제 UTF-16 원문에서 위치를 찾는다.
+        for (JsonNode evidence : part.path("evidence")) {
+            if (!segmentId.equals(evidence.path("segmentId").asText())) return false;
+            String quote = evidence.path("quote").asText();
+            int start = segment.indexOf(quote);
+            int end = start + quote.length();
+            if (quote.isBlank() || start < 0 || start != segment.lastIndexOf(quote)
+                    || start < patchStart || end > patchEnd
+                    || !utf16Boundary(segment, start) || !utf16Boundary(segment, end)
+                    || !seen.add(start + ":" + end)) return false;
+            intervals.add(new int[] {start, end});
+        }
+        if (intervals.size() < 2) return false;
+
+        // 공백·문장부호도 예외 없이 exact adjacency를 요구한다. 겹침이나 한 글자의 틈도 허용하지 않는다.
+        intervals.sort(java.util.Comparator.comparingInt(interval -> interval[0]));
+        int cursor = patchStart;
+        for (int[] interval : intervals) {
+            if (interval[0] != cursor) return false;
+            cursor = interval[1];
+        }
+        return cursor == patchEnd;
+    }
+
+    private static boolean utf16Boundary(String text, int index) {
+        return index == 0 || index == text.length()
+                || !(Character.isHighSurrogate(text.charAt(index - 1)) && Character.isLowSurrogate(text.charAt(index)));
     }
 
     private static Set<String> conditionAuthorities(String writingType, JsonNode intents) {

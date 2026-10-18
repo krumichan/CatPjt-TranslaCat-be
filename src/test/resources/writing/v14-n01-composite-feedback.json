@@ -1,0 +1,257 @@
+{
+  "answer": "先週の土曜日の午後、地域の図書館の工芸教室に友達と参加しました。再利用の材料で小さな植木鉢を作り、講師から材料の用意の仕方と作業の手順を教わりました。できあがった鉢は図書館の展示棚に置き、何も持たずに帰りました。楽しい体験だったので、また参加したいです。",
+  "taskRequirements": [
+    "지난 토요일 오후에 지역 도서관에서 열린 워크숍이라는 시간과 장소를 포함할 것",
+    "재활용 재료로 작은 화분을 만들었다는 내용을 포함할 것",
+    "진행자가 준비 방법과 만드는 순서를 설명했다는 내용을 포함할 것",
+    "친구와 참가했고 완성한 화분을 집에 가져갔다는 내용을 포함할 것",
+    "참가 소감이나 앞으로의 의향을 하나 이상 덧붙일 것"
+  ],
+  "requiredIntents": [
+    "워크숍에서 무엇을 했는지 설명하기",
+    "친구와 참가했다는 사실과 화분을 집에 가져갔다는 사실을 포함하기",
+    "워크숍에 참가한 소감이나 앞으로의 의향을 덧붙이기"
+  ],
+  "result": {
+    "observations": [
+      {
+        "status": "MET",
+        "originText": "충족한 것으로 판단한 요구 사항: 지난 토요일 오후에 지역 도서관에서 열린 워크숍이라는 시간과 장소를 포함할 것",
+        "segmentIds": [
+          "S1"
+        ],
+        "answerQuotes": [
+          "先週の土曜日の午後、地域の図書館の工芸教室に友達と参加しました。"
+        ],
+        "evidenceKind": "LEARNER_TEXT",
+        "learningText": "引用した各部分は要件 C1 を満たすと判断しました。",
+        "requirementId": "C1",
+        "relationChecks": {
+          "stance": "NOT_APPLICABLE",
+          "causality": "NOT_APPLICABLE",
+          "chronology": "NOT_APPLICABLE",
+          "specificity": "NOT_APPLICABLE"
+        },
+        "requirementParts": [
+          {
+            "status": "PRESENT",
+            "evidence": [
+              {
+                "quote": "先週の土曜日の午後、",
+                "segmentId": "S1"
+              },
+              {
+                "quote": "地域の図書館の工芸教室に友達と参加しました。",
+                "segmentId": "S1"
+              }
+            ],
+            "taskFactIds": [
+              "T1"
+            ],
+            "requirementQuote": "지난 토요일 오후에 지역 도서관에서 열린 워크숍이라는 시간과 장소를 포함할 것",
+            "taskConditionIds": []
+          }
+        ]
+      },
+      {
+        "status": "MET",
+        "originText": "충족한 것으로 판단한 요구 사항: 재활용 재료로 작은 화분을 만들었다는 내용을 포함할 것",
+        "segmentIds": [
+          "S2"
+        ],
+        "answerQuotes": [
+          "再利用の材料で小さな植木鉢を作り、講師から材料の用意の仕方と作業の手順を教わりました。"
+        ],
+        "evidenceKind": "LEARNER_TEXT",
+        "learningText": "引用した各部分は要件 C2 を満たすと判断しました。",
+        "requirementId": "C2",
+        "relationChecks": {
+          "stance": "NOT_APPLICABLE",
+          "causality": "NOT_APPLICABLE",
+          "chronology": "NOT_APPLICABLE",
+          "specificity": "NOT_APPLICABLE"
+        },
+        "requirementParts": [
+          {
+            "status": "PRESENT",
+            "evidence": [
+              {
+                "quote": "再利用の材料で小さな植木鉢を作り、",
+                "segmentId": "S2"
+              }
+            ],
+            "taskFactIds": [
+              "T2"
+            ],
+            "requirementQuote": "재활용 재료로 작은 화분을 만들었다는 내용을 포함할 것",
+            "taskConditionIds": [
+              "P1"
+            ]
+          }
+        ]
+      },
+      {
+        "status": "MET",
+        "originText": "충족한 것으로 판단한 요구 사항: 진행자가 준비 방법과 만드는 순서를 설명했다는 내용을 포함할 것",
+        "segmentIds": [
+          "S2"
+        ],
+        "answerQuotes": [
+          "再利用の材料で小さな植木鉢を作り、講師から材料の用意の仕方と作業の手順を教わりました。"
+        ],
+        "evidenceKind": "LEARNER_TEXT",
+        "learningText": "引用した各部分は要件 C3 を満たすと判断しました。",
+        "requirementId": "C3",
+        "relationChecks": {
+          "stance": "NOT_APPLICABLE",
+          "causality": "NOT_APPLICABLE",
+          "chronology": "NOT_APPLICABLE",
+          "specificity": "NOT_APPLICABLE"
+        },
+        "requirementParts": [
+          {
+            "status": "PRESENT",
+            "evidence": [
+              {
+                "quote": "講師から材料の用意の仕方と作業の手順を教わりました。",
+                "segmentId": "S2"
+              }
+            ],
+            "taskFactIds": [
+              "T3"
+            ],
+            "requirementQuote": "진행자가 준비 방법과 만드는 순서를 설명했다는 내용을 포함할 것",
+            "taskConditionIds": []
+          }
+        ]
+      },
+      {
+        "status": "UNMET",
+        "originText": "실제 표현과 충돌한다고 판단한 부분: 완성한 화분을 집에 가져갔다는 내용을 포함할 것",
+        "segmentIds": [
+          "S1",
+          "S3"
+        ],
+        "answerQuotes": [
+          "先週の土曜日の午後、地域の図書館の工芸教室に友達と参加しました。",
+          "できあがった鉢は図書館の展示棚に置き、何も持たずに帰りました。"
+        ],
+        "evidenceKind": "LEARNER_TEXT",
+        "learningText": "要件 C4 と実際の表現が食い違うと判断しました。部分別の根拠を確認してください。",
+        "requirementId": "C4",
+        "relationChecks": {
+          "stance": "NOT_APPLICABLE",
+          "causality": "NOT_APPLICABLE",
+          "chronology": "NOT_APPLICABLE",
+          "specificity": "CONFLICT"
+        },
+        "requirementParts": [
+          {
+            "status": "PRESENT",
+            "evidence": [
+              {
+                "quote": "地域の図書館の工芸教室に友達と参加しました。",
+                "segmentId": "S1"
+              }
+            ],
+            "taskFactIds": [
+              "T4"
+            ],
+            "requirementQuote": "친구와 참가했고 ",
+            "taskConditionIds": [
+              "P2"
+            ]
+          },
+          {
+            "status": "CONFLICT",
+            "evidence": [
+              {
+                "quote": "できあがった鉢は図書館の展示棚に置き、",
+                "segmentId": "S3"
+              },
+              {
+                "quote": "何も持たずに帰りました。",
+                "segmentId": "S3"
+              }
+            ],
+            "taskFactIds": [
+              "T4"
+            ],
+            "requirementQuote": "완성한 화분을 집에 가져갔다는 내용을 포함할 것",
+            "taskConditionIds": [
+              "P2"
+            ]
+          }
+        ]
+      },
+      {
+        "status": "MET",
+        "originText": "충족한 것으로 판단한 요구 사항: 참가 소감이나 앞으로의 의향을 하나 이상 덧붙일 것",
+        "segmentIds": [
+          "S4"
+        ],
+        "answerQuotes": [
+          "楽しい体験だったので、また参加したいです。"
+        ],
+        "evidenceKind": "LEARNER_TEXT",
+        "learningText": "引用した各部分は要件 C5 を満たすと判断しました。",
+        "requirementId": "C5",
+        "relationChecks": {
+          "stance": "NOT_APPLICABLE",
+          "causality": "NOT_APPLICABLE",
+          "chronology": "NOT_APPLICABLE",
+          "specificity": "NOT_APPLICABLE"
+        },
+        "requirementParts": [
+          {
+            "status": "PRESENT",
+            "evidence": [
+              {
+                "quote": "楽しい体験だったので、",
+                "segmentId": "S4"
+              },
+              {
+                "quote": "また参加したいです。",
+                "segmentId": "S4"
+              }
+            ],
+            "taskFactIds": [],
+            "requirementQuote": "참가 소감이나 앞으로의 의향을 하나 이상 덧붙일 것",
+            "taskConditionIds": [
+              "P3"
+            ]
+          }
+        ]
+      }
+    ],
+    "resultPolicy": "REFERENCE_ONLY",
+    "policyVersion": "curated-writing-feedback-v14",
+    "uncertainties": [],
+    "repairPlanHash": "7655afdaf2fbcc0b8d71067b45cfb82b4d430086df099b246181eed2203bcb6e",
+    "meaningContractId": "community-workshop-v1",
+    "repairPlanVersion": "server-repair-plan-v1",
+    "meaningContractHash": "202d5b6ea25aa40c5b601f253e5f4214511a118f525b6b56391890a691d5a07c",
+    "necessaryCorrections": [
+      {
+        "patch": {
+          "original": "できあがった鉢は図書館の展示棚に置き、何も持たずに帰りました。",
+          "replacement": "できあがった鉢は家に持ち帰りました。"
+        },
+        "original": "できあがった鉢は図書館の展示棚に置き、何も持たずに帰りました。",
+        "issueType": "TASK_FACT_CONFLICT",
+        "segmentId": "S3",
+        "formReason": "NONE",
+        "originText": "과제에 명시된 사실과 충돌하는 부분입니다. 근거: 나는 친구와 함께 참가했고, 완성한 화분을 집에 가져갔다. 「できあがった鉢は図書館の展示棚に置き、何も持たずに帰りました。」 부분을 「できあがった鉢は家に持ち帰りました。」로 바꾸는 제안입니다. 일본어 설명에서 구체적인 이유를 확인해 주세요.",
+        "replacement": "できあがった鉢は家に持ち帰りました。",
+        "learningText": "「できあがった鉢は図書館の展示棚に置き、何も持たずに帰りました。」を「できあがった鉢は家に持ち帰りました。」に修正し、C4.A2（完成した植木鉢を家に持ち帰ったこと）を満たします。",
+        "sourceFactId": "T4",
+        "requirementId": "C4",
+        "sourceAuthorityId": ""
+      }
+    ],
+    "optionalAlternatives": [],
+    "meaningContractVersion": "curated-writing-meaning-contract-v1",
+    "optionalSuggestionsStatus": "NOT_RUN_LIMIT",
+    "optionalSuggestionsFailureCode": "OPTIONAL_CALL_LIMIT"
+  }
+}

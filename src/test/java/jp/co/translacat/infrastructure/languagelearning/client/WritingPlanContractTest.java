@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -375,7 +376,7 @@ class WritingPlanContractTest {
 
     @Test
     void oldAndNewSemanticFeedbackPreservesStoredResultAndExactPatchAuthority() {
-        for (String version : new String[] {"curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12"}) {
+        for (String version : new String[] {"curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12", "curated-writing-feedback-v13"}) {
             // 준비: 의미 판정 버전이 달라도 저장 DTO의 기존 권한 경계를 유지한다.
             var value = prescribedPlan();
             result(value).put("policyVersion", version);
@@ -404,7 +405,77 @@ class WritingPlanContractTest {
         part.putArray("taskConditionIds").add("P1");
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
         part.putArray("taskConditionIds");
-        result(value).put("policyVersion", "curated-writing-feedback-v13");
+        result(value).put("policyVersion", "curated-writing-feedback-v15");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+    }
+
+    @Test
+    void v13KeepsServerMeaningIdentityAndRejectsMalformedCoverageOrMissingAuthority() {
+        // 준비: 새 의미 계약의 결과도 기존 구조와 공개 원문을 그대로 중계한다.
+        var value = prescribedPlan();
+        var result = result(value);
+        result.put("policyVersion", "curated-writing-feedback-v13")
+                .put("meaningContractId", "authored-task-v1")
+                .put("meaningContractVersion", "curated-writing-meaning-contract-v1")
+                .put("meaningContractHash", "a".repeat(64));
+        var original = value.deepCopy();
+        var part = (ObjectNode) result.path("observations").get(0).path("requirementParts").get(0);
+
+        // 실행·검증: 조회가 metadata를 바꾸지 않고 원문 coverage와 P 권한 검증을 적용한다.
+        assertSame(value, WritingPlanContract.plan(value));
+        assertEquals(original, value);
+        part.put("requirementQuote", "시각");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        part.put("requirementQuote", "시각 전달");
+        part.putArray("taskConditionIds").add("P1");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+    }
+
+    private ObjectNode serverRepairPlan() {
+        var value = prescribedPlan();
+        result(value).put("policyVersion", "curated-writing-feedback-v14")
+                .put("meaningContractId", "authored-task-v1")
+                .put("meaningContractVersion", "curated-writing-meaning-contract-v1")
+                .put("meaningContractHash", "a".repeat(64))
+                .put("repairPlanVersion", "server-repair-plan-v1")
+                .put("repairPlanHash", "b".repeat(64))
+                .put("optionalSuggestionsStatus", "SUCCEEDED")
+                .putNull("optionalSuggestionsFailureCode");
+        return value;
+    }
+
+    @Test
+    void v14SeparatesOptionalFailureFromValidatedCoreWithoutRewritingStoredResult() {
+        for (String status : new String[] {"SUCCEEDED", "FAILED", "NOT_RUN_LIMIT", "NOT_APPLICABLE"}) {
+            // 준비: 선택 제안이 없어도 검증된 필수 코칭과 identity는 유지한다.
+            var value = serverRepairPlan();
+            var feedback = result(value);
+            feedback.put("optionalSuggestionsStatus", status);
+            if (Set.of("FAILED", "NOT_RUN_LIMIT").contains(status)) {
+                feedback.put("optionalSuggestionsFailureCode", "OPTIONAL_UNAVAILABLE");
+            }
+            var original = value.deepCopy();
+
+            // 실행 / 검증: 상태를 성공으로 고쳐 쓰거나 기존 코칭을 삭제하지 않는다.
+            assertSame(value, WritingPlanContract.plan(value));
+            assertEquals(original, value);
+        }
+    }
+
+    @Test
+    void v14RejectsMissingIdentityInvalidOptionalStateAndLeakedFailedSuggestion() {
+        // 준비 / 실행 / 검증: 새 상태 분리에서도 기존 권한과 근거 검증을 모두 적용한다.
+        for (String key : new String[] {"repairPlanHash", "repairPlanVersion", "meaningContractHash",
+                "optionalSuggestionsStatus", "optionalSuggestionsFailureCode"}) {
+            var value = serverRepairPlan();
+            result(value).remove(key);
+            assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        }
+        var value = serverRepairPlan();
+        result(value).put("optionalSuggestionsStatus", "FAILED");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        result(value).put("optionalSuggestionsFailureCode", "OPTIONAL_UNAVAILABLE");
+        result(value).withArray("optionalAlternatives").addObject();
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
     }
 
@@ -704,4 +775,191 @@ class WritingPlanContractTest {
         alternative.put("requirementId", "C9");
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
     }
+
+    @Test
+    void v14ReadsActualN01ContiguousConflictQuotesWithoutRewritingStoredPlan() {
+        // 준비: 동결 N01의 원문/공개 요구와 실제 LL DB 성공 결과를 그대로 조합한 테스트 envelope다.
+        var value = compositeConflictPlan();
+        var before = value.deepCopy();
+        assertEquals(2, compositeConflictPart(value).path("evidence").size());
+        assertEquals("できあがった鉢は図書館の展示棚に置き、何も持たずに帰りました。",
+                compositeCorrection(value).path("patch").path("original").asText());
+
+        // 실행 / 검증: 같은 T4의 같은 CONFLICT part에 정확히 이어지는 두 인용만 하나의 수리 범위를 지지한다.
+        assertSame(value, WritingPlanContract.plan(value));
+        assertEquals(before, value);
+    }
+
+    @Test
+    void v14CompositeConditionUsesTheSameConflictingPartAuthority() {
+        // 준비: 동일한 원문 범위를 실제 연결된 P2 조건 권한으로 고치는 경우도 같은 인용 경계를 쓴다.
+        var value = compositeConflictPlan();
+        compositeCorrection(value).put("issueType", "TASK_CONDITION_CONFLICT")
+                .put("sourceFactId", "").put("sourceAuthorityId", "P2");
+
+        // 실행 / 검증: P2는 통과하지만 다른 part의 유효 P1은 이 범위의 권한이 아니다.
+        assertSame(value, WritingPlanContract.plan(value));
+        compositeCorrection(value).put("sourceAuthorityId", "P1");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+    }
+
+    @Test
+    void v14CompositeQuotesRejectAnyGapIncludingPunctuation() {
+        // 준비: 한 글자의 공백이나 문장부호 누락도 연속 근거로 대신하지 않는다.
+        for (boolean punctuation : new boolean[] {false, true}) {
+            var value = compositeConflictPlan();
+            var evidence = compositeConflictPart(value).withArray("evidence");
+            if (punctuation) {
+                var first = (ObjectNode) evidence.get(0);
+                String quote = first.path("quote").asText();
+                first.put("quote", quote.substring(0, quote.length() - 1));
+            } else {
+                var second = (ObjectNode) evidence.get(1);
+                second.put("quote", second.path("quote").asText().substring(1));
+            }
+
+            // 실행 / 검증: 인용을 단순 이어 붙이거나 문장부호를 무시해 틈을 메우지 않는다.
+            assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        }
+    }
+
+    @Test
+    void v14CompositeQuotesCannotBorrowAnotherPartSegmentOrFact() {
+        // 준비 / 실행 / 검증: 같은 문장이나 과제에 존재하는 근거라도 part/문장/권한이 다르면 사용하지 않는다.
+        var wrongSegment = compositeConflictPlan();
+        ((ObjectNode) compositeConflictPart(wrongSegment).path("evidence").get(1)).put("segmentId", "S1");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(wrongSegment));
+
+        var wrongFact = compositeConflictPlan();
+        compositeCorrection(wrongFact).put("sourceFactId", "T3");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(wrongFact));
+
+        var crossPart = compositeConflictPlan();
+        var conflictingEvidence = compositeConflictPart(crossPart).withArray("evidence");
+        var removed = conflictingEvidence.remove(1);
+        ((ObjectNode) compositeObservation(crossPart).path("requirementParts").get(0)).withArray("evidence").add(removed);
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(crossPart));
+    }
+
+    @Test
+    void v14CompositeQuotesRejectDuplicateAmbiguousAndOverlappingAnchors() {
+        // 준비: 같은 위치를 중복 기재하거나 서로 겹치는 인용으로 연속 coverage를 만들 수 없다.
+        var duplicate = compositeConflictPlan();
+        var duplicateEvidence = compositeConflictPart(duplicate).withArray("evidence");
+        duplicateEvidence.add(duplicateEvidence.get(0).deepCopy());
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(duplicate));
+
+        var overlap = compositeConflictPlan();
+        var overlapEvidence = compositeConflictPart(overlap).withArray("evidence");
+        String first = overlapEvidence.get(0).path("quote").asText();
+        String second = overlapEvidence.get(1).path("quote").asText();
+        ((ObjectNode) overlapEvidence.get(1)).put("quote", first.substring(first.length() - 1) + second);
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(overlap));
+
+        // 실행 / 검증: patch 전체는 유일해도 내부 인용의 실제 위치가 둘이면 수용하지 않는다.
+        var ambiguous = compositeConflictPlan();
+        var evidence = compositeConflictPart(ambiguous).withArray("evidence");
+        String repeated = evidence.get(0).path("quote").asText();
+        String oldSegment = compositeCorrection(ambiguous).path("original").asText();
+        String expanded = repeated + oldSegment;
+        var attempt = (ObjectNode) ambiguous.path("items").get(0).path("attempts").get(0);
+        attempt.put("answer", attempt.path("answer").asText().replace(oldSegment, expanded));
+        compositeObservation(ambiguous).withArray("answerQuotes").set(1, json.getNodeFactory().textNode(expanded));
+        compositeCorrection(ambiguous).put("original", expanded);
+        ((ObjectNode) compositeCorrection(ambiguous).path("patch")).put("original", expanded);
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(ambiguous));
+    }
+
+    @Test
+    void v14CompositeQuotesCannotEscapeFixedPatchOrSkipFullSegmentAndPatchChecks() {
+        // 준비: 실제 patch가 첫 글자 뒤에서 시작하면 그 밖의 인용 전체를 합쳐 권한을 넓히지 않는다.
+        var escaped = compositeConflictPlan();
+        var correction = compositeCorrection(escaped);
+        ((ObjectNode) correction.path("patch")).put("original", correction.path("original").asText().substring(1))
+                .put("replacement", correction.path("replacement").asText().substring(1));
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(escaped));
+
+        // 실행 / 검증: 기존 전체 문장 동일성과 patch 재조립 검사는 fallback 뒤에도 그대로 적용한다.
+        var wrongPatch = compositeConflictPlan();
+        compositeCorrection(wrongPatch).put("replacement", "別の内容です。");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(wrongPatch));
+        var wrongFullSegment = compositeConflictPlan();
+        compositeObservation(wrongFullSegment).withArray("answerQuotes").set(1,
+                json.getNodeFactory().textNode(compositeCorrection(wrongFullSegment).path("original").asText() + "追加。"));
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(wrongFullSegment));
+    }
+
+    @Test
+    void compositeFallbackDoesNotApplyToV13OrLanguageFormAndSingleQuoteStillWorks() {
+        // 준비: 새 연결 허용은 v14의 TASK_FACT/CONDITION에만 한정한다.
+        for (String version : new String[] {"curated-writing-feedback-v8", "curated-writing-feedback-v12", "curated-writing-feedback-v13"}) {
+            var value = compositeConflictPlan();
+            result(value).put("policyVersion", version);
+            assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+        }
+        var language = compositeConflictPlan();
+        compositeCorrection(language).put("issueType", "LANGUAGE_FORM").put("sourceFactId", "")
+                .put("sourceAuthorityId", "").put("formReason", "INFLECTION");
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(language));
+
+        // 실행 / 검증: 기존 단일 인용 LF 경로는 그대로 통과한다.
+        compositeConflictPart(language).putArray("evidence").addObject().put("segmentId", "S3")
+                .put("quote", compositeCorrection(language).path("original").asText());
+        assertSame(language, WritingPlanContract.plan(language));
+    }
+
+    private ObjectNode compositeConflictPlan() {
+        // 원문/요구는 동결 N01, result는 실제 LL 성공 원본이다. owner·auth·운영 metadata는 fixture에 없다.
+        try (var source = getClass().getResourceAsStream("/writing/v14-n01-composite-feedback.json")) {
+            assertNotNull(source);
+            var fixture = json.readTree(source);
+            var value = plan(1, 1);
+            value.put("personalizedFeedbackStatus", "ACTIVE_QA").put("submittedItemCount", 1)
+                    .put("feedbackCompletedItemCount", 1).put("status", "COMPLETED").put("writingType", "GUIDED");
+            var item = (ObjectNode) value.path("items").get(0);
+            item.put("answered", true);
+            item.set("taskRequirements", fixture.path("taskRequirements").deepCopy());
+            item.set("requiredIntents", fixture.path("requiredIntents").deepCopy());
+            item.putObject("reference").set("checklist", fixture.path("taskRequirements").deepCopy());
+            var attempt = item.withArray("attempts").addObject().put("answer", fixture.path("answer").asText())
+                    .put("resultPolicy", "REFERENCE_ONLY").putNull("evaluation");
+            attempt.putObject("feedback").put("status", "SUCCEEDED").put("canRetry", false)
+                    .putNull("failureCode").set("result", fixture.path("result").deepCopy());
+            return value;
+        } catch (java.io.IOException failure) {
+            throw new AssertionError("Controlled actual N01 public feedback fixture cannot be read", failure);
+        }
+    }
+
+    private ObjectNode compositeObservation(ObjectNode value) {
+        for (var observation : result(value).path("observations")) {
+            if ("C4".equals(observation.path("requirementId").asText())) return (ObjectNode) observation;
+        }
+        throw new AssertionError("Actual N01 C4 observation is missing");
+    }
+
+    private ObjectNode compositeConflictPart(ObjectNode value) {
+        for (var part : compositeObservation(value).path("requirementParts")) {
+            if ("CONFLICT".equals(part.path("status").asText())) return (ObjectNode) part;
+        }
+        throw new AssertionError("Actual N01 conflicting part is missing");
+    }
+
+    private ObjectNode compositeCorrection(ObjectNode value) {
+        return (ObjectNode) result(value).path("necessaryCorrections").get(0);
+    }
+
+    @Test
+    void v14CompositeFallbackRejectsAnAdditionalActualQuoteFromAnotherSegmentInTheSamePart() {
+        // 준비: S3 두 절은 완전히 이어져 있어도 같은 CONFLICT part에 S1 인용을 더해 범위를 섞지 않는다.
+        var value = compositeConflictPlan();
+        var actualOtherSegment = compositeObservation(value).path("requirementParts").get(0)
+                .path("evidence").get(0).deepCopy();
+        assertEquals("S1", actualOtherSegment.path("segmentId").asText());
+        compositeConflictPart(value).withArray("evidence").add(actualOtherSegment);
+
+        // 실행 / 검증: 다른 문장을 무시해서 앞선 S3 coverage만으로 수용하지 않는다.
+        assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
+    }
+
 }

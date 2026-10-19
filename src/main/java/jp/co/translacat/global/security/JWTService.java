@@ -5,11 +5,15 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jp.co.translacat.domain.user.auth.session.AuthSessionRepository;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,6 +33,7 @@ public class JWTService {
     private final long accessTokenExpiredAt;
     private final long refreshTokenExpiredAt;
     private final String secretKey;
+    private final AuthSessionRepository sessions;
 
     /**
      * JWTService 생성자
@@ -37,11 +42,25 @@ public class JWTService {
     public JWTService(@Value("${jwt.token.secret-key}") String secretKey,
                       @Value("${jwt.token.expired.access}") long accExpiredAt,
                       @Value("${jwt.token.expired.refresh}") long rfExpiredAt) {
+        this(secretKey, accExpiredAt, rfExpiredAt, (AuthSessionRepository) null);
+    }
+
+    @Autowired
+    public JWTService(@Value("${jwt.token.secret-key}") String secretKey,
+                      @Value("${jwt.token.expired.access}") long accExpiredAt,
+                      @Value("${jwt.token.expired.refresh}") long rfExpiredAt,
+                      ObjectProvider<AuthSessionRepository> sessions) {
+        this(secretKey, accExpiredAt, rfExpiredAt, sessions.getIfAvailable());
+    }
+
+    public JWTService(String secretKey, long accExpiredAt, long rfExpiredAt,
+                      AuthSessionRepository sessions) {
 
         accessTokenExpiredAt = accExpiredAt;
         refreshTokenExpiredAt = rfExpiredAt;
 
         this.secretKey = secretKey;
+        this.sessions = sessions;
     }
 
     /**
@@ -52,9 +71,14 @@ public class JWTService {
      * @return JWT Access Token (5분 만료)
      */
     public String generateAccessToken(Long userId, String email) {
+        return generateAccessToken(userId, email, null);
+    }
+
+    public String generateAccessToken(Long userId, String email, String sessionId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put(this.KEY_ID, userId);
         claims.put("token_use", "access");
+        if (sessionId != null) claims.put("sid", sessionId);
         return this.generateToken(email, claims, accessTokenExpiredAt);
     }
 
@@ -66,9 +90,14 @@ public class JWTService {
      * @return JWT Refresh Token (7일 만료)
      */
     public String generateRefreshToken(Long userId, String email) {
+        return generateRefreshToken(userId, email, null);
+    }
+
+    public String generateRefreshToken(Long userId, String email, String sessionId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put(this.KEY_ID, userId);
         claims.put("token_use", "refresh");
+        if (sessionId != null) claims.put("sid", sessionId);
         return this.generateToken(email, claims, refreshTokenExpiredAt);
     }
 
@@ -149,7 +178,8 @@ public class JWTService {
     public boolean validateToken(String token, UserDetails userDetails) {
         // 보호 API에서는 access만 허용한다. 사용자 조회 결과와 토큰의 회원 ID도 일치해야 한다.
         Claims claims = extractAllClaims(token);
-        if (!isAccessToken(claims) || !userDetails.getUsername().equals(claims.getSubject())) {
+        if (!isAccessToken(claims) || !hasActiveSession(claims)
+                || !userDetails.getUsername().equals(claims.getSubject())) {
             return false;
         }
         return !(userDetails instanceof UserPrincipal principal)
@@ -158,10 +188,33 @@ public class JWTService {
 
     public Long getAccessId(String token) {
         Claims claims = extractAllClaims(token);
-        if (!isAccessToken(claims)) {
+        if (!isAccessToken(claims) || !hasActiveSession(claims)) {
             throw new JwtException("Access token required");
         }
         return claims.get(KEY_ID, Long.class);
+    }
+
+    public String getSessionId(String token) {
+        return sessionId(extractAllClaims(token));
+    }
+
+    private String sessionId(Claims claims) {
+        String id = claims.get("sid", String.class);
+        if (id != null && !id.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) {
+            throw new JwtException("Invalid authentication session");
+        }
+        return id;
+    }
+
+    private boolean hasActiveSession(Claims claims) {
+        // 구형 sid 없는 access는 기존 짧은 수명과 용도 검증을 유지한다.
+        String sessionId = sessionId(claims);
+        if (sessionId == null) return true;
+
+        // 새 토큰은 서명만으로 허용하지 않는다. 폐기·만료·다른 사용자 세션은 즉시 거부한다.
+        Long userId = claims.get(KEY_ID, Long.class);
+        return sessions != null && userId != null
+                && sessions.existsByIdAndUserIdAndRevokedAtIsNullAndExpiresAtAfter(sessionId, userId, Instant.now());
     }
 
     public Long getRefreshId(String token) {

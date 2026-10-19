@@ -1,5 +1,9 @@
 package jp.co.translacat.domain.user.auth.account;
 
+import jp.co.translacat.domain.user.auth.session.AuthSession;
+import jp.co.translacat.domain.user.auth.session.AuthSessionRepository;
+import jp.co.translacat.domain.user.auth.session.AuthSessionService;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManagerFactory;
 import jp.co.translacat.domain.user.auth.AuthException;
@@ -76,6 +80,7 @@ class AccountAuthPersistenceTest {
     @Autowired UserRepository users;
     @Autowired UserProfileRepository profiles;
     @Autowired RefreshTokenRepository refreshTokens;
+    @Autowired AuthSessionRepository authSessions;
     @Autowired GoogleAuthIntentRepository intents;
     @Autowired ReauthenticationGrantRepository grants;
     @Autowired EmailVerificationService email;
@@ -95,6 +100,7 @@ class AccountAuthPersistenceTest {
         assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
         profiles.deleteAllInBatch();
         refreshTokens.deleteAllInBatch();
+        authSessions.deleteAllInBatch();
         intents.deleteAllInBatch();
         grants.deleteAllInBatch();
         challenges.deleteAllInBatch();
@@ -362,13 +368,13 @@ class AccountAuthPersistenceTest {
     @EnableTransactionManagement
     @ImportAutoConfiguration({DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class, TransactionAutoConfiguration.class})
     @EnableJpaRepositories(basePackageClasses = {UserRepository.class, UserProfileRepository.class,
-            GoogleAuthIntentRepository.class, EmailVerificationChallengeRepository.class},
+            GoogleAuthIntentRepository.class, EmailVerificationChallengeRepository.class, AuthSessionRepository.class},
             excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RecentViewRepository.class))
     static class Config {
         @Bean PersistenceManagedTypes persistenceManagedTypes() {
             return PersistenceManagedTypes.of(User.class.getName(), UserAllowed.class.getName(), RefreshToken.class.getName(),
                     UserProfile.class.getName(), GoogleAuthIntent.class.getName(), ReauthenticationGrant.class.getName(),
-                    EmailVerificationChallenge.class.getName(), EmailVerificationQuota.class.getName());
+                    EmailVerificationChallenge.class.getName(), EmailVerificationQuota.class.getName(), AuthSession.class.getName());
         }
 
         @Bean FakeSender fakeSender() { return new FakeSender(); }
@@ -383,8 +389,12 @@ class AccountAuthPersistenceTest {
                     "test-email-hmac-secret-minimum-32-bytes", 400);
         }
 
-        @Bean JWTService jwtService() {
-            return new JWTService("YXVkaXQtbG9jYWwtYXV0aC1vbmx5LXN5bnRoZXRpYy1rZXktMjAyNg==", 300000, 604800000);
+        @Bean JWTService jwtService(AuthSessionRepository sessions) {
+            return new JWTService("YXVkaXQtbG9jYWwtYXV0aC1vbmx5LXN5bnRoZXRpYy1rZXktMjAyNg==", 300000, 604800000, sessions);
+        }
+
+        @Bean AuthSessionService authSessionService(AuthSessionRepository sessions, UserRepository users, JWTService jwt) {
+            return new AuthSessionService(sessions, users, jwt);
         }
 
         @Bean AuthenticationManager authenticationManager(UserRepository users, PasswordEncoder encoder) {
@@ -395,8 +405,9 @@ class AccountAuthPersistenceTest {
 
         @Bean UserService userService(UserRepository users, RefreshTokenRepository refresh, UserAllowedRepository allowed,
                 JWTService jwt, AuthenticationManager authentication, PasswordEncoder passwords,
-                EmailVerificationService email, UserProfileRepository profiles, AuthAttemptLimiter attempts) {
-            return new UserService(users, refresh, allowed, jwt, authentication, passwords, email, profiles, attempts);
+                EmailVerificationService email, UserProfileRepository profiles, AuthAttemptLimiter attempts,
+                AuthSessionService sessions) {
+            return new UserService(users, refresh, allowed, jwt, authentication, passwords, email, profiles, attempts, sessions);
         }
 
         @Bean AccountAuthService accountAuthService(UserRepository users, GoogleAuthIntentRepository intents,

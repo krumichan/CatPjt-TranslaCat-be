@@ -14,6 +14,7 @@ import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.domain.user.auth.AuthException;
 import jp.co.translacat.domain.user.auth.AuthInputs;
 import jp.co.translacat.domain.user.auth.AuthAttemptLimiter;
+import jp.co.translacat.domain.user.auth.session.AuthSessionService;
 import jp.co.translacat.domain.user.auth.email.EmailVerificationService;
 import jp.co.translacat.domain.user.auth.email.EmailVerificationPurpose;
 import jp.co.translacat.domain.user.profile.entity.UserProfile;
@@ -33,7 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Date;
 import java.util.Optional;
 
@@ -53,6 +53,7 @@ public class UserService {
     private final EmailVerificationService emailVerification;
     private final UserProfileRepository userProfiles;
     private final AuthAttemptLimiter attempts;
+    private final AuthSessionService sessions;
 
     public User getById(Long userId) {
         return userRepository.findById(userId)
@@ -141,7 +142,14 @@ public class UserService {
     }
 
     public String logout(String token) {
-        refreshTokenRepository.deleteById(jwtService.getAccessId(token));
+        // 새 세션은 현재 sid만 폐기한다. 구형 웹 토큰은 기존 단일 refresh 행만 정리한다.
+        Long userId = jwtService.getAccessId(token);
+        String sessionId = jwtService.getSessionId(token);
+        if (sessionId == null) {
+            refreshTokenRepository.deleteById(userId);
+        } else {
+            sessions.revoke(userId, sessionId);
+        }
         return "SUCCESS";
     }
 
@@ -153,6 +161,12 @@ public class UserService {
         Long userId = jwtService.getRefreshId(refreshToken);
         if (userId == null) {
             throw new AuthException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN", "다시 로그인해 주세요.");
+        }
+
+        // 신규 세션의 갱신은 sid별 hash 저장소에서 처리하고 구형 저장소와 혼용하지 않는다.
+        String sessionId = jwtService.getSessionId(refreshToken);
+        if (sessionId != null) {
+            return sessions.refresh(refreshToken, userId, sessionId);
         }
 
         RefreshToken rt = refreshTokenRepository.findById(userId)
@@ -185,38 +199,7 @@ public class UserService {
     }
 
     public UserLoginResponseDto generateUserTokens(User user) {
-        String refreshToken = jwtService.generateRefreshToken(
-                user.getId(),
-                user.getEmail()
-        );
-
-        LocalDateTime refreshExpiry = jwtService.extractExpiration(refreshToken)
-                .toInstant()
-                .atZone(ZoneId.systemDefault())
-                .toLocalDateTime();
-
-        RefreshToken rt = new RefreshToken();
-        rt.setUserId(user.getId());
-        rt.setToken(refreshToken);
-        rt.setExpireDate(refreshExpiry);
-        refreshTokenRepository.save(rt);
-
-        String accessToken = jwtService.generateAccessToken(
-                user.getId(),
-                user.getEmail()
-        );
-
-        Date accessExpiry = jwtService.extractExpiration(accessToken);
-        long accessTokenExpiresIn =
-                (accessExpiry.getTime() - System.currentTimeMillis()) / 1000;
-
-        return UserLoginResponseDto.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .accessTokenExpiresIn(accessTokenExpiresIn)
-                .role(user.getAuthority())
-                .publicId(user.getPublicId())
-                .build();
+        return sessions.create(user);
     }
 
     private String generateUniquePublicId() {

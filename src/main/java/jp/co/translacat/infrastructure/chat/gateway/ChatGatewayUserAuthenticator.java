@@ -33,4 +33,14 @@ public final class ChatGatewayUserAuthenticator {
             return null;
         }
     }
+
+    public boolean isSessionActive(String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() > 8200) return false;
+        try {
+            // 연결 이후에도 같은 access의 서명·만료·sid 폐기 상태를 확인한다.
+            return jwt.getAccessId(authorization.substring(7)) != null;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
 }

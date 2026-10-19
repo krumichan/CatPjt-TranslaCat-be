@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,6 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         SecurityConfigNovelAccessTest.SecurityRegressionController.class,
         SecurityConfigNovelAccessTest.TestSupportConfig.class
 })
+@ContextConfiguration(classes = PlatformController.class)
 class SecurityConfigNovelAccessTest {
 
     @Autowired

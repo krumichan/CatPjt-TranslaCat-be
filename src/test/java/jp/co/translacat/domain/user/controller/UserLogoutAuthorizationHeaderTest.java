@@ -6,6 +6,7 @@ import jp.co.translacat.domain.user.repository.UserAllowedRepository;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import jp.co.translacat.domain.user.auth.email.EmailVerificationService;
 import jp.co.translacat.domain.user.auth.AuthAttemptLimiter;
+import jp.co.translacat.domain.user.auth.session.AuthSessionService;
 import jp.co.translacat.domain.user.profile.repository.UserProfileRepository;
 import jp.co.translacat.domain.user.service.OAuth2AuthenticationService;
 import jp.co.translacat.domain.user.service.UserService;
@@ -25,7 +26,8 @@ class UserLogoutAuthorizationHeaderTest {
     private final JWTService jwt = new JWTService(Base64.getEncoder().encodeToString(new byte[32]), 60000, 60000);
     private final UserService users = new UserService(mock(UserRepository.class), refreshTokens,
             mock(UserAllowedRepository.class), jwt, mock(AuthenticationManager.class), mock(PasswordEncoder.class),
-            mock(EmailVerificationService.class), mock(UserProfileRepository.class), mock(AuthAttemptLimiter.class));
+            mock(EmailVerificationService.class), mock(UserProfileRepository.class), mock(AuthAttemptLimiter.class),
+            mock(AuthSessionService.class));
     private final UserController controller = new UserController(users, mock(OAuth2AuthenticationService.class));
 
     @Test

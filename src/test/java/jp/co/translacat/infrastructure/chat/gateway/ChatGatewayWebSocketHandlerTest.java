@@ -75,6 +75,7 @@ class ChatGatewayWebSocketHandlerTest {
         var principal = mock(UserPrincipal.class);
         when(principal.getId()).thenReturn(73L);
         when(users.authenticate("Bearer synthetic-access")).thenReturn(principal);
+        when(users.isSessionActive("Bearer synthetic-access")).thenReturn(true);
         when(tokens.issue(73, "chat:realtime")).thenReturn("synthetic-service-token");
         connecting = new CompletableFuture<>();
         scheduler = mock(ScheduledExecutorService.class);
@@ -95,6 +96,51 @@ class ChatGatewayWebSocketHandlerTest {
     @AfterEach
     void cleanup() {
         handler.destroy();
+    }
+
+    @Test
+    void revoked_session_blocks_pending_connect_and_does_not_forward_credentials() throws Exception {
+        // 준비: CONNECT 인증 뒤 upstream 연결이 완료되기 전에 현재 세션이 폐기된다.
+        handler.handleMessage(browser, new TextMessage(CONNECT));
+        when(users.isSessionActive("Bearer synthetic-access")).thenReturn(false);
+
+        // 실행
+        connecting.complete(upstream);
+
+        // 검증: 대기 중인 CONNECT를 전달하지 않고 연결을 닫는다.
+        verify(upstream, never()).sendText(any(), anyBoolean());
+        verify(browser).close(CloseStatus.POLICY_VIOLATION);
+    }
+
+    @Test
+    void revoked_session_cannot_send_on_an_already_connected_socket() throws Exception {
+        // 준비
+        handler.handleMessage(browser, new TextMessage(CONNECT));
+        connecting.complete(upstream);
+        clearInvocations(upstream);
+        when(users.isSessionActive("Bearer synthetic-access")).thenReturn(false);
+
+        // 실행
+        handler.handleMessage(browser, new TextMessage("SEND\ndestination:/app/chat/rooms/1/messages\n\n{}\0"));
+
+        // 검증: logout 이후의 업무 frame은 CHAT으로 전달되지 않는다.
+        verify(upstream, never()).sendText(any(), anyBoolean());
+        verify(browser).close(CloseStatus.POLICY_VIOLATION);
+    }
+
+    @Test
+    void revoked_session_cannot_receive_on_an_already_connected_socket() throws Exception {
+        // 준비
+        handler.handleMessage(browser, new TextMessage(CONNECT));
+        connecting.complete(upstream);
+        when(users.isSessionActive("Bearer synthetic-access")).thenReturn(false);
+
+        // 실행
+        listener.get().onText(upstream, "MESSAGE\n\nprivate-message\0", true);
+
+        // 검증: logout 이후의 수신 frame도 앱에 전달되지 않는다.
+        verify(browser, never()).sendMessage(any());
+        verify(browser).close(CloseStatus.POLICY_VIOLATION);
     }
 
     @Test

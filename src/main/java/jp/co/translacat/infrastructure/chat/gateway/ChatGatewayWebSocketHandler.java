@@ -127,6 +127,7 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
                 close(bridge, CloseStatus.POLICY_VIOLATION);
                 return;
             }
+            bridge.authorization = authorization;
             if (bridge.closed.get()) return;
             var connecting = connector.connect(session, tokens.issue(principal.getId(), "chat:realtime"),
                     new UpstreamListener(bridge));
@@ -184,6 +185,7 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
         synchronized (bridge.sendLock) {
             bridge.sends = bridge.sends.thenCompose(ignored -> {
                 if (bridge.closed.get()) return CompletableFuture.failedFuture(new IllegalStateException());
+                if (!activeSession(bridge)) return CompletableFuture.failedFuture(new IllegalStateException());
                 return bridge.upstream.sendText(text, true).thenApply(sent -> (Void) null);
             }).orTimeout(timeoutSeconds, TimeUnit.SECONDS).whenComplete((ignored, failure) -> {
                 bridge.queuedBytes.addAndGet(-bytes);
@@ -191,6 +193,13 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
                 if (failure != null) close(bridge, CloseStatus.SERVER_ERROR);
             });
         }
+    }
+
+    private boolean activeSession(Bridge bridge) {
+        // 대기 중인 송신과 수신 모두 전달 직전에 검사해 logout 뒤 이어지는 frame을 차단한다.
+        if (users.isSessionActive(bridge.authorization)) return true;
+        close(bridge, CloseStatus.POLICY_VIOLATION);
+        return false;
     }
 
     private void close(Bridge bridge, CloseStatus status) {
@@ -320,6 +329,7 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
         final StringBuilder pending = new StringBuilder();
         volatile WebSocket upstream;
         volatile CompletableFuture<WebSocket> connecting;
+        volatile String authorization;
         ScheduledFuture<?> deadline;
         boolean authStarted;
         CompletableFuture<Void> sends = CompletableFuture.completedFuture(null);
@@ -354,7 +364,9 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
                     close(bridge, CloseStatus.TOO_BIG_TO_PROCESS);
                 } else if (last) {
                     synchronized (bridge.browserLock) {
-                        if (!bridge.closed.get()) bridge.browser.sendMessage(new TextMessage(fragment.toString()));
+                        if (!bridge.closed.get() && activeSession(bridge)) {
+                            bridge.browser.sendMessage(new TextMessage(fragment.toString()));
+                        }
                     }
                     fragment.setLength(0);
                 }

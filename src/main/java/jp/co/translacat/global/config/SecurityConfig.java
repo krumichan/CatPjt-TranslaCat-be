@@ -92,6 +92,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(request -> request // URL별 접근 권한 설정
                         .requestMatchers(NOVEL_API_REQUESTS).hasRole("ADMIN")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        // 익명 PKCE 생성·교환 경로보다 현재 로그인 사용자의 명시적 승인을 먼저 보호한다.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/mobile/authorize").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/mobile/requests", "/api/v1/auth/mobile/exchange").permitAll()
                         // 외부 AI는 계획별 capability로 인증하며 나머지 계획 관리는 계정 인증을 요구한다.
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/language-learning/web-ai/external/prompt",

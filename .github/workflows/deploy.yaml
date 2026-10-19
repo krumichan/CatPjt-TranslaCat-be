@@ -26,6 +26,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Verify environment encoding with synthetic inputs
+        run: python -B scripts/check_release_env_encoding.py
       - name: Verify the exact release source
         run: |
           bash -n scripts/deploy-release.sh
@@ -50,21 +52,83 @@ jobs:
       - name: Encode the environment as data
         env:
           ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
+          MOBILE_AUTH_APPROVAL_SECRET: ${{ secrets.MOBILE_AUTH_APPROVAL_SECRET }}
+          AUTH_MOBILE_ALLOWED_REDIRECT_URIS: ${{ secrets.AUTH_MOBILE_ALLOWED_REDIRECT_URIS }}
         shell: python
         run: |
           import base64
           import os
           from pathlib import Path
+          import re
+          import unicodedata
 
-          value = os.environ['ENV_FILE_CONTENT']
-          if not value.strip():
-              raise SystemExit('ENV_FILE_CONTENT is empty')
 
-          encoded = base64.b64encode(value.encode('utf-8')).decode('ascii')
-          print('::add-mask::' + encoded)
+          def reject(code):
+              raise SystemExit('Environment encoding rejected: ' + code)
 
-          with Path(os.environ['GITHUB_ENV']).open('a', encoding='utf-8') as output:
-              output.write('DEPLOY_ENV_B64=' + encoded + '\n')
+
+          # 빈 별도 Secret은 기존 blob의 값을 지우지 않는다. 원문 값을 trim/decode하지 않는다.
+          names = ('MOBILE_AUTH_APPROVAL_SECRET', 'AUTH_MOBILE_ALLOWED_REDIRECT_URIS')
+          overrides = {name: os.environ.get(name, '') for name in names}
+          for name, value in overrides.items():
+              if value == '':
+                  continue
+              if any(char.isspace() or unicodedata.category(char).startswith('C') for char in value):
+                  reject('INVALID_MOBILE_OVERRIDE')
+              if name == 'MOBILE_AUTH_APPROVAL_SECRET' and len(value.encode('utf-8')) < 32:
+                  reject('APPROVAL_SECRET_TOO_SHORT')
+              if name == 'AUTH_MOBILE_ALLOWED_REDIRECT_URIS' and (
+                      not value.isascii() or value != 'translacat-dev://auth/callback'):
+                  reject('INVALID_DEVELOPMENT_CALLBACK')
+
+          # 기존 Docker env-file 문법을 유지한다. CRLF/BOM을 몰래 정규화하거나 중복을 덮어쓰지 않는다.
+          original = os.environ.get('ENV_FILE_CONTENT', '')
+          if not original.strip():
+              reject('ENV_FILE_CONTENT_EMPTY')
+          if original.startswith('\ufeff') or '\r' in original or '\0' in original:
+              reject('INVALID_ENV_FILE_ENCODING')
+          try:
+              original.encode('utf-8')
+          except UnicodeError:
+              reject('INVALID_ENV_FILE_ENCODING')
+
+          lines = original.split('\n')
+          positions = {}
+          for index, line in enumerate(lines):
+              if not line.strip() or line.lstrip().startswith('#'):
+                  continue
+              key, separator, value = line.partition('=')
+              if not separator or re.fullmatch(r'[A-Z][A-Z0-9_]*', key) is None:
+                  reject('INVALID_ENV_FILE_RECORD')
+              if key in positions:
+                  reject('DUPLICATE_ENV_FILE_KEY')
+              positions[key] = index
+
+          # 두 정확한 이름만 치환/추가한다. 나머지 행과 마지막 LF 유무는 그대로 보존한다.
+          for name, value in overrides.items():
+              if value == '':
+                  continue
+              record = name + '=' + value
+              if name in positions:
+                  lines[positions[name]] = record
+              elif lines[-1] == '':
+                  lines.insert(len(lines) - 1, record)
+              else:
+                  lines.append(record)
+
+          merged = '\n'.join(lines)
+          encoded = base64.b64encode(merged.encode('utf-8')).decode('ascii')
+          output_path = os.environ.get('GITHUB_ENV', '')
+          if not output_path:
+              reject('GITHUB_ENV_MISSING')
+
+          # raw Secret은 GitHub가 마스킹한다. 파생 Base64도 등록한 뒤 한 번만 env 파일에 전달한다.
+          try:
+              with Path(output_path).open('a', encoding='utf-8', newline='\n') as output:
+                  print('::add-mask::' + encoded, flush=True)
+                  output.write('DEPLOY_ENV_B64=' + encoded + '\n')
+          except OSError:
+              reject('GITHUB_ENV_WRITE_FAILED')
 
       - name: Prepare strict BE SSH
         env:

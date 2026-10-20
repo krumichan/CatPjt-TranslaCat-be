@@ -73,6 +73,30 @@ def valid_cors_allowed_origins(raw: str, frontend: str) -> bool:
             and frontend in origins and all(canonical_https_origin(origin) for origin in origins))
 
 
+def push_settings_error(values: dict[str, str]) -> str | None:
+    # 공개 푸시 설정은 완전체 또는 명시 OFF만 받는다. 값을 trim하거나 다른 환경을 추정하지 않는다.
+    enabled = 'PUSH_INSTALLATIONS_ENABLED'
+    maximum = 'PUSH_INSTALLATIONS_MAXIMUMACTIVEPERUSER'
+    project = 'PUSH_INSTALLATIONS_ALLOWEDPROJECTS_DEVELOPMENT_0'
+    names = (enabled, maximum, project)
+    present = set(names).intersection(values)
+    if not present:
+        return None
+    if enabled not in present:
+        return 'PUSH_PARTIAL_CONFIGURATION'
+    if values[enabled] not in ('true', 'false'):
+        return 'PUSH_INVALID_ENABLED'
+    if values[enabled] == 'false' and present == {enabled}:
+        return None
+    if present != set(names):
+        return 'PUSH_PARTIAL_CONFIGURATION'
+    if re.fullmatch(r'[1-9]|10', values[maximum]) is None:
+        return 'PUSH_INVALID_MAXIMUM'
+    if re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', values[project]) is None:
+        return 'PUSH_INVALID_PROJECT'
+    return None
+
+
 def validate(raw: bytes) -> list[str]:
     errors: list[str] = []
 
@@ -96,6 +120,11 @@ def validate(raw: bytes) -> list[str]:
         if key in values:
             errors.append(f"{key}: duplicate key")
         values[key] = value
+
+    # 선택 공개 푸시 설정도 workflow와 같은 완전체/OFF 계약으로 검사한다.
+    push_error = push_settings_error(values)
+    if push_error:
+        errors.append('PUSH_INSTALLATIONS: ' + push_error)
 
     # 현재 prod profile의 필수 계약을 검사하되 credential 값은 어느 오류에도 넣지 않는다.
     for key in REQUIRED:

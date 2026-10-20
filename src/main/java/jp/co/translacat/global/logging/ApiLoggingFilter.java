@@ -27,13 +27,25 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
         // Auth contains passwords and bearer/refresh tokens. Voice contains transcripts,
         // translations and short-lived tickets. Log metadata only for both surfaces.
         String redactionLabel = sensitiveBodyLabel(request.getRequestURI());
+        // servlet이 해석한 동일 push 경로도 가린다. URL을 직접/중복 decode하지 않는다.
+        if (isPushInstallationPath(request.getServletPath())) {
+            redactionLabel = "PUSH_INSTALLATION_REDACTED";
+        }
+        if (isInternalPushPath(request.getServletPath())) {
+            redactionLabel = "PUSH_INTERNAL_REDACTED";
+        }
         if (redactionLabel != null) {
             // 민감 경로는 본문과 함께 인증 주체의 원문도 로그에서 제외한다.
+            String loggedUri = switch (redactionLabel) {
+                case "PUSH_INSTALLATION_REDACTED" -> "/api/v1/users/me/push-installations/[REDACTED]";
+                case "PUSH_INTERNAL_REDACTED" -> "/internal/v1/chat/push/[REDACTED]";
+                default -> request.getRequestURI();
+            };
             log.info(
                     "[REQUEST] [{}] {} {} | Body: [{}]",
                     "REDACTED",
                     request.getMethod(),
-                    request.getRequestURI(),
+                    loggedUri,
                     redactionLabel
             );
             try {
@@ -107,6 +119,14 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     }
 
     private String sensitiveBodyLabel(String uri) {
+        // 푸시 설치 proof와 provider token은 공개 등록 요청/응답 로그에서 제외한다.
+        if (isPushInstallationPath(uri)) {
+            return "PUSH_INSTALLATION_REDACTED";
+        }
+        // 내부 target 응답의 provider token도 raw/decoded 경로 모두에서 본문·URI를 가린다.
+        if (isInternalPushPath(uri)) {
+            return "PUSH_INTERNAL_REDACTED";
+        }
         // 연결 응답의 비밀 토큰과 학습 원문·답안·전체 피드백을 요청 및 응답 로그에서 제외한다.
         if (uri.equals("/api/v1/language-learning/web-ai")
                 || uri.startsWith("/api/v1/language-learning/web-ai/")) {
@@ -143,5 +163,15 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
             return "WRITING_REDACTED";
         }
         return null;
+    }
+
+    private boolean isPushInstallationPath(String path) {
+        return path != null && (path.equals("/api/v1/users/me/push-installations")
+                || path.startsWith("/api/v1/users/me/push-installations/"));
+    }
+
+    private boolean isInternalPushPath(String path) {
+        return "/internal/v1/chat/push-targets/query".equals(path)
+                || "/internal/v1/chat/push-installations/invalidate".equals(path);
     }
 }

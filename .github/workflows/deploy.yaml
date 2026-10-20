@@ -55,6 +55,9 @@ jobs:
           MOBILE_AUTH_APPROVAL_SECRET: ${{ secrets.MOBILE_AUTH_APPROVAL_SECRET }}
           AUTH_MOBILE_ALLOWED_REDIRECT_URIS: ${{ secrets.AUTH_MOBILE_ALLOWED_REDIRECT_URIS }}
           CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
+          PUSH_INSTALLATIONS_ENABLED: ${{ vars.PUSH_INSTALLATIONS_ENABLED }}
+          PUSH_INSTALLATIONS_MAXIMUMACTIVEPERUSER: ${{ vars.PUSH_INSTALLATIONS_MAXIMUMACTIVEPERUSER }}
+          PUSH_INSTALLATIONS_ALLOWEDPROJECTS_DEVELOPMENT_0: ${{ vars.PUSH_INSTALLATIONS_ALLOWEDPROJECTS_DEVELOPMENT_0 }}
         shell: python
         run: |
           import base64
@@ -108,6 +111,30 @@ jobs:
                       and frontend in origins and all(canonical_https_origin(origin) for origin in origins))
 
 
+          def push_settings_error(values: dict[str, str]) -> str | None:
+              # 공개 푸시 설정은 완전체 또는 명시 OFF만 받는다. 값을 trim하거나 다른 환경을 추정하지 않는다.
+              enabled = 'PUSH_INSTALLATIONS_ENABLED'
+              maximum = 'PUSH_INSTALLATIONS_MAXIMUMACTIVEPERUSER'
+              project = 'PUSH_INSTALLATIONS_ALLOWEDPROJECTS_DEVELOPMENT_0'
+              names = (enabled, maximum, project)
+              present = set(names).intersection(values)
+              if not present:
+                  return None
+              if enabled not in present:
+                  return 'PUSH_PARTIAL_CONFIGURATION'
+              if values[enabled] not in ('true', 'false'):
+                  return 'PUSH_INVALID_ENABLED'
+              if values[enabled] == 'false' and present == {enabled}:
+                  return None
+              if present != set(names):
+                  return 'PUSH_PARTIAL_CONFIGURATION'
+              if re.fullmatch(r'[1-9]|10', values[maximum]) is None:
+                  return 'PUSH_INVALID_MAXIMUM'
+              if re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', values[project]) is None:
+                  return 'PUSH_INVALID_PROJECT'
+              return None
+
+
           # 빈 별도 Secret은 기존 blob의 값을 지우지 않는다. 원문 값을 trim/decode하지 않는다.
           names = ('MOBILE_AUTH_APPROVAL_SECRET', 'AUTH_MOBILE_ALLOWED_REDIRECT_URIS', 'CORS_ALLOWED_ORIGINS')
           overrides = {name: os.environ.get(name, '') for name in names}
@@ -156,7 +183,25 @@ jobs:
           if cors_override and not valid_cors_allowed_origins(cors_override, frontend):
               reject('INVALID_CORS_OVERRIDE')
 
-          # 세 정확한 이름만 치환/추가한다. 나머지 행과 마지막 LF 유무는 그대로 보존한다.
+          # 공개 Actions Variables는 빈 값이면 원본을 유지하고, 명시 OFF 외 충돌은 거부한다.
+          push_names = ('PUSH_INSTALLATIONS_ENABLED', 'PUSH_INSTALLATIONS_MAXIMUMACTIVEPERUSER',
+                        'PUSH_INSTALLATIONS_ALLOWEDPROJECTS_DEVELOPMENT_0')
+          existing_push = {name: lines[positions[name]].partition('=')[2] for name in push_names if name in positions}
+          push_error = push_settings_error(existing_push)
+          if push_error:
+              reject(push_error)
+          push_overrides = {name: os.environ.get(name, '') for name in push_names if os.environ.get(name, '') != ''}
+          push_error = push_settings_error(push_overrides)
+          if push_error:
+              reject(push_error)
+          for name, value in push_overrides.items():
+              if name in existing_push and existing_push[name] != value:
+                  explicit_off = name == 'PUSH_INSTALLATIONS_ENABLED' and value == 'false' and existing_push[name] == 'true'
+                  if not explicit_off:
+                      reject('PUSH_OVERRIDE_CONFLICT')
+          overrides.update(push_overrides)
+
+          # 승인/CORS/공개 푸시의 정확한 이름만 치환·추가한다. 다른 행과 마지막 LF는 그대로 유지한다.
           for name, value in overrides.items():
               if value == '':
                   continue

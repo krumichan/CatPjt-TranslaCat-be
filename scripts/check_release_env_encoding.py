@@ -16,6 +16,11 @@ WORKFLOW = ROOT / '.github' / 'workflows' / 'deploy.yaml'
 KEY = 'MOBILE_AUTH_APPROVAL_SECRET'
 REDIRECT = 'AUTH_MOBILE_ALLOWED_REDIRECT_URIS'
 CORS = 'CORS_ALLOWED_ORIGINS'
+PUSH_ENABLED = 'PUSH_INSTALLATIONS_ENABLED'
+PUSH_MAXIMUM = 'PUSH_INSTALLATIONS_MAXIMUMACTIVEPERUSER'
+PUSH_PROJECT = 'PUSH_INSTALLATIONS_ALLOWEDPROJECTS_DEVELOPMENT_0'
+PUSH_NAMES = (PUSH_ENABLED, PUSH_MAXIMUM, PUSH_PROJECT)
+PUSH_PROJECT_ID = '11111111-1111-4111-8111-111111111111'
 CORS_FRONTEND = 'https://web.example.test'
 CORS_NATIVE = 'https://native.example.test:8443'
 CALLBACK = 'translacat-dev://auth/callback'
@@ -49,6 +54,9 @@ def workflow_encoder() -> str:
     for name in ('ENV_FILE_CONTENT', KEY, REDIRECT, CORS):
         expected = '          ' + name + ': ${{ secrets.' + name + ' }}'
         require(expected in step, 'workflow', 'dedicated Secret input missing')
+    for name in PUSH_NAMES:
+        expected = '          ' + name + ': ${{ vars.' + name + ' }}'
+        require(expected in step, 'workflow', 'dedicated public Variable input missing')
     require('        run: python -B scripts/check_release_env_encoding.py' in lines[:start],
             'workflow', 'verify job must run this regression before release')
     runs = [index for index, line in enumerate(step) if line == '        run: |']
@@ -65,7 +73,7 @@ def workflow_encoder() -> str:
     # checkout 없는 release step과 사후 validator가 같은 origin 계약을 유지해야 한다.
     encoder_ast = ast.parse(program)
     validator_ast = ast.parse((ROOT / 'scripts' / 'validate-release-env.py').read_bytes().decode('utf-8'))
-    for name in ('canonical_https_origin', 'valid_cors_allowed_origins'):
+    for name in ('canonical_https_origin', 'valid_cors_allowed_origins', 'push_settings_error'):
         actual = [node for node in encoder_ast.body if isinstance(node, ast.FunctionDef) and node.name == name]
         expected = [node for node in validator_ast.body if isinstance(node, ast.FunctionDef) and node.name == name]
         require(len(actual) == len(expected) == 1, 'workflow', 'CORS helper must be unique')
@@ -267,6 +275,52 @@ def main() -> None:
             ('numeric-tld', 'https://native.123'), ('hex-tld', 'https://native.0xc0'),
             ('percent-host', 'https://native%2eexample.test')):
         rejected('cors-' + label, frontend_record, {CORS: CORS_FRONTEND + ',' + origin}, 'INVALID_CORS_OVERRIDE')
+
+    # 실제 inline encoder에 공개 설정을 넣어 기존 Secret·Origin·다른 행과 출력 원자성을 검증한다.
+    push = {PUSH_ENABLED: 'true', PUSH_MAXIMUM: '10', PUSH_PROJECT: PUSH_PROJECT_ID}
+    push_lines = ''.join(name + '=' + push[name] + '\n' for name in PUSH_NAMES)
+    original_push = unusual + frontend_record + CORS + '=' + cors_origins + '\n' + push_lines
+    accepted('push-unset-exact-bytes', original_push, {}, original_push)
+    accepted('push-empty-exact-bytes', original_push, dict.fromkeys(PUSH_NAMES, ''), original_push)
+    accepted('push-empty-no-final-lf', original_push[:-1], dict.fromkeys(PUSH_NAMES, ''), original_push[:-1])
+    accepted('push-add-complete-with-lf', unusual, push, unusual + push_lines)
+    accepted('push-add-complete-no-final-lf', 'A=1', push, 'A=1\n' + push_lines[:-1])
+    accepted('push-existing-complete-identical', original_push, push, original_push)
+    accepted('push-explicit-off-preserves-other-values', original_push, {PUSH_ENABLED: 'false'},
+             original_push.replace(PUSH_ENABLED + '=true\n', PUSH_ENABLED + '=false\n'))
+    accepted('push-off-alone-new', unusual, {PUSH_ENABLED: 'false'}, unusual + PUSH_ENABLED + '=false\n')
+    accepted('push-off-complete', unusual, push | {PUSH_ENABLED: 'false'},
+             unusual + push_lines.replace(PUSH_ENABLED + '=true\n', PUSH_ENABLED + '=false\n'))
+    accepted('push-all-six-inputs', frontend_record,
+             {KEY: SYNTHETIC_KEY, REDIRECT: CALLBACK, CORS: cors_origins, **push},
+             frontend_record + KEY + '=' + SYNTHETIC_KEY + '\n' + REDIRECT + '=' + CALLBACK + '\n'
+             + CORS + '=' + cors_origins + '\n' + push_lines)
+    for label, values in (
+            ('enabled-only-true', {PUSH_ENABLED: 'true'}), ('max-only', {PUSH_MAXIMUM: '10'}),
+            ('project-only', {PUSH_PROJECT: PUSH_PROJECT_ID}),
+            ('off-plus-max', {PUSH_ENABLED: 'false', PUSH_MAXIMUM: '10'}),
+            ('off-plus-project', {PUSH_ENABLED: 'false', PUSH_PROJECT: PUSH_PROJECT_ID}),
+            ('true-empty-project', push | {PUSH_PROJECT: ''})):
+        rejected('push-partial-' + label, unusual, values, 'PUSH_PARTIAL_CONFIGURATION')
+    for value in ('TRUE', 'False', '1', '0', ' true', 'true ', 'true\nA=1', 'false\x00', 'true\r', 'true\u200b'):
+        rejected('push-invalid-enabled-' + str(len(results)), unusual, push | {PUSH_ENABLED: value}, 'PUSH_INVALID_ENABLED')
+    for value in ('0', '11', '01', '+1', '-1', '1.0', '1 ', ' 1', '1\nA=1', '1\r', '１'):
+        rejected('push-invalid-maximum-' + str(len(results)), unusual, push | {PUSH_MAXIMUM: value}, 'PUSH_INVALID_MAXIMUM')
+    for value in ('bad', PUSH_PROJECT_ID.upper().replace('11111111', 'ABCDEFAB', 1), PUSH_PROJECT_ID + ' ',
+                  ' ' + PUSH_PROJECT_ID, PUSH_PROJECT_ID + '\nA=1', PUSH_PROJECT_ID + '\r', PUSH_PROJECT_ID + '\x00'):
+        rejected('push-invalid-project-' + str(len(results)), unusual, push | {PUSH_PROJECT: value}, 'PUSH_INVALID_PROJECT')
+    for name, value in ((PUSH_MAXIMUM, '9'), (PUSH_PROJECT, '22222222-2222-4222-8222-222222222222')):
+        rejected('push-conflict-' + name, original_push, push | {name: value}, 'PUSH_OVERRIDE_CONFLICT')
+        rejected('push-off-does-not-bypass-other-conflict-' + name, original_push,
+                 push | {PUSH_ENABLED: 'false', name: value}, 'PUSH_OVERRIDE_CONFLICT')
+    rejected('push-enable-conflicting-original-off', original_push.replace(PUSH_ENABLED + '=true', PUSH_ENABLED + '=false'),
+             push, 'PUSH_OVERRIDE_CONFLICT')
+    rejected('push-duplicate-even-explicit-off', original_push + PUSH_ENABLED + '=true\n',
+             {PUSH_ENABLED: 'false'}, 'DUPLICATE_ENV_FILE_KEY')
+    rejected('push-original-invalid-even-empty', unusual + PUSH_ENABLED + '=true\n', {}, 'PUSH_PARTIAL_CONFIGURATION')
+    rejected('push-invalid-does-not-emit-valid-secrets', frontend_record,
+             {KEY: SYNTHETIC_KEY, REDIRECT: CALLBACK, CORS: cors_origins, **push, PUSH_MAXIMUM: '11'},
+             'PUSH_INVALID_MAXIMUM')
 
     # 결과에는 합성 fixture의 내용도 저장하지 않고 시나리오 이름과 성공 여부만 남긴다.
     report = {'status': 'PASS', 'tests': len(results), 'failures': 0, 'skipped': 0,

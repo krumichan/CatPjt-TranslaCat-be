@@ -91,7 +91,9 @@ if args[0] == "run":
     if "--rm" in args: end(14 if fault == "image_runtime" else 0)
     if fault == "run": end(11)
     target = args[args.index("--name") + 1]
-    state[target] = {"id": "new-id", "running": True, "sha": sha, "env": "new-env", "mount": "new-mount"}
+    records = Path(args[args.index("--env-file") + 1]).read_text().splitlines()
+    push_values = dict(line.split("=", 1) for line in records if line.startswith("PUSH_INSTALLATIONS_"))
+    state[target] = {"id": "new-id", "running": True, "sha": sha, "env": "new-env", "mount": "new-mount", "push": push_values}
     end(0, "new-container-id")
 if args[0] == "logs":
     end(0, "synthetic replacement startup failure")
@@ -190,7 +192,32 @@ def synthetic_environment() -> bytes:
         assert all(rejected not in error for error in errors if len(rejected) > 8), 'CORS failure disclosed an input value'
     assert module.validate(raw + ('CORS_ALLOWED_ORIGINS=' + frontend + '\nCORS_ALLOWED_ORIGINS=' + frontend + '\n').encode())
     print(f'PASS optional CORS validator: {len(accepted_cors)} accepted + {len(rejected_cors) + 1} rejected fixtures')
-    return raw
+    # 공개 푸시 설정은 동일 validator를 거쳐 실제 Docker env-file 소비 경로로 전달한다.
+    push_enabled = 'PUSH_INSTALLATIONS_ENABLED'
+    push_maximum = 'PUSH_INSTALLATIONS_MAXIMUMACTIVEPERUSER'
+    push_project = 'PUSH_INSTALLATIONS_ALLOWEDPROJECTS_DEVELOPMENT_0'
+    project_id = '11111111-1111-4111-8111-111111111111'
+    valid_push = {push_enabled: 'true', push_maximum: '10', push_project: project_id}
+    push_lines = ''.join(key + '=' + value + '\n' for key, value in valid_push.items()).encode()
+    for accepted in (b'', (push_enabled + '=false\n').encode(), push_lines,
+                     push_lines.replace(b'=true\n', b'=false\n')):
+        assert not module.validate(raw + accepted), 'valid push setting was rejected'
+    invalid_push = [
+        {push_enabled: 'true'}, {push_maximum: '10'}, {push_project: project_id},
+        {push_enabled: 'false', push_maximum: '10'}, valid_push | {push_enabled: 'TRUE'},
+        valid_push | {push_maximum: '01'}, valid_push | {push_maximum: '0'},
+        valid_push | {push_maximum: '11'}, valid_push | {push_maximum: '+1'},
+        valid_push | {push_maximum: '1 '}, valid_push | {push_project: project_id + ' '},
+        valid_push | {push_project: 'ABCDEFAB-1111-4111-8111-111111111111'},
+    ]
+    for values in invalid_push:
+        addition = ''.join(key + '=' + value + '\n' for key, value in values.items()).encode()
+        errors = module.validate(raw + addition)
+        assert any(error.startswith('PUSH_INSTALLATIONS:') for error in errors), 'invalid push setting was accepted'
+        assert all(project_id not in error for error in errors), 'push failure disclosed input'
+    assert module.validate(raw + push_lines + (push_enabled + '=true\n').encode())
+    print('PASS optional push validator: 4 accepted + 13 rejected fixtures')
+    return raw + push_lines
 
 
 def main() -> None:
@@ -270,6 +297,11 @@ def main() -> None:
             if fault in ("success", "transient_health"):
                 assert process.returncode == 0, process.stderr
                 assert after[NAME]["sha"] == SHA and after[NAME]["running"]
+                assert after[NAME]["push"] == {
+                    'PUSH_INSTALLATIONS_ENABLED': 'true',
+                    'PUSH_INSTALLATIONS_MAXIMUMACTIVEPERUSER': '10',
+                    'PUSH_INSTALLATIONS_ALLOWEDPROJECTS_DEVELOPMENT_0': '11111111-1111-4111-8111-111111111111',
+                }, 'runtime Docker env-file lost the public push configuration'
                 if fault == "transient_health":
                     assert after[NAME]["health_checks"] == 3, after[NAME]
                 create_volume = next(i for i, call in enumerate(calls) if call[:3] == ["docker", "volume", "create"])

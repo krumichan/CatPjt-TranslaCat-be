@@ -40,7 +40,7 @@ public final class ChatCoreIdentityTokenVerifier {
 
     public ChatCoreServicePrincipal verifyService(String token, String expectedScope) {
         if (!Set.of("chat:accounts:read", "chat:relations:read", "chat:storage:read", "chat:storage:write",
-                        "chat:storage:delete")
+                        "chat:storage:delete", "chat:push-targets:read", "chat:push-installations:invalidate")
                 .contains(expectedScope)) return null;
         JsonNode payload = verifiedPayload(token, "chat-core-service", expectedScope);
         if (payload == null || !payload.path("sub").isTextual()

@@ -55,6 +55,8 @@ final class ChatCoreIdentityFilter extends OncePerRequestFilter {
         return switch (request.getMethod() + " " + request.getServletPath()) {
             case "POST /internal/v1/chat/accounts/lookup" -> "chat:accounts:read";
             case "POST /internal/v1/chat/relations/query" -> "chat:relations:read";
+            case "POST /internal/v1/chat/push-targets/query" -> "chat:push-targets:read";
+            case "POST /internal/v1/chat/push-installations/invalidate" -> "chat:push-installations:invalidate";
             case "POST /internal/v1/chat/storage/urls" -> "chat:storage:read";
             case "PUT /internal/v1/chat/storage/objects" -> "chat:storage:write";
             case "DELETE /internal/v1/chat/storage/objects" -> "chat:storage:delete";

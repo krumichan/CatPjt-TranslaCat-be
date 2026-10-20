@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import ipaddress
 from pathlib import Path
 import re
 import sys
@@ -34,6 +35,44 @@ RETIRED_AVAILABILITY_KEYS = (
 )
 
 
+def canonical_https_origin(raw: str) -> bool:
+    # 패턴·인증·경로를 받지 않는다. 브라우저가 보내는 소문자 host와 정규 port/IP 표기만 허용한다.
+    if not raw or not raw.isascii() or any(ord(char) <= 32 or ord(char) >= 127 for char in raw):
+        return False
+    if '*' in raw or '%' in raw:
+        return False
+    try:
+        parsed = urlsplit(raw)
+        host, port = parsed.hostname, parsed.port
+        if parsed.scheme != 'https' or not host or parsed.username is not None or parsed.password is not None:
+            return False
+        if parsed.path or parsed.query or parsed.fragment or port == 443 or port == 0:
+            return False
+
+        try:
+            address = ipaddress.ip_address(host)
+            canonical_host = '[' + str(address) + ']' if address.version == 6 else str(address)
+        except ValueError:
+            labels = host.split('.')
+            if len(host) > 253 or len(labels) < 2 or labels[-1].isdigit() or re.fullmatch(r'0x[0-9a-f]+', labels[-1]):
+                return False
+            if any(re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', label) is None for label in labels):
+                return False
+            canonical_host = host
+
+        expected = 'https://' + canonical_host + (':' + str(port) if port is not None else '')
+        return raw == expected
+    except ValueError:
+        return False
+
+
+def valid_cors_allowed_origins(raw: str, frontend: str) -> bool:
+    # 선택 override도 기존 FE origin을 포함해야 한다. 정확한 두 origin까지 허용하며 wildcard로 넓히지 않는다.
+    origins = raw.split(',')
+    return (1 <= len(origins) <= 2 and len(set(origins)) == len(origins)
+            and frontend in origins and all(canonical_https_origin(origin) for origin in origins))
+
+
 def validate(raw: bytes) -> list[str]:
     errors: list[str] = []
 
@@ -47,7 +86,7 @@ def validate(raw: bytes) -> list[str]:
     except UnicodeDecodeError:
         return errors + ["FILE: UTF-8 decoding failed"]
     values: dict[str, str] = {}
-    for number, line in enumerate(text.splitlines(), 1):
+    for number, line in enumerate(text.split('\n'), 1):
         if not line.strip() or line.lstrip().startswith("#"):
             continue
         key, separator, value = line.partition("=")
@@ -71,6 +110,10 @@ def validate(raw: bytes) -> list[str]:
     for key in RETIRED_AVAILABILITY_KEYS:
         if key in values:
             errors.append(f"{key}: retired service availability setting must be removed")
+
+    # 미설정은 기존 FRONTEND_URL 단일 origin을 유지한다. 명시한 빈 값이나 넓은 패턴은 배포 전에 거부한다.
+    if 'CORS_ALLOWED_ORIGINS' in values and not valid_cors_allowed_origins(values['CORS_ALLOWED_ORIGINS'], values.get('FRONTEND_URL', '')):
+        errors.append('CORS_ALLOWED_ORIGINS: requires one or two unique canonical HTTPS origins including FRONTEND_URL')
 
     # 소설 전용 인증은 필수이며 기존 공통 AI 소비자의 키로 대체하지 않는다.
     novel_key = values.get("NOVEL_AI_SERVER_API_KEY", "")

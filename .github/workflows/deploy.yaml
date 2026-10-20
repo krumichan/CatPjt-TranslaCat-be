@@ -54,23 +54,67 @@ jobs:
           ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
           MOBILE_AUTH_APPROVAL_SECRET: ${{ secrets.MOBILE_AUTH_APPROVAL_SECRET }}
           AUTH_MOBILE_ALLOWED_REDIRECT_URIS: ${{ secrets.AUTH_MOBILE_ALLOWED_REDIRECT_URIS }}
+          CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
         shell: python
         run: |
           import base64
+          import ipaddress
           import os
           from pathlib import Path
           import re
           import unicodedata
+          from urllib.parse import urlsplit
 
 
           def reject(code):
               raise SystemExit('Environment encoding rejected: ' + code)
 
 
+          def canonical_https_origin(raw: str) -> bool:
+              # 패턴·인증·경로를 받지 않는다. 브라우저가 보내는 소문자 host와 정규 port/IP 표기만 허용한다.
+              if not raw or not raw.isascii() or any(ord(char) <= 32 or ord(char) >= 127 for char in raw):
+                  return False
+              if '*' in raw or '%' in raw:
+                  return False
+              try:
+                  parsed = urlsplit(raw)
+                  host, port = parsed.hostname, parsed.port
+                  if parsed.scheme != 'https' or not host or parsed.username is not None or parsed.password is not None:
+                      return False
+                  if parsed.path or parsed.query or parsed.fragment or port == 443 or port == 0:
+                      return False
+
+                  try:
+                      address = ipaddress.ip_address(host)
+                      canonical_host = '[' + str(address) + ']' if address.version == 6 else str(address)
+                  except ValueError:
+                      labels = host.split('.')
+                      if len(host) > 253 or len(labels) < 2 or labels[-1].isdigit() or re.fullmatch(r'0x[0-9a-f]+', labels[-1]):
+                          return False
+                      if any(re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', label) is None for label in labels):
+                          return False
+                      canonical_host = host
+
+                  expected = 'https://' + canonical_host + (':' + str(port) if port is not None else '')
+                  return raw == expected
+              except ValueError:
+                  return False
+
+
+          def valid_cors_allowed_origins(raw: str, frontend: str) -> bool:
+              # 선택 override도 기존 FE origin을 포함해야 한다. 정확한 두 origin까지 허용하며 wildcard로 넓히지 않는다.
+              origins = raw.split(',')
+              return (1 <= len(origins) <= 2 and len(set(origins)) == len(origins)
+                      and frontend in origins and all(canonical_https_origin(origin) for origin in origins))
+
+
           # 빈 별도 Secret은 기존 blob의 값을 지우지 않는다. 원문 값을 trim/decode하지 않는다.
-          names = ('MOBILE_AUTH_APPROVAL_SECRET', 'AUTH_MOBILE_ALLOWED_REDIRECT_URIS')
+          names = ('MOBILE_AUTH_APPROVAL_SECRET', 'AUTH_MOBILE_ALLOWED_REDIRECT_URIS', 'CORS_ALLOWED_ORIGINS')
           overrides = {name: os.environ.get(name, '') for name in names}
           for name, value in overrides.items():
+              # CORS는 원본의 FE origin을 읽은 뒤 별도 계약으로 검사한다.
+              if name == 'CORS_ALLOWED_ORIGINS':
+                  continue
               if value == '':
                   continue
               if any(char.isspace() or unicodedata.category(char).startswith('C') for char in value):
@@ -104,7 +148,15 @@ jobs:
                   reject('DUPLICATE_ENV_FILE_KEY')
               positions[key] = index
 
-          # 두 정확한 이름만 치환/추가한다. 나머지 행과 마지막 LF 유무는 그대로 보존한다.
+          # 별도 CORS 입력은 원본 FE origin을 포함하는 정규 HTTPS 주소만 허용한다.
+          cors_override = overrides['CORS_ALLOWED_ORIGINS']
+          frontend = ''
+          if 'FRONTEND_URL' in positions:
+              frontend = lines[positions['FRONTEND_URL']].partition('=')[2]
+          if cors_override and not valid_cors_allowed_origins(cors_override, frontend):
+              reject('INVALID_CORS_OVERRIDE')
+
+          # 세 정확한 이름만 치환/추가한다. 나머지 행과 마지막 LF 유무는 그대로 보존한다.
           for name, value in overrides.items():
               if value == '':
                   continue

@@ -151,6 +151,45 @@ def synthetic_environment() -> bytes:
     assert module.validate(raw.replace(values["NOVEL_AI_SERVER_API_KEY"].encode(), b"short"))
     assert module.validate(raw.replace(b"AI_SERVER_API_KEY=test-only-value", b"AI_SERVER_API_KEY=" + values["NOVEL_AI_SERVER_API_KEY"].encode()))
     print("PASS environment validator: valid/special characters + 17 invalid fixtures")
+
+    # 준비: 선택 CORS 값이 없어도 기존 FE 계약을 유지하며, 추가할 때도 정확한 두 origin까지만 허용한다.
+    frontend = module.EXPECTED['FRONTEND_URL']
+    accepted_cors = [frontend, frontend + ',https://native.fixture.invalid',
+                     'https://native.fixture.invalid,' + frontend,
+                     frontend + ',https://198.51.100.20', frontend + ',https://native.fixture.invalid:8443',
+                     frontend + ',https://[2001:db8::20]']
+    rejected_cors = ['', ' ', '*', frontend + ',*', 'https://native.fixture.invalid',
+                     frontend + ',', ',' + frontend, frontend + ',' + frontend,
+                     frontend + ',https://one.fixture.invalid,https://two.fixture.invalid',
+                     frontend + ',http://native.fixture.invalid', frontend + ',HTTPS://native.fixture.invalid',
+                     frontend + ',https://NATIVE.fixture.invalid', frontend + ',https://native.fixture.invalid.',
+                     frontend + ',https://*.fixture.invalid', frontend + ',https://native.fixture.invalid/',
+                     frontend + ',https://native.fixture.invalid/path', frontend + ',https://native.fixture.invalid?',
+                     frontend + ',https://native.fixture.invalid#', frontend + ',https://user@native.fixture.invalid',
+                     frontend + ',https://:password@native.fixture.invalid', frontend + ',https://native.fixture.invalid:443',
+                     frontend + ',https://native.fixture.invalid:08443', frontend + ',https://native.fixture.invalid:0',
+                     frontend + ',https://native.fixture.invalid:65536', frontend + ',https://native.fixture.invalid:abc',
+                     frontend + ',https://native.fixture.invalid ', frontend + ', https://native.fixture.invalid',
+                     frontend + ',https://native.fixture.invalid\t', frontend + ',https://native.fixture.invalid\nINJECTED=1',
+                     frontend + ',https://native.fixture.invalid\r', frontend + ',https://native.fixture.invalid\x00',
+                     frontend + ',https://native.fixture.invalid\u2028', frontend + ',https://한글.fixture.invalid',
+                     frontend + ',https://native%2efixture.invalid', frontend + ',https://198.051.100.20',
+                     frontend + ',https://0x7f000001', frontend + ',https://[2001:0db8::20]',
+                     frontend + ',https://[2001:DB8::20]', frontend + ',https://[fe80::20%25eth0]']
+
+    # 실행 / 검증: 실제 env validator를 사용하며 입력 문자열은 실패 메시지에도 출력하지 않는다.
+    for allowed in accepted_cors:
+        assert not module.validate(raw + ('CORS_ALLOWED_ORIGINS=' + allowed + '\n').encode()), 'valid CORS override was rejected'
+    for rejected in rejected_cors:
+        assert not module.valid_cors_allowed_origins(rejected, frontend), 'invalid CORS override was accepted'
+        # LF는 env-file 자체의 record 경계다. Secret 값의 LF 차단은 실제 workflow encoder가 검증한다.
+        if '\n' in rejected:
+            continue
+        errors = module.validate(raw + ('CORS_ALLOWED_ORIGINS=' + rejected + '\n').encode())
+        assert any(error.startswith('CORS_ALLOWED_ORIGINS:') for error in errors), 'invalid CORS override was accepted'
+        assert all(rejected not in error for error in errors if len(rejected) > 8), 'CORS failure disclosed an input value'
+    assert module.validate(raw + ('CORS_ALLOWED_ORIGINS=' + frontend + '\nCORS_ALLOWED_ORIGINS=' + frontend + '\n').encode())
+    print(f'PASS optional CORS validator: {len(accepted_cors)} accepted + {len(rejected_cors) + 1} rejected fixtures')
     return raw
 
 

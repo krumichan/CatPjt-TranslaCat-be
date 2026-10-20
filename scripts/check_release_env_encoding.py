@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import base64
 import json
 import os
@@ -14,6 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / '.github' / 'workflows' / 'deploy.yaml'
 KEY = 'MOBILE_AUTH_APPROVAL_SECRET'
 REDIRECT = 'AUTH_MOBILE_ALLOWED_REDIRECT_URIS'
+CORS = 'CORS_ALLOWED_ORIGINS'
+CORS_FRONTEND = 'https://web.example.test'
+CORS_NATIVE = 'https://native.example.test:8443'
 CALLBACK = 'translacat-dev://auth/callback'
 SYNTHETIC_KEY = 'synthetic-only-approval-key-2026-' + 'k' * 32
 MARKER = b'EXISTING_MARKER=preserved\n'
@@ -42,7 +46,7 @@ def workflow_encoder() -> str:
                 if lines[index].startswith('      - name:')), len(lines))
     step = lines[start:end]
     require('        shell: python' in step, 'workflow', 'encoder must execute Python')
-    for name in ('ENV_FILE_CONTENT', KEY, REDIRECT):
+    for name in ('ENV_FILE_CONTENT', KEY, REDIRECT, CORS):
         expected = '          ' + name + ': ${{ secrets.' + name + ' }}'
         require(expected in step, 'workflow', 'dedicated Secret input missing')
     require('        run: python -B scripts/check_release_env_encoding.py' in lines[:start],
@@ -57,6 +61,15 @@ def workflow_encoder() -> str:
     program = '\n'.join(body) + '\n'
     require('${{' not in program, 'workflow', 'Secret expressions must not be interpolated into Python source')
     compile(program, '<workflow-release-env-encoding>', 'exec')
+
+    # checkout 없는 release step과 사후 validator가 같은 origin 계약을 유지해야 한다.
+    encoder_ast = ast.parse(program)
+    validator_ast = ast.parse((ROOT / 'scripts' / 'validate-release-env.py').read_bytes().decode('utf-8'))
+    for name in ('canonical_https_origin', 'valid_cors_allowed_origins'):
+        actual = [node for node in encoder_ast.body if isinstance(node, ast.FunctionDef) and node.name == name]
+        expected = [node for node in validator_ast.body if isinstance(node, ast.FunctionDef) and node.name == name]
+        require(len(actual) == len(expected) == 1, 'workflow', 'CORS helper must be unique')
+        require(ast.dump(actual[0]) == ast.dump(expected[0]), 'workflow', 'CORS helpers differ from validator')
     return program
 
 
@@ -177,6 +190,83 @@ def main() -> None:
     for label, value in (('space', CALLBACK + ' '), ('space-only', ' ' * 10),
                          ('newline', CALLBACK + '\nA=1'), ('nul', CALLBACK + '\0')):
         rejected('redirect-' + label, 'A=1\n', {REDIRECT: value}, 'INVALID_MOBILE_OVERRIDE')
+
+    # CORS override는 빈 입력을 보존하고 지정 입력만 정확한 한 행으로 병합한다.
+    frontend_record = 'FRONTEND_URL=' + CORS_FRONTEND + '\n'
+    cors_origins = CORS_FRONTEND + ',' + CORS_NATIVE
+    legacy_cors = frontend_record + CORS + '=legacy literal=$\'"+/\\=tail  \n'
+    accepted('cors-unset-preserves-legacy-bytes', legacy_cors, {}, legacy_cors)
+    accepted('cors-empty-preserves-legacy-bytes', legacy_cors, {CORS: ''}, legacy_cors)
+    accepted('cors-empty-preserves-no-final-lf', legacy_cors[:-1], {CORS: ''}, legacy_cors[:-1])
+    accepted('cors-append-with-final-lf', unusual + frontend_record, {CORS: cors_origins},
+             unusual + frontend_record + CORS + '=' + cors_origins + '\n')
+    accepted('cors-append-without-final-lf', frontend_record[:-1], {CORS: cors_origins},
+             frontend_record + CORS + '=' + cors_origins)
+    accepted('cors-replace-without-final-lf', frontend_record + CORS + '=old', {CORS: cors_origins},
+             frontend_record + CORS + '=' + cors_origins)
+    accepted('cors-only-keeps-mobile-values', existing + legacy_cors, {CORS: cors_origins},
+             existing + frontend_record + CORS + '=' + cors_origins + '\n')
+    accepted('mobile-override-keeps-old-cors-value', KEY + '=old\n' + legacy_cors, {KEY: SYNTHETIC_KEY},
+             KEY + '=' + SYNTHETIC_KEY + '\n' + legacy_cors)
+    accepted('all-three-overrides-append-once', frontend_record,
+             {KEY: SYNTHETIC_KEY, REDIRECT: CALLBACK, CORS: cors_origins},
+             frontend_record + KEY + '=' + SYNTHETIC_KEY + '\n' + REDIRECT + '=' + CALLBACK + '\n'
+             + CORS + '=' + cors_origins + '\n')
+    exact_cors = ('# ' + CORS + '=comment-only\n' + frontend_record
+                  + 'OTHER=value ' + CORS + '=inside\n' + CORS + '=old\n'
+                  + CORS + '_SUFFIX=untouched\n')
+    accepted('cors-replaces-exact-record-only', exact_cors, {CORS: cors_origins},
+             exact_cors.replace(CORS + '=old\n', CORS + '=' + cors_origins + '\n'))
+    for label, origins in (
+            ('frontend-only', CORS_FRONTEND), ('frontend-second', CORS_NATIVE + ',' + CORS_FRONTEND),
+            ('canonical-ipv4', CORS_FRONTEND + ',https://192.0.2.1:8443'),
+            ('canonical-ipv6', CORS_FRONTEND + ',https://[2001:db8::1]:8443')):
+        accepted('cors-' + label, frontend_record, {CORS: origins},
+                 frontend_record + CORS + '=' + origins + '\n')
+    accepted('cors-nondefault-frontend-port', 'FRONTEND_URL=' + CORS_FRONTEND + ':8443\n',
+             {CORS: CORS_FRONTEND + ':8443'},
+             'FRONTEND_URL=' + CORS_FRONTEND + ':8443\n' + CORS + '=' + CORS_FRONTEND + ':8443\n')
+
+    # 원본 중복은 새 override 유무와 무관하게 계속 거부한다.
+    duplicate_cors = frontend_record + CORS + '=old1\n' + CORS + '=old2\n'
+    rejected('cors-duplicate-original-before-replacement', duplicate_cors, {CORS: cors_origins}, 'DUPLICATE_ENV_FILE_KEY')
+    rejected('cors-duplicate-original-with-empty-override', duplicate_cors, {CORS: ''}, 'DUPLICATE_ENV_FILE_KEY')
+    rejected('cors-duplicate-frontend-original', frontend_record * 2, {CORS: cors_origins}, 'DUPLICATE_ENV_FILE_KEY')
+    rejected('cors-missing-frontend-original', 'A=1\n', {CORS: cors_origins}, 'INVALID_CORS_OVERRIDE')
+    rejected('cors-empty-frontend-original', 'FRONTEND_URL=\n', {CORS: cors_origins}, 'INVALID_CORS_OVERRIDE')
+
+    # 값은 정규화하지 않는다. FE 포함·수량·ASCII canonical origin 계약을 모두 검사한다.
+    for label, origins in (
+            ('space-only', ' '), ('missing-frontend', CORS_NATIVE),
+            ('duplicate-list-origin', CORS_FRONTEND + ',' + CORS_FRONTEND),
+            ('three-origins', cors_origins + ',https://third.example.test'),
+            ('blank-first-origin', ',' + CORS_FRONTEND), ('blank-last-origin', CORS_FRONTEND + ',')):
+        rejected('cors-' + label, frontend_record, {CORS: origins}, 'INVALID_CORS_OVERRIDE')
+    for label, origin in (
+            ('leading-space', ' ' + CORS_NATIVE), ('trailing-space', CORS_NATIVE + ' '),
+            ('tab', CORS_NATIVE + '\t'), ('newline', CORS_NATIVE + '\nINJECT=1'),
+            ('carriage-return', CORS_NATIVE + '\r'), ('nul', CORS_NATIVE + '\0'),
+            ('del', CORS_NATIVE + '\x7f'), ('unicode-space', CORS_NATIVE + '\u00a0'),
+            ('unicode-control', CORS_NATIVE + '\u200b'), ('non-ascii-host', 'https://네이티브.example.test'),
+            ('http', 'http://native.example.test'), ('uppercase-scheme', 'HTTPS://native.example.test'),
+            ('uppercase-host', 'https://NATIVE.example.test'), ('trailing-dot', 'https://native.example.test.'),
+            ('wildcard', 'https://*.example.test'), ('path', 'https://native.example.test/api'),
+            ('slash', 'https://native.example.test/'), ('query', 'https://native.example.test?q=1'),
+            ('blank-query', 'https://native.example.test?'), ('fragment', 'https://native.example.test#x'),
+            ('blank-fragment', 'https://native.example.test#'), ('userinfo', 'https://user@native.example.test'),
+            ('default-port', 'https://native.example.test:443'), ('leading-zero-port', 'https://native.example.test:08443'),
+            ('zero-port', 'https://native.example.test:0'), ('overflow-port', 'https://native.example.test:65536'),
+            ('empty-port', 'https://native.example.test:'), ('ipv4-leading-zero', 'https://192.000.2.1'),
+            ('ipv4-short', 'https://127.1'), ('hex-ipv4', 'https://0xc0000201'),
+            ('ipv6-uppercase', 'https://[2001:DB8::1]'),
+            ('ipv6-uncompressed', 'https://[2001:0db8:0000:0000:0000:0000:0000:0001]'),
+            ('ipv6-unbracketed', 'https://2001:db8::1'), ('ipv6-zone', 'https://[fe80::1%25eth0]'),
+            ('dns-single-label', 'https://native'), ('dns-underscore', 'https://native_name.example.test'),
+            ('dns-leading-hyphen', 'https://-native.example.test'),
+            ('dns-trailing-hyphen', 'https://native-.example.test'),
+            ('numeric-tld', 'https://native.123'), ('hex-tld', 'https://native.0xc0'),
+            ('percent-host', 'https://native%2eexample.test')):
+        rejected('cors-' + label, frontend_record, {CORS: CORS_FRONTEND + ',' + origin}, 'INVALID_CORS_OVERRIDE')
 
     # 결과에는 합성 fixture의 내용도 저장하지 않고 시나리오 이름과 성공 여부만 남긴다.
     report = {'status': 'PASS', 'tests': len(results), 'failures': 0, 'skipped': 0,

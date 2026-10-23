@@ -2,6 +2,7 @@ package jp.co.translacat.domain.accountbook.transaction.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
+import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.domain.accountbook.accountbook.dto.AccountBookSearchRequestDto;
 import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.domain.accountbook.accountbook.repository.AccountBookRepository;
@@ -288,10 +289,25 @@ class ReceiptPersistenceIntegrationTest {
 
     @Test
     void unauthorizedBatchDoesNotPersist() {
-        assertThatThrownBy(
-                () -> batch.register(bookId, -1L, key(), new ReceiptBatchRequestDto(List.of(item("1", "JPY", "10")))))
+        // 준비: 계정 상태 검사를 통과하는 실제 비회원과 소유자가 만든 정상 후보를 구분한다.
+        Long nonMemberId = tx.execute(status -> {
+            var nonMember = User.createLocalUser("outsider-" + UUID.randomUUID() + "@test.local",
+                    "password", "outsider", Role.USER, UUID.randomUUID().toString().substring(0, 10));
+            em.persist(nonMember);
+            em.flush();
+            assertThat(nonMember.isActiveAccount()).isTrue();
+            return nonMember.getId();
+        });
+        var request = new ReceiptBatchRequestDto(List.of(item("1", "JPY", "10")));
+
+        // 실행 / 검증: 없는 계정은 공통 상태 경계에서, 정상 비회원은 기존 가계부 권한 경계에서 거절한다.
+        assertThatThrownBy(() -> batch.register(bookId, -1L, key(), request))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo("USER_NOT_FOUND"));
+        assertThatThrownBy(() -> batch.register(bookId, nonMemberId, key(), request))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(transactions.count()).isZero();
+        assertThat(registrations.count()).isZero();
     }
 
     @Test

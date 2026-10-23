@@ -20,7 +20,7 @@ class LocalAuthMigrationTest {
 
     @Test
     void tidbCompatibleSqlIsRepeatableAndMatchesJpaMappings() throws Exception {
-        // 준비: 운영 migration 이전의 user 구조와 기존 Google 회원을 격리 H2에 만든다.
+        // 준비: 인증 확장 전 구조에 현행 공통 계정 상태 컬럼을 갖추고 기존 Google 회원을 격리 H2에 만든다.
         String url = "jdbc:h2:mem:local-auth-migration;MODE=MySQL;NON_KEYWORDS=USER;DB_CLOSE_DELAY=-1";
         try (var connection = DriverManager.getConnection(url, "sa", "");
              var statement = connection.createStatement()) {
@@ -34,6 +34,8 @@ class LocalAuthMigrationTest {
                         social_id varchar(255),
                         authority varchar(255),
                         public_id varchar(20) not null unique,
+                        account_state varchar(24) not null default 'ACTIVE',
+                        deletion_requested_at timestamp(6) with time zone,
                         created_by varchar(50),
                         created_at timestamp(6) not null,
                         updated_by varchar(50),
@@ -58,6 +60,11 @@ class LocalAuthMigrationTest {
             try (var result = statement.executeQuery("select count(*) from `user`")) {
                 result.next();
                 assertThat(result.getInt(1)).isEqualTo(1);
+            }
+            try (var result = statement.executeQuery("select account_state, deletion_requested_at from `user`")) {
+                result.next();
+                assertThat(result.getString(1)).isEqualTo("ACTIVE");
+                assertThat(result.getObject(2)).isNull();
             }
             try (var result = statement.executeQuery("select reserved_count from auth_email_quota where id = 1")) {
                 result.next();

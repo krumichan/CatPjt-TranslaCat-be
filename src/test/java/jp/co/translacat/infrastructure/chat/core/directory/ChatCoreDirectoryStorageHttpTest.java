@@ -3,6 +3,7 @@ package jp.co.translacat.infrastructure.chat.core.directory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.persistence.EntityManagerFactory;
 import jp.co.translacat.domain.user.block.service.UserBlockService;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.enums.Role;
@@ -306,6 +307,12 @@ public class ChatCoreDirectoryStorageHttpTest {
             ProfileImageValidator.class
     })
     static class TestApplication {
+        @Bean
+        EntityManagerFactory entityManagerFactory() {
+            // 준비: mock 서비스의 @PersistenceContext도 처리되므로 DB 없는 슬라이스에 선언 의존성만 제공한다.
+            return mock(EntityManagerFactory.class);
+        }
+
         @Bean
         UserRepository users() {
             return mock(UserRepository.class);

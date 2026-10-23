@@ -141,7 +141,9 @@ class ChatGatewayHttpTest {
         reset(users);
         var user = User.createLocalUser("gateway@example.invalid", "synthetic", "synthetic", Role.USER, "synthetic-id");
         user.setId(73L);
+        // 준비: email 로그인 조회와 신규 ID 기반 계정 상태 검증이 같은 활성 사용자를 보도록 고정한다.
         when(users.findByEmail("gateway@example.invalid")).thenReturn(Optional.of(user));
+        when(users.findById(73L)).thenReturn(Optional.of(user));
     }
 
     @AfterAll

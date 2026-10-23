@@ -27,6 +27,9 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
         // Auth contains passwords and bearer/refresh tokens. Voice contains transcripts,
         // translations and short-lived tickets. Log metadata only for both surfaces.
         String redactionLabel = sensitiveBodyLabel(request.getRequestURI());
+        if (redactionLabel == null) {
+            redactionLabel = sensitiveBodyLabel(request.getServletPath());
+        }
         // servlet이 해석한 동일 push 경로도 가린다. URL을 직접/중복 decode하지 않는다.
         if (isPushInstallationPath(request.getServletPath())) {
             redactionLabel = "PUSH_INSTALLATION_REDACTED";
@@ -119,6 +122,11 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     }
 
     private String sensitiveBodyLabel(String uri) {
+        // receipt/proof/Google 증명과 접수 응답은 원문 및 사용자 식별자를 모두 가린다.
+        if (uri != null && (uri.startsWith("/api/v1/users/me/deletion-")
+                || uri.equals("/api/v1/account-deletion/status"))) {
+            return "ACCOUNT_DELETION_REDACTED";
+        }
         // 푸시 설치 proof와 provider token은 공개 등록 요청/응답 로그에서 제외한다.
         if (isPushInstallationPath(uri)) {
             return "PUSH_INSTALLATION_REDACTED";

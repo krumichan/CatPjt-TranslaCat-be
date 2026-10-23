@@ -63,6 +63,30 @@ public class User extends BaseAuditable {
     @Column(name = "public_id", nullable = false, unique = true, updatable = false, length = 20)
     private String publicId;
 
+    @Column(name = "account_state", nullable = false, length = 24)
+    @JsonIgnore
+    private String accountState = "ACTIVE";
+
+    @Column(name = "deletion_requested_at")
+    @JsonIgnore
+    private Instant deletionRequestedAt;
+
+    public boolean isActiveAccount() {
+        return "ACTIVE".equals(accountState);
+    }
+
+    public void requestDeletion(Instant now) {
+        this.accountState = "DELETION_PENDING";
+        this.deletionRequestedAt = now;
+        this.email = "deleted-" + id + "@deleted.invalid";
+        this.password = null;
+        this.birthDate = null;
+        this.emailVerifiedAt = null;
+        this.username = "탈퇴한 사용자";
+        this.socialId = null;
+        this.socialType = SocialType.LOCAL;
+    }
+
     public boolean hasPassword() {
         return password != null && !password.isBlank();
     }

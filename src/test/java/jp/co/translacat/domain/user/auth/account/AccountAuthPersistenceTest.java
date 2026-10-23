@@ -407,7 +407,8 @@ class AccountAuthPersistenceTest {
                 JWTService jwt, AuthenticationManager authentication, PasswordEncoder passwords,
                 EmailVerificationService email, UserProfileRepository profiles, AuthAttemptLimiter attempts,
                 AuthSessionService sessions) {
-            return new UserService(users, refresh, allowed, jwt, authentication, passwords, email, profiles, attempts, sessions);
+            return new UserService(users, refresh, allowed, jwt, authentication, passwords, email, profiles, attempts, sessions,
+                    mock(jp.co.translacat.domain.user.deletion.AccountDeletionIdentityGate.class));
         }
 
         @Bean AccountAuthService accountAuthService(UserRepository users, GoogleAuthIntentRepository intents,

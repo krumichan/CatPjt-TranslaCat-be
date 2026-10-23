@@ -52,7 +52,7 @@ public class ChatCoreIdentityController {
             return rejected(404);
         }
         var principal = new UserPrincipal(user.get());
-        // 현재 원본의 상태 flags는 모두 true다. 존재하지 않는 정지/탈퇴 DB 정책을 새로 만들지 않는다.
+        // 탈퇴 접수 직후부터 계정 원본의 현재 상태를 반영한다. 캐시된 사용자 JWT 서명만으로 허용하지 않는다.
         boolean canAuthenticate = principal.isEnabled() && principal.isAccountNonLocked()
                 && principal.isAccountNonExpired() && principal.isCredentialsNonExpired();
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(

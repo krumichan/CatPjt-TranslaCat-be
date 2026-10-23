@@ -54,6 +54,8 @@ public class StorageConfiguration {
                 )
                 .region(Region.of(s3.getRegion()))
                 .serviceConfiguration(serviceConfiguration)
+                // 타임아웃 attempt 뒤의 숨은 PUT이 삭제 이후 같은 객체를 되살리지 않게 외부 재시도는 영속 작업이 소유한다.
+                .overrideConfiguration(config -> config.retryPolicy(software.amazon.awssdk.core.retry.RetryPolicy.none()))
                 .build();
     }
 

@@ -12,6 +12,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.HashMap;
@@ -22,6 +23,7 @@ import java.util.UUID;
 
 @Repository
 public class NovelStore implements NovelRepository {
+    private final NovelAccountFence accountFence;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
     private final ObjectMapper json;
@@ -29,6 +31,13 @@ public class NovelStore implements NovelRepository {
 
     public NovelStore(JdbcTemplate jdbc, org.springframework.transaction.PlatformTransactionManager manager,
                       ObjectMapper json) {
+        this(jdbc, manager, json, null);
+    }
+
+    @Autowired
+    public NovelStore(JdbcTemplate jdbc, org.springframework.transaction.PlatformTransactionManager manager,
+                      ObjectMapper json, NovelAccountFence accountFence) {
+        this.accountFence = accountFence;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(manager);
         this.json = json;
@@ -71,37 +80,43 @@ public class NovelStore implements NovelRepository {
     }
 
     public Job create(EpisodeKey key, SourceEpisode source, long actorId, String cacheKey, String requestKey) {
-        return create(key, source, actorId, cacheKey, requestKey, "ko");
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(actorId, () -> {
+            return create(key, source, actorId, cacheKey, requestKey, "ko");
+        });
     }
 
     @Override
     public Job create(EpisodeKey key, SourceEpisode source, long actorId, String cacheKey, String requestKey, String targetLanguage) {
-        String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
-        if (requestKey == null || !requestKey.matches("[A-Za-z0-9._:-]{1,100}")) {
-            throw new NovelProblem("IDEMPOTENCY_KEY_INVALID", 400);
-        }
-        // 사용자+멱등 키는 DB unique constraint로 경쟁 요청에서도 한 cache identity에만 묶인다.
-        try {
-            jdbc.update("INSERT INTO novel_idempotency(actor_id,request_key,cache_key) VALUES(?,?,?)",
-                    actorId, requestKey, cacheKey);
-        } catch (DuplicateKeyException ignored) {
-            String previous = jdbc.queryForObject("SELECT cache_key FROM novel_idempotency WHERE actor_id=? AND request_key=?",
-                    String.class, actorId, requestKey);
-            if (!cacheKey.equals(previous)) {
-                throw new NovelProblem("IDEMPOTENCY_CONFLICT", 409);
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(actorId, () -> {
+            String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
+            if (requestKey == null || !requestKey.matches("[A-Za-z0-9._:-]{1,100}")) {
+                throw new NovelProblem("IDEMPOTENCY_KEY_INVALID", 400);
             }
-        }
-        try {
-            jdbc.update("INSERT INTO novel_translation_job(cache_key,job_id,source_key,revision,actor_id,state,"
-                            + "result_json,errors_json,owner_token,fence,lease_until,event_sequence,provider_calls,input_tokens,output_tokens,updated_at,target_language) "
-                            + "VALUES(?,?,?,?,?,'QUEUED','{}','{}',NULL,0,0,0,0,0,0,?,?)",
-                    cacheKey, UUID.randomUUID().toString(), key.value(), source.revision(), actorId, System.currentTimeMillis(), target);
-        } catch (DuplicateKeyException ignored) {
-            // 원문+정책+actor cache unique는 서로 다른 멱등 키도 동일 작업으로 합친다.
-        }
-        Job job = byCache(cacheKey).orElseThrow();
-        if (!target.equals(job.targetLanguage())) throw new NovelProblem("IDEMPOTENCY_CONFLICT", 409);
-        return job;
+            // 사용자+멱등 키는 DB unique constraint로 경쟁 요청에서도 한 cache identity에만 묶인다.
+            try {
+                jdbc.update("INSERT INTO novel_idempotency(actor_id,request_key,cache_key) VALUES(?,?,?)",
+                        actorId, requestKey, cacheKey);
+            } catch (DuplicateKeyException ignored) {
+                String previous = jdbc.queryForObject("SELECT cache_key FROM novel_idempotency WHERE actor_id=? AND request_key=?",
+                        String.class, actorId, requestKey);
+                if (!cacheKey.equals(previous)) {
+                    throw new NovelProblem("IDEMPOTENCY_CONFLICT", 409);
+                }
+            }
+            try {
+                jdbc.update("INSERT INTO novel_translation_job(cache_key,job_id,source_key,revision,actor_id,state,"
+                                + "result_json,errors_json,owner_token,fence,lease_until,event_sequence,provider_calls,input_tokens,output_tokens,updated_at,target_language) "
+                                + "VALUES(?,?,?,?,?,'QUEUED','{}','{}',NULL,0,0,0,0,0,0,?,?)",
+                        cacheKey, UUID.randomUUID().toString(), key.value(), source.revision(), actorId, System.currentTimeMillis(), target);
+            } catch (DuplicateKeyException ignored) {
+                // 원문+정책+actor cache unique는 서로 다른 멱등 키도 동일 작업으로 합친다.
+            }
+            Job job = byCache(cacheKey).orElseThrow();
+            if (!target.equals(job.targetLanguage())) throw new NovelProblem("IDEMPOTENCY_CONFLICT", 409);
+            return job;
+        });
     }
 
     public Optional<Job> byCache(String cacheKey) {
@@ -109,10 +124,30 @@ public class NovelStore implements NovelRepository {
     }
 
     @Override public Optional<Job> sharedCompleted(String identity) { return shared.completed(identity); }
-    @Override public void publishShared(String identity, Job job, SourceEpisode source) { shared.publish(identity, job, source); }
-    @Override public Job attachShared(String identity, Job job, SourceEpisode source) { return shared.attach(identity, job, source); }
-    @Override public Job attachShared(String identity, Job job, SourceEpisode source, boolean explicitResume) { return shared.attach(identity, job, source, explicitResume); }
-    @Override public Job syncShared(Job job, SourceEpisode source) { return shared.sync(job, source); }
+    @Override public void publishShared(String identity, Job job, SourceEpisode source) {
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        withActiveActor(job.actorId(), () -> {
+            shared.publish(identity, job, source);
+        });
+    }
+    @Override public Job attachShared(String identity, Job job, SourceEpisode source) {
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(job.actorId(), () -> {
+            return shared.attach(identity, job, source);
+        });
+    }
+    @Override public Job attachShared(String identity, Job job, SourceEpisode source, boolean explicitResume) {
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(job.actorId(), () -> {
+            return shared.attach(identity, job, source, explicitResume);
+        });
+    }
+    @Override public Job syncShared(Job job, SourceEpisode source) {
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(job.actorId(), () -> {
+            return shared.sync(job, source);
+        });
+    }
 
     @Override
     public List<Job> completedCandidates(EpisodeKey key, String revision, String target) {
@@ -130,7 +165,10 @@ public class NovelStore implements NovelRepository {
     }
 
     public Optional<Job> claim(String cacheKey, boolean retry, long leaseMillis) {
-        return shared.claim(cacheKey, () -> claimLocal(cacheKey, retry, leaseMillis));
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(actorForCache(cacheKey), () -> {
+            return shared.claim(cacheKey, () -> claimLocal(cacheKey, retry, leaseMillis));
+        });
     }
 
     private Optional<Job> claimLocal(String cacheKey, boolean retry, long leaseMillis) {
@@ -148,110 +186,128 @@ public class NovelStore implements NovelRepository {
     }
 
     public boolean reserveCall(Job job) {
-        return jdbc.update("UPDATE novel_translation_job SET provider_calls=provider_calls+1 WHERE cache_key=? "
-                        + "AND owner_token=? AND fence=? AND state='RUNNING' AND lease_until>? AND provider_calls<256 "
-                        + "AND EXISTS(SELECT 1 FROM novel_source_current s WHERE s.source_key=novel_translation_job.source_key "
-                        + "AND s.revision=novel_translation_job.revision)",
-                job.cacheKey(), job.owner(), job.fence(), System.currentTimeMillis()) == 1;
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(job.actorId(), () -> {
+            return jdbc.update("UPDATE novel_translation_job SET provider_calls=provider_calls+1 WHERE cache_key=? "
+                            + "AND owner_token=? AND fence=? AND state='RUNNING' AND lease_until>? AND provider_calls<256 "
+                            + "AND EXISTS(SELECT 1 FROM novel_source_current s WHERE s.source_key=novel_translation_job.source_key "
+                            + "AND s.revision=novel_translation_job.revision)",
+                    job.cacheKey(), job.owner(), job.fence(), System.currentTimeMillis()) == 1;
+        });
     }
 
     public boolean merge(Job owner, Map<String, String> results, Map<String, String> errors,
                          long inputTokens, long outputTokens) {
-        return Boolean.TRUE.equals(transactions.execute(status -> {
-            Job current = jdbc.queryForObject("SELECT * FROM novel_translation_job WHERE cache_key=? FOR UPDATE",
-                    mapper(), owner.cacheKey());
-            if (!owns(current, owner) || current.leaseUntil() <= System.currentTimeMillis()) {
-                return false;
-            }
-            List<String> revisions = jdbc.queryForList("SELECT revision FROM novel_source_current WHERE source_key=?",
-                    String.class, owner.sourceKey());
-            if (revisions.isEmpty() || !owner.revision().equals(revisions.getFirst())) {
-                jdbc.update("UPDATE novel_translation_job SET state='CANCELLED',event_sequence=event_sequence+1 WHERE cache_key=?",
-                        owner.cacheKey());
-                return false;
-            }
-
-            // 청크 전체를 검증한 후 한 짧은 transaction에서 결과와 오류를 함께 반영한다.
-            Map<String, String> merged = new HashMap<>(current.results());
-            Map<String, String> failed = new HashMap<>(current.errors());
-            if (!errors.isEmpty()) recordInitialErrors(current, errors);
-            // 복구 대상으로 인계된 ID와 이미 확정된 정상 값은 원래 A의 늦은 응답이 덮지 못한다.
-            var handedOff = jdbc.queryForList("SELECT segment_id FROM novel_repair_target WHERE cache_key=?", String.class, owner.cacheKey());
-            results.forEach((id, value) -> { if (!handedOff.contains(id)) merged.putIfAbsent(id, value); });
-            merged.keySet().forEach(failed::remove);
-            errors.forEach((id, code) -> {
-                if (!merged.containsKey(id)) {
-                    failed.put(id, code);
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(owner.actorId(), () -> {
+            return Boolean.TRUE.equals(transactions.execute(status -> {
+                Job current = jdbc.queryForObject("SELECT * FROM novel_translation_job WHERE cache_key=? FOR UPDATE",
+                        mapper(), owner.cacheKey());
+                if (!owns(current, owner) || current.leaseUntil() <= System.currentTimeMillis()) {
+                    return false;
                 }
-            });
-            jdbc.update("UPDATE novel_translation_job SET result_json=?,errors_json=?,event_sequence=event_sequence+1,"
-                            + "input_tokens=input_tokens+?,output_tokens=output_tokens+?,updated_at=? WHERE cache_key=?",
-                    write(merged), write(failed), inputTokens, outputTokens, System.currentTimeMillis(), owner.cacheKey());
-            return true;
-        }));
+                List<String> revisions = jdbc.queryForList("SELECT revision FROM novel_source_current WHERE source_key=?",
+                        String.class, owner.sourceKey());
+                if (revisions.isEmpty() || !owner.revision().equals(revisions.getFirst())) {
+                    jdbc.update("UPDATE novel_translation_job SET state='CANCELLED',event_sequence=event_sequence+1 WHERE cache_key=?",
+                            owner.cacheKey());
+                    return false;
+                }
+
+                // 청크 전체를 검증한 후 한 짧은 transaction에서 결과와 오류를 함께 반영한다.
+                Map<String, String> merged = new HashMap<>(current.results());
+                Map<String, String> failed = new HashMap<>(current.errors());
+                if (!errors.isEmpty()) recordInitialErrors(current, errors);
+                // 복구 대상으로 인계된 ID와 이미 확정된 정상 값은 원래 A의 늦은 응답이 덮지 못한다.
+                var handedOff = jdbc.queryForList("SELECT segment_id FROM novel_repair_target WHERE cache_key=?", String.class, owner.cacheKey());
+                results.forEach((id, value) -> { if (!handedOff.contains(id)) merged.putIfAbsent(id, value); });
+                merged.keySet().forEach(failed::remove);
+                errors.forEach((id, code) -> {
+                    if (!merged.containsKey(id)) {
+                        failed.put(id, code);
+                    }
+                });
+                jdbc.update("UPDATE novel_translation_job SET result_json=?,errors_json=?,event_sequence=event_sequence+1,"
+                                + "input_tokens=input_tokens+?,output_tokens=output_tokens+?,updated_at=? WHERE cache_key=?",
+                        write(merged), write(failed), inputTokens, outputTokens, System.currentTimeMillis(), owner.cacheKey());
+                return true;
+            }));
+        });
     }
 
     public void finish(Job owner, SourceEpisode source) {
-        finish(owner, source, true);
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        withActiveActor(owner.actorId(), () -> {
+            finish(owner, source, true);
+        });
     }
 
     @Override
     public void finish(Job owner, SourceEpisode source, boolean providerVerified) {
-        transactions.executeWithoutResult(status -> {
-            Job current = jdbc.queryForObject("SELECT * FROM novel_translation_job WHERE cache_key=? FOR UPDATE",
-                    mapper(), owner.cacheKey());
-            if (!owns(current, owner)) {
-                return;
-            }
-            long target = source.segments().stream().filter(s -> !jp.co.translacat.novel.domain.SourceText.isBlank(s.plainJa())).count();
-            String initial = providerVerified && current.results().size() == target ? "SUCCEEDED"
-                    : current.results().isEmpty() ? "FAILED" : "PARTIAL";
-            Map<String,String> errors = new HashMap<>(current.errors());
-            source.segments().stream().filter(s -> !jp.co.translacat.novel.domain.SourceText.isBlank(s.plainJa()) && !current.results().containsKey(s.id()))
-                    .forEach(s -> errors.putIfAbsent(s.id(), "PROGRESSIVE_TAIL_INCOMPLETE"));
-            // 초기 실행의 실패 이력은 복구 후에도 변경하지 않는다.
-            try { jdbc.update("INSERT INTO novel_initial_attempt(cache_key,state,errors_json,completed_at) VALUES(?,?,?,?)",
-                    owner.cacheKey(), initial, write(errors), System.currentTimeMillis()); }
-            catch (DuplicateKeyException ignored) {
-                recordInitialErrors(current, errors);
-                jdbc.update("UPDATE novel_initial_attempt SET state=?,completed_at=? WHERE cache_key=? AND completed_at=0", initial, System.currentTimeMillis(), current.cacheKey());
-            }
-            boolean recovered = jdbc.queryForObject("SELECT COUNT(*) FROM novel_repair WHERE cache_key=? AND state='SUCCEEDED'", Integer.class, owner.cacheKey()) > 0;
-            boolean repairing = jdbc.queryForObject("SELECT COUNT(*) FROM novel_repair WHERE cache_key=? AND state='RUNNING'", Integer.class, owner.cacheKey()) > 0;
-            String state = repairing ? "RUNNING" : (providerVerified || recovered) && current.results().size() == target ? "SUCCEEDED" : initial;
-            jdbc.update("UPDATE novel_translation_job SET state=?,lease_until=0,event_sequence=event_sequence+1,updated_at=? WHERE cache_key=?",
-                    state, System.currentTimeMillis(), owner.cacheKey());
-            jdbc.update("UPDATE novel_translation_job SET errors_json=? WHERE cache_key=?", write(errors), owner.cacheKey());
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        withActiveActor(owner.actorId(), () -> {
+            transactions.executeWithoutResult(status -> {
+                Job current = jdbc.queryForObject("SELECT * FROM novel_translation_job WHERE cache_key=? FOR UPDATE",
+                        mapper(), owner.cacheKey());
+                if (!owns(current, owner)) {
+                    return;
+                }
+                long target = source.segments().stream().filter(s -> !jp.co.translacat.novel.domain.SourceText.isBlank(s.plainJa())).count();
+                String initial = providerVerified && current.results().size() == target ? "SUCCEEDED"
+                        : current.results().isEmpty() ? "FAILED" : "PARTIAL";
+                Map<String,String> errors = new HashMap<>(current.errors());
+                source.segments().stream().filter(s -> !jp.co.translacat.novel.domain.SourceText.isBlank(s.plainJa()) && !current.results().containsKey(s.id()))
+                        .forEach(s -> errors.putIfAbsent(s.id(), "PROGRESSIVE_TAIL_INCOMPLETE"));
+                // 초기 실행의 실패 이력은 복구 후에도 변경하지 않는다.
+                try { jdbc.update("INSERT INTO novel_initial_attempt(cache_key,state,errors_json,completed_at) VALUES(?,?,?,?)",
+                        owner.cacheKey(), initial, write(errors), System.currentTimeMillis()); }
+                catch (DuplicateKeyException ignored) {
+                    recordInitialErrors(current, errors);
+                    jdbc.update("UPDATE novel_initial_attempt SET state=?,completed_at=? WHERE cache_key=? AND completed_at=0", initial, System.currentTimeMillis(), current.cacheKey());
+                }
+                boolean recovered = jdbc.queryForObject("SELECT COUNT(*) FROM novel_repair WHERE cache_key=? AND state='SUCCEEDED'", Integer.class, owner.cacheKey()) > 0;
+                boolean repairing = jdbc.queryForObject("SELECT COUNT(*) FROM novel_repair WHERE cache_key=? AND state='RUNNING'", Integer.class, owner.cacheKey()) > 0;
+                String state = repairing ? "RUNNING" : (providerVerified || recovered) && current.results().size() == target ? "SUCCEEDED" : initial;
+                jdbc.update("UPDATE novel_translation_job SET state=?,lease_until=0,event_sequence=event_sequence+1,updated_at=? WHERE cache_key=?",
+                        state, System.currentTimeMillis(), owner.cacheKey());
+                jdbc.update("UPDATE novel_translation_job SET errors_json=? WHERE cache_key=?", write(errors), owner.cacheKey());
+            });
         });
     }
 
     public void releaseRejected(Job owner) {
-        jdbc.update("UPDATE novel_translation_job SET state='QUEUED',lease_until=0,owner_token=NULL WHERE cache_key=? AND owner_token=? AND fence=?",
-                owner.cacheKey(), owner.owner(), owner.fence());
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        withActiveActor(owner.actorId(), () -> {
+            jdbc.update("UPDATE novel_translation_job SET state='QUEUED',lease_until=0,owner_token=NULL WHERE cache_key=? AND owner_token=? AND fence=?",
+                    owner.cacheKey(), owner.owner(), owner.fence());
+        });
     }
 
     public Job expireAbandoned(Job job, SourceEpisode source) {
-        expireRepairs(job, source);
-        if (job.leaseUntil() == 0 && jdbc.queryForObject("SELECT COUNT(*) FROM novel_initial_attempt WHERE cache_key=? AND completed_at>0", Integer.class, job.cacheKey()) > 0)
-            return byCache(job.cacheKey()).orElseThrow();
-        if (!"RUNNING".equals(job.state()) || job.leaseUntil() >= System.currentTimeMillis()) {
-            return job;
-        }
-        return transactions.execute(status -> {
-            Job current = jdbc.queryForObject("SELECT * FROM novel_translation_job WHERE cache_key=? FOR UPDATE", mapper(), job.cacheKey());
-            if (!"RUNNING".equals(current.state()) || current.leaseUntil() >= System.currentTimeMillis()) {
-                return current;
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(job.actorId(), () -> {
+            expireRepairs(job, source);
+            if (job.leaseUntil() == 0 && jdbc.queryForObject("SELECT COUNT(*) FROM novel_initial_attempt WHERE cache_key=? AND completed_at>0", Integer.class, job.cacheKey()) > 0)
+                return byCache(job.cacheKey()).orElseThrow();
+            if (!"RUNNING".equals(job.state()) || job.leaseUntil() >= System.currentTimeMillis()) {
+                return job;
             }
-            // 프로세스 유실 후 status 조회도 명시적으로 실패를 확정한다. 오래된 owner는 fencing으로 무효화한다.
-            Map<String, String> errors = new HashMap<>(current.errors());
-            source.segments().stream().filter(segment -> !jp.co.translacat.novel.domain.SourceText.isBlank(segment.plainJa()) && !current.results().containsKey(segment.id()))
-                    .forEach(segment -> errors.putIfAbsent(segment.id(), "JOB_LEASE_EXPIRED"));
-            String state = current.results().isEmpty() ? "FAILED" : "PARTIAL";
-            recordInitialErrors(current, errors);
-            jdbc.update("UPDATE novel_initial_attempt SET state=?,completed_at=? WHERE cache_key=? AND completed_at=0", state, System.currentTimeMillis(), job.cacheKey());
-            jdbc.update("UPDATE novel_translation_job SET state=?,errors_json=?,fence=fence+1,owner_token=NULL,"
-                            + "event_sequence=event_sequence+1 WHERE cache_key=?", state, write(errors), job.cacheKey());
-            return byCache(job.cacheKey()).orElseThrow();
+            return transactions.execute(status -> {
+                Job current = jdbc.queryForObject("SELECT * FROM novel_translation_job WHERE cache_key=? FOR UPDATE", mapper(), job.cacheKey());
+                if (!"RUNNING".equals(current.state()) || current.leaseUntil() >= System.currentTimeMillis()) {
+                    return current;
+                }
+                // 프로세스 유실 후 status 조회도 명시적으로 실패를 확정한다. 오래된 owner는 fencing으로 무효화한다.
+                Map<String, String> errors = new HashMap<>(current.errors());
+                source.segments().stream().filter(segment -> !jp.co.translacat.novel.domain.SourceText.isBlank(segment.plainJa()) && !current.results().containsKey(segment.id()))
+                        .forEach(segment -> errors.putIfAbsent(segment.id(), "JOB_LEASE_EXPIRED"));
+                String state = current.results().isEmpty() ? "FAILED" : "PARTIAL";
+                recordInitialErrors(current, errors);
+                jdbc.update("UPDATE novel_initial_attempt SET state=?,completed_at=? WHERE cache_key=? AND completed_at=0", state, System.currentTimeMillis(), job.cacheKey());
+                jdbc.update("UPDATE novel_translation_job SET state=?,errors_json=?,fence=fence+1,owner_token=NULL,"
+                                + "event_sequence=event_sequence+1 WHERE cache_key=?", state, write(errors), job.cacheKey());
+                return byCache(job.cacheKey()).orElseThrow();
+            });
         });
     }
 
@@ -268,44 +324,50 @@ public class NovelStore implements NovelRepository {
     }
 
     public Glossary saveGlossary(EpisodeKey key, long actorId, String expectedVersion, Map<String, String> terms) {
-        return saveGlossary(key, actorId, expectedVersion, terms, "ko");
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(actorId, () -> {
+            return saveGlossary(key, actorId, expectedVersion, terms, "ko");
+        });
     }
 
     @Override
     public Glossary saveGlossary(EpisodeKey key, long actorId, String expectedVersion, Map<String, String> terms, String targetLanguage) {
-        String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
-        if (terms == null || terms.size() > 100 || terms.entrySet().stream().anyMatch(entry -> entry.getKey() == null
-                || entry.getValue() == null || entry.getKey().isBlank() || entry.getValue().isBlank()
-                || entry.getKey().length() > 128 || entry.getValue().length() > 128)
-                || terms.entrySet().stream().mapToInt(entry -> entry.getKey().length() + entry.getValue().length()).sum() > 4000) {
-            throw new NovelProblem("GLOSSARY_INVALID", 422);
-        }
-        String encoded = write(new java.util.TreeMap<>(terms));
-        if (encoded.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 6000) {
-            throw new NovelProblem("GLOSSARY_TOO_LARGE", 413);
-        }
-        String version = terms.isEmpty() ? TranslationPolicy.GLOSSARY_VERSION
-                : SentenceSegmenter.hash("glossary-context-v1:" + encoded);
-        return transactions.execute(status -> {
-            List<Glossary> found = jdbc.query("SELECT glossary_version,terms_json FROM novel_glossary "
-                            + "WHERE work_key=? AND actor_id=? AND target_language=? FOR UPDATE",
-                    (rs, row) -> new Glossary(rs.getString(1), map(rs.getString(2)), target), workKey(key), actorId, target);
-            String current = found.isEmpty() ? TranslationPolicy.GLOSSARY_VERSION : found.getFirst().version();
-            if (!current.equals(expectedVersion)) {
-                throw new NovelProblem("GLOSSARY_VERSION_CHANGED", 409);
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(actorId, () -> {
+            String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
+            if (terms == null || terms.size() > 100 || terms.entrySet().stream().anyMatch(entry -> entry.getKey() == null
+                    || entry.getValue() == null || entry.getKey().isBlank() || entry.getValue().isBlank()
+                    || entry.getKey().length() > 128 || entry.getValue().length() > 128)
+                    || terms.entrySet().stream().mapToInt(entry -> entry.getKey().length() + entry.getValue().length()).sum() > 4000) {
+                throw new NovelProblem("GLOSSARY_INVALID", 422);
             }
-            if (found.isEmpty()) {
-                try {
-                    jdbc.update("INSERT INTO novel_glossary(work_key,actor_id,glossary_version,terms_json,target_language) VALUES(?,?,?,?,?)",
-                            workKey(key), actorId, version, encoded, target);
-                } catch (DuplicateKeyException conflict) {
+            String encoded = write(new java.util.TreeMap<>(terms));
+            if (encoded.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 6000) {
+                throw new NovelProblem("GLOSSARY_TOO_LARGE", 413);
+            }
+            String version = terms.isEmpty() ? TranslationPolicy.GLOSSARY_VERSION
+                    : SentenceSegmenter.hash("glossary-context-v1:" + encoded);
+            return transactions.execute(status -> {
+                List<Glossary> found = jdbc.query("SELECT glossary_version,terms_json FROM novel_glossary "
+                                + "WHERE work_key=? AND actor_id=? AND target_language=? FOR UPDATE",
+                        (rs, row) -> new Glossary(rs.getString(1), map(rs.getString(2)), target), workKey(key), actorId, target);
+                String current = found.isEmpty() ? TranslationPolicy.GLOSSARY_VERSION : found.getFirst().version();
+                if (!current.equals(expectedVersion)) {
                     throw new NovelProblem("GLOSSARY_VERSION_CHANGED", 409);
                 }
-            } else {
-                jdbc.update("UPDATE novel_glossary SET glossary_version=?,terms_json=? WHERE work_key=? AND actor_id=? AND target_language=?",
-                        version, encoded, workKey(key), actorId, target);
-            }
-            return new Glossary(version, Map.copyOf(terms), target);
+                if (found.isEmpty()) {
+                    try {
+                        jdbc.update("INSERT INTO novel_glossary(work_key,actor_id,glossary_version,terms_json,target_language) VALUES(?,?,?,?,?)",
+                                workKey(key), actorId, version, encoded, target);
+                    } catch (DuplicateKeyException conflict) {
+                        throw new NovelProblem("GLOSSARY_VERSION_CHANGED", 409);
+                    }
+                } else {
+                    jdbc.update("UPDATE novel_glossary SET glossary_version=?,terms_json=? WHERE work_key=? AND actor_id=? AND target_language=?",
+                            version, encoded, workKey(key), actorId, target);
+                }
+                return new Glossary(version, Map.copyOf(terms), target);
+            });
         });
     }
 
@@ -318,35 +380,44 @@ public class NovelStore implements NovelRepository {
     }
 
     public boolean saveDiagnostics(Job owner, Map<String, Object> diagnostics) {
-        // 동일 owner의 계측 snapshot만 저장한다. 재시작 전 늦은 스레드는 새 실행 계측을 덮지 못한다.
-        return jdbc.update("UPDATE novel_translation_job SET diagnostics_json=? WHERE cache_key=? AND owner_token=? AND fence=?",
-                write(diagnostics), owner.cacheKey(), owner.owner(), owner.fence()) == 1;
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(owner.actorId(), () -> {
+            // 동일 owner의 계측 snapshot만 저장한다. 재시작 전 늦은 스레드는 새 실행 계측을 덮지 못한다.
+            return jdbc.update("UPDATE novel_translation_job SET diagnostics_json=? WHERE cache_key=? AND owner_token=? AND fence=?",
+                    write(diagnostics), owner.cacheKey(), owner.owner(), owner.fence()) == 1;
+        });
     }
 
     public Job cancel(EpisodeKey key, String jobId, long actorId, SourceEpisode source) {
-        return transactions.execute(status -> {
-            List<Job> found = jdbc.query("SELECT * FROM novel_translation_job WHERE job_id=? AND source_key=? AND actor_id=? FOR UPDATE",
-                    mapper(), jobId, key.value(), actorId);
-            if (found.isEmpty()) throw new NovelProblem("JOB_NOT_FOUND", 404);
-            Job current = found.getFirst();
-            if (!List.of("QUEUED", "RUNNING").contains(current.state())) return current;
-            jdbc.update("UPDATE novel_repair SET state='CANCELLED',owner_token=NULL,fence=fence+1,lease_until=0 WHERE cache_key=? AND state='RUNNING'", current.cacheKey());
-            // 문장이 모두 보였더라도 provider 최종 검증·저장 확정 전에는 성공이 아니다.
-            Map<String, String> errors = new HashMap<>(current.errors());
-            source.segments().stream().filter(s -> !jp.co.translacat.novel.domain.SourceText.isBlank(s.plainJa()) && !current.results().containsKey(s.id()))
-                    .forEach(s -> errors.putIfAbsent(s.id(), "JOB_CANCELLED"));
-            recordInitialErrors(current, errors);
-            jdbc.update("UPDATE novel_initial_attempt SET state='CANCELLED',completed_at=? WHERE cache_key=? AND completed_at=0", System.currentTimeMillis(), current.cacheKey());
-            jdbc.update("UPDATE novel_translation_job SET state='CANCELLED',errors_json=?,owner_token=NULL,fence=fence+1,"
-                            + "lease_until=0,event_sequence=event_sequence+1,updated_at=? WHERE cache_key=?",
-                    write(errors), System.currentTimeMillis(), current.cacheKey());
-            return byCache(current.cacheKey()).orElseThrow();
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(actorId, () -> {
+            return transactions.execute(status -> {
+                List<Job> found = jdbc.query("SELECT * FROM novel_translation_job WHERE job_id=? AND source_key=? AND actor_id=? FOR UPDATE",
+                        mapper(), jobId, key.value(), actorId);
+                if (found.isEmpty()) throw new NovelProblem("JOB_NOT_FOUND", 404);
+                Job current = found.getFirst();
+                if (!List.of("QUEUED", "RUNNING").contains(current.state())) return current;
+                jdbc.update("UPDATE novel_repair SET state='CANCELLED',owner_token=NULL,fence=fence+1,lease_until=0 WHERE cache_key=? AND state='RUNNING'", current.cacheKey());
+                // 문장이 모두 보였더라도 provider 최종 검증·저장 확정 전에는 성공이 아니다.
+                Map<String, String> errors = new HashMap<>(current.errors());
+                source.segments().stream().filter(s -> !jp.co.translacat.novel.domain.SourceText.isBlank(s.plainJa()) && !current.results().containsKey(s.id()))
+                        .forEach(s -> errors.putIfAbsent(s.id(), "JOB_CANCELLED"));
+                recordInitialErrors(current, errors);
+                jdbc.update("UPDATE novel_initial_attempt SET state='CANCELLED',completed_at=? WHERE cache_key=? AND completed_at=0", System.currentTimeMillis(), current.cacheKey());
+                jdbc.update("UPDATE novel_translation_job SET state='CANCELLED',errors_json=?,owner_token=NULL,fence=fence+1,"
+                                + "lease_until=0,event_sequence=event_sequence+1,updated_at=? WHERE cache_key=?",
+                        write(errors), System.currentTimeMillis(), current.cacheKey());
+                return byCache(current.cacheKey()).orElseThrow();
+            });
         });
     }
 
     public RepairClaim claimRepair(Job job, SourceEpisode source, List<String> requested, String requestKey,
                                    String traceId, long leaseMillis) {
-        return shared.repair(job, requested, () -> claimLocalRepair(job, source, requested, requestKey, traceId, leaseMillis));
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(job.actorId(), () -> {
+            return shared.repair(job, requested, () -> claimLocalRepair(job, source, requested, requestKey, traceId, leaseMillis));
+        });
     }
 
     private RepairClaim claimLocalRepair(Job job, SourceEpisode source, List<String> requested, String requestKey,
@@ -403,57 +474,69 @@ public class NovelStore implements NovelRepository {
         }, repair.id()).stream().findFirst().orElse(Map.of());
     }
     public void saveRepairDiagnostics(Repair owner, Map<String,Object> diagnostics) {
-        transactions.executeWithoutResult(status -> {
-            Repair current = jdbc.queryForObject("SELECT * FROM novel_repair WHERE repair_id=? FOR UPDATE", repairMapper(), owner.id());
-            if (current.fence() != owner.fence() || !java.util.Objects.equals(current.owner(), owner.owner())) return;
-            String encoded = write(diagnostics);
-            int changed = jdbc.update("UPDATE novel_repair_diagnostics SET diagnostics_json=? WHERE repair_id=?", encoded, owner.id());
-            if (changed == 0) jdbc.update("INSERT INTO novel_repair_diagnostics(repair_id,diagnostics_json) VALUES(?,?)", owner.id(), encoded);
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        withActiveActor(actorForCache(owner.cacheKey()), () -> {
+            transactions.executeWithoutResult(status -> {
+                Repair current = jdbc.queryForObject("SELECT * FROM novel_repair WHERE repair_id=? FOR UPDATE", repairMapper(), owner.id());
+                if (current.fence() != owner.fence() || !java.util.Objects.equals(current.owner(), owner.owner())) return;
+                String encoded = write(diagnostics);
+                int changed = jdbc.update("UPDATE novel_repair_diagnostics SET diagnostics_json=? WHERE repair_id=?", encoded, owner.id());
+                if (changed == 0) jdbc.update("INSERT INTO novel_repair_diagnostics(repair_id,diagnostics_json) VALUES(?,?)", owner.id(), encoded);
+            });
         });
     }
 
     public boolean reserveRepairCall(Repair owner) {
-        return Boolean.TRUE.equals(transactions.execute(status -> {
-            Job job = jdbc.queryForObject("SELECT * FROM novel_translation_job WHERE cache_key=? FOR UPDATE", mapper(), owner.cacheKey());
-            if (!repairOwns(repairById(owner.id()), owner) || !sourceCurrent(job) || job.state().equals("CANCELLED") || job.providerCalls() >= 256) return false;
-            jdbc.update("UPDATE novel_translation_job SET provider_calls=provider_calls+1 WHERE cache_key=?", owner.cacheKey());
-            return true;
-        }));
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(actorForCache(owner.cacheKey()), () -> {
+            return Boolean.TRUE.equals(transactions.execute(status -> {
+                Job job = jdbc.queryForObject("SELECT * FROM novel_translation_job WHERE cache_key=? FOR UPDATE", mapper(), owner.cacheKey());
+                if (!repairOwns(repairById(owner.id()), owner) || !sourceCurrent(job) || job.state().equals("CANCELLED") || job.providerCalls() >= 256) return false;
+                jdbc.update("UPDATE novel_translation_job SET provider_calls=provider_calls+1 WHERE cache_key=?", owner.cacheKey());
+                return true;
+            }));
+        });
     }
 
     public boolean mergeRepair(Repair owner, Map<String,String> values, Map<String,String> errors, long input, long output) {
-        return Boolean.TRUE.equals(transactions.execute(status -> {
-            Job job = jdbc.queryForObject("SELECT * FROM novel_translation_job WHERE cache_key=? FOR UPDATE", mapper(), owner.cacheKey());
-            Repair current = repairById(owner.id());
-            if (!repairOwns(current, owner) || !sourceCurrent(job) || job.state().equals("CANCELLED")) return false;
-            if (!current.targetIds().containsAll(values.keySet()) || !current.targetIds().containsAll(errors.keySet())) throw new NovelProblem("REPAIR_TARGET_MISMATCH", 500);
-            var merged = new HashMap<>(job.results()); var failed = new HashMap<>(job.errors());
-            var accepted = new HashMap<>(current.results()); var rejected = new HashMap<>(current.errors());
-            for (var entry : values.entrySet()) {
-                String targetOwner = jdbc.queryForObject("SELECT repair_id FROM novel_repair_target WHERE cache_key=? AND segment_id=?", String.class, owner.cacheKey(), entry.getKey());
-                if (!owner.id().equals(targetOwner)) return false;
-                merged.putIfAbsent(entry.getKey(), entry.getValue()); accepted.put(entry.getKey(), merged.get(entry.getKey()));
-                failed.remove(entry.getKey()); rejected.remove(entry.getKey());
-            }
-            errors.forEach((id, code) -> { if (!merged.containsKey(id)) { failed.put(id, code); rejected.put(id, code); } });
-            jdbc.update("UPDATE novel_translation_job SET result_json=?,errors_json=?,input_tokens=input_tokens+?,output_tokens=output_tokens+?,event_sequence=event_sequence+1 WHERE cache_key=?",
-                    write(merged), write(failed), input, output, owner.cacheKey());
-            jdbc.update("UPDATE novel_repair SET results_json=?,errors_json=? WHERE repair_id=?", write(accepted), write(rejected), owner.id());
-            return true;
-        }));
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(actorForCache(owner.cacheKey()), () -> {
+            return Boolean.TRUE.equals(transactions.execute(status -> {
+                Job job = jdbc.queryForObject("SELECT * FROM novel_translation_job WHERE cache_key=? FOR UPDATE", mapper(), owner.cacheKey());
+                Repair current = repairById(owner.id());
+                if (!repairOwns(current, owner) || !sourceCurrent(job) || job.state().equals("CANCELLED")) return false;
+                if (!current.targetIds().containsAll(values.keySet()) || !current.targetIds().containsAll(errors.keySet())) throw new NovelProblem("REPAIR_TARGET_MISMATCH", 500);
+                var merged = new HashMap<>(job.results()); var failed = new HashMap<>(job.errors());
+                var accepted = new HashMap<>(current.results()); var rejected = new HashMap<>(current.errors());
+                for (var entry : values.entrySet()) {
+                    String targetOwner = jdbc.queryForObject("SELECT repair_id FROM novel_repair_target WHERE cache_key=? AND segment_id=?", String.class, owner.cacheKey(), entry.getKey());
+                    if (!owner.id().equals(targetOwner)) return false;
+                    merged.putIfAbsent(entry.getKey(), entry.getValue()); accepted.put(entry.getKey(), merged.get(entry.getKey()));
+                    failed.remove(entry.getKey()); rejected.remove(entry.getKey());
+                }
+                errors.forEach((id, code) -> { if (!merged.containsKey(id)) { failed.put(id, code); rejected.put(id, code); } });
+                jdbc.update("UPDATE novel_translation_job SET result_json=?,errors_json=?,input_tokens=input_tokens+?,output_tokens=output_tokens+?,event_sequence=event_sequence+1 WHERE cache_key=?",
+                        write(merged), write(failed), input, output, owner.cacheKey());
+                jdbc.update("UPDATE novel_repair SET results_json=?,errors_json=? WHERE repair_id=?", write(accepted), write(rejected), owner.id());
+                return true;
+            }));
+        });
     }
 
     public void finishRepair(Repair owner, SourceEpisode source) {
-        transactions.executeWithoutResult(status -> {
-            Job job = jdbc.queryForObject("SELECT * FROM novel_translation_job WHERE cache_key=? FOR UPDATE", mapper(), owner.cacheKey());
-            Repair current = repairById(owner.id());
-            if (!repairOwns(current, owner)) return;
-            String state = current.results().size() == current.targetIds().size() ? "SUCCEEDED" : current.results().isEmpty() ? "FAILED" : "PARTIAL";
-            jdbc.update("UPDATE novel_repair SET state=?,lease_until=0 WHERE repair_id=?", state, owner.id());
-            refreshAggregate(job, source);
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        withActiveActor(actorForCache(owner.cacheKey()), () -> {
+            transactions.executeWithoutResult(status -> {
+                Job job = jdbc.queryForObject("SELECT * FROM novel_translation_job WHERE cache_key=? FOR UPDATE", mapper(), owner.cacheKey());
+                Repair current = repairById(owner.id());
+                if (!repairOwns(current, owner)) return;
+                String state = current.results().size() == current.targetIds().size() ? "SUCCEEDED" : current.results().isEmpty() ? "FAILED" : "PARTIAL";
+                jdbc.update("UPDATE novel_repair SET state=?,lease_until=0 WHERE repair_id=?", state, owner.id());
+                refreshAggregate(job, source);
+            });
+            // 정상 문장은 기존 작업에 남기고 완전 복구된 결과만 다른 계정의 재사용 후보로 발행한다.
+            shared.publishLinked(byCache(owner.cacheKey()).orElseThrow(), source);
         });
-        // 정상 문장은 기존 작업에 남기고 완전 복구된 결과만 다른 계정의 재사용 후보로 발행한다.
-        shared.publishLinked(byCache(owner.cacheKey()).orElseThrow(), source);
     }
 
     private void expireRepairs(Job job, SourceEpisode source) {
@@ -531,4 +614,18 @@ public class NovelStore implements NovelRepository {
             throw new NovelProblem("PERSISTENCE_ENCODING_FAILED", 500);
         }
     }
+
+    private <T> T withActiveActor(long actor, java.util.function.Supplier<T> action) {
+        return accountFence == null ? action.get() : accountFence.active(actor, action);
+    }
+
+    private void withActiveActor(long actor, Runnable action) {
+        if (accountFence == null) action.run();
+        else accountFence.active(actor, action);
+    }
+
+    private long actorForCache(String key) {
+        return byCache(key).orElseThrow(() -> new NovelProblem("JOB_NOT_FOUND", 404)).actorId();
+    }
+
 }

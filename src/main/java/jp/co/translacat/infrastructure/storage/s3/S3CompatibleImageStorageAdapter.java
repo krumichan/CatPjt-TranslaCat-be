@@ -16,6 +16,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -52,6 +53,7 @@ public class S3CompatibleImageStorageAdapter
                 .key(upload.objectKey())
                 .contentType(upload.contentType())
                 .cacheControl("public, max-age=31536000, immutable")
+                .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(30)).apiCallAttemptTimeout(java.time.Duration.ofSeconds(15)))
                 .build();
 
         try {
@@ -72,6 +74,7 @@ public class S3CompatibleImageStorageAdapter
         DeleteObjectRequest request = DeleteObjectRequest.builder()
                 .bucket(bucket)
                 .key(objectKey)
+                .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(5)).apiCallAttemptTimeout(java.time.Duration.ofSeconds(3)))
                 .build();
 
         try {
@@ -90,12 +93,40 @@ public class S3CompatibleImageStorageAdapter
     }
 
     @Override
+    public boolean supportsAccountDeletion() { return true; }
+
+    @Override
+    public boolean deleteUserProfileObjects(long userId) {
+        if (userId <= 0) throw new IllegalArgumentException("Positive account ID required");
+        String prefix = "user-profile/" + userId + "/";
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(20);
+        try {
+            var listed = s3Client.listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).prefix(prefix).maxKeys(100)
+                    .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(5)).apiCallAttemptTimeout(java.time.Duration.ofSeconds(3))).build());
+            for (var object : listed.contents()) {
+                // 운영 설정의 bucket과 정확한 숫자 계정 prefix만 사용한다. 객체 key를 다른 계정으로 확장하지 않는다.
+                if (!object.key().startsWith(prefix)) throw new IllegalStateException("Profile cleanup object escaped prefix");
+                if (System.nanoTime() >= deadline) return false;
+                s3Client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(object.key())
+                        .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(5)).apiCallAttemptTimeout(java.time.Duration.ofSeconds(3))).build());
+            }
+            var remaining = s3Client.listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).prefix(prefix).maxKeys(1)
+                    .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(5)).apiCallAttemptTimeout(java.time.Duration.ofSeconds(3))).build());
+            return remaining.contents().isEmpty();
+        } catch (SdkException failure) {
+            throw new BusinessException("프로필 이미지 정리에 실패했습니다.", "PROFILE_CLEANUP_UNAVAILABLE");
+        }
+    }
+
+    @Override
     public void put(String objectKey, Path file, String contentType, long bytes, String sha256) {
         requireAudioKey(objectKey);
         try {
             // 기존 이미지 R2 bucket을 공유한다. 재생 응답은 BE가 전달하며 bucket 자체는 공개 접근 가능하다.
             s3Client.putObject(PutObjectRequest.builder()
                     .bucket(bucket).key(objectKey).contentType(contentType)
+                    .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(30))
+                            .apiCallAttemptTimeout(java.time.Duration.ofSeconds(15)))
                     .contentLength(bytes).cacheControl("private, max-age=31536000, immutable")
                     .metadata(Map.of("sha256", sha256)).build(), RequestBody.fromFile(file));
         } catch (SdkException failure) {
@@ -117,6 +148,12 @@ public class S3CompatibleImageStorageAdapter
         } catch (SdkException failure) {
             throw unavailable();
         }
+    }
+
+    @Override
+    public void deleteAudio(String objectKey) {
+        requireAudioKey(objectKey);
+        delete(objectKey);
     }
 
     @Override

@@ -78,6 +78,7 @@ public class ChatCoreDirectoryController {
         }
         for (String publicId : new LinkedHashSet<>(publicIds)) {
             users.findByPublicId(publicId)
+                    .filter(User::isActiveAccount)
                     .ifPresentOrElse(user -> found.put(user.getId(), user), () -> missingPublicIds.add(publicId));
         }
         Map<Long, UserProfile> byUser = new HashMap<>();
@@ -128,6 +129,11 @@ public class ChatCoreDirectoryController {
     }
 
     private Account project(User user, UserProfile profile) {
+        // FK tombstone은 내부 ID로만 연결한다. 실제 계정/프로필 식별자는 일반 CHAT projection에 남기지 않는다.
+        if (!user.isActiveAccount()) {
+            return new Account(user.getId(), "deleted@deleted.invalid", "탈퇴한 사용자", "DELETED", null,
+                    new UserSummaryProfileResponseDto(user.getId(), "DELETED", "탈퇴한 사용자", null, null, null));
+        }
         // 실제 profile nullable과 default summary를 분리해 notification/direct/message의 다른 fallback을 보존한다.
         Profile actual =
                 profile == null ? null : new Profile(profile.getNickname(), urls.resolveProfileImageUrl(profile),

@@ -2,6 +2,9 @@ package jp.co.translacat.domain.user.friend.request.service;
 
 import jp.co.translacat.domain.user.block.service.UserBlockService;
 import jp.co.translacat.domain.user.entity.User;
+import jp.co.translacat.domain.user.deletion.UserAccountWriteFence;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestListItemResponseDto;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestResponseDto;
 import jp.co.translacat.domain.user.friend.request.dto.FriendRequestSendRequestDto;
@@ -26,6 +29,9 @@ public class FriendRequestService {
 
     private final FriendRequestRepository friendRequestRepository;
     private final UserRepository userRepository;
+
+    @PersistenceContext
+    private EntityManager entities;
     private final UserProfileQueryService userProfileQueryService;
     private final FriendService friendService;
     private final UserBlockService userBlockService;
@@ -59,6 +65,14 @@ public class FriendRequestService {
             User requesterUser,
             User receiverUser
     ) {
+        // 서비스 직접 호출에서도 탈퇴와 새 요청 저장을 같은 사용자 행 잠금으로 직렬화한다.
+        if (requesterUser != null && receiverUser != null && requesterUser.getId() != null && receiverUser.getId() != null) {
+            boolean requesterFirst = requesterUser.getId() < receiverUser.getId();
+            User first = UserAccountWriteFence.lock(entities, requesterFirst ? requesterUser : receiverUser);
+            User second = UserAccountWriteFence.lock(entities, requesterFirst ? receiverUser : requesterUser);
+            requesterUser = requesterFirst ? first : second;
+            receiverUser = requesterFirst ? second : first;
+        }
         validateUsers(requesterUser, receiverUser);
         validateSelfRequest(requesterUser, receiverUser);
         validateBlockRelation(requesterUser, receiverUser);
@@ -189,6 +203,8 @@ public class FriendRequestService {
 
     private User getUser(Long userId) {
         return userRepository.findById(userId)
+                .map(user -> UserAccountWriteFence.lock(entities, user))
+                .filter(User::isActiveAccount)
                 .orElseThrow(() -> new BusinessException(
                         "사용자를 찾을 수 없습니다.",
                         "USER_NOT_FOUND"
@@ -197,6 +213,8 @@ public class FriendRequestService {
 
     private User getUserByPublicId(String publicId) {
         return userRepository.findByPublicId(publicId.trim())
+                .map(user -> UserAccountWriteFence.lock(entities, user))
+                .filter(User::isActiveAccount)
                 .orElseThrow(() -> new BusinessException(
                         "사용자를 찾을 수 없습니다.",
                         "PUBLIC_ID_NOT_FOUND"

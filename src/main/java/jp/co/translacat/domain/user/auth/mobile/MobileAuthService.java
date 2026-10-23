@@ -5,6 +5,9 @@ import jp.co.translacat.domain.user.auth.AuthException;
 import jp.co.translacat.domain.user.auth.session.AuthSessionService;
 import jp.co.translacat.domain.user.dto.UserLoginResponseDto;
 import jp.co.translacat.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.LockModeType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -26,6 +29,9 @@ public class MobileAuthService {
     private final UserRepository users;
     private final AuthAttemptLimiter attempts;
     private final Clock clock;
+
+    @PersistenceContext
+    private EntityManager entities;
 
     @Autowired
     public MobileAuthService(MobileAuthRequestRepository requests, MobileAuthRedirects redirects,
@@ -73,7 +79,7 @@ public class MobileAuthService {
         if (request.getApprovedAt() != null) {
             throw new AuthException(HttpStatus.CONFLICT, "MOBILE_AUTH_ALREADY_APPROVED", "이미 승인한 로그인 요청입니다.");
         }
-        if (!users.existsById(userId)) throw invalidProof();
+        if (!users.findById(userId).map(user -> user.isActiveAccount()).orElse(false)) throw invalidProof();
 
         // 원문 코드는 이 응답 한 번에만 반환한다. 요청 전체 300초와 코드 최대 60초를 함께 지킨다.
         String code = MobileAuthProofs.issueCode();
@@ -91,7 +97,16 @@ public class MobileAuthService {
         requireMatch(codeVerifier, "[A-Za-z0-9._~-]{43,128}");
         acquire("MOBILE_EXCHANGE_PEER", peerIdentity(peer));
         acquire("MOBILE_EXCHANGE_REQUEST", id);
+
+        // 탈퇴가 user→승인 요청 순서로 정리하므로 교환도 같은 순서로 잠근다.
+        // 아래 잠금 안에서 승인 소유자를 재검사하므로 이 예비 조회를 권한 증명으로 사용하지 않는다.
+        MobileAuthRequest preliminary = requests.findById(id).orElseThrow(this::invalidProof);
+        if (preliminary.getApprovedUserId() == null) throw invalidProof();
+        var user = users.findLockedById(preliminary.getApprovedUserId()).orElseThrow(this::invalidProof);
+        entities.refresh(user, LockModeType.PESSIMISTIC_WRITE);
+        if (!user.isActiveAccount()) throw invalidProof();
         MobileAuthRequest request = lock(id);
+        entities.refresh(request, LockModeType.PESSIMISTIC_WRITE);
         Instant now = clock.instant();
         requireNotExpired(request, now);
         redirects.requireAllowed(request.getRedirectUri());
@@ -103,7 +118,7 @@ public class MobileAuthService {
         if (!codeMatches || !pkceMatches) throw invalidProof();
 
         // 일회용 소비와 독립 sid 생성은 같은 트랜잭션이다. 발급 실패 시 요청 소비도 되돌린다.
-        var user = users.findById(request.getApprovedUserId()).orElseThrow(this::invalidProof);
+        if (!user.getId().equals(request.getApprovedUserId())) throw invalidProof();
         request.consume(now);
         return sessions.create(user);
     }

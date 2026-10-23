@@ -28,6 +28,8 @@ jobs:
           python-version: '3.12'
       - name: Verify environment encoding with synthetic inputs
         run: python -B scripts/check_release_env_encoding.py
+      - name: Verify public account deletion flag merging with synthetic inputs
+        run: python -B scripts/check_account_deletion_env_overrides.py
       - name: Verify the exact release source
         run: |
           bash -n scripts/deploy-release.sh
@@ -220,6 +222,83 @@ jobs:
               reject('GITHUB_ENV_MISSING')
 
           # raw Secret은 GitHub가 마스킹한다. 파생 Base64도 등록한 뒤 한 번만 env 파일에 전달한다.
+          try:
+              with Path(output_path).open('a', encoding='utf-8', newline='\n') as output:
+                  print('::add-mask::' + encoded, flush=True)
+                  output.write('DEPLOY_ENV_B64=' + encoded + '\n')
+          except OSError:
+              reject('GITHUB_ENV_WRITE_FAILED')
+
+      - name: Merge public account deletion flags
+        env:
+          ACCOUNT_DELETION_ENABLED: ${{ vars.ACCOUNT_DELETION_ENABLED }}
+          ACCOUNT_DELETION_WORKER_ENABLED: ${{ vars.ACCOUNT_DELETION_WORKER_ENABLED }}
+        shell: python
+        run: |
+          import base64
+          import binascii
+          import os
+          from pathlib import Path
+          import re
+
+
+          def reject(code):
+              raise SystemExit('Account deletion environment merge rejected: ' + code)
+
+
+          def merge_public_flags(original, variables):
+              # 기존 encoder의 env-file 문법을 유지하고 중복 행을 조용히 덮어쓰지 않는다.
+              if not original.strip():
+                  reject('ENV_FILE_CONTENT_EMPTY')
+              if original.startswith('\ufeff') or '\r' in original or '\0' in original:
+                  reject('INVALID_ENV_FILE_ENCODING')
+              lines = original.split('\n')
+              positions = {}
+              for index, line in enumerate(lines):
+                  if not line.strip() or line.lstrip().startswith('#'):
+                      continue
+                  name, separator, value = line.partition('=')
+                  if not separator or re.fullmatch(r'[A-Z][A-Z0-9_]*', name) is None:
+                      reject('INVALID_ENV_FILE_RECORD')
+                  if name in positions:
+                      reject('DUPLICATE_ENV_FILE_KEY')
+                  positions[name] = index
+
+              # 두 공개 flag는 독립적이다. 빈 Variable은 기존 유효 값을 보존하고 최초만 false다.
+              selected = {}
+              for name in ('ACCOUNT_DELETION_ENABLED', 'ACCOUNT_DELETION_WORKER_ENABLED'):
+                  existing = lines[positions[name]].partition('=')[2] if name in positions else None
+                  override = variables.get(name, '')
+                  if existing is not None and existing not in ('true', 'false'):
+                      reject('INVALID_EXISTING_FLAG')
+                  if override != '' and override not in ('true', 'false'):
+                      reject('INVALID_PUBLIC_FLAG')
+                  selected[name] = override if override != '' else existing if existing is not None else 'false'
+
+              # 정확한 두 키만 한 번씩 치환·추가하며 다른 Secret/설정과 마지막 LF는 보존한다.
+              for name, value in selected.items():
+                  record = name + '=' + value
+                  if name in positions:
+                      lines[positions[name]] = record
+                  elif lines[-1] == '':
+                      lines.insert(len(lines) - 1, record)
+                  else:
+                      lines.append(record)
+              return '\n'.join(lines)
+
+
+          # 앞 step의 마스킹된 Base64만 읽는다. 원문이나 오류 입력은 출력하지 않는다.
+          try:
+              original = base64.b64decode(os.environ.get('DEPLOY_ENV_B64', ''), validate=True).decode('utf-8')
+          except (binascii.Error, UnicodeError, ValueError):
+              reject('INVALID_DEPLOY_ENV_ENCODING')
+          merged = merge_public_flags(original, os.environ)
+          encoded = base64.b64encode(merged.encode('utf-8')).decode('ascii')
+          output_path = os.environ.get('GITHUB_ENV', '')
+          if not output_path:
+              reject('GITHUB_ENV_MISSING')
+
+          # 파생 Base64도 별도로 마스킹한 뒤 다음 SSH step에 최종 값을 전달한다.
           try:
               with Path(output_path).open('a', encoding='utf-8', newline='\n') as output:
                   print('::add-mask::' + encoded, flush=True)

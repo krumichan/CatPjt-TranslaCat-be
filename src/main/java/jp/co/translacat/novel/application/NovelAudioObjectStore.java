@@ -10,6 +10,9 @@ public interface NovelAudioObjectStore {
     void put(String objectKey, Path file, String contentType, long bytes, String sha256);
     ObjectInfo head(String objectKey);
     ObjectData read(String objectKey, int maxBytes);
+    default void deleteAudio(String objectKey) {
+        throw new UnsupportedOperationException("Audio deletion is not configured");
+    }
 
     final class Missing extends RuntimeException {
         public Missing() { super("NOVEL_AUDIO_OBJECT_MISSING"); }

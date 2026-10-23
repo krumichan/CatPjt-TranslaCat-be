@@ -5,6 +5,9 @@ import jp.co.translacat.domain.user.block.dto.UserBlockResponseDto;
 import jp.co.translacat.domain.user.block.entity.UserBlock;
 import jp.co.translacat.domain.user.block.repository.UserBlockRepository;
 import jp.co.translacat.domain.user.entity.User;
+import jp.co.translacat.domain.user.deletion.UserAccountWriteFence;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jp.co.translacat.domain.user.friend.service.FriendService;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
 import jp.co.translacat.domain.user.profile.service.UserProfileQueryService;
@@ -23,6 +26,9 @@ public class UserBlockService {
 
     private final UserBlockRepository userBlockRepository;
     private final UserRepository userRepository;
+
+    @PersistenceContext
+    private EntityManager entities;
     private final FriendService friendService;
     private final UserProfileQueryService userProfileQueryService;
 
@@ -166,6 +172,8 @@ public class UserBlockService {
 
     private User getUser(Long userId) {
         return userRepository.findById(userId)
+                .map(user -> UserAccountWriteFence.lock(entities, user))
+                .filter(User::isActiveAccount)
                 .orElseThrow(() -> new BusinessException(
                         "사용자를 찾을 수 없습니다.",
                         "USER_NOT_FOUND"
@@ -174,6 +182,8 @@ public class UserBlockService {
 
     private User getUserByPublicId(String publicId) {
         return userRepository.findByPublicId(publicId.trim())
+                .map(user -> UserAccountWriteFence.lock(entities, user))
+                .filter(User::isActiveAccount)
                 .orElseThrow(() -> new BusinessException(
                         "사용자를 찾을 수 없습니다.",
                         "PUBLIC_ID_NOT_FOUND"

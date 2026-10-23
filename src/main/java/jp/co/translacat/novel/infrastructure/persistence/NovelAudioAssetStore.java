@@ -4,6 +4,7 @@ import jp.co.translacat.novel.domain.NovelProblem;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -13,6 +14,7 @@ import java.util.UUID;
 /** R2 객체의 소유권과 상태를 기존 BE DataSource에서 짧은 SQL 명령으로 관리한다. */
 @Repository
 public class NovelAudioAssetStore {
+    private final NovelAccountFence accountFence;
     public record Asset(String id, String identity, String sourceKey, long actor, String language,
                         int partIndex, String textSha256, String model, String objectKey,
                         String checksum, Long bytes, String contentType, Double duration,
@@ -21,7 +23,21 @@ public class NovelAudioAssetStore {
 
     private final JdbcTemplate jdbc;
 
+    public void beginObjectWrite(Asset asset) {
+        if (accountFence != null) accountFence.beginObjectWrite(asset.actor(), asset.identity(), asset.attempts());
+    }
+
+    public void finishObjectWrite(Asset asset, boolean confirmed) {
+        if (accountFence != null) accountFence.finishObjectWrite(asset.identity(), asset.attempts(), confirmed);
+    }
+
     public NovelAudioAssetStore(JdbcTemplate jdbc) {
+        this(jdbc, null);
+    }
+
+    @Autowired
+    public NovelAudioAssetStore(JdbcTemplate jdbc, NovelAccountFence accountFence) {
+        this.accountFence = accountFence;
         this.jdbc = jdbc;
     }
 
@@ -32,44 +48,47 @@ public class NovelAudioAssetStore {
 
     public Claim claim(String identity, String sourceKey, long actor, String language, int partIndex,
                        String textSha256, String model, String pronunciationVersion, long leaseMillis) {
-        long now = System.currentTimeMillis();
-        String owner = UUID.randomUUID().toString();
-        try {
-            // identity unique가 두 BE 인스턴스의 첫 삽입 경합을 하나의 합성으로 묶는다.
-            jdbc.update("INSERT INTO novel_audio_asset(asset_id,identity_hash,source_key,actor_id,language,part_index,"
-                            + "text_sha256,pronunciation_version,model_name,voice_name,audio_format,state,owner_token,"
-                            + "fence,lease_until,attempt_count,created_at,updated_at) "
-                            + "VALUES(?,?,?,?,?,?,?,?,?,'marin','wav','GENERATING',?,1,?,1,?,?)",
-                    UUID.randomUUID().toString(), identity, sourceKey, actor, language, partIndex,
-                    textSha256, pronunciationVersion, model, owner, now + leaseMillis, now, now);
-            return new Claim(find(identity).orElseThrow(), true);
-        } catch (DuplicateKeyException existing) {
-            // 정상 자산·진행 중 자산은 재합성 대상이 아니다. 만료된 upload는 같은 바이트를 복구한다.
-            Asset current = find(identity).orElseThrow();
-            if ("MISSING".equals(current.state())) {
-                int changed = jdbc.update("UPDATE novel_audio_asset SET state='GENERATING',owner_token=?,"
-                                + "fence=fence+1,lease_until=?,attempt_count=attempt_count+1,updated_at=? "
-                                + "WHERE identity_hash=? AND state='MISSING'",
-                        owner, now + leaseMillis, now, identity);
-                return new Claim(find(identity).orElseThrow(), changed == 1);
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(actor, () -> {
+            long now = System.currentTimeMillis();
+            String owner = UUID.randomUUID().toString();
+            try {
+                // identity unique가 두 BE 인스턴스의 첫 삽입 경합을 하나의 합성으로 묶는다.
+                jdbc.update("INSERT INTO novel_audio_asset(asset_id,identity_hash,source_key,actor_id,language,part_index,"
+                                + "text_sha256,pronunciation_version,model_name,voice_name,audio_format,state,owner_token,"
+                                + "fence,lease_until,attempt_count,created_at,updated_at) "
+                                + "VALUES(?,?,?,?,?,?,?,?,?,'marin','wav','GENERATING',?,1,?,1,?,?)",
+                        UUID.randomUUID().toString(), identity, sourceKey, actor, language, partIndex,
+                        textSha256, pronunciationVersion, model, owner, now + leaseMillis, now, now);
+                return new Claim(find(identity).orElseThrow(), true);
+            } catch (DuplicateKeyException existing) {
+                // 정상 자산·진행 중 자산은 재합성 대상이 아니다. 만료된 upload는 같은 바이트를 복구한다.
+                Asset current = find(identity).orElseThrow();
+                if ("MISSING".equals(current.state())) {
+                    int changed = jdbc.update("UPDATE novel_audio_asset SET state='GENERATING',owner_token=?,"
+                                    + "fence=fence+1,lease_until=?,attempt_count=attempt_count+1,updated_at=? "
+                                    + "WHERE identity_hash=? AND state='MISSING'",
+                            owner, now + leaseMillis, now, identity);
+                    return new Claim(find(identity).orElseThrow(), changed == 1);
+                }
+                if ("UPLOAD_FAILED".equals(current.state()) ||
+                        "UPLOADING".equals(current.state()) && current.leaseUntil() < now) {
+                    int changed = jdbc.update("UPDATE novel_audio_asset SET state='UPLOADING',owner_token=?,"
+                                    + "fence=fence+1,lease_until=?,updated_at=? WHERE identity_hash=? "
+                                    + "AND (state='UPLOAD_FAILED' OR (state='UPLOADING' AND lease_until<?))",
+                            owner, now + leaseMillis, now, identity, now);
+                    return new Claim(find(identity).orElseThrow(), changed == 1);
+                }
+                if ("GENERATING".equals(current.state()) && current.leaseUntil() < now) {
+                    // provider 전송 후 process가 사라진 시도는 자동 재과금하지 않는다.
+                    jdbc.update("UPDATE novel_audio_asset SET state='UNCERTAIN',owner_token=NULL,lease_until=0,"
+                                    + "updated_at=? WHERE identity_hash=? AND state='GENERATING' AND lease_until<?",
+                            now, identity, now);
+                    return new Claim(find(identity).orElseThrow(), false);
+                }
+                return new Claim(current, false);
             }
-            if ("UPLOAD_FAILED".equals(current.state()) ||
-                    "UPLOADING".equals(current.state()) && current.leaseUntil() < now) {
-                int changed = jdbc.update("UPDATE novel_audio_asset SET state='UPLOADING',owner_token=?,"
-                                + "fence=fence+1,lease_until=?,updated_at=? WHERE identity_hash=? "
-                                + "AND (state='UPLOAD_FAILED' OR (state='UPLOADING' AND lease_until<?))",
-                        owner, now + leaseMillis, now, identity, now);
-                return new Claim(find(identity).orElseThrow(), changed == 1);
-            }
-            if ("GENERATING".equals(current.state()) && current.leaseUntil() < now) {
-                // provider 전송 후 process가 사라진 시도는 자동 재과금하지 않는다.
-                jdbc.update("UPDATE novel_audio_asset SET state='UNCERTAIN',owner_token=NULL,lease_until=0,"
-                                + "updated_at=? WHERE identity_hash=? AND state='GENERATING' AND lease_until<?",
-                        now, identity, now);
-                return new Claim(find(identity).orElseThrow(), false);
-            }
-            return new Claim(current, false);
-        }
+        });
     }
 
     public void abandon(Asset owner) {
@@ -80,20 +99,26 @@ public class NovelAudioAssetStore {
 
     public Asset uploading(Asset owner, String objectKey, String checksum, long bytes, String contentType,
                            Double duration, long leaseMillis) {
-        int changed = jdbc.update("UPDATE novel_audio_asset SET state='UPLOADING',object_key=?,checksum_sha256=?,"
-                        + "bytes=?,content_type=?,duration_seconds=?,lease_until=?,updated_at=? "
-                        + "WHERE identity_hash=? AND owner_token=? AND fence=? AND state='GENERATING'",
-                objectKey, checksum, bytes, contentType, duration, System.currentTimeMillis() + leaseMillis,
-                System.currentTimeMillis(), owner.identity(), owner.owner(), owner.fence());
-        if (changed != 1) throw new NovelProblem("AUDIO_CLAIM_LOST", 409);
-        return find(owner.identity()).orElseThrow();
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        return withActiveActor(owner.actor(), () -> {
+            int changed = jdbc.update("UPDATE novel_audio_asset SET state='UPLOADING',object_key=?,checksum_sha256=?,"
+                            + "bytes=?,content_type=?,duration_seconds=?,lease_until=?,updated_at=? "
+                            + "WHERE identity_hash=? AND owner_token=? AND fence=? AND state='GENERATING'",
+                    objectKey, checksum, bytes, contentType, duration, System.currentTimeMillis() + leaseMillis,
+                    System.currentTimeMillis(), owner.identity(), owner.owner(), owner.fence());
+            if (changed != 1) throw new NovelProblem("AUDIO_CLAIM_LOST", 409);
+            return find(owner.identity()).orElseThrow();
+        });
     }
 
     public void ready(Asset owner) {
-        int changed = jdbc.update("UPDATE novel_audio_asset SET state='READY',owner_token=NULL,lease_until=0,"
-                        + "updated_at=? WHERE identity_hash=? AND owner_token=? AND fence=? AND state='UPLOADING'",
-                System.currentTimeMillis(), owner.identity(), owner.owner(), owner.fence());
-        if (changed != 1) throw new NovelProblem("AUDIO_CLAIM_LOST", 409);
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        withActiveActor(owner.actor(), () -> {
+            int changed = jdbc.update("UPDATE novel_audio_asset SET state='READY',owner_token=NULL,lease_until=0,"
+                            + "updated_at=? WHERE identity_hash=? AND owner_token=? AND fence=? AND state='UPLOADING'",
+                    System.currentTimeMillis(), owner.identity(), owner.owner(), owner.fence());
+            if (changed != 1) throw new NovelProblem("AUDIO_CLAIM_LOST", 409);
+        });
     }
 
     public void failed(Asset owner, String state) {
@@ -113,22 +138,25 @@ public class NovelAudioAssetStore {
 
     public void link(String sourceKey, String revision, long actor, String segmentId,
                      String language, int partIndex, String assetId, String translationCacheKey) {
-        // 같은 원문 revision에서 KO가 바뀌면 현재 문장 연결만 새 asset으로 갱신한다.
-        int updated = jdbc.update("UPDATE novel_audio_segment_link SET asset_id=?,translation_cache_key=? "
-                        + "WHERE source_key=? AND source_revision=? AND actor_id=? AND segment_id=? "
-                        + "AND language=? AND part_index=?",
-                assetId, translationCacheKey, sourceKey, revision, actor, segmentId, language, partIndex);
-        if (updated == 1) return;
-        try {
-            jdbc.update("INSERT INTO novel_audio_segment_link(source_key,source_revision,actor_id,segment_id,"
-                            + "language,part_index,asset_id,translation_cache_key) VALUES(?,?,?,?,?,?,?,?)",
-                    sourceKey, revision, actor, segmentId, language, partIndex, assetId, translationCacheKey);
-        } catch (DuplicateKeyException race) {
-            jdbc.update("UPDATE novel_audio_segment_link SET asset_id=?,translation_cache_key=? "
+        // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
+        withActiveActor(actor, () -> {
+            // 같은 원문 revision에서 KO가 바뀌면 현재 문장 연결만 새 asset으로 갱신한다.
+            int updated = jdbc.update("UPDATE novel_audio_segment_link SET asset_id=?,translation_cache_key=? "
                             + "WHERE source_key=? AND source_revision=? AND actor_id=? AND segment_id=? "
                             + "AND language=? AND part_index=?",
                     assetId, translationCacheKey, sourceKey, revision, actor, segmentId, language, partIndex);
-        }
+            if (updated == 1) return;
+            try {
+                jdbc.update("INSERT INTO novel_audio_segment_link(source_key,source_revision,actor_id,segment_id,"
+                                + "language,part_index,asset_id,translation_cache_key) VALUES(?,?,?,?,?,?,?,?)",
+                        sourceKey, revision, actor, segmentId, language, partIndex, assetId, translationCacheKey);
+            } catch (DuplicateKeyException race) {
+                jdbc.update("UPDATE novel_audio_segment_link SET asset_id=?,translation_cache_key=? "
+                                + "WHERE source_key=? AND source_revision=? AND actor_id=? AND segment_id=? "
+                                + "AND language=? AND part_index=?",
+                        assetId, translationCacheKey, sourceKey, revision, actor, segmentId, language, partIndex);
+            }
+        });
     }
 
     private Asset map(ResultSet row, int ignored) throws SQLException {
@@ -144,4 +172,14 @@ public class NovelAudioAssetStore {
                 row.getString("owner_token"), row.getLong("fence"), row.getLong("lease_until"),
                 row.getInt("attempt_count"));
     }
+
+    public <T> T withActiveActor(long actor, java.util.function.Supplier<T> action) {
+        return accountFence == null ? action.get() : accountFence.active(actor, action);
+    }
+
+    private void withActiveActor(long actor, Runnable action) {
+        if (accountFence == null) action.run();
+        else accountFence.active(actor, action);
+    }
+
 }

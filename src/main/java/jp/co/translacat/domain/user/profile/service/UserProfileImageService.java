@@ -7,6 +7,8 @@ import jp.co.translacat.domain.user.profile.storage.model.ProfileImageType;
 import jp.co.translacat.domain.user.profile.storage.model.ProfileImageUploadFile;
 import jp.co.translacat.domain.user.profile.storage.model.ValidatedImage;
 import jp.co.translacat.domain.user.profile.storage.port.ImageStoragePort;
+import jp.co.translacat.domain.user.deletion.ProfileObjectWriteRegistry;
+import org.springframework.beans.factory.annotation.Autowired;
 import jp.co.translacat.domain.user.profile.storage.service.ProfileImageValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +25,9 @@ public class UserProfileImageService {
     private final UserProfileService userProfileService;
     private final ProfileImageValidator profileImageValidator;
     private final ImageStoragePort imageStoragePort;
+
+    @Autowired
+    private ProfileObjectWriteRegistry writes;
 
     @Transactional
     public UserProfileResponseDto uploadProfileImage(
@@ -76,11 +81,13 @@ public class UserProfileImageService {
 
         String oldObjectKey = currentObjectKey(userProfile, imageType);
 
-        imageStoragePort.store(new ImageStorageUpload(
+        ImageStorageUpload upload = new ImageStorageUpload(
                 newObjectKey,
                 validatedImage.contentType(),
                 validatedImage.bytes()
-        ));
+        );
+        // 실제 외부 PUT을 시작하기 전에 별도 트랜잭션의 영속 intent를 남긴다.
+        writes.write(userId, newObjectKey, () -> imageStoragePort.store(upload));
 
         registerUploadSynchronization(newObjectKey, oldObjectKey);
         replaceObjectKey(userProfile, imageType, newObjectKey);

@@ -296,7 +296,8 @@ class AuthSessionPersistenceTest {
         @Bean UserService userService(UserRepository users, RefreshTokenRepository refresh,
                                      UserAllowedRepository allowed, JWTService jwt, AuthSessionService sessions) {
             return new UserService(users, refresh, allowed, jwt, mock(AuthenticationManager.class), mock(PasswordEncoder.class),
-                    mock(EmailVerificationService.class), mock(UserProfileRepository.class), mock(AuthAttemptLimiter.class), sessions);
+                    mock(EmailVerificationService.class), mock(UserProfileRepository.class), mock(AuthAttemptLimiter.class), sessions,
+                    mock(jp.co.translacat.domain.user.deletion.AccountDeletionIdentityGate.class));
         }
     }
 }

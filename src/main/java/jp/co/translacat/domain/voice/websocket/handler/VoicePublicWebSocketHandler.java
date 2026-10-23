@@ -69,7 +69,8 @@ public class VoicePublicWebSocketHandler
 
         if (userId == null
                 || voiceSessionId == null
-                || channel == null) {
+                || channel == null
+                || !connectionRegistry.isAccountActive(userId)) {
             closeQuietly(session, CloseStatus.POLICY_VIOLATION);
             return;
         }
@@ -275,6 +276,12 @@ public class VoicePublicWebSocketHandler
     ) {
         VoiceRelayConnection relay = connections.get(connectionId);
         if (relay == null || relay.isTerminated()) {
+            return;
+        }
+
+        // 탈퇴 계정에는 새 partial 본문도 전달하지 않는다. 인스턴스 간 철회는 공통 DB 상태를 확인한다.
+        if (!connectionRegistry.isAccountActive(relay.context().userId())) {
+            relay.forceClose(CloseStatus.POLICY_VIOLATION);
             return;
         }
 

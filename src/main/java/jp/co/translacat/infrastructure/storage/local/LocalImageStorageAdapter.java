@@ -73,6 +73,31 @@ public class LocalImageStorageAdapter implements ImageStoragePort, NovelAudioObj
     }
 
     @Override
+    public boolean supportsAccountDeletion() { return true; }
+
+    @Override
+    public boolean deleteUserProfileObjects(long userId) {
+        if (userId <= 0) throw new IllegalArgumentException("Positive account ID required");
+        Path prefix = resolveSafePath("user-profile/" + userId);
+        if (!Files.exists(prefix)) return true;
+        if (Files.isSymbolicLink(prefix) || Files.isSymbolicLink(prefix.getParent())) throw new IllegalStateException("Profile cleanup path cannot be a symbolic link");
+        try {
+            // 재귀 디렉터리 삭제 대신 검증한 계정 prefix 안의 leaf만 최대 100개 정리한다.
+            try (var paths = Files.walk(prefix)) {
+                for (Path file : paths.filter(path -> Files.isRegularFile(path) || Files.isSymbolicLink(path)).limit(100).toList()) {
+                    if (!file.normalize().startsWith(prefix)) throw new IllegalStateException("Profile cleanup path escaped prefix");
+                    Files.deleteIfExists(file);
+                }
+            }
+            try (var paths = Files.walk(prefix)) {
+                return paths.noneMatch(path -> Files.isRegularFile(path) || Files.isSymbolicLink(path));
+            }
+        } catch (IOException failure) {
+            throw new BusinessException("프로필 이미지 정리에 실패했습니다.", "PROFILE_CLEANUP_UNAVAILABLE");
+        }
+    }
+
+    @Override
     public String resolvePublicUrl(String objectKey) {
         return publicBaseUrl + "/" + objectKey;
     }
@@ -100,6 +125,14 @@ public class LocalImageStorageAdapter implements ImageStoragePort, NovelAudioObj
         } catch (IOException failure) {
             throw new NovelProblem("AUDIO_STORAGE_UNAVAILABLE", 503, true, 1000);
         }
+    }
+
+    @Override
+    public void deleteAudio(String objectKey) {
+        // 음성은 공개 이미지 루트와 분리되어 있으므로 기존 이미지 delete로 대신 처리하지 않는다.
+        Path target = audioPath(objectKey);
+        try { Files.deleteIfExists(target); }
+        catch (IOException failure) { throw new NovelProblem("AUDIO_STORAGE_UNAVAILABLE", 503, true, 1000); }
     }
 
     @Override

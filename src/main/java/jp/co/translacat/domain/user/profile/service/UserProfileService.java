@@ -1,6 +1,9 @@
 package jp.co.translacat.domain.user.profile.service;
 
 import jp.co.translacat.domain.user.entity.User;
+import jp.co.translacat.domain.user.deletion.UserAccountWriteFence;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jp.co.translacat.domain.user.profile.dto.UserProfileResponseDto;
 import jp.co.translacat.domain.user.profile.dto.UserProfileUpdateRequestDto;
 import jp.co.translacat.domain.user.profile.dto.UserSummaryProfileResponseDto;
@@ -22,11 +25,15 @@ public class UserProfileService {
     private final UserProfileRepository userProfileRepository;
     private final UserProfileImageUrlResolver imageUrlResolver;
 
+    @PersistenceContext
+    private EntityManager entities;
+
     @Transactional
     public UserProfile getOrCreateByUser(User user) {
-        return userProfileRepository.findByUserAndDeletedFalse(user)
+        User current = UserAccountWriteFence.lock(entities, user);
+        return userProfileRepository.findByUserAndDeletedFalse(current)
                 .orElseGet(() ->
-                        userProfileRepository.save(UserProfile.createDefault(user))
+                        userProfileRepository.save(UserProfile.createDefault(current))
                 );
     }
 
@@ -78,6 +85,7 @@ public class UserProfileService {
 
     private User getUser(Long userId) {
         return userRepository.findById(userId)
+                .filter(User::isActiveAccount)
                 .orElseThrow(() -> new BusinessException(
                         "사용자를 찾을 수 없습니다.",
                         "USER_NOT_FOUND"

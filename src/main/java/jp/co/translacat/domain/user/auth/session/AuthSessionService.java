@@ -4,6 +4,9 @@ import jp.co.translacat.domain.user.auth.AuthException;
 import jp.co.translacat.domain.user.dto.UserLoginResponseDto;
 import jp.co.translacat.domain.user.entity.User;
 import jp.co.translacat.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.LockModeType;
 import jp.co.translacat.global.security.JWTService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,8 +27,16 @@ public class AuthSessionService {
     private final UserRepository users;
     private final JWTService jwt;
 
+    @PersistenceContext
+    private EntityManager entities;
+
     @Transactional
     public UserLoginResponseDto create(User user) {
+        // 탈퇴와 새 발급이 같은 사용자 행을 잠가, 상태 변경 이후 세션이 되살아나지 않는다.
+        User current = users.findLockedById(user.getId()).orElseThrow(this::invalidRefresh);
+        entities.refresh(current, LockModeType.PESSIMISTIC_WRITE);
+        if (!current.isActiveAccount()) throw invalidRefresh();
+        user = current;
         // 로그인마다 독립된 식별자를 발급한다. 다른 브라우저·기기의 세션 행은 변경하지 않는다.
         String sessionId = UUID.randomUUID().toString();
         String refresh = jwt.generateRefreshToken(user.getId(), user.getEmail(), sessionId);
@@ -45,6 +56,7 @@ public class AuthSessionService {
             throw invalidRefresh();
         }
         User user = users.findById(userId).orElseThrow(this::invalidRefresh);
+        if (!user.isActiveAccount()) throw invalidRefresh();
 
         // NextAuth의 동시 갱신과 호환되도록 기존 refresh 재사용 계약을 유지한다.
         // 새 access도 같은 sid를 가지므로 이후 logout이 완료되면 보호 경계에서 거부된다.

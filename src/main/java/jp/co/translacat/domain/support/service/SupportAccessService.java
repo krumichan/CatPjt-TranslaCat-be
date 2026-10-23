@@ -2,6 +2,9 @@ package jp.co.translacat.domain.support.service;
 
 import jp.co.translacat.domain.support.exception.SupportException;
 import jp.co.translacat.domain.user.entity.User;
+import jp.co.translacat.domain.user.deletion.UserAccountWriteFence;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,12 +22,16 @@ public class SupportAccessService {
 
     private final UserRepository userRepository;
 
+    @PersistenceContext
+    private EntityManager entities;
+
     public User user(Long userId) {
         if (userId == null) {
             throw SupportException.notFound();
         }
 
-        return userRepository.findById(userId).orElseThrow(SupportException::notFound);
+        return userRepository.findById(userId)
+                .map(user -> UserAccountWriteFence.lock(entities, user)).orElseThrow(SupportException::notFound);
     }
 
     public User admin(Long userId) {

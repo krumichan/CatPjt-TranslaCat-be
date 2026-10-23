@@ -4,6 +4,10 @@ import jp.co.translacat.domain.accountbook.accountbook.entity.AccountBook;
 import jp.co.translacat.domain.accountbook.accountbook.repository.AccountBookRepository;
 import jp.co.translacat.domain.accountbook.member.enums.AccountBookMemberRole;
 import jp.co.translacat.domain.accountbook.member.repository.AccountBookMemberRepository;
+import jp.co.translacat.domain.user.entity.User;
+import jp.co.translacat.domain.user.deletion.UserAccountWriteFence;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +20,9 @@ public class AccountBookAccessService {
     private final AccountBookRepository accountBookRepository;
     private final AccountBookMemberRepository accountBookMemberRepository;
 
+    @PersistenceContext
+    private EntityManager entities;
+
     public AccountBook getActiveAccountBook(Long accountBookId) {
         return accountBookRepository
                 .findByIdAndDeletedFalse(accountBookId)
@@ -26,6 +33,8 @@ public class AccountBookAccessService {
             Long accountBookId,
             Long userId
     ) {
+        // 이미 시작된 거래/초대 쓰기도 탈퇴 상태 전환 뒤 계정 데이터를 되살리지 않는다.
+        if (entities != null) UserAccountWriteFence.lock(entities, entities.find(User.class, userId));
         AccountBook accountBook = getActiveAccountBook(accountBookId);
 
         boolean accessible = accountBookMemberRepository

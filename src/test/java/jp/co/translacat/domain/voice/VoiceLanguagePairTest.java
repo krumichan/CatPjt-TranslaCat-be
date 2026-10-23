@@ -41,6 +41,7 @@ class VoiceLanguagePairTest {
         var user = mock(User.class);
         when(entityManager.find(User.class, 123L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
         when(user.getAuthority()).thenReturn(Role.USER);
+        when(user.isActiveAccount()).thenReturn(true);
         when(policy.getDailyLimitMs()).thenReturn(7_200_000L);
         when(sessions.findActiveByUserId(eq(123L), any())).thenReturn(List.of());
         var service = new VoiceSessionCommandService(entityManager, sessions, channels,

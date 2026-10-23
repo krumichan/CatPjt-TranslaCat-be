@@ -5,6 +5,10 @@ import jp.co.translacat.domain.user.dto.UserLoginRequestDto;
 import jp.co.translacat.domain.user.dto.UserLoginResponseDto;
 import jp.co.translacat.domain.user.entity.RefreshToken;
 import jp.co.translacat.domain.user.entity.User;
+import jp.co.translacat.domain.user.deletion.UserAccountWriteFence;
+import jp.co.translacat.domain.user.deletion.AccountDeletionIdentityGate;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jp.co.translacat.domain.user.entity.UserAllowed;
 import jp.co.translacat.domain.user.enums.Role;
 import jp.co.translacat.domain.user.enums.SocialType;
@@ -54,18 +58,23 @@ public class UserService {
     private final UserProfileRepository userProfiles;
     private final AuthAttemptLimiter attempts;
     private final AuthSessionService sessions;
+    private final AccountDeletionIdentityGate deletionIdentities;
+
+    @PersistenceContext
+    private EntityManager entities;
 
     public User getById(Long userId) {
         return userRepository.findById(userId)
+                .map(user -> UserAccountWriteFence.lock(entities, user))
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
     }
 
     public User findByEmail(String email) {
-        return userRepository.findByEmail(email).orElse(null);
+        return userRepository.findByEmail(email).map(user -> UserAccountWriteFence.lock(entities, user)).orElse(null);
     }
 
     public User findByPublicId(String publicId) {
-        return userRepository.findByPublicId(publicId).orElse(null);
+        return userRepository.findByPublicId(publicId).map(user -> UserAccountWriteFence.lock(entities, user)).orElse(null);
     }
 
     public Optional<UserAllowed> findUserAllowedByEmail(String email) {
@@ -81,6 +90,7 @@ public class UserService {
         var birthDate = AuthInputs.validateBirthDate(request.getBirthDate());
 
         // 인증 증명과 계정/프로필 생성은 같은 트랜잭션에 묶어 실패 시 모두 되돌린다.
+        deletionIdentities.requireNewAccountAllowed(email);
         emailVerification.consume(request.getVerificationToken(), email, EmailVerificationPurpose.REGISTER, null);
         if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
             throw new AuthException(HttpStatus.CONFLICT, "ACCOUNT_ALREADY_EXISTS", "이미 가입된 이메일입니다. 기존 방식으로 로그인해 주세요.");
@@ -104,11 +114,15 @@ public class UserService {
         // Google의 고유 subject를 먼저 조회해 제공자의 이메일 변경에도 기존 계정을 유지한다.
         var existing = userRepository.findBySocialIdAndSocialType(socialId, socialType);
         if (existing.isPresent()) {
+            if (!existing.get().isActiveAccount()) {
+                throw new AuthException(HttpStatus.UNAUTHORIZED, "ACCOUNT_INACTIVE", "다시 로그인해 주세요.");
+            }
             return existing.get();
         }
 
         // 이메일이 같은 계정은 자동 연결하지 않고 기존 로그인 후 명시적인 연결을 요구한다.
         String normalizedEmail = AuthInputs.normalizeEmail(email);
+        deletionIdentities.requireNewAccountAllowed(normalizedEmail);
         if (userRepository.findByEmailIgnoreCase(normalizedEmail).isPresent()) {
             throw new AuthException(HttpStatus.CONFLICT, "ACCOUNT_LINK_REQUIRED",
                     "이미 가입된 이메일입니다. 기존 방식으로 로그인한 뒤 계정 설정에서 Google을 연결해 주세요.");
@@ -183,6 +197,10 @@ public class UserService {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        if (!user.isActiveAccount()) {
+            throw new AuthException(HttpStatus.UNAUTHORIZED, "ACCOUNT_INACTIVE", "다시 로그인해 주세요.");
+        }
 
         String newAccessToken = jwtService.generateAccessToken(userId, user.getEmail());
 

@@ -1,6 +1,9 @@
 package jp.co.translacat.domain.user.friend.service;
 
 import jp.co.translacat.domain.user.entity.User;
+import jp.co.translacat.domain.user.deletion.UserAccountWriteFence;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jp.co.translacat.domain.user.friend.dto.FriendResponseDto;
 import jp.co.translacat.domain.user.friend.entity.Friend;
 import jp.co.translacat.domain.user.friend.repository.FriendRepository;
@@ -23,6 +26,9 @@ public class FriendService {
     private final UserRepository userRepository;
     private final UserProfileQueryService userProfileQueryService;
 
+    @PersistenceContext
+    private EntityManager entities;
+
     @Transactional
     public Friend createFriend(
             Long userId1,
@@ -39,9 +45,12 @@ public class FriendService {
             User user1,
             User user2
     ) {
+        // 양방향 요청도 같은 ID 순서로 잠가 탈퇴와 친구 관계 복원이 교차하지 않는다.
+        User lower = UserAccountWriteFence.lock(entities, user1.getId() < user2.getId() ? user1 : user2);
+        User higher = UserAccountWriteFence.lock(entities, user1.getId() < user2.getId() ? user2 : user1);
         return friendRepository.findByUserIds(user1.getId(), user2.getId())
                 .map(this::restoreOrThrowIfActive)
-                .orElseGet(() -> friendRepository.save(Friend.create(user1, user2)));
+                .orElseGet(() -> friendRepository.save(Friend.create(lower, higher)));
     }
 
     public boolean areFriends(
@@ -131,6 +140,7 @@ public class FriendService {
 
     private User getUser(Long userId) {
         return userRepository.findById(userId)
+                .filter(User::isActiveAccount)
                 .orElseThrow(() -> new BusinessException(
                         "사용자를 찾을 수 없습니다.",
                         "USER_NOT_FOUND"

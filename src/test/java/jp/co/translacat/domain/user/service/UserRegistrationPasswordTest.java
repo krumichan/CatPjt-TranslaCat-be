@@ -57,8 +57,38 @@ class UserRegistrationPasswordTest {
     UserProfileRepository userProfiles;
     @Mock
     AuthAttemptLimiter attempts;
+    @Mock
+    jp.co.translacat.domain.user.deletion.AccountDeletionIdentityGate deletionIdentities;
     @InjectMocks
     UserService userService;
+
+    @Test
+    void pendingDeletionReservationStopsLocalRegistrationBeforeConsumingProof() throws Exception {
+        // 준비
+        doThrow(new AuthException(HttpStatus.CONFLICT, "ACCOUNT_DELETION_PENDING", "pending"))
+                .when(deletionIdentities).requireNewAccountAllowed("receipt@example.com");
+
+        // 실행
+        assertThatThrownBy(() -> userService.register(request("receipt@example.com", "proof"))).isInstanceOf(AuthException.class);
+
+        // 검증
+        verifyNoInteractions(emailVerification, userProfiles);
+        verify(userRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void pendingDeletionReservationAlsoStopsAutomaticSocialRegistration() {
+        // 준비
+        when(userRepository.findBySocialIdAndSocialType("new-subject", SocialType.GOOGLE)).thenReturn(Optional.empty());
+        doThrow(new AuthException(HttpStatus.CONFLICT, "ACCOUNT_DELETION_PENDING", "pending"))
+                .when(deletionIdentities).requireNewAccountAllowed("receipt@example.com");
+
+        // 실행
+        assertThatThrownBy(() -> userService.getOrRegisterSocialUser("receipt@example.com", "New", "new-subject", SocialType.GOOGLE)).isInstanceOf(AuthException.class);
+
+        // 검증
+        verify(userRepository, never()).saveAndFlush(any());
+    }
 
     @Test
     void localRegistrationStoresOnlyTheEncodedPassword() throws Exception {

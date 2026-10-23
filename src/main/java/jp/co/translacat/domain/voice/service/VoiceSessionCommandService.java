@@ -63,7 +63,7 @@ public class VoiceSessionCommandService {
                 userId,
                 LockModeType.PESSIMISTIC_WRITE
         );
-        if (user == null) {
+        if (user == null || !user.isActiveAccount()) {
             throw notFound();
         }
         requireVoiceRole(user);

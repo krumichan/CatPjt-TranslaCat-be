@@ -27,7 +27,7 @@ class UserLogoutAuthorizationHeaderTest {
     private final UserService users = new UserService(mock(UserRepository.class), refreshTokens,
             mock(UserAllowedRepository.class), jwt, mock(AuthenticationManager.class), mock(PasswordEncoder.class),
             mock(EmailVerificationService.class), mock(UserProfileRepository.class), mock(AuthAttemptLimiter.class),
-            mock(AuthSessionService.class));
+            mock(AuthSessionService.class), mock(jp.co.translacat.domain.user.deletion.AccountDeletionIdentityGate.class));
     private final UserController controller = new UserController(users, mock(OAuth2AuthenticationService.class));
 
     @Test

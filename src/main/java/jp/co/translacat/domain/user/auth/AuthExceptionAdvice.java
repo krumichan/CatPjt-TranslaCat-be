@@ -18,7 +18,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackages = {
         "jp.co.translacat.domain.user.auth",
-        "jp.co.translacat.domain.user.controller"
+        "jp.co.translacat.domain.user.controller",
+        "jp.co.translacat.domain.user.deletion"
 })
 public class AuthExceptionAdvice {
 

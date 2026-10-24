@@ -70,6 +70,10 @@ class SupportMigrationTest {
                     """);
             ScriptUtils.executeSqlScript(connection, urgentMigration);
 
+            // 실행: 공통 User의 비밀번호 복구 컬럼도 실제 후속 SQL로 한 번 추가한다.
+            ScriptUtils.executeSqlScript(connection,
+                    new FileSystemResource("scripts/sql/20261024_password_reset.sql"));
+
             // 검증: 기존 계정/공지와 새 숨김 이력이 모두 유지된다.
             try (var result = statement.executeQuery("select count(*) from `user`")) {
                 result.next();
@@ -79,6 +83,10 @@ class SupportMigrationTest {
                 result.next();
                 assertThat(result.getString(1)).isEqualTo("ACTIVE");
                 assertThat(result.getObject(2)).isNull();
+            }
+            try (var result = statement.executeQuery("select password_reset_at from `user`")) {
+                result.next();
+                assertThat(result.getObject(1)).isNull();
             }
             try (var result = statement.executeQuery("select count(*) from support_notice")) {
                 result.next();

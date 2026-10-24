@@ -106,6 +106,17 @@ public class EmailVerificationService {
         return send(normalizedEmail, EmailVerificationPurpose.ADD_PASSWORD, userId);
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public EmailChallengeResponse sendPasswordReset(String email) {
+        // 미가입·Google 전용 주소에도 같은 메일과 응답을 제공하여 계정 존재 여부를 드러내지 않는다.
+        // 요청 당시의 사용자에게만 증명을 묶어 이후 같은 이메일로 생긴 계정을 변경하지 않는다.
+        String normalizedEmail = AuthInputs.normalizeEmail(email);
+        Long userId = users.findByEmailIgnoreCase(normalizedEmail)
+                .filter(user -> user.isActiveAccount() && user.hasPassword())
+                .map(user -> user.getId()).orElse(null);
+        return send(normalizedEmail, EmailVerificationPurpose.RESET_PASSWORD, userId);
+    }
+
     private EmailChallengeResponse send(String email, EmailVerificationPurpose purpose, Long userId) {
         // 설정이 빠진 상태에서는 발송 예약이나 인증 정보를 만들지 않는다.
         requireSecret();
@@ -174,22 +185,30 @@ public class EmailVerificationService {
     }
 
     public EmailVerificationResponse verify(String challengeId, String code) {
+        return verifyForPurpose(challengeId, code, false);
+    }
+
+    public EmailVerificationResponse verifyPasswordReset(String challengeId, String code) {
+        return verifyForPurpose(challengeId, code, true);
+    }
+
+    private EmailVerificationResponse verifyForPurpose(String challengeId, String code, boolean passwordReset) {
         requireSecret();
         if (challengeId == null || !challengeId.matches("[0-9a-fA-F-]{36}")) {
             throw invalidCode();
         }
 
         // 실패를 결과값으로 반환한 뒤 예외로 변환하여 틀린 코드 시도 횟수도 커밋한다.
-        VerificationOutcome outcome = isolatedTransaction.execute(status -> verifyLocked(challengeId, code));
+        VerificationOutcome outcome = isolatedTransaction.execute(status -> verifyLocked(challengeId, code, passwordReset));
         if (Objects.requireNonNull(outcome).failure() != null) {
             throw outcome.failure();
         }
         return outcome.response();
     }
 
-    private VerificationOutcome verifyLocked(String challengeId, String code) {
+    private VerificationOutcome verifyLocked(String challengeId, String code, boolean passwordReset) {
         EmailVerificationChallenge challenge = challenges.findLockedById(challengeId).orElse(null);
-        if (challenge == null) {
+        if (challenge == null || (challenge.getPurpose() == EmailVerificationPurpose.RESET_PASSWORD) != passwordReset) {
             return VerificationOutcome.failed(invalidCode());
         }
         if (challenge.getStatus() != EmailVerificationChallenge.Status.SENT) {

@@ -95,6 +95,10 @@ public class SecurityConfig {
                         // 익명 PKCE 생성·교환 경로보다 현재 로그인 사용자의 명시적 승인을 먼저 보호한다.
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/mobile/authorize").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/mobile/requests", "/api/v1/auth/mobile/exchange").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/password-reset/challenges",
+                                "/api/v1/auth/password-reset/verify",
+                                "/api/v1/auth/password-reset/complete").permitAll()
                         // 폐기한 로그인 대신 사전 저장한 256비트 receipt로 이 요청의 상태만 확인한다.
                         .requestMatchers(HttpMethod.POST, "/api/v1/account-deletion/status").permitAll()
                         // 외부 AI는 계획별 capability로 인증하며 나머지 계획 관리는 계정 인증을 요구한다.

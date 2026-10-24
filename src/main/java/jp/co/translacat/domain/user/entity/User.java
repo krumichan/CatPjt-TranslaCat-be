@@ -48,6 +48,10 @@ public class User extends BaseAuditable {
     @JsonIgnore
     private Instant emailVerifiedAt;
 
+    @Column(name = "password_reset_at")
+    @JsonIgnore
+    private Instant passwordResetAt;
+
     @Column
     private String username;
 
@@ -82,6 +86,7 @@ public class User extends BaseAuditable {
         this.password = null;
         this.birthDate = null;
         this.emailVerifiedAt = null;
+        this.passwordResetAt = null;
         this.username = "탈퇴한 사용자";
         this.socialId = null;
         this.socialType = SocialType.LOCAL;

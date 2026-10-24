@@ -56,6 +56,10 @@ class LocalAuthMigrationTest {
             statement.execute("update auth_email_quota set reserved_count = 7 where id = 1");
             ScriptUtils.executeSqlScript(connection, migration);
 
+            // 실행: 비밀번호 복구의 후속 migration은 기존 인증 구조 위에 한 번 적용한다.
+            ScriptUtils.executeSqlScript(connection,
+                    new FileSystemResource("scripts/sql/20261024_password_reset.sql"));
+
             // 검증: 기존 계정과 quota를 보존하고 신규 컬럼·고유 index를 한 번만 만든다.
             try (var result = statement.executeQuery("select count(*) from `user`")) {
                 result.next();
@@ -69,6 +73,10 @@ class LocalAuthMigrationTest {
             try (var result = statement.executeQuery("select reserved_count from auth_email_quota where id = 1")) {
                 result.next();
                 assertThat(result.getInt(1)).isEqualTo(7);
+            }
+            try (var result = statement.executeQuery("select password_reset_at from `user`")) {
+                result.next();
+                assertThat(result.getObject(1)).isNull();
             }
             try (var result = statement.executeQuery("""
                     select count(*)

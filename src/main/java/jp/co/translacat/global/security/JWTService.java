@@ -230,14 +230,17 @@ public class JWTService {
     private boolean activeAccount(Claims claims) {
         // 운영 생성자는 계정 저장소를 주입한다. sid 없는 구형 access도 탈퇴 상태를 우회하지 않는다.
         Long id = claims.get(KEY_ID, Long.class);
-        return users == null || id != null && users.findById(id).map(user -> user.isActiveAccount()).orElse(false);
+        return users == null || id != null && users.findById(id)
+                .map(user -> user.isActiveAccount()
+                        && (sessionId(claims) != null || user.getPasswordResetAt() == null))
+                .orElse(false);
     }
 
     public Long getRefreshId(String token) {
         Claims claims = extractAllClaims(token);
         String purpose = claims.get("token_use", String.class);
         // 기존 refresh는 DB에 저장된 원문과의 일치 검증을 서비스에서 계속 수행한다.
-        if (purpose != null && !"refresh".equals(purpose)) {
+        if ((purpose != null && !"refresh".equals(purpose)) || !activeAccount(claims)) {
             throw new JwtException("Refresh token required");
         }
         return claims.get(KEY_ID, Long.class);

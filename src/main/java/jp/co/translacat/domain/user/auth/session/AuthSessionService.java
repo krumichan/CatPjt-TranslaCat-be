@@ -32,10 +32,24 @@ public class AuthSessionService {
 
     @Transactional
     public UserLoginResponseDto create(User user) {
+        return createLocked(user, null);
+    }
+
+    @Transactional
+    public UserLoginResponseDto createAfterPasswordAuthentication(User user, String authenticatedHash) {
+        if (authenticatedHash == null || authenticatedHash.isBlank()) throw invalidRefresh();
+        return createLocked(user, authenticatedHash);
+    }
+
+    private UserLoginResponseDto createLocked(User user, String authenticatedHash) {
         // 탈퇴와 새 발급이 같은 사용자 행을 잠가, 상태 변경 이후 세션이 되살아나지 않는다.
         User current = users.findLockedById(user.getId()).orElseThrow(this::invalidRefresh);
         entities.refresh(current, LockModeType.PESSIMISTIC_WRITE);
         if (!current.isActiveAccount()) throw invalidRefresh();
+        // 비밀번호 확인 뒤 재설정이 먼저 완료되었으면 이전 확인 결과로 세션을 다시 만들지 않는다.
+        if (authenticatedHash != null && !java.util.Objects.equals(authenticatedHash, current.getPassword())) {
+            throw invalidRefresh();
+        }
         user = current;
         // 로그인마다 독립된 식별자를 발급한다. 다른 브라우저·기기의 세션 행은 변경하지 않는다.
         String sessionId = UUID.randomUUID().toString();

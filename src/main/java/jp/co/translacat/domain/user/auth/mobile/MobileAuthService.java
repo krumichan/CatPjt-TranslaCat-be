@@ -112,6 +112,10 @@ public class MobileAuthService {
         redirects.requireAllowed(request.getRedirectUri());
         if (request.getConsumedAt() != null) throw alreadyUsed();
         if (request.getApprovedUserId() == null || request.getCodeExpiresAt() == null) throw invalidProof();
+        // 비밀번호 재설정 전에 시작된 승인 교환으로 기존 로그인을 되살리지 않는다.
+        if (user.getPasswordResetAt() != null && !request.getCreatedAt().isAfter(user.getPasswordResetAt())) {
+            throw invalidProof();
+        }
         if (!request.getCodeExpiresAt().isAfter(now)) throw expired();
         boolean codeMatches = MobileAuthProofs.same(request.getCodeHash(), MobileAuthProofs.hash(code));
         boolean pkceMatches = MobileAuthProofs.same(request.getCodeChallenge(), MobileAuthProofs.challenge(codeVerifier));

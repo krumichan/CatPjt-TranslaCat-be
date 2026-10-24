@@ -152,7 +152,9 @@ public class UserService {
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         User user = userPrincipal.user();
 
-        return this.generateUserTokens(user);
+        // 잠금 후 refresh가 같은 엔티티를 갱신해도 검증 당시의 해시를 별도 값으로 보존한다.
+        String authenticatedHash = user.getPassword();
+        return sessions.createAfterPasswordAuthentication(user, authenticatedHash);
     }
 
     public String logout(String token) {

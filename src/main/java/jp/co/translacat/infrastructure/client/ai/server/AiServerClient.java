@@ -2,6 +2,7 @@ package jp.co.translacat.infrastructure.client.ai.server;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jp.co.translacat.domain.accountbook.analysis.dto.SpendingAnalysisDtos;
 import jp.co.translacat.global.exception.AiServerCommunicationException;
 import jp.co.translacat.global.exception.BusinessException;
 import jp.co.translacat.infrastructure.client.ai.server.dto.AiReceiptAnalysisOptions;
@@ -89,6 +90,12 @@ public class AiServerClient {
 
     private Map<String, String> basicHeader() {
         return Map.of("X-API-KEY", apiKey);
+    }
+
+    public SpendingAnalysisDtos.AiResponse callSpendingAnalysis(SpendingAnalysisDtos.AiRequest request) {
+        // 단발 전송 경로를 사용해 유료 분석이 HTTP 재시도로 중복 실행되지 않게 한다.
+        return apiClient.postOnce(aiServerUrl + "/api/v1/account-book/spending-analysis", request,
+                basicHeader(), SpendingAnalysisDtos.AiResponse.class);
     }
 
     public AiReceiptAnalysisResponse callReceiptAnalysis(

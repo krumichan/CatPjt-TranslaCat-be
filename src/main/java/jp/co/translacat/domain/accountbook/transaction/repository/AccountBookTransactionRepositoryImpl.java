@@ -3,12 +3,14 @@ package jp.co.translacat.domain.accountbook.transaction.repository;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.core.types.dsl.StringExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jp.co.translacat.domain.accountbook.chart.dto.AccountBookMonthlyTransactionAggregateDto;
 import jp.co.translacat.domain.accountbook.chart.dto.AccountBookRankingChartAggregateDto;
+import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookChartTransactionFilterDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookStoreSuggestionResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionMonthResponseDto;
 import jp.co.translacat.domain.accountbook.transaction.dto.AccountBookTransactionRequestDto;
@@ -74,6 +76,12 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                 accountBookTransaction.storeName,
                 accountBookTransaction.memo
         ));
+
+        // 차트와 동일한 그룹 조건을 페이지 조회와 전체 건수 계산에 함께 적용한다.
+        if (condition.getChartFilter() != null) {
+            where.and(accountBookTransaction.type.eq(AccountBookTransactionType.EXPENSE));
+            where.and(chartGroupPredicate(condition.getChartFilter()));
+        }
 
         List<AccountBookTransactionResponseDto> content = queryFactory
                 .select(Projections.constructor(
@@ -284,7 +292,8 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                                 AccountBookRankingChartAggregateDto.class,
                                 accountBookTransaction.category,
                                 amountSum.coalesce(BigDecimal.ZERO),
-                                accountBookTransaction.id.count()
+                                accountBookTransaction.id.count(),
+                                accountBookTransaction.category
                         )
                 )
                 .from(accountBookTransaction)
@@ -307,8 +316,7 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
     ) {
         NumberExpression<BigDecimal> amountSum =
                 accountBookTransaction.amount.sum();
-        StringExpression merchantGroup = accountBookTransaction.merchantKey
-                .coalesce(accountBookTransaction.storeName.lower());
+        StringExpression merchantGroup = merchantGroup();
 
         return queryFactory
                 .select(
@@ -316,7 +324,8 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                                 AccountBookRankingChartAggregateDto.class,
                                 accountBookTransaction.storeName.min(),
                                 amountSum.coalesce(BigDecimal.ZERO),
-                                accountBookTransaction.id.count()
+                                accountBookTransaction.id.count(),
+                                merchantGroup
                         )
                 )
                 .from(accountBookTransaction)
@@ -331,5 +340,41 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                 .groupBy(merchantGroup)
                 .orderBy(amountSum.desc())
                 .fetch();
+    }
+
+    private BooleanExpression chartGroupPredicate(AccountBookChartTransactionFilterDto filter) {
+        if (filter.type() == null || filter.keys() == null || filter.keys().isEmpty()) {
+            throw new IllegalArgumentException("차트 거래 필터에는 유형과 그룹 키가 필요합니다.");
+        }
+
+        StringExpression group = filter.type() == AccountBookChartTransactionFilterDto.Type.CATEGORY
+                ? accountBookTransaction.category
+                : merchantGroup();
+        List<String> keys = filter.keys().stream().filter(Objects::nonNull).distinct().toList();
+        boolean includesNull = filter.keys().stream().anyMatch(Objects::isNull);
+        BooleanExpression selected;
+
+        // 합산 기타는 상위 그룹의 여집합으로 조회해 그룹 수와 무관하게 필터를 제한한다.
+        // SQL의 null 비교가 미정으로 남지 않도록 null 그룹 포함 여부를 따로 지정한다.
+        if (filter.exclude()) {
+            selected = keys.isEmpty() ? group.isNotNull() : group.notIn(keys);
+            selected = includesNull ? selected.and(group.isNotNull()) : selected.or(group.isNull());
+        } else {
+            selected = keys.isEmpty() ? group.isNull() : group.in(keys);
+            if (includesNull) {
+                selected = selected.or(group.isNull());
+            }
+        }
+
+        // 점포 차트가 제외한 점포 미지정 거래를 모달에도 포함하지 않는다.
+        if (filter.type() == AccountBookChartTransactionFilterDto.Type.STORE) {
+            selected = selected.and(accountBookTransaction.storeName.isNotNull())
+                    .and(accountBookTransaction.storeName.ne(""));
+        }
+        return selected;
+    }
+
+    private StringExpression merchantGroup() {
+        return accountBookTransaction.merchantKey.coalesce(accountBookTransaction.storeName.lower());
     }
 }

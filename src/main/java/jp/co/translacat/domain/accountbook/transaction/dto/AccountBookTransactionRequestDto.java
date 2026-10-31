@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.accountbook.transaction.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransactionType;
@@ -20,4 +21,7 @@ public class AccountBookTransactionRequestDto extends PageableDto {
     private AccountBookTransactionType type;
 
     private String keyword;
+
+    @Valid
+    private AccountBookChartTransactionFilterDto chartFilter;
 }

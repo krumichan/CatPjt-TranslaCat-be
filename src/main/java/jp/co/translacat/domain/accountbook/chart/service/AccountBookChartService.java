@@ -147,7 +147,8 @@ public class AccountBookChartService {
                         aggregate.name(),
                         aggregate.amount(),
                         aggregate.transactionCount(),
-                        calculatePercentage(aggregate.amount(), totalAmount)
+                        calculatePercentage(aggregate.amount(), totalAmount),
+                        aggregate.groupKey()
                 ))
                 .toList();
 

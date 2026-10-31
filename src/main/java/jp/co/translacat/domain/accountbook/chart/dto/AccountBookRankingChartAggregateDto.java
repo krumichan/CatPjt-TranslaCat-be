@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 public record AccountBookRankingChartAggregateDto(
         String name,
         BigDecimal amount,
-        Long transactionCount
+        Long transactionCount,
+        String groupKey
 ) {
 }

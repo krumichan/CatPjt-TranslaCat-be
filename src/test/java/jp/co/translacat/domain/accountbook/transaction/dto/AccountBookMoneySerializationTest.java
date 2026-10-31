@@ -43,7 +43,7 @@ class AccountBookMoneySerializationTest {
                         new AccountBookMonthlyChartItemResponseDto(2026, 9, EXACT, EXACT, EXACT, EXACT),
                         List.of("incomeAmount", "expenseAmount", "balance", "expenseGoalAmount")),
                 Arguments.of(
-                        new AccountBookRankingChartItemResponseDto("Food", EXACT, 1L, new BigDecimal("50.5")),
+                        new AccountBookRankingChartItemResponseDto("Food", EXACT, 1L, new BigDecimal("50.5"), "Food"),
                         List.of("amount")),
                 Arguments.of(
                         new AccountBookRankingChartResponseDto(2026, 9, EXACT, List.of()),

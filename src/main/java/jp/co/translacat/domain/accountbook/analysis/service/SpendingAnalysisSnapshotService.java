@@ -27,30 +27,42 @@ import static jp.co.translacat.domain.accountbook.transaction.entity.QAccountBoo
 @Transactional(readOnly = true)
 public class SpendingAnalysisSnapshotService {
     private static final int PAGE_SIZE = 500;
-    private static final int MAX_TRANSACTIONS = 600;
-    private static final int MAX_TEXT_CHARACTERS = 200_000;
+    private static final int MAX_TRANSACTIONS = 6000;
+    private static final int MAX_TEXT_CHARACTERS = 2_000_000;
     private final AccountBookAccessService access;
     private final JPAQueryFactory queries;
 
     public record Prepared(AiRequest input, Map<String, AccountBookTransactionResponseDto> evidence,
-                           String fingerprint) { }
+                           String fingerprint, Map<String, AccountBookTransactionResponseDto> historicalEvidence) {
+        public Prepared(AiRequest input, Map<String, AccountBookTransactionResponseDto> evidence, String fingerprint) {
+            this(input, evidence, fingerprint, Map.of());
+        }
+    }
     record Period(LocalDate start, LocalDate end) { }
     private record Candidate(long id, LocalDate date, int textCharacters) { }
     private record Scan(String fingerprint, long count, BigDecimal total, List<Candidate> candidates) { }
 
     public SnapshotInfo current(Long bookId, Long userId, PeriodType type, int year, Integer month) {
+        return current(bookId, userId, new Request(type, year, month, "ko", null));
+    }
+
+    public SnapshotInfo current(Long bookId, Long userId, Request request) {
         // 사용자 권한과 통화를 함께 확인하고 전체 기간의 변경 여부를 계산한다.
         var book = access.getAccessibleAccountBook(bookId, userId);
-        var period = period(type, year, month);
-        var scan = scan(bookId, period, type, book.getCurrency().getCode(), book.getCurrency().getDecimalPlaces(), false);
-        var previous = totals(bookId, type == PeriodType.MONTHLY ? period.start().minusMonths(1) : period.start().minusYears(1), period.start());
-        return new SnapshotInfo(fingerprint(scan, previous), scan.count(), scan.total().toPlainString());
+        var range = SpendingAnalysisPeriods.resolve(request);
+        var period = new Period(range.start(), range.end());
+        var scan = scan(bookId, period, request.periodType(), book.getCurrency().getCode(), book.getCurrency().getDecimalPlaces(), false);
+        var previous = totals(bookId, previousStart(period, request.periodType()), period.start());
+        var history = scan(bookId, new Period(period.start().minusMonths(12), period.start()), PeriodType.YEARLY,
+                book.getCurrency().getCode(), book.getCurrency().getDecimalPlaces(), false);
+        return new SnapshotInfo(fingerprint(scan, previous, history), scan.count(), scan.total().toPlainString());
     }
 
     public Prepared prepare(Long bookId, Long userId, Request request) {
         // 원본 거래는 읽기 트랜잭션 안에서 스냅샷으로 바꾸고 외부 AI 호출 전에 경계를 끝낸다.
         var book = access.getAccessibleAccountBook(bookId, userId);
-        var period = period(request.periodType(), request.year(), request.month());
+        var range = SpendingAnalysisPeriods.resolve(request);
+        var period = new Period(range.start(), range.end());
         String currency = book.getCurrency().getCode();
         int decimals = book.getCurrency().getDecimalPlaces();
         var scan = scan(bookId, period, request.periodType(), currency, decimals, true);
@@ -90,22 +102,51 @@ public class SpendingAnalysisSnapshotService {
         String reason = !partial ? null : selected.size() < scan.candidates().size()
                 ? "TEXT_BUDGET" : "TRANSACTION_LIMIT";
         var coverage = new Coverage(transactions.size(), scan.count(), partial, reason);
-        var previousStart = request.periodType() == PeriodType.MONTHLY ? period.start().minusMonths(1) : period.start().minusYears(1);
+        var previousStart = previousStart(period, request.periodType());
         var previous = totals(bookId, previousStart, period.start());
         var previousPeriod = new PreviousPeriod(previousStart, period.start(), previous.total().toPlainString(),
                 previous.count(), previous.count() > 0 && previous.total().signum() > 0
                 && !period.end().isAfter(LocalDate.now(ZoneId.of("Asia/Seoul"))));
+        // 선택 기간 앞의 12개월만 문맥으로 읽는다. 이후 거래를 앞선 달 분석에 넣지 않는다.
+        var history = scan(bookId, new Period(period.start().minusMonths(12), period.start()), PeriodType.YEARLY, currency, decimals, true);
+        var historicalEvidence = loadHistory(bookId, history.candidates());
+        var historicalTransactions = historicalEvidence.entrySet().stream().map(entry -> {
+            var item = entry.getValue();
+            return new AiTransaction(entry.getKey(), item.transactionDate(), item.title(), item.storeName(), item.category(),
+                    item.memo(), item.amount().toPlainString(), item.sourceType() == null ? null : item.sourceType().name());
+        }).toList();
         var input = new AiRequest(request.periodType(), request.year(), request.month(), request.locale(), currency,
                 decimals, period.start(), period.end(), scan.total().toPlainString(), scan.count(), coverage,
-                previousPeriod, normalizedComment(request.comment()), List.copyOf(transactions));
-        return new Prepared(input, Collections.unmodifiableMap(evidence), fingerprint(scan, previous));
+                previousPeriod, normalizedComment(request.comment()), List.copyOf(transactions), request.quarter(), request.half(),
+                historicalTransactions, List.of());
+        return new Prepared(input, Collections.unmodifiableMap(evidence), fingerprint(scan, previous, history), historicalEvidence);
     }
 
     private record Totals(long count, BigDecimal total) { }
-    private static String fingerprint(Scan scan, Totals previous) {
+    private static String fingerprint(Scan scan, Totals previous, Scan history) {
         var digest = digest();
-        addHash(digest, scan.fingerprint(), previous.count(), previous.total().toPlainString());
+        addHash(digest, scan.fingerprint(), previous.count(), previous.total().toPlainString(), history.fingerprint());
         return HexFormat.of().formatHex(digest.digest());
+    }
+
+    private Map<String, AccountBookTransactionResponseDto> loadHistory(Long bookId, List<Candidate> candidates) {
+        if (candidates.isEmpty()) return Map.of();
+        var ids = candidates.stream().map(Candidate::id).toList();
+        var loaded = queries.selectFrom(accountBookTransaction).where(accountBookTransaction.accountBook.id.eq(bookId),
+                accountBookTransaction.id.in(ids)).orderBy(accountBookTransaction.transactionDate.asc(), accountBookTransaction.id.asc()).fetch();
+        Map<String, AccountBookTransactionResponseDto> result = new LinkedHashMap<>();
+        for (var item : loaded) result.put("tx-" + (100001 + result.size()), AccountBookTransactionResponseDto.from(item));
+        return Collections.unmodifiableMap(result);
+    }
+
+    private static LocalDate previousStart(Period period, PeriodType type) {
+        return switch (type) {
+            case MONTHLY -> period.start().minusMonths(1);
+            case QUARTERLY -> period.start().minusMonths(3);
+            case HALF_YEARLY -> period.start().minusMonths(6);
+            case YEARLY -> period.start().minusYears(1);
+            case CUSTOM -> period.start().minusDays(java.time.temporal.ChronoUnit.DAYS.between(period.start(), period.end()));
+        };
     }
     private Totals totals(Long bookId, LocalDate start, LocalDate end) {
         var row = queries.select(accountBookTransaction.id.count(), accountBookTransaction.amount.sum())
@@ -153,7 +194,7 @@ public class SpendingAnalysisSnapshotService {
                     String value = row.get(i, String.class);
                     if (value != null) textLength += encodedTextLength(value);
                 }
-                int bucket = type == PeriodType.YEARLY ? date.getMonthValue() : 0;
+                int bucket = type != PeriodType.MONTHLY ? date.getYear() * 12 + date.getMonthValue() : 0;
                 var queue = buckets.computeIfAbsent(bucket, ignored -> new PriorityQueue<>(order));
                 var candidate = new Candidate(lastId, date, textLength);
                 if (queue.size() < quota) queue.add(candidate);
@@ -164,8 +205,7 @@ public class SpendingAnalysisSnapshotService {
             }
         }
 
-        // 월별 후보를 충분히 보존한 뒤 전체 600건만 번갈아 선택한다.
-        // 전체 거래가 600건 이하인 연도에는 특정 월의 거래를 불필요하게 누락하지 않는다.
+        // 월별 후보를 보존하고 문자/건수 한도 이내인 기간에는 전건을 포함한다.
         var monthLists = buckets.values().stream().map(queue -> queue.stream().sorted(order.reversed()).toList()).toList();
         var candidates = new ArrayList<Candidate>();
         for (int index = 0; index < quota && candidates.size() < MAX_TRANSACTIONS; index++) {
@@ -178,12 +218,8 @@ public class SpendingAnalysisSnapshotService {
     }
 
     static Period period(PeriodType type, int year, Integer month) {
-        if (type == null || year < 2000 || year > 9998 || (type == PeriodType.MONTHLY
-                ? month == null || month < 1 || month > 12 : month != null)) {
-            throw new IllegalArgumentException("Invalid spending analysis period.");
-        }
-        LocalDate start = type == PeriodType.MONTHLY ? YearMonth.of(year, month).atDay(1) : LocalDate.of(year, 1, 1);
-        return new Period(start, type == PeriodType.MONTHLY ? start.plusMonths(1) : start.plusYears(1));
+        var range = SpendingAnalysisPeriods.resolve(new Request(type, year, month, "ko", null));
+        return new Period(range.start(), range.end());
     }
 
     static String normalizedComment(String comment) { return comment == null || comment.isBlank() ? null : comment.strip(); }

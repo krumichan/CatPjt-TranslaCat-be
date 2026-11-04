@@ -121,9 +121,9 @@ class SpendingAnalysisSnapshotTest {
 
     @Test
     void omittedAnnualTransactionsStillAffectFingerprintAndCoverageIsExplicit() {
-        // 준비: 전체 상세 표본 상한 600건을 넘긴다.
+        // 준비: 확대된 전체 상세 상한 6,000건을 넘긴다.
         var oldest = add(LocalDate.of(2024, 1, 1), 100, "Old context");
-        for (int index = 0; index < 600; index++) {
+        for (int index = 0; index < 6000; index++) {
             add(LocalDate.of(2024, 1, 20), 100, "New context");
         }
         var request = new Request(PeriodType.YEARLY, 2024, null, "ko", null);
@@ -136,8 +136,8 @@ class SpendingAnalysisSnapshotTest {
 
         // 검증
         assertThat(first.input().coverage().isPartial()).isTrue();
-        assertThat(first.input().coverage().totalTransactionCount()).isEqualTo(601);
-        assertThat(first.input().coverage().analyzedTransactionCount()).isEqualTo(600);
+        assertThat(first.input().coverage().totalTransactionCount()).isEqualTo(6001);
+        assertThat(first.input().coverage().analyzedTransactionCount()).isEqualTo(6000);
         assertThat(first.evidence().values()).noneSatisfy(item -> assertThat(item.id()).isEqualTo(oldest.getId()));
         assertThat(current.snapshotFingerprint()).isNotEqualTo(first.fingerprint());
     }
@@ -145,7 +145,7 @@ class SpendingAnalysisSnapshotTest {
     @Test
     void sparseYearDoesNotDropTransactionsAboveFiftyInOneMonth() {
         // 준비
-        for (int index = 0; index < 75; index++) {
+        for (int index = 0; index < 700; index++) {
             add(LocalDate.of(2024, 1, 20), 100, "Recorded purpose");
         }
 
@@ -154,8 +154,8 @@ class SpendingAnalysisSnapshotTest {
 
         // 검증
         assertThat(snapshot.input().coverage().isPartial()).isFalse();
-        assertThat(snapshot.input().coverage().analyzedTransactionCount()).isEqualTo(75);
-        assertThat(snapshot.input().transactions()).hasSize(75);
+        assertThat(snapshot.input().coverage().analyzedTransactionCount()).isEqualTo(700);
+        assertThat(snapshot.input().transactions()).hasSize(700);
         assertThat(snapshot.input().previousPeriod().isComparable()).isFalse();
     }
 
@@ -163,7 +163,7 @@ class SpendingAnalysisSnapshotTest {
     void textBudgetReportsPartialCoverageAndPreservesSelectedMemos() {
         // 준비: 메모 원문을 줄이는 대신 실제 검토한 거래 수를 명시한다.
         String memo = "\"".repeat(500);
-        for (int index = 0; index < 400; index++) {
+        for (int index = 0; index < 2400; index++) {
             add(LocalDate.of(2024, 2, 20), 100, memo);
         }
 
@@ -173,7 +173,7 @@ class SpendingAnalysisSnapshotTest {
         // 검증
         assertThat(snapshot.input().coverage().isPartial()).isTrue();
         assertThat(snapshot.input().coverage().reason()).isEqualTo("TEXT_BUDGET");
-        assertThat(snapshot.input().coverage().analyzedTransactionCount()).isLessThan(400);
+        assertThat(snapshot.input().coverage().analyzedTransactionCount()).isLessThan(2400);
         assertThat(snapshot.input().transactions()).allSatisfy(item -> assertThat(item.memo()).isEqualTo(memo));
     }
 

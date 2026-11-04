@@ -15,18 +15,31 @@ import java.util.List;
 public final class SpendingAnalysisDtos {
     private SpendingAnalysisDtos() { }
 
-    public enum PeriodType { MONTHLY, YEARLY }
+    public enum PeriodType { MONTHLY, QUARTERLY, HALF_YEARLY, YEARLY, CUSTOM }
 
     public record Request(
             @NotNull PeriodType periodType,
             @NotNull @Min(2000) @Max(9998) Integer year,
             @Min(1) @Max(12) Integer month,
             @NotNull @Pattern(regexp = "ko|ja|en") String locale,
-            @Size(max = 2000) String comment
+            @Size(max = 2000) String comment,
+            @Min(1) @Max(4) Integer quarter,
+            @Min(1) @Max(2) Integer half,
+            LocalDate startDate,
+            LocalDate endDate
     ) {
-        @AssertTrue(message = "MONTHLY requires month; YEARLY must omit month.")
+        public Request(PeriodType periodType, Integer year, Integer month, String locale, String comment) {
+            this(periodType, year, month, locale, comment, null, null, null, null);
+        }
+
+        @AssertTrue(message = "The selected period is invalid or shorter than one calendar month.")
         public boolean isValidPeriod() {
-            return periodType == null || (periodType == PeriodType.MONTHLY ? month != null : month == null);
+            try {
+                jp.co.translacat.domain.accountbook.analysis.service.SpendingAnalysisPeriods.resolve(this);
+                return true;
+            } catch (IllegalArgumentException error) {
+                return false;
+            }
         }
     }
 
@@ -41,16 +54,62 @@ public final class SpendingAnalysisDtos {
                             String currencyCode, int decimalPlaces, LocalDate periodStart,
                             LocalDate periodEndExclusive, String totalExpense, long transactionCount,
                             Coverage coverage, PreviousPeriod previousPeriod, String comment,
-                            List<AiTransaction> transactions) { }
+                            List<AiTransaction> transactions, Integer quarter, Integer half,
+                            List<AiTransaction> historicalTransactions, List<String> previousAdvice) {
+        public AiRequest(PeriodType periodType, int year, Integer month, String locale, String currencyCode,
+                         int decimalPlaces, LocalDate periodStart, LocalDate periodEndExclusive, String totalExpense,
+                         long transactionCount, Coverage coverage, PreviousPeriod previousPeriod, String comment,
+                         List<AiTransaction> transactions) {
+            this(periodType, year, month, locale, currencyCode, decimalPlaces, periodStart, periodEndExclusive,
+                    totalExpense, transactionCount, coverage, previousPeriod, comment, transactions, null, null, List.of(), List.of());
+        }
+    }
+    public record SavingsScenario(String lower, String estimate, String upper, String grossReduction,
+                                  String replacementCost, int reductionLowBps, int reductionHighBps,
+                                  int replacementLowBps, int replacementHighBps, String kind, String assumption, String basisAmount) {
+        public SavingsScenario(String lower, String estimate, String upper, String grossReduction, String replacementCost,
+                               int reductionLowBps, int reductionHighBps, int replacementLowBps, int replacementHighBps, String kind, String assumption) {
+            this(lower, estimate, upper, grossReduction, replacementCost, reductionLowBps, reductionHighBps,
+                    replacementLowBps, replacementHighBps, kind, assumption, null);
+        }
+    }
     public record AiFinding(String title, String reason, String action, String contextQuestion,
-                             String uncertainty, List<String> evidenceTransactionRefs) { }
-    public record AiResponse(String summary, List<AiFinding> findings) { }
+                             String uncertainty, List<String> evidenceTransactionRefs, String opinion,
+                             List<String> historicalTransactionRefs, SavingsScenario savings, List<String> savingsTransactionRefs) {
+        public AiFinding(String title, String reason, String action, String contextQuestion, String uncertainty,
+                         List<String> evidenceTransactionRefs) {
+            this(title, reason, action, contextQuestion, uncertainty, evidenceTransactionRefs, null, List.of(), null, List.of());
+        }
+    }
+    public record AiResponse(String summary, List<AiFinding> findings, String policyVersion, SavingsScenario savings) {
+        public AiResponse(String summary, List<AiFinding> findings) { this(summary, findings, "legacy-v2", null); }
+    }
     public record Finding(String id, String title, String reason, String action, String contextQuestion,
                           String uncertainty, String evidenceAmount,
-                          List<AccountBookTransactionResponseDto> evidenceTransactions) { }
+                          List<AccountBookTransactionResponseDto> evidenceTransactions, String opinion,
+                          List<AccountBookTransactionResponseDto> historicalTransactions, SavingsScenario savings,
+                          List<AccountBookTransactionResponseDto> savingsTransactions) {
+        public Finding(String id, String title, String reason, String action, String contextQuestion, String uncertainty,
+                       String evidenceAmount, List<AccountBookTransactionResponseDto> evidenceTransactions) {
+            this(id, title, reason, action, contextQuestion, uncertainty, evidenceAmount, evidenceTransactions, null, List.of(), null, List.of());
+        }
+    }
     public record Response(PeriodType periodType, int year, Integer month, LocalDate periodStart,
                            LocalDate periodEndExclusive, String currencyCode, int decimalPlaces,
                            String totalExpense, long transactionCount, Coverage coverage, String summary,
                            List<Finding> findings, String contextComment, Instant generatedAt,
-                           String snapshotFingerprint) { }
+                           String snapshotFingerprint, String analysisId, Integer quarter, Integer half,
+                           String policyVersion, SavingsScenario savings) {
+        public Response(PeriodType periodType, int year, Integer month, LocalDate periodStart, LocalDate periodEndExclusive,
+                        String currencyCode, int decimalPlaces, String totalExpense, long transactionCount, Coverage coverage,
+                        String summary, List<Finding> findings, String contextComment, Instant generatedAt, String snapshotFingerprint) {
+            this(periodType, year, month, periodStart, periodEndExclusive, currencyCode, decimalPlaces, totalExpense,
+                    transactionCount, coverage, summary, findings, contextComment, generatedAt, snapshotFingerprint,
+                    null, null, null, "legacy-v2", null);
+        }
+    }
+    public record HistoryItem(String analysisId, PeriodType periodType, LocalDate periodStart, LocalDate periodEndExclusive,
+                              String currencyCode, String totalExpense, String summary, String contextComment,
+                              Instant generatedAt, String policyVersion, SavingsScenario savings) { }
+    public record HistoryPage(List<HistoryItem> items, long total, int page, int size) { }
 }

@@ -17,18 +17,35 @@ public final class SpendingAnalysisSavings {
 
     public static SavingsScenario calculate(SavingsScenario proposed, List<AccountBookTransactionResponseDto> transactions,
                                              int decimals, boolean partial, String comment) {
+        // 계산 범위와 필수 지출을 확인한 뒤 조정 가정을 선택한다.
         if (proposed == null || partial || transactions.isEmpty()) return null;
         for (var item : transactions) {
             String text = (item.title() + " " + item.category() + " " + item.memo()).toLowerCase(Locale.ROOT);
             if (text.matches("(?s).*(의료|医療|주거|住居|처방|処方|월세|家賃|정기권|교통 이용|jetbrains|openai|anthropic|업무용).*")
                     || java.util.Set.of("medical", "housing", "healthcare").contains(String.valueOf(item.category()).toLowerCase(Locale.ROOT))
-                    || ((item.memo() == null || item.memo().isBlank()) && (comment == null || comment.isBlank()))) return null;
+                    || ((item.memo() == null || item.memo().isBlank()) && (comment == null || comment.isBlank())))
+                return null;
         }
         int low, high, replacementLow, replacementHigh;
         switch (proposed.kind()) {
-            case "SMALLER_SELECTION" -> { low = 500; high = 1500; replacementLow = 0; replacementHigh = 3000; }
-            case "DRINK_REPLACEMENT" -> { low = 1000; high = 2000; replacementLow = 5000; replacementHigh = 8000; }
-            case "SKIP_EXTRA_ITEM" -> { low = 10000; high = 10000; replacementLow = 0; replacementHigh = 0; }
+            case "SMALLER_SELECTION" -> {
+                low = 500;
+                high = 1500;
+                replacementLow = 0;
+                replacementHigh = 3000;
+            }
+            case "DRINK_REPLACEMENT" -> {
+                low = 1000;
+                high = 2000;
+                replacementLow = 5000;
+                replacementHigh = 8000;
+            }
+            case "SKIP_EXTRA_ITEM" -> {
+                low = 10000;
+                high = 10000;
+                replacementLow = 0;
+                replacementHigh = 0;
+            }
             default -> { return null; }
         }
 

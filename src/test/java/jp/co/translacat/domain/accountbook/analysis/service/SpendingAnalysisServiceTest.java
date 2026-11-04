@@ -20,7 +20,8 @@ import static org.mockito.Mockito.*;
 class SpendingAnalysisServiceTest {
     final SpendingAnalysisSnapshotService snapshots = mock(SpendingAnalysisSnapshotService.class);
     final AiServerClient ai = mock(AiServerClient.class);
-    final SpendingAnalysisService service = new SpendingAnalysisService(snapshots, ai);
+    final SpendingAnalysisHistoryService history = mock(SpendingAnalysisHistoryService.class);
+    final SpendingAnalysisService service = new SpendingAnalysisService(snapshots, ai, history);
     final Request request = new Request(PeriodType.MONTHLY, 2026, 10, "ko", "필수 약 구입");
 
     private SpendingAnalysisSnapshotService.Prepared prepared(long count) throws Exception {

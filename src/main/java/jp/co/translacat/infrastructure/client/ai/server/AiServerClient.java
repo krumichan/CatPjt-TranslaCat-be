@@ -93,9 +93,23 @@ public class AiServerClient {
     }
 
     public SpendingAnalysisDtos.AiResponse callSpendingAnalysis(SpendingAnalysisDtos.AiRequest request) {
-        // 단발 전송 경로를 사용해 유료 분석이 HTTP 재시도로 중복 실행되지 않게 한다.
-        return apiClient.postOnce(aiServerUrl + "/api/v1/account-book/spending-analysis", request,
-                basicHeader(), SpendingAnalysisDtos.AiResponse.class);
+        // 두 단계 의미 검토의 대기 예산은 이 기능에만 적용한다. 재시도는 하지 않는다.
+        try {
+            var client = java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(10)).build();
+            var message = java.net.http.HttpRequest.newBuilder(java.net.URI.create(aiServerUrl + "/api/v1/account-book/spending-analysis"))
+                    .timeout(java.time.Duration.ofSeconds(250)).header("Content-Type", "application/json")
+                    .header("X-API-KEY", apiKey).POST(java.net.http.HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(request))).build();
+            var response = client.send(message, java.net.http.HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200 || response.body().length() > 1_000_000) {
+                throw new IllegalStateException("Spending analysis response is unavailable");
+            }
+            return objectMapper.readValue(response.body(), SpendingAnalysisDtos.AiResponse.class);
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Spending analysis was interrupted");
+        } catch (java.io.IOException error) {
+            throw new IllegalStateException("Spending analysis communication failed");
+        }
     }
 
     public AiReceiptAnalysisResponse callReceiptAnalysis(

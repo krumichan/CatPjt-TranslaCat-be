@@ -94,22 +94,42 @@ public class AiServerClient {
 
     public SpendingAnalysisDtos.AiResponse callSpendingAnalysis(SpendingAnalysisDtos.AiRequest request) {
         // 두 단계 의미 검토의 대기 예산은 이 기능에만 적용한다. 재시도는 하지 않는다.
+        long started = System.nanoTime();
+        String phase = "BUILD_REQUEST";
+        int upstreamStatus = 0;
         try {
             var client = java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(10)).build();
             var message = java.net.http.HttpRequest.newBuilder(java.net.URI.create(aiServerUrl + "/api/v1/account-book/spending-analysis"))
                     .timeout(java.time.Duration.ofSeconds(250)).header("Content-Type", "application/json")
                     .header("X-API-KEY", apiKey).POST(java.net.http.HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(request))).build();
+            phase = "SEND_REQUEST";
             var response = client.send(message, java.net.http.HttpResponse.BodyHandlers.ofString());
+            upstreamStatus = response.statusCode();
+            phase = "CHECK_RESPONSE";
             if (response.statusCode() != 200 || response.body().length() > 1_000_000) {
                 throw new IllegalStateException("Spending analysis response is unavailable");
             }
+            phase = "DECODE_RESPONSE";
             return objectMapper.readValue(response.body(), SpendingAnalysisDtos.AiResponse.class);
         } catch (InterruptedException error) {
+            logSpendingAnalysisFailure(phase, upstreamStatus, started, error);
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Spending analysis was interrupted");
         } catch (java.io.IOException error) {
+            logSpendingAnalysisFailure(phase, upstreamStatus, started, error);
             throw new IllegalStateException("Spending analysis communication failed");
+        } catch (RuntimeException error) {
+            logSpendingAnalysisFailure(phase, upstreamStatus, started, error);
+            throw error;
         }
+    }
+
+    private static void logSpendingAnalysisFailure(String phase, int status, long started, Exception error) {
+        // 키·URL·본문·예외 메시지·stacktrace 대신 고정 경계와 클래스명만 남긴다.
+        String causeType = error.getCause() == null ? "NONE" : error.getCause().getClass().getSimpleName();
+        log.warn("Spending analysis failed: phase={}, upstreamStatus={}, elapsedMs={}, exceptionType={}, causeType={}",
+                phase, status, java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started),
+                error.getClass().getSimpleName(), causeType);
     }
 
     public AiReceiptAnalysisResponse callReceiptAnalysis(

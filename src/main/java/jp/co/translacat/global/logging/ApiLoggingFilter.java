@@ -42,6 +42,7 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
             String loggedUri = switch (redactionLabel) {
                 case "PUSH_INSTALLATION_REDACTED" -> "/api/v1/users/me/push-installations/[REDACTED]";
                 case "PUSH_INTERNAL_REDACTED" -> "/internal/v1/chat/push/[REDACTED]";
+                case "SPENDING_ANALYSIS_REDACTED" -> "/api/v1/account-books/[REDACTED]/spending-analysis/[REDACTED]";
                 default -> request.getRequestURI();
             };
             log.info(
@@ -122,6 +123,10 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     }
 
     private String sensitiveBodyLabel(String uri) {
+        // 분석 코멘트·거래 근거·저장 이력은 원문과 사용자 식별자를 로그에 남기지 않는다.
+        if (uri != null && uri.matches("/api/v1/account-books/[0-9]+/spending-analysis(?:/.*)?")) {
+            return "SPENDING_ANALYSIS_REDACTED";
+        }
         // receipt/proof/Google 증명과 접수 응답은 원문 및 사용자 식별자를 모두 가린다.
         if (uri != null && (uri.startsWith("/api/v1/users/me/deletion-")
                 || uri.equals("/api/v1/account-deletion/status"))) {

@@ -6,6 +6,7 @@ import jp.co.translacat.domain.voice.service.VoiceWebSocketTicketService;
 import lombok.RequiredArgsConstructor;
 
 import org.jetbrains.annotations.NotNull;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.stereotype.Component;
@@ -40,7 +41,7 @@ public class VoiceWebSocketHandshakeInterceptor
             @NotNull Map<String, Object> attributes
     ) {
         Matcher matcher = PATH.matcher(request.getURI().getPath());
-        if (!matcher.matches()) {
+        if (!matcher.matches() || !"websocket".equalsIgnoreCase(request.getHeaders().getUpgrade())) {
             return false;
         }
 
@@ -51,23 +52,20 @@ public class VoiceWebSocketHandshakeInterceptor
                 .getFirst("ticket");
 
         try {
-            VoiceWebSocketTicketService.TicketClaims claims =
-                    ticketService.parse(ticket);
             String sessionId = matcher.group(1);
             VoiceChannel channel = VoiceChannel.valueOf(
                     matcher.group(2)
             );
 
-            if (!claims.sessionId().equals(sessionId)
-                    || claims.channel() != channel) {
-                return false;
-            }
+            VoiceWebSocketTicketService.TicketClaims claims =
+                    ticketService.consume(ticket, sessionId, channel);
 
             attributes.put(ATTR_USER_ID, claims.userId());
             attributes.put(ATTR_SESSION_ID, sessionId);
             attributes.put(ATTR_CHANNEL, channel);
             return true;
         } catch (RuntimeException e) {
+            response.setStatusCode(HttpStatus.UNAUTHORIZED);
             return false;
         }
     }

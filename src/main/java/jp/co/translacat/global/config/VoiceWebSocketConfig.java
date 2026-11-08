@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
+import org.springframework.web.socket.server.support.OriginHandshakeInterceptor;
 
 import java.util.List;
 
@@ -28,11 +29,15 @@ public class VoiceWebSocketConfig implements WebSocketConfigurer {
     public void registerWebSocketHandlers(
             WebSocketHandlerRegistry registry
     ) {
+        // 기존 Origin 정책을 티켓 소비보다 먼저 적용한다.
+        OriginHandshakeInterceptor origin = new OriginHandshakeInterceptor();
+        origin.setAllowedOriginPatterns(allowedOrigins);
         registry.addHandler(
                         voicePublicWebSocketHandler,
                         "/api/v1/voice/sessions/*/channels/*/stream"
                 )
                 .addInterceptors(
+                        origin,
                         voiceWebSocketHandshakeInterceptor
                 )
                 .setAllowedOriginPatterns(

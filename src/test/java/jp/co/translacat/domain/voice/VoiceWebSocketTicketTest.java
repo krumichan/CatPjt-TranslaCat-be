@@ -115,7 +115,7 @@ class VoiceWebSocketTicketTest {
     }
 
     @Test
-    void registeredOriginCheckRunsBeforeTicketConsumption() {
+    void registeredOriginCheckRunsBeforeTicketConsumption() throws Exception {
         var registry = new ServletWebSocketHandlerRegistry();
         var config = new VoiceWebSocketConfig(handler, handshake);
         ReflectionTestUtils.setField(config, "allowedOrigins", List.of(ALLOWED_ORIGIN));

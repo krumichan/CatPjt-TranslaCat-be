@@ -74,4 +74,15 @@ class SpendingAnalysisSavingsTest {
         assertThat(SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"), List.of(cola), 0, false).estimate()).isEqualTo("525");
         assertThat(SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"), List.of(water), 0, false)).isNull();
     }
+
+    @Test
+    void namedDrinkWithoutMemoCanBeEstimatedButAnAccessoryCannot() throws Exception {
+        // 준비: 실제 메뉴 이름과 같은 메뉴 이름이 붙은 도구를 구분한다.
+        var drink = purchase("10000", "アメリカーノ", "");
+        var accessory = purchase("10000", "アメリカーノ用グラス", "");
+
+        // 실행 / 검증
+        assertThat(SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"), List.of(drink), 0, false).estimate()).isEqualTo("525");
+        assertThat(SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"), List.of(accessory), 0, false)).isNull();
+    }
 }

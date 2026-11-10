@@ -8,6 +8,9 @@ import java.util.List;
 import java.util.Locale;
 
 public final class SpendingAnalysisSavings {
+    private static final String NAMED_DRINK = "(?s).*(カフェラテ|アメリカーノ|ドリップコーヒー|카페라떼|카페 라테|아메리카노|caffè latte|americano).*";
+    private static final String DRINK_ACCESSORY = "(?s).*(머신|기구|잔|텀블러|器具|マシン|グラス|machine|mug).*";
+
     private SpendingAnalysisSavings() { }
 
     public static SavingsScenario calculate(SavingsScenario proposed, List<AccountBookTransactionResponseDto> transactions,
@@ -21,9 +24,11 @@ public final class SpendingAnalysisSavings {
         if (proposed == null || partial || transactions.isEmpty()) return null;
         for (var item : transactions) {
             String text = (item.title() + " " + item.category() + " " + item.memo()).toLowerCase(Locale.ROOT);
+            String title = String.valueOf(item.title()).toLowerCase(Locale.ROOT);
+            boolean namedDrink = title.matches(NAMED_DRINK) && !title.matches(DRINK_ACCESSORY);
             if (text.matches("(?s).*(의료|医療|주거|住居|처방|処方|월세|家賃|정기권|교통 이용|jetbrains|openai|anthropic|업무용).*")
                     || java.util.Set.of("medical", "housing", "healthcare").contains(String.valueOf(item.category()).toLowerCase(Locale.ROOT))
-                    || ((item.memo() == null || item.memo().isBlank()) && (comment == null || comment.isBlank())))
+                    || (!namedDrink && (item.memo() == null || item.memo().isBlank()) && (comment == null || comment.isBlank())))
                 return null;
         }
         int low, high, replacementLow, replacementHigh;
@@ -54,7 +59,7 @@ public final class SpendingAnalysisSavings {
             for (var item : transactions) {
                 String text = (item.title() + " " + item.storeName() + " " + item.memo()).toLowerCase(Locale.ROOT);
                 if (text.matches("(?s).*(생수|미네랄워터|天然水|ミネラルウォーター|炭酸水|탄산수|bottled water|mineral water|sparkling water|bulk water|식사|정식|定食|弁当|도시락).*")
-                        || !text.matches("(?s).*(커피|음료|라떼|아메리카노|コーヒー|ラテ|coffee|latte|에스프레소|espresso|フラペチーノ|프라푸치노|콜라|주스|コーラ|ジュース|ココア|モンスター|麦茶|ブレンド|カフェラ|オーレ|cocoa|cola|soda).*")) {
+                        || (!text.matches(NAMED_DRINK) && !text.matches("(?s).*(커피|음료|라떼|아메리카노|コーヒー|ラテ|coffee|latte|에스프레소|espresso|フラペチーノ|프라푸치노|콜라|주스|コーラ|ジュース|ココア|モンスター|麦茶|ブレンド|カフェラ|オーレ|cocoa|cola|soda).*"))) {
                     return null;
                 }
             }

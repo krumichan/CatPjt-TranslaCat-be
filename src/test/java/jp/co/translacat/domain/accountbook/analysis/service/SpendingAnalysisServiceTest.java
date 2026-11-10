@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -62,6 +63,28 @@ class SpendingAnalysisServiceTest {
         });
         assertThat(response.contextComment()).isEqualTo(request.comment());
         verify(ai, times(1)).callSpendingAnalysis(prepared.input());
+    }
+
+    @Test
+    void storesMoreThanEightFindingsWhenTheAiResponseFitsTheNewLimit() throws Exception {
+        // 준비: BE에서 기존 8개 상한을 넘는 월별 응답의 근거와 저장 경로를 검사한다.
+        var prepared = prepared(1);
+        when(snapshots.prepare(1L, 2L, request)).thenReturn(prepared);
+        var findings = IntStream.range(0, 24)
+                .mapToObj(index -> new AiFinding("검토할 선택 " + index,
+                        "선택 기간의 실제 거래 내역을 근거로 다음번에 조정할 여지를 설명합니다.",
+                        "다음 구매에서 실제 필요를 유지하며 대안을 비교하세요.", null, null, List.of("tx-1")))
+                .toList();
+        when(ai.callSpendingAnalysis(prepared.input()))
+                .thenReturn(new AiResponse("실제 거래를 근거로 정리한 월별 결과입니다.", findings, "recurring-choice-v6", null));
+        when(snapshots.current(1L, 2L, PeriodType.MONTHLY, 2026, 10))
+                .thenReturn(new SnapshotInfo("fingerprint", 1, prepared.input().totalExpense()));
+
+        // 실행 / 검증
+        var response = service.analyze(1L, 2L, request);
+        assertThat(response.findings()).hasSize(24);
+        assertThat(response.findings().getLast().evidenceTransactions()).hasSize(1);
+        verify(history).save(1L, 2L, response);
     }
 
     @Test

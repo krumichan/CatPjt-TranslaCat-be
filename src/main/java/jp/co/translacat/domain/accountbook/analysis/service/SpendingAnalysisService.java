@@ -18,6 +18,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class SpendingAnalysisService {
+    private static final int MAX_ANALYSIS_FINDINGS = 40;
+
     private final SpendingAnalysisSnapshotService snapshots;
     private final AiServerClient ai;
     private final SpendingAnalysisHistoryService history;
@@ -36,7 +38,7 @@ public class SpendingAnalysisService {
                 case "en" -> "No expenses were recorded in this period.";
                 default -> "선택한 기간에 기록된 지출이 없습니다.";
             };
-            var response = response(prepared, empty, List.of(), "purchase-context-v4");
+            var response = response(prepared, empty, List.of(), "recurring-choice-v6");
             history.save(bookId, userId, response);
             return response;
         }
@@ -73,7 +75,7 @@ public class SpendingAnalysisService {
 
     private List<Finding> validate(AiResponse generated, SpendingAnalysisSnapshotService.Prepared prepared) {
         if (generated == null || !validText(generated.summary(), 2000) || generated.findings() == null
-                || generated.findings().size() > 8) throw invalid();
+                || generated.findings().size() > MAX_ANALYSIS_FINDINGS) throw invalid();
         List<Finding> findings = new ArrayList<>();
         var used = new HashSet<String>();
         for (var finding : generated.findings()) {

@@ -21,4 +21,7 @@ public interface SupportRecipientRepository extends Repository<User, Long> {
     List<User> search(@Param("query") String query, Pageable pageable);
 
     List<User> findByAuthority(Role authority);
+
+    @Query("select u from User u where u.id = :id")
+    User findNotificationRecipient(@Param("id") Long id);
 }

@@ -2,7 +2,8 @@ package jp.co.translacat.domain.accountbook.analysis.controller;
 
 import jakarta.validation.Valid;
 import jp.co.translacat.domain.accountbook.analysis.dto.SpendingAnalysisDtos.*;
-import jp.co.translacat.domain.accountbook.analysis.service.SpendingAnalysisService;
+import jp.co.translacat.domain.accountbook.analysis.service.SpendingAnalysisJobService;
+import jp.co.translacat.domain.accountbook.analysis.service.SpendingAnalysisJobService.View;
 import jp.co.translacat.domain.accountbook.analysis.service.SpendingAnalysisSnapshotService;
 import jp.co.translacat.domain.accountbook.analysis.service.SpendingAnalysisHistoryService;
 import jp.co.translacat.global.dto.ErrorDto;
@@ -10,6 +11,7 @@ import jp.co.translacat.global.dto.ResponseDto;
 import jp.co.translacat.global.security.UserPrincipal;
 import jp.co.translacat.global.utils.ResponseUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +23,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/account-books/{accountBookId}/spending-analysis")
 public class SpendingAnalysisController {
-    private final SpendingAnalysisService service;
+    private final SpendingAnalysisJobService jobs;
     private final SpendingAnalysisSnapshotService snapshots;
     private final SpendingAnalysisHistoryService history;
 
@@ -29,7 +31,31 @@ public class SpendingAnalysisController {
     public ResponseDto<Response> analyze(@PathVariable Long accountBookId,
                                          @AuthenticationPrincipal UserPrincipal user,
                                          @RequestBody @Valid Request request) {
-        return ResponseUtil.ok(service.analyze(accountBookId, user.getId(), request));
+        return ResponseUtil.ok(jobs.runLegacy(accountBookId, user.getId(), request));
+    }
+
+    @PostMapping("/jobs")
+    public ResponseEntity<ResponseDto<View>> enqueue(@PathVariable Long accountBookId,
+                                                     @AuthenticationPrincipal UserPrincipal user,
+                                                     @RequestBody @Valid Request request) {
+        return ResponseEntity.accepted().body(ResponseUtil.ok(HttpStatus.ACCEPTED, jobs.enqueue(accountBookId, user.getId(), request)));
+    }
+
+    @GetMapping("/jobs/current")
+    public ResponseDto<View> current(@PathVariable Long accountBookId, @AuthenticationPrincipal UserPrincipal user) {
+        return ResponseUtil.ok(jobs.current(accountBookId, user.getId()));
+    }
+
+    @GetMapping("/jobs/{jobId}")
+    public ResponseDto<View> job(@PathVariable Long accountBookId, @PathVariable long jobId,
+                                 @AuthenticationPrincipal UserPrincipal user) {
+        return ResponseUtil.ok(jobs.get(accountBookId, user.getId(), jobId));
+    }
+
+    @PostMapping("/jobs/{jobId}/cancel")
+    public ResponseDto<View> cancel(@PathVariable Long accountBookId, @PathVariable long jobId,
+                                    @AuthenticationPrincipal UserPrincipal user) {
+        return ResponseUtil.ok(jobs.cancel(accountBookId, user.getId(), jobId));
     }
 
     @GetMapping("/snapshot")
@@ -42,7 +68,7 @@ public class SpendingAnalysisController {
                                              @RequestParam(required = false) java.time.LocalDate startDate,
                                              @RequestParam(required = false) java.time.LocalDate endDate) {
         var request = new Request(periodType, year, month, "ko", null, quarter, half, startDate, endDate);
-        if (!request.isValidPeriod()) throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "INVALID_ANALYSIS_PERIOD");
+        if (!request.isValidPeriod()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_ANALYSIS_PERIOD");
         return ResponseUtil.ok(snapshots.current(accountBookId, user.getId(), request));
     }
 

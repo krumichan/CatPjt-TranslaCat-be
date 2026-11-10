@@ -1,5 +1,6 @@
 package jp.co.translacat.domain.accountbook.analysis.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -32,6 +33,7 @@ public final class SpendingAnalysisDtos {
             this(periodType, year, month, locale, comment, null, null, null, null);
         }
 
+        @JsonIgnore
         @AssertTrue(message = "The selected period is invalid or shorter than one calendar month.")
         public boolean isValidPeriod() {
             try {
@@ -99,7 +101,16 @@ public final class SpendingAnalysisDtos {
                            String totalExpense, long transactionCount, Coverage coverage, String summary,
                            List<Finding> findings, String contextComment, Instant generatedAt,
                            String snapshotFingerprint, String analysisId, Integer quarter, Integer half,
-                           String policyVersion, SavingsScenario savings) {
+                           String policyVersion, SavingsScenario savings, Instant snapshotAt) {
+        public Response(PeriodType periodType, int year, Integer month, LocalDate periodStart,
+                        LocalDate periodEndExclusive, String currencyCode, int decimalPlaces,
+                        String totalExpense, long transactionCount, Coverage coverage, String summary,
+                        List<Finding> findings, String contextComment, Instant generatedAt, String snapshotFingerprint,
+                        String analysisId, Integer quarter, Integer half, String policyVersion, SavingsScenario savings) {
+            this(periodType, year, month, periodStart, periodEndExclusive, currencyCode, decimalPlaces, totalExpense,
+                    transactionCount, coverage, summary, findings, contextComment, generatedAt, snapshotFingerprint,
+                    analysisId, quarter, half, policyVersion, savings, null);
+        }
         public Response(PeriodType periodType, int year, Integer month, LocalDate periodStart, LocalDate periodEndExclusive,
                         String currencyCode, int decimalPlaces, String totalExpense, long transactionCount, Coverage coverage,
                         String summary, List<Finding> findings, String contextComment, Instant generatedAt, String snapshotFingerprint) {

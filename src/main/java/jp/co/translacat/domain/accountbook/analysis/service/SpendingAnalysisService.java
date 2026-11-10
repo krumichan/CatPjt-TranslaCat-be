@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
+import java.util.function.BooleanSupplier;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +26,9 @@ public class SpendingAnalysisService {
     private final AiServerClient ai;
     private final SpendingAnalysisHistoryService history;
 
-    public Response analyze(Long bookId, Long userId, Request request) {
+    Response generate(Long bookId, Long userId, Request request, boolean requireCurrent, BooleanSupplier canCallProvider) {
+        // 결과는 작업을 실행할 때 읽은 거래와 그 기준 시점을 보존한다.
+        var snapshotAt = Instant.now();
         var prepared = snapshots.prepare(bookId, userId, request);
         var base = prepared.input();
         var advice = history.previousAdvice(bookId, userId, base.periodStart());
@@ -38,12 +42,11 @@ public class SpendingAnalysisService {
                 case "en" -> "No expenses were recorded in this period.";
                 default -> "선택한 기간에 기록된 지출이 없습니다.";
             };
-            var response = response(prepared, empty, List.of(), "recurring-choice-v6");
-            history.save(bookId, userId, response);
-            return response;
+            return response(prepared, empty, List.of(), "recurring-choice-v6", snapshotAt);
         }
 
         // 공급자 호출은 한 번만 수행하며 재분석은 사용자의 새 요청으로만 실행한다.
+        if (!canCallProvider.getAsBoolean()) throw new CancellationException();
         AiResponse generated;
         try {
             generated = ai.callSpendingAnalysis(input);
@@ -52,25 +55,25 @@ public class SpendingAnalysisService {
         }
         var findings = validate(generated, prepared);
 
-        // 분석 중 변경되거나 접근권한을 잃은 거래에 이전 결과를 연결하지 않는다.
-        var current = request.periodType() == PeriodType.MONTHLY || request.periodType() == PeriodType.YEARLY
-                ? snapshots.current(bookId, userId, request.periodType(), request.year(), request.month())
-                : snapshots.current(bookId, userId, request);
-        if (!prepared.fingerprint().equals(current.snapshotFingerprint())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "STALE_SNAPSHOT");
+        // 기존 동기 클라이언트는 이전 계약대로 변경된 지문을 거절한다.
+        // 백그라운드 결과는 생성 당시 거래를 보존하며 화면에서 현재 지문과 대조한다.
+        if (requireCurrent) {
+            var current = snapshots.current(bookId, userId, request);
+            if (!prepared.fingerprint().equals(current.snapshotFingerprint())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "STALE_SNAPSHOT");
+            }
         }
-        var response = response(prepared, generated.summary().strip(), findings,
-                generated.policyVersion() == null ? "legacy-v2" : generated.policyVersion());
-        history.save(bookId, userId, response);
-        return response;
+        return response(prepared, generated.summary().strip(), findings,
+                generated.policyVersion() == null ? "legacy-v2" : generated.policyVersion(), snapshotAt);
     }
 
-    private Response response(SpendingAnalysisSnapshotService.Prepared prepared, String summary, List<Finding> findings, String policyVersion) {
+    private Response response(SpendingAnalysisSnapshotService.Prepared prepared, String summary, List<Finding> findings,
+                              String policyVersion, Instant snapshotAt) {
         var input = prepared.input();
         return new Response(input.periodType(), input.year(), input.month(), input.periodStart(), input.periodEndExclusive(),
                 input.currencyCode(), input.decimalPlaces(), input.totalExpense(), input.transactionCount(), input.coverage(),
                 summary, findings, input.comment(), Instant.now(), prepared.fingerprint(), UUID.randomUUID().toString(),
-                input.quarter(), input.half(), policyVersion, SpendingAnalysisSavings.combine(findings));
+                input.quarter(), input.half(), policyVersion, SpendingAnalysisSavings.combine(findings), snapshotAt);
     }
 
     private List<Finding> validate(AiResponse generated, SpendingAnalysisSnapshotService.Prepared prepared) {

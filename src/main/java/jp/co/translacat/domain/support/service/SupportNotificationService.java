@@ -13,6 +13,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.HashSet;
@@ -84,6 +85,15 @@ public class SupportNotificationService {
         notificationRepository.save(
                 SupportNotification.create(recipient, type, targetType, targetId, replyId, title)
         );
+    }
+
+    @Transactional
+    public void notifySpendingAnalysisCompleted(Long recipientId, Long bookId, Long jobId,
+                                                 LocalDate periodStart, LocalDate periodEndExclusive) {
+        // 가계부와 하위 작업을 함께 연결하되 알림에는 날짜만 담는다.
+        String title = periodStart + " – " + periodEndExclusive.minusDays(1);
+        notificationRepository.save(SupportNotification.create(recipientRepository.findNotificationRecipient(recipientId),
+                SupportNotificationType.SPENDING_ANALYSIS_COMPLETED, SupportTargetType.ACCOUNT_BOOK, bookId, jobId, title));
     }
 
     @Transactional

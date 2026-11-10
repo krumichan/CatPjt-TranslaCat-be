@@ -168,6 +168,12 @@ public class AccountDeletionPersonalData {
                 jdbc.update("delete from account_book where id=?", book);
             }
         }
+        // 계정 삭제 시 대기 중인 분석 설명을 지우고, 이미 시작한 작업은 결과를 남기지 않게 한다.
+        execute("account_book_spending_analysis_job", """
+                update account_book_spending_analysis_job
+                set status=case when status='QUEUED' then 'CANCELED' else 'CANCELING' end, request_json=null
+                where requested_by=? and status in ('QUEUED', 'RUNNING')
+                """, userId);
         execute("account_book_member", "delete from account_book_member where user_id=?", userId);
         execute("account_book_invitation", "delete from account_book_invitation where inviter_user_id=? or invitee_user_id=?", userId, userId);
         execute("receipt_batch_registration", "delete from receipt_batch_registration where user_id=?", userId);

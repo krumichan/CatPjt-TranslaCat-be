@@ -42,6 +42,7 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
             String loggedUri = switch (redactionLabel) {
                 case "PUSH_INSTALLATION_REDACTED" -> "/api/v1/users/me/push-installations/[REDACTED]";
                 case "PUSH_INTERNAL_REDACTED" -> "/internal/v1/chat/push/[REDACTED]";
+                case "TEXT_READINGS_REDACTED" -> "/api/v1/text-readings/japanese";
                 case "SPENDING_ANALYSIS_REDACTED" -> "/api/v1/account-books/[REDACTED]/spending-analysis/[REDACTED]";
                 default -> request.getRequestURI();
             };
@@ -123,6 +124,10 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     }
 
     private String sensitiveBodyLabel(String uri) {
+        // 읽기 요청·응답에는 비공개 채팅 번역문과 그 표면형이 들어간다.
+        if (uri != null && uri.startsWith("/api/v1/text-readings/")) {
+            return "TEXT_READINGS_REDACTED";
+        }
         // 분석 코멘트·거래 근거·저장 이력은 원문과 사용자 식별자를 로그에 남기지 않는다.
         if (uri != null && uri.matches("/api/v1/account-books/[0-9]+/spending-analysis(?:/.*)?")) {
             return "SPENDING_ANALYSIS_REDACTED";

@@ -155,6 +155,11 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
             return "SUPPORT_REDACTED";
         }
 
+        // 게시판 비밀글·비밀번호·서명 URL을 요청 및 응답 본문 로그에서 제외한다.
+        if (uri.equals("/api/v1/boards") || uri.startsWith("/api/v1/boards/")) {
+            return "BOARD_REDACTED";
+        }
+
         // 회차 원문/번역/음성은 긴 본문·개인 읽기 정보를 포함하므로 메타데이터만 기록한다.
         if (uri.matches("/api/v1/[^/]+/[^/]+/episodes(?:/.*)?")) {
             return "NOVEL_REDACTED";

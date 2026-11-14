@@ -1,0 +1,50 @@
+name: Boards BE candidate verification
+on:
+  push:
+    branches: [ci/boards-20261114]
+permissions:
+  contents: read
+jobs:
+  verify:
+    # main push와 수동 실행 모두 선택된 SHA를 먼저 검증한다.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+          lfs: true
+      - name: Select the exact release candidate
+        run: git checkout --detach HEAD^
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify environment encoding with synthetic inputs
+        run: python -B scripts/check_release_env_encoding.py
+      - name: Verify public account deletion flag merging with synthetic inputs
+        run: python -B scripts/check_account_deletion_env_overrides.py
+      - name: Verify the exact release source
+        run: |
+          bash -n scripts/deploy-release.sh
+          python scripts/check_deploy_release.py
+          chmod +x gradlew
+          ./gradlew test bootJar --no-daemon
+
+      - name: Validate exact DDL twice on isolated MySQL 8.4
+        run: |
+          id=$(docker run -d -e MYSQL_ROOT_PASSWORD=synthetic-board-db -e MYSQL_DATABASE=board_ci mysql:8.4 --character-set-server=utf8mb4)
+          trap 'docker rm -f "$id" >/dev/null' EXIT
+          for attempt in {1..60}; do
+            if docker exec "$id" mysql -uroot -psynthetic-board-db -D board_ci -Nse 'SELECT 1' >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          for attempt in 1 2; do
+            docker exec -i "$id" mysql -uroot -psynthetic-board-db board_ci < scripts/sql/20261114_boards.sql
+          done
+          actual=$(docker exec "$id" mysql -uroot -psynthetic-board-db -D board_ci -Nse "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='board_ci' AND ENGINE='InnoDB' AND TABLE_NAME IN ('board_entry','board_unlock','board_translation','board_attachment')")
+          test "$actual" = 4

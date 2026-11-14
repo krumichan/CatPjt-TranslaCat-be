@@ -1,0 +1,37 @@
+name: Compile the boards JDBC migration helper
+on:
+  push:
+    branches: [ci/boards-20261114-jdbc-helper]
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile the exact JDBC helper
+        run: |
+          mkdir -p "$RUNNER_TEMP/board-classes" "$RUNNER_TEMP/board-results"
+          javac --release 21 -encoding UTF-8 -d "$RUNNER_TEMP/board-classes" .github/BoardReleaseDb.java
+          jar --create --file "$RUNNER_TEMP/board-results/BoardReleaseDb.jar" -C "$RUNNER_TEMP/board-classes" BoardReleaseDb.class
+          python3 - <<'PY'
+          from hashlib import sha256
+          import json, os
+          from pathlib import Path
+          output = Path(os.environ['RUNNER_TEMP']) / 'board-results'
+          result = {'sourceSha256':sha256(Path('.github/BoardReleaseDb.java').read_bytes()).hexdigest(),
+                    'jarSha256':sha256((output / 'BoardReleaseDb.jar').read_bytes()).hexdigest()}
+          (output / 'board-db-compiler.json').write_text(json.dumps(result))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-board-jdbc-helper
+          path: ${{ runner.temp }}/board-results/
+          if-no-files-found: error

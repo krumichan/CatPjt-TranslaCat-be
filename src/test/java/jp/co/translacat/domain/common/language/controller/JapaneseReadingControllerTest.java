@@ -25,6 +25,7 @@ class JapaneseReadingControllerTest {
     private static final String PATH = "/api/v1/text-readings/japanese";
     private final ObjectMapper mapper = new ObjectMapper();
 
+    // 실제 사전과 로그 필터를 연결해 원문 위치와 로그 마스킹을 검사한다.
     @Test
     void usesRealSudachiAndPreservesUtf16OffsetsWithoutLoggingChatText() throws Exception {
         // 준비: 실제 사전과 운영 로그 필터를 사용하고 이모지 뒤의 한자 위치를 확인한다.
@@ -32,7 +33,8 @@ class JapaneseReadingControllerTest {
         ReflectionTestUtils.setField(sudachi, "dictPath", "src/main/resources/system_full.dic");
         sudachi.init();
         var mvc = MockMvcBuilders.standaloneSetup(new JapaneseReadingController(mapper, sudachi))
-                .addFilters(new ApiLoggingFilter()).build();
+                .addFilters(new ApiLoggingFilter())
+                .build();
         String privateText = " 🔒東京\nprivate-chat-fixture";
 
         // 루트 로그 설정과 상관없이 필터가 작성한 실제 이벤트를 검사한다.
@@ -57,12 +59,16 @@ class JapaneseReadingControllerTest {
             logger.setLevel(previousLevel);
             appender.stop();
         }
-        String logs = appender.list.stream().map(ILoggingEvent::getFormattedMessage)
+
+        // 검증: 필터가 원문 대신 마스킹 표시를 남겼는지 확인한다.
+        String logs = appender.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
                 .collect(java.util.stream.Collectors.joining("\n"));
         assertThat(logs).contains("TEXT_READINGS_REDACTED")
                 .doesNotContain("private-chat-fixture", "とうきょう");
     }
 
+    // 크기와 JSON 제약 위반이 형태소 분석기에 도달하지 않는지 검사한다.
     @Test
     void rejectsOversizedAndMalformedBatchesBeforeCallingSudachi() throws Exception {
         // 준비: 바이트 상한·전체 텍스트 상한·잘못된 JSON을 각각 만든다.
@@ -81,6 +87,7 @@ class JapaneseReadingControllerTest {
         verifyNoInteractions(sudachi);
     }
 
+    // 단일 입력의 분석 실패가 다른 결과에 전파되지 않는지 검사한다.
     @Test
     void tokenizerFailureFallsBackForOnlyTheFailedText() throws Exception {
         // 준비

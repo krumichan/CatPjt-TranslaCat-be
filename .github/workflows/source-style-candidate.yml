@@ -1,0 +1,36 @@
+name: Source style BE candidate verification
+on:
+  push:
+    branches: [ci/source-style-20261115]
+permissions:
+  contents: read
+jobs:
+  verify:
+    # main push와 수동 실행 모두 선택된 SHA를 먼저 검증한다.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 27964acd37b4d08986a5256d93e464fe53653267
+          persist-credentials: false
+      - run: test "$(git rev-parse HEAD)" = "27964acd37b4d08986a5256d93e464fe53653267"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify environment encoding with synthetic inputs
+        run: python -B scripts/check_release_env_encoding.py
+      - name: Verify public account deletion flag merging with synthetic inputs
+        run: python -B scripts/check_account_deletion_env_overrides.py
+      - name: Verify the exact release source
+        run: |
+          bash -n scripts/deploy-release.sh
+          python scripts/check_deploy_release.py
+          chmod +x gradlew
+          ./gradlew test bootJar --no-daemon
+

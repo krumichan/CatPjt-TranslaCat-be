@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Locale;
 
+/** 확정된 음성 원문의 일본어 읽기 토큰을 만들고 원문과의 일치 여부를 검사한다. */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -24,6 +25,13 @@ public class VoiceSourceReadingService {
     private final SudachiFuriganaProcessor sudachi;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 음성 확정 이벤트에서 일본어로 판정한 원문의 읽기를 만든다.
+     *
+     * @param context 수동 원문 언어 설정이 담긴 스트림 상태
+     * @param event 감지 언어와 원문 텍스트가 담긴 확정 이벤트
+     * @return 일본어 읽기 토큰 또는 읽기를 제공할 수 없는 경우 빈 배열
+     */
     public ArrayNode forFinal(VoiceStreamContext context, JsonNode event) {
         if (!isJapaneseFinal(context, event)) {
             return objectMapper.createArrayNode();
@@ -31,7 +39,15 @@ public class VoiceSourceReadingService {
         return forLanguage(event.path("sourceText").asText(null), "ja");
     }
 
+    /**
+     * 일본어 원문을 그대로 재구성할 수 있는 읽기 토큰만 반환한다.
+     *
+     * @param sourceText 공백과 기호를 포함한 원문
+     * @param sourceLanguage 원문 언어 태그
+     * @return 분석이 가능하고 재구성 결과가 원문과 일치하면 토큰 배열, 그 외에는 빈 배열
+     */
     public ArrayNode forLanguage(String sourceText, String sourceLanguage) {
+        // 일본어 입력과 길이 상한을 먼저 확인해 불필요한 형태소 분석을 피한다.
         ArrayNode empty = objectMapper.createArrayNode();
         if (!"ja".equals(normalizeLanguage(sourceLanguage)) || sourceText == null || sourceText.isBlank()
                 || sourceText.length() > MAX_SOURCE_CHARACTERS) {
@@ -68,6 +84,14 @@ public class VoiceSourceReadingService {
         }
     }
 
+    /**
+     * 새 읽기가 빈 배열일 때 원문과 일치하는 기존 토큰을 재사용한다.
+     *
+     * @param generatedJson 새로 생성한 읽기 토큰 JSON
+     * @param storedJson 이전에 저장한 읽기 토큰 JSON
+     * @param sourceText 토큰을 검사할 원문
+     * @return 재사용 조건을 충족하면 기존 JSON, 그 외에는 새 JSON
+     */
     public String preserveStoredWhenGenerationFails(String generatedJson, String storedJson, String sourceText) {
         if (!"[]".equals(generatedJson) || storedJson == null || sourceText == null) {
             return generatedJson;
@@ -95,6 +119,7 @@ public class VoiceSourceReadingService {
         }
     }
 
+    // 확정 발화의 감지 언어를 우선하고 필요한 경우 수동 설정과 잠금 언어를 조회한다.
     private boolean isJapaneseFinal(VoiceStreamContext context, JsonNode event) {
         String detected = normalizeLanguage(event.path("detectedLanguage").asText(null));
         JsonNode confidenceNode = event.path("languageConfidence");
@@ -116,6 +141,7 @@ public class VoiceSourceReadingService {
         return "ja".equals(manual != null ? manual : locked);
     }
 
+    // 지역과 대소문자를 제거해 기본 언어 태그로 비교한다.
     private String normalizeLanguage(String language) {
         if (language == null || language.isBlank()) {
             return null;

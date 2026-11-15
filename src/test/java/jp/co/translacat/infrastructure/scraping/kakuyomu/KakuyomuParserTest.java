@@ -31,7 +31,8 @@ class KakuyomuParserTest {
 
         // 검증: 20자리 문자열 ID, 실제 순위와 생략하지 않은 소개가 보존된다.
         assertThat(result.getNovelContexts()).hasSize(2);
-        assertThat(result.getNovelContexts()).extracting(item -> item.getIdentifier())
+        assertThat(result.getNovelContexts())
+                .extracting(item -> item.getIdentifier())
                 .containsExactly(WORK, "11054822663257725157");
         assertThat(result.getNovelContexts()).extracting(item -> item.getRank()).containsExactly(1, 2);
         assertThat(result.getNovelContexts().getFirst().getAuthorIdentifier()).isEqualTo("K_Mizukagami");
@@ -74,7 +75,8 @@ class KakuyomuParserTest {
         assertThat(result.getNovelContext().getTitle().getRawJa()).startsWith("それでも世界は回っている");
         assertThat(result.getNovelContext().getSynopsis().getRawJa())
                 .isEqualTo("最初の紹介文。\n最後まで省略しない紹介文。");
-        assertThat(result.getRawEpisodeContexts()).extracting(item -> item.getIdentifier())
+        assertThat(result.getRawEpisodeContexts())
+                .extracting(item -> item.getIdentifier())
                 .containsExactly(EPISODE, "11054822662897184936", "11054822662897352510");
         assertThat(result.getRawEpisodeContexts()).extracting(item -> item.getSequence()).containsExactly(1, 2, 3);
         assertThat(result.getRawEpisodeContexts().getFirst().getTitle().getRawJa()).isEqualTo("序章 第1話 奥地にて");
@@ -92,15 +94,19 @@ class KakuyomuParserTest {
                 java.util.TreeMap::new, Collectors.mapping(SourceEpisode.Segment::plainJa, Collectors.joining())));
 
         // 검증: 읽기 발음은 원문과 분리되고 본문 밖 광고·실행 코드는 원문으로 섞이지 않는다.
-        assertThat(paragraphs.values()).containsExactly("　山田は猫を見た。", "\n", "「明日も来る？」\n彼女は尋ねた。", "<合図>を待つ。");
-        assertThat(source.segments().getFirst().rubyTokens()).containsExactly(new SourceEpisode.RubyToken(1, 3, "山田", "やまだ"));
+        assertThat(paragraphs.values())
+                .containsExactly("　山田は猫を見た。", "\n", "「明日も来る？」\n彼女は尋ねた。", "<合図>を待つ。");
+        assertThat(source.segments().getFirst().rubyTokens())
+                .containsExactly(new SourceEpisode.RubyToken(1, 3, "山田", "やまだ"));
         assertThat(source.segments().stream().flatMap(segment -> segment.rubyTokens().stream()))
                 .anySatisfy(token -> assertThat(token).isEqualTo(new SourceEpisode.RubyToken(1, 3, "明日", "あした")));
         assertThat(source.prevEpisodeId()).isEqualTo("11054822662896857469");
         assertThat(source.nextEpisodeId()).isEqualTo("11054822662897184936");
-        assertThat(source.revision()).isEqualTo(parser.parseSourceEpisode(document, key, new SentenceSegmenter()).revision());
+        assertThat(source.revision())
+                .isEqualTo(parser.parseSourceEpisode(document, key, new SentenceSegmenter()).revision());
         document.selectFirst("rt").text("やまた");
-        assertThat(source.revision()).isNotEqualTo(parser.parseSourceEpisode(document, key, new SentenceSegmenter()).revision());
+        assertThat(source.revision())
+                .isNotEqualTo(parser.parseSourceEpisode(document, key, new SentenceSegmenter()).revision());
     }
 
     @Test
@@ -116,7 +122,8 @@ class KakuyomuParserTest {
         var first = result.getEpisodeContentContexts().getFirst().getContent();
         assertThat(first.getRawJa()).isEqualTo("　山田は猫を見た。");
         assertThat(first.getJa()).contains("<ruby>", "<rt>やまだ</rt>");
-        assertThat(result.getEpisodeContentContexts().getLast().getContent().getJa()).doesNotContain("script", "iframe", "paidTts", "危険な広告");
+        assertThat(result.getEpisodeContentContexts().getLast().getContent().getJa())
+                .doesNotContain("script", "iframe", "paidTts", "危険な広告");
         assertThat(result.getEpisodePagerContext().getListIdentifier()).isEqualTo(WORK);
     }
 
@@ -129,7 +136,8 @@ class KakuyomuParserTest {
         document.select("#contentMain-readNextEpisode").remove();
 
         // 실행
-        var source = parser.parseSourceEpisode(document, new EpisodeKey("kakuyomu", WORK, EPISODE), new SentenceSegmenter());
+        var source =
+                parser.parseSourceEpisode(document, new EpisodeKey("kakuyomu", WORK, EPISODE), new SentenceSegmenter());
 
         // 검증
         assertThat(source.prevEpisodeId()).isNull();
@@ -143,10 +151,14 @@ class KakuyomuParserTest {
         document.selectFirst("link[rel=canonical]").attr("href", "https://kakuyomu.jp/works/999/episodes/1");
 
         // 실행·검증: 잘못 전달된 회차와 접근 제한 페이지를 정상 빈 본문으로 저장하지 않는다.
-        assertThatThrownBy(() -> parser.parseSourceEpisode(document, new EpisodeKey("kakuyomu", WORK, EPISODE), new SentenceSegmenter()))
+        assertThatThrownBy(()
+                                   -> parser.parseSourceEpisode(document, new EpisodeKey("kakuyomu", WORK, EPISODE),
+                                           new SentenceSegmenter()))
                 .hasMessage("SOURCE_PAGE_NOT_SUPPORTED");
         var restricted = Jsoup.parse("<h1>ログインして続きを読む</h1>", KakuyomuUrls.episodeUrl(WORK, EPISODE));
-        assertThatThrownBy(() -> parser.parseSourceEpisode(restricted, new EpisodeKey("kakuyomu", WORK, EPISODE), new SentenceSegmenter()))
+        assertThatThrownBy(()
+                                   -> parser.parseSourceEpisode(restricted, new EpisodeKey("kakuyomu", WORK, EPISODE),
+                                           new SentenceSegmenter()))
                 .hasMessage("SOURCE_PAGE_NOT_SUPPORTED");
     }
 
@@ -213,11 +225,12 @@ class KakuyomuParserTest {
         String longest = "12345678901234567890123456789012";
         assertThat(KakuyomuUrls.workId(KakuyomuUrls.episodeUrl(longest, EPISODE))).isEqualTo(longest);
         assertThat(KakuyomuUrls.episodeId(KakuyomuUrls.episodeUrl(WORK, EPISODE), WORK)).isEqualTo(EPISODE);
-        for (String bad : List.of("http://kakuyomu.jp/works/1", "https://example.com/works/1", "https://kakuyomu.jp.evil.test/works/1",
-                "https://user@kakuyomu.jp/works/1", "https://kakuyomu.jp:443/works/1", "https://kakuyomu.jp/works/%31",
-                "https://kakuyomu.jp/works/0", "https://kakuyomu.jp/works/0001",
-                "https://kakuyomu.jp/works/1/../../admin", "https://kakuyomu.jp/rankings/all/quarter", "https://kakuyomu.jp/search?page=0",
-                "https://kakuyomu.jp/search?page=1&page=2")) {
+        for (String bad : List.of("http://kakuyomu.jp/works/1", "https://example.com/works/1",
+                     "https://kakuyomu.jp.evil.test/works/1", "https://user@kakuyomu.jp/works/1",
+                     "https://kakuyomu.jp:443/works/1", "https://kakuyomu.jp/works/%31", "https://kakuyomu.jp/works/0",
+                     "https://kakuyomu.jp/works/0001", "https://kakuyomu.jp/works/1/../../admin",
+                     "https://kakuyomu.jp/rankings/all/quarter", "https://kakuyomu.jp/search?page=0",
+                     "https://kakuyomu.jp/search?page=1&page=2")) {
             assertThatThrownBy(() -> KakuyomuUrls.requirePublic(bad)).hasMessage("KAKUYOMU_URL_INVALID");
         }
     }
@@ -231,13 +244,14 @@ class KakuyomuParserTest {
         assertThat(KakuyomuUrls.pagination(current, "/search?q=%E7%8C%AB&page=2"))
                 .contains("https://kakuyomu.jp/search?q=%E7%8C%AB&page=2");
         for (String bad : List.of("https://example.com/search?q=%E7%8C%AB&page=2", "/search?q=dog&page=2",
-                "/search?q=%E7%8C%AB&page=3", "/works/1?page=2", "//example.com/search?q=%E7%8C%AB&page=2")) {
+                     "/search?q=%E7%8C%AB&page=3", "/works/1?page=2", "//example.com/search?q=%E7%8C%AB&page=2")) {
             assertThat(KakuyomuUrls.pagination(current, bad)).isEmpty();
         }
     }
 
     private Document fixture(String kind, String url) throws Exception {
-        String html = new ClassPathResource("kakuyomu/current-" + kind + ".html").getContentAsString(StandardCharsets.UTF_8);
+        String html =
+                new ClassPathResource("kakuyomu/current-" + kind + ".html").getContentAsString(StandardCharsets.UTF_8);
         return Jsoup.parse(html, url);
     }
 }

@@ -46,12 +46,19 @@ class LearningEvidenceControllerTest {
                 .thenReturn(new ObjectMapper().readTree("{\"items\":[],\"nextCursor\":null}"));
 
         // 실행
-        mvc(101L).perform(get("/api/v1/language-learning/history/evidence")
-                        .param("source", "SPEAKING").param("learningLanguage", "en")
-                        .param("from", "2026-09-01").param("to", "2026-10-03")
-                        .param("resultKind", "SESSION_COACHING").param("policyVersion", "free-session-coaching-v1")
-                        .param("cursor", "old:cursor").param("limit", "10").param("userId", "999"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.body.items").isEmpty());
+        mvc(101L)
+                .perform(get("/api/v1/language-learning/history/evidence")
+                                .param("source", "SPEAKING")
+                                .param("learningLanguage", "en")
+                                .param("from", "2026-09-01")
+                                .param("to", "2026-10-03")
+                                .param("resultKind", "SESSION_COACHING")
+                                .param("policyVersion", "free-session-coaching-v1")
+                                .param("cursor", "old:cursor")
+                                .param("limit", "10")
+                                .param("userId", "999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.body.items").isEmpty());
 
         // 검증: 요청의 임의 userId는 소유자를 바꾸지 않는다.
         verify(gateway).get(101L, "/evidence", expected, JsonNode.class);
@@ -66,7 +73,8 @@ class LearningEvidenceControllerTest {
                         "LL_OVERVIEW_UNAVAILABLE", "학습 조회 서비스에 연결하지 못했습니다."));
 
         // 실행
-        mvc(101L).perform(get("/api/v1/language-learning/history/evidence"))
+        mvc(101L)
+                .perform(get("/api/v1/language-learning/history/evidence"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.body.errorCode").value("LL_OVERVIEW_UNAVAILABLE"));
 
@@ -101,9 +109,10 @@ class LearningEvidenceControllerTest {
 
                     @Override
                     public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer container,
-                                                  NativeWebRequest request, WebDataBinderFactory factory) {
+                            NativeWebRequest request, WebDataBinderFactory factory) {
                         return principal;
                     }
-                }).build();
+                })
+                .build();
     }
 }

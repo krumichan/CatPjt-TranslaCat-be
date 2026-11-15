@@ -56,9 +56,14 @@ class LanguageLearningKeywordClientTest {
     private Claims claims(String authorization) {
         assertNotNull(authorization);
         assertTrue(authorization.startsWith("Bearer "));
-        return Jwts.parser().clock(() -> Date.from(NOW)).verifyWith(Keys.hmacShaKeyFor(KEY))
-                .requireIssuer("translacat-be").requireAudience("translacat-ll")
-                .build().parseSignedClaims(authorization.substring(7)).getPayload();
+        return Jwts.parser()
+                .clock(() -> Date.from(NOW))
+                .verifyWith(Keys.hmacShaKeyFor(KEY))
+                .requireIssuer("translacat-be")
+                .requireAudience("translacat-ll")
+                .build()
+                .parseSignedClaims(authorization.substring(7))
+                .getPayload();
     }
 
     @Test
@@ -73,8 +78,8 @@ class LanguageLearningKeywordClientTest {
                     assertEquals("ll-keywords", value.get("tokenUse"));
                     assertNull(value.get("keywordLearningStarted"));
                 })
-                .andRespond(withSuccess("{\"systemKeywords\":[" + ROW + "],\"customKeywords\":[]}",
-                        MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(
+                        "{\"systemKeywords\":[" + ROW + "],\"customKeywords\":[]}", MediaType.APPLICATION_JSON));
         // 실행·검증
         assertEquals(10L, client.list(123L, "learning").systemKeywords().get(0).id().longValue());
         server.verify();
@@ -98,9 +103,12 @@ class LanguageLearningKeywordClientTest {
 
     @Test
     void selectionUsesPutAndDeleteChecksAcknowledgement() {
-        server.expect(requestTo(USER + "/system/10/selection")).andExpect(method(HttpMethod.PUT))
-                .andExpect(jsonPath("$.selected").value(true)).andRespond(withSuccess(ROW, MediaType.APPLICATION_JSON));
-        server.expect(requestTo(USER + "/custom/11")).andExpect(method(HttpMethod.DELETE))
+        server.expect(requestTo(USER + "/system/10/selection"))
+                .andExpect(method(HttpMethod.PUT))
+                .andExpect(jsonPath("$.selected").value(true))
+                .andRespond(withSuccess(ROW, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(USER + "/custom/11"))
+                .andExpect(method(HttpMethod.DELETE))
                 .andRespond(withSuccess("true", MediaType.APPLICATION_JSON));
         client.selectSystem(123L, 10L, true);
         client.deleteCustom(123L, 11L);
@@ -109,11 +117,13 @@ class LanguageLearningKeywordClientTest {
 
     @Test
     void administratorUsesRealSubjectAndReturnsPlainList() {
-        server.expect(requestTo(ADMIN)).andExpect(request -> {
-            var value = claims(request.getHeaders().getFirst("Authorization"));
-            assertEquals("900", value.getSubject());
-            assertEquals(List.of("ADMIN"), value.get("roles", List.class));
-        }).andRespond(withSuccess("[" + ROW + "]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(ADMIN))
+                .andExpect(request -> {
+                    var value = claims(request.getHeaders().getFirst("Authorization"));
+                    assertEquals("900", value.getSubject());
+                    assertEquals(List.of("ADMIN"), value.get("roles", List.class));
+                })
+                .andRespond(withSuccess("[" + ROW + "]", MediaType.APPLICATION_JSON));
         assertEquals(1, client.listSystem(900L).size());
         server.verify();
     }
@@ -152,11 +162,13 @@ class LanguageLearningKeywordClientTest {
     @Test
     void remoteBusinessErrorIsPreservedAndNotRetried() {
         server.expect(requestTo(USER + "/custom"))
-                .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
-                        .body("{\"code\":\"KEYWORD_DUPLICATED\",\"message\":\"이미 등록된 키워드입니다.\"}"));
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body("{\"code\":\"KEYWORD_DUPLICATED\",\"message\":\"이미 등록된 키워드입니다.\"}"));
         var error = assertThrows(LanguageLearningServiceException.class,
-                () -> client.createCustom(123L,
-                        new KeywordCreateRequestDto("IT", KeywordType.TOPIC, null, null, null)));
+                ()
+                        -> client.createCustom(
+                                123L, new KeywordCreateRequestDto("IT", KeywordType.TOPIC, null, null, null)));
         assertEquals("KEYWORD_DUPLICATED", error.getErrorCode());
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         server.verify();
@@ -165,8 +177,9 @@ class LanguageLearningKeywordClientTest {
     @Test
     void serverErrorIsNotAutomaticallyRetried() {
         server.expect(requestTo(USER))
-                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE).contentType(MediaType.APPLICATION_JSON)
-                        .body("{\"code\":\"TEST_UNAVAILABLE\",\"message\":\"테스트 장애\"}"));
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body("{\"code\":\"TEST_UNAVAILABLE\",\"message\":\"테스트 장애\"}"));
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE,
                 assertThrows(LanguageLearningServiceException.class, () -> client.list(123L, null)).getStatus());
         server.verify();

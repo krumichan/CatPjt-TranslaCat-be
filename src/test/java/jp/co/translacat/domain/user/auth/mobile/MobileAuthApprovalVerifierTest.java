@@ -54,12 +54,13 @@ class MobileAuthApprovalVerifierTest {
         var verifier = new MobileAuthApprovalVerifier(KEY, clock);
 
         // 실행·검증: 경계 60초는 허용하고 오래되거나 미래의 서명은 거부한다.
-        for (long offset : new long[]{-60, 60}) {
+        for (long offset : new long[] {-60, 60}) {
             String timestamp = Long.toString(1800000000 + offset);
             String signature = sign(ID, TOKEN, timestamp);
-            assertThatCode(() -> verifier.verify(ID, "Bearer " + TOKEN, timestamp, signature)).doesNotThrowAnyException();
+            assertThatCode(() -> verifier.verify(ID, "Bearer " + TOKEN, timestamp, signature))
+                    .doesNotThrowAnyException();
         }
-        for (long offset : new long[]{-61, 61}) {
+        for (long offset : new long[] {-61, 61}) {
             String timestamp = Long.toString(1800000000 + offset);
             String signature = sign(ID, TOKEN, timestamp);
             rejected(() -> verifier.verify(ID, "Bearer " + TOKEN, timestamp, signature));
@@ -71,7 +72,7 @@ class MobileAuthApprovalVerifierTest {
     @Test
     void absent_blank_or_short_dedicated_secret_fails_closed_without_affecting_bean_creation() {
         // 실행·검증: 운영 키를 코드에 만들거나 일반 로그인 기동을 중단하지 않는다.
-        for (String key : new String[]{null, "", " ".repeat(40), "short-synthetic-key"}) {
+        for (String key : new String[] {null, "", " ".repeat(40), "short-synthetic-key"}) {
             var verifier = new MobileAuthApprovalVerifier(key, clock);
             assertThatThrownBy(() -> verifier.verify(ID, "Bearer " + TOKEN, TIMESTAMP, VECTOR))
                     .isInstanceOfSatisfying(AuthException.class, failure -> {
@@ -95,7 +96,8 @@ class MobileAuthApprovalVerifierTest {
         rejected(() -> verifier.verify(ID, "Bearer ", TIMESTAMP, VECTOR));
         rejected(() -> verifier.verify(ID, "Bearer " + TOKEN + " ", TIMESTAMP, VECTOR));
         String unicodeSignature = sign(unicodeKey, ID, TOKEN, TIMESTAMP);
-        assertThatCode(() -> unicode.verify(ID, "Bearer " + TOKEN, TIMESTAMP, unicodeSignature)).doesNotThrowAnyException();
+        assertThatCode(() -> unicode.verify(ID, "Bearer " + TOKEN, TIMESTAMP, unicodeSignature))
+                .doesNotThrowAnyException();
     }
 
     private void rejected(org.assertj.core.api.ThrowableAssert.ThrowingCallable action) {
@@ -111,10 +113,10 @@ class MobileAuthApprovalVerifierTest {
     }
 
     private static String sign(String key, String requestId, String token, String timestamp) throws Exception {
-        String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                .digest(token.getBytes(StandardCharsets.UTF_8)));
-        String message = String.join("\n", "mobile-auth-approval-v1", "POST", "/api/v1/auth/mobile/authorize",
-                requestId, hash, timestamp);
+        String hash = HexFormat.of().formatHex(
+                MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
+        String message = String.join(
+                "\n", "mobile-auth-approval-v1", "POST", "/api/v1/auth/mobile/authorize", requestId, hash, timestamp);
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
         return HexFormat.of().formatHex(mac.doFinal(message.getBytes(StandardCharsets.UTF_8)));

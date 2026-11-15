@@ -46,13 +46,17 @@ class RecentViewLanguageTest {
         actor.setId(1L);
         platform = mock(Platform.class);
         var principal = org.springframework.security.core.userdetails.User.withUsername("recent@example.test")
-                .password("unused").roles("USER").build();
+                                .password("unused")
+                                .roles("USER")
+                                .build();
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
     }
 
     @AfterEach
-    void clearAuthentication() { SecurityContextHolder.clearContext(); }
+    void clearAuthentication() {
+        SecurityContextHolder.clearContext();
+    }
 
     private void configureSave() {
         when(users.findByEmail("recent@example.test")).thenReturn(actor);
@@ -61,8 +65,8 @@ class RecentViewLanguageTest {
     }
 
     private RecentView existing() {
-        var view = RecentView.create(actor, platform, RecentViewType.NOVEL, "n123aa", null,
-                "原題", "原題の読み", "한국어 제목");
+        var view = RecentView.create(
+                actor, platform, RecentViewType.NOVEL, "n123aa", null, "原題", "原題の読み", "한국어 제목");
         view.setId(11L);
         view.setViewedAt(LocalDateTime.parse("2020-01-01T00:00:00"));
         return view;
@@ -74,8 +78,10 @@ class RecentViewLanguageTest {
         configureSave();
         var view = existing();
         when(repository.findByUserIdAndPlatformIdAndRecentViewTypeAndNovelIdAndEpisodeIdIsNull(
-                1L, 7L, RecentViewType.NOVEL, "n123aa")).thenReturn(Optional.of(view));
-        var request = request("\"targetLanguage\":\"en\",\"titleEn\":\"An English title\",\"titleKo\":\"English poison\"");
+                     1L, 7L, RecentViewType.NOVEL, "n123aa"))
+                .thenReturn(Optional.of(view));
+        var request =
+                request("\"targetLanguage\":\"en\",\"titleEn\":\"An English title\",\"titleKo\":\"English poison\"");
 
         // 실행
         assertThat(service.save(request)).isTrue();
@@ -98,7 +104,8 @@ class RecentViewLanguageTest {
         var view = existing();
         view.update("原題", "原題の読み", null, "An English title", "en");
         when(repository.findByUserIdAndPlatformIdAndRecentViewTypeAndNovelIdAndEpisodeIdIsNull(
-                1L, 7L, RecentViewType.NOVEL, "n123aa")).thenReturn(Optional.of(view));
+                     1L, 7L, RecentViewType.NOVEL, "n123aa"))
+                .thenReturn(Optional.of(view));
         var request = request("\"titleKo\":\"새 한국어 제목\"");
 
         // 실행
@@ -118,7 +125,8 @@ class RecentViewLanguageTest {
         // 준비
         configureSave();
         when(repository.findByUserIdAndPlatformIdAndRecentViewTypeAndNovelIdAndEpisodeIdIsNull(
-                1L, 7L, RecentViewType.NOVEL, "n123aa")).thenReturn(Optional.empty());
+                     1L, 7L, RecentViewType.NOVEL, "n123aa"))
+                .thenReturn(Optional.empty());
 
         // 실행
         service.save(request("\"targetLanguage\":\"en\",\"titleKo\":\"must not become English\""));
@@ -190,7 +198,7 @@ class RecentViewLanguageTest {
 
     private RecentViewSaveRequestDto request(String optional) throws Exception {
         return new ObjectMapper().readValue("{\"platformCode\":\"SYOSETU\",\"type\":\"NOVEL\","
-                + "\"novelId\":\"n123aa\",\"title\":\"原題\",\"titleJa\":\"原題の読み\","
-                + optional + "}", RecentViewSaveRequestDto.class);
+                        + "\"novelId\":\"n123aa\",\"title\":\"原題\",\"titleJa\":\"原題の読み\"," + optional + "}",
+                RecentViewSaveRequestDto.class);
     }
 }

@@ -27,18 +27,20 @@ class NovelReaderTraceTest {
             chain.doFilter(request, response);
         };
         var mvc = MockMvcBuilders.standaloneSetup(new NovelReaderController(facade))
-                .addFilters(existingCors, new NovelReaderTraceFilter())
-                .setControllerAdvice(new NovelReaderExceptionAdvice(), new NovelReaderTraceAdvice()).build();
+                          .addFilters(existingCors, new NovelReaderTraceFilter())
+                          .setControllerAdvice(new NovelReaderExceptionAdvice(), new NovelReaderTraceAdvice())
+                          .build();
         String traceId = "9a4e8097-21d6-4e8f-b764-3e58df753294";
 
         // 실행
-        var response = mvc.perform(get("/api/v1/syosyetu/n2604qf/episodes/1/reader")
-                        .header("X-Novel-Trace-Id", traceId))
-                .andExpect(status().isOk())
-                .andExpect(header().string("X-Novel-Trace-Id", traceId))
-                .andExpect(header().string("Cache-Control", "no-store"))
-                .andExpect(jsonPath("$.body.revision").value("source-r1"))
-                .andReturn().getResponse();
+        var response =
+                mvc.perform(get("/api/v1/syosyetu/n2604qf/episodes/1/reader").header("X-Novel-Trace-Id", traceId))
+                        .andExpect(status().isOk())
+                        .andExpect(header().string("X-Novel-Trace-Id", traceId))
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andExpect(jsonPath("$.body.revision").value("source-r1"))
+                        .andReturn()
+                        .getResponse();
 
         // 검증: 별도로 측정하지 않은 upstream 시간은 임의 숫자로 채우지 않는다.
         assertThat(response.getHeaders("X-Novel-Trace-Id")).containsExactly(traceId);
@@ -53,12 +55,14 @@ class NovelReaderTraceTest {
     void doesNotAddNovelTracingToOtherControllers() throws Exception {
         // 준비
         var mvc = MockMvcBuilders.standaloneSetup(new OtherController())
-                .addFilters(new NovelReaderTraceFilter())
-                .setControllerAdvice(new NovelReaderTraceAdvice()).build();
+                          .addFilters(new NovelReaderTraceFilter())
+                          .setControllerAdvice(new NovelReaderTraceAdvice())
+                          .build();
 
         // 실행 및 검증
         mvc.perform(get("/unrelated").header("X-Novel-Trace-Id", "untrusted unrelated header"))
-                .andExpect(status().isOk()).andExpect(content().string("ok"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("ok"))
                 .andExpect(header().doesNotExist("X-Novel-Trace-Id"))
                 .andExpect(header().doesNotExist("X-Novel-Be-Duration-Ms"));
     }
@@ -66,6 +70,8 @@ class NovelReaderTraceTest {
     @RestController
     static class OtherController {
         @GetMapping("/unrelated")
-        String read() { return "ok"; }
+        String read() {
+            return "ok";
+        }
     }
 }

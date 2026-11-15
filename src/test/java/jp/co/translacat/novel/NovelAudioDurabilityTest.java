@@ -40,7 +40,8 @@ class NovelAudioDurabilityTest {
     private JdbcTemplate jdbc;
     private SourceEpisode source;
 
-    @BeforeEach void prepare() {
+    @BeforeEach
+    void prepare() {
         // 준비: 실제 SQL 상태 소유권과 가짜 객체 저장소를 사용하고 유료 provider는 관측 가능한 mock으로 둔다.
         var db = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
         new ResourceDatabasePopulator(new ClassPathResource("novel-audio-h2.sql")).execute(db);
@@ -51,26 +52,40 @@ class NovelAudioDurabilityTest {
         when(query.requireCurrentRevision(eq(key), anyString())).thenReturn(source);
         when(ai.speechModel()).thenReturn("gpt-4o-mini-tts-2025-12-15");
         byte[] wav = new byte[44];
-        wav[0] = 'R'; wav[1] = 'I'; wav[2] = 'F'; wav[3] = 'F';
-        wav[8] = 'W'; wav[9] = 'A'; wav[10] = 'V'; wav[11] = 'E';
+        wav[0] = 'R';
+        wav[1] = 'I';
+        wav[2] = 'F';
+        wav[3] = 'F';
+        wav[8] = 'W';
+        wav[9] = 'A';
+        wav[10] = 'V';
+        wav[11] = 'E';
         when(ai.synthesize(anyString(), anyString(), anyString(), anyString(), anyLong()))
-                .thenReturn(new NovelPorts.Speech(Base64.getEncoder().encodeToString(wav),
-                        "audio/wav", 1.0, "openai", "gpt-4o-mini-tts-2025-12-15"));
+                .thenReturn(new NovelPorts.Speech(Base64.getEncoder().encodeToString(wav), "audio/wav", 1.0, "openai",
+                        "gpt-4o-mini-tts-2025-12-15"));
     }
 
-    @AfterEach void finish() { scheduler.close(); }
+    @AfterEach
+    void finish() {
+        scheduler.close();
+    }
 
-    @Test void englishSpeechReadsOnlyEnglishCommittedTextAndHasSeparateDurableIdentity() {
+    @Test
+    void englishSpeechReadsOnlyEnglishCommittedTextAndHasSeparateDurableIdentity() {
         // 준비: 같은 원문에 영어와 한국어 작업을 따로 저장한 계약을 가짜 번역 저장소로 고정한다.
         String segment = source.segments().getFirst().id();
         when(translations.glossary(key, 7, "en")).thenReturn(new NovelRepository.Glossary("empty-v1", Map.of(), "en"));
         when(translations.glossary(key, 7, "ko")).thenReturn(new NovelRepository.Glossary("empty-v1", Map.of(), "ko"));
         when(query.cacheKey(eq(key), eq(source), eq(7L), eq("empty-v1"), any(), eq("en"))).thenReturn("english-cache");
         when(query.cacheKey(eq(key), eq(source), eq(7L), eq("empty-v1"), any(), eq("ko"))).thenReturn("korean-cache");
-        when(translations.byCache("english-cache")).thenReturn(Optional.of(new NovelRepository.Job("english-cache", "english", key.value(),
-                source.revision(), 7, "SUCCEEDED", Map.of(segment, "A cat."), Map.of(), null, 0, 0, 0, 0, 0, 0, "en")));
-        when(translations.byCache("korean-cache")).thenReturn(Optional.of(new NovelRepository.Job("korean-cache", "korean", key.value(),
-                source.revision(), 7, "SUCCEEDED", Map.of(segment, "고양이."), Map.of(), null, 0, 0, 0, 0, 0, 0, "ko")));
+        when(translations.byCache("english-cache"))
+                .thenReturn(
+                        Optional.of(new NovelRepository.Job("english-cache", "english", key.value(), source.revision(),
+                                7, "SUCCEEDED", Map.of(segment, "A cat."), Map.of(), null, 0, 0, 0, 0, 0, 0, "en")));
+        when(translations.byCache("korean-cache"))
+                .thenReturn(
+                        Optional.of(new NovelRepository.Job("korean-cache", "korean", key.value(), source.revision(), 7,
+                                "SUCCEEDED", Map.of(segment, "고양이."), Map.of(), null, 0, 0, 0, 0, 0, 0, "ko")));
 
         // 실행
         var english = service().synthesize(key, 7, source.revision(), segment, "en", 0, "en");
@@ -84,11 +99,13 @@ class NovelAudioDurabilityTest {
         verify(ai).synthesize(anyString(), anyString(), eq("A cat."), eq("en"), anyLong());
         verify(ai).synthesize(anyString(), anyString(), eq("고양이."), eq("ko"), anyLong());
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_audio_asset", Integer.class)).isEqualTo(2);
-        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT translation_cache_key) FROM novel_audio_segment_link", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject(
+                           "SELECT COUNT(DISTINCT translation_cache_key) FROM novel_audio_segment_link", Integer.class))
+                .isEqualTo(2);
     }
 
-
-    @Test void processRestartAndUnchangedSentenceReuseDurableObjectWithoutAnotherSynthesis() {
+    @Test
+    void processRestartAndUnchangedSentenceReuseDurableObjectWithoutAnotherSynthesis() {
         var first = service();
         String cat = source.segments().getFirst().id();
         String dog = source.segments().get(1).id();
@@ -99,18 +116,24 @@ class NovelAudioDurabilityTest {
         first.synthesize(key, 7, source.revision(), dog, "ja", 0);
         SourceEpisode edited = new SentenceSegmenter().segment(key, "題", List.of("虎。犬。"), null, null);
         when(query.requireCurrentRevision(key, edited.revision())).thenReturn(edited);
-        assertThat(service().synthesize(key, 7, edited.revision(), edited.segments().get(1).id(), "ja", 0)
-                .cacheDisposition()).isEqualTo("HIT");
-        assertThat(service().synthesize(key, 7, edited.revision(), edited.segments().getFirst().id(), "ja", 0)
-                .cacheDisposition()).isEqualTo("MISS");
+        assertThat(service()
+                           .synthesize(key, 7, edited.revision(), edited.segments().get(1).id(), "ja", 0)
+                           .cacheDisposition())
+                .isEqualTo("HIT");
+        assertThat(service()
+                           .synthesize(key, 7, edited.revision(), edited.segments().getFirst().id(), "ja", 0)
+                           .cacheDisposition())
+                .isEqualTo("MISS");
 
         // 검증: 바뀐 첫 문장에만 새 합성이 있었고 다른 문장의 링크는 새 revision에서도 READY다.
         verify(ai, times(3)).synthesize(anyString(), anyString(), anyString(), eq("ja"), anyLong());
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_audio_asset WHERE state='READY'", Integer.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_audio_asset WHERE state='READY'", Integer.class))
+                .isEqualTo(3);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_audio_segment_link", Integer.class)).isEqualTo(4);
     }
 
-    @Test void failedUploadRetriesIdenticalBytesAndStorageFailureNeverBecomesCacheMiss() {
+    @Test
+    void failedUploadRetriesIdenticalBytesAndStorageFailureNeverBecomesCacheMiss() {
         objects.failNextPut.set(true);
         String segment = source.segments().getFirst().id();
 
@@ -137,22 +160,32 @@ class NovelAudioDurabilityTest {
         private final AtomicBoolean failNextPut = new AtomicBoolean();
         private final AtomicBoolean failReads = new AtomicBoolean();
 
-        @Override public void put(String key, Path file, String type, long bytes, String sha) {
-            if (failNextPut.compareAndSet(true, false)) throw unavailable();
-            try { content.put(key, Files.readAllBytes(file)); }
-            catch (Exception failure) { throw unavailable(); }
+        @Override
+        public void put(String key, Path file, String type, long bytes, String sha) {
+            if (failNextPut.compareAndSet(true, false))
+                throw unavailable();
+            try {
+                content.put(key, Files.readAllBytes(file));
+            } catch (Exception failure) {
+                throw unavailable();
+            }
         }
 
-        @Override public ObjectInfo head(String key) {
+        @Override
+        public ObjectInfo head(String key) {
             byte[] bytes = content.get(key);
-            if (bytes == null) throw new Missing();
+            if (bytes == null)
+                throw new Missing();
             return new ObjectInfo(bytes.length, sha(bytes), "audio/wav");
         }
 
-        @Override public ObjectData read(String key, int maxBytes) {
-            if (failReads.get()) throw unavailable();
+        @Override
+        public ObjectData read(String key, int maxBytes) {
+            if (failReads.get())
+                throw unavailable();
             byte[] bytes = content.get(key);
-            if (bytes == null) throw new Missing();
+            if (bytes == null)
+                throw new Missing();
             return new ObjectData(bytes, "audio/wav");
         }
 
@@ -161,8 +194,11 @@ class NovelAudioDurabilityTest {
         }
 
         private static String sha(byte[] bytes) {
-            try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)); }
-            catch (Exception failure) { throw new IllegalStateException(failure); }
+            try {
+                return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+            } catch (Exception failure) {
+                throw new IllegalStateException(failure);
+            }
         }
     }
 }

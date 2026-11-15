@@ -20,10 +20,11 @@ class CatalogDisplayContractTest {
     void originalCatalogPreservesExistingTranslationUnitContract(String kind) {
         // 준비: 저장 원문은 ja이며, FE의 번역 unit은 기존 ko/en 계약을 사용한다.
         var text = new CatalogModels.Text("猫", "猫", null, null, "ja");
-        var item = new CatalogModels.Item("item", "123", 7, 6, "READY", text, text, text, text, "", false, 1, null, true);
+        var item =
+                new CatalogModels.Item("item", "123", 7, 6, "READY", text, text, text, text, "", false, 1, null, true);
         var selector = new CatalogModels.Selector(kind, "daily", "all", "猫", 1, "ja");
-        var saved = new CatalogModels.Snapshot("snapshot", 1, "SUCCEEDED", 1, 1, 0, Map.of(),
-                selector, List.of(item), "trace", 123);
+        var saved = new CatalogModels.Snapshot(
+                "snapshot", 1, "SUCCEEDED", 1, 1, 0, Map.of(), selector, List.of(item), "trace", 123);
         var store = mock(CatalogStore.class);
         var ruby = mock(NovelRubyFormatter.class);
         when(store.snapshot(1, "snapshot")).thenReturn(saved);
@@ -47,7 +48,8 @@ class CatalogDisplayContractTest {
     void rubyFormattingPreservesEnglishTranslationAndLanguageIdentity() {
         // 준비: DB에는 영어로 완료된 제목·소개가 있고 일본어 표시에만 발음이 필요하다.
         var text = new CatalogModels.Text("猫", "猫", null, "Cat", "en");
-        var item = new CatalogModels.Item("item", "123", 7, 6, "READY", text, text, text, text, "", false, 1, null, true);
+        var item =
+                new CatalogModels.Item("item", "123", 7, 6, "READY", text, text, text, text, "", false, 1, null, true);
         var saved = new CatalogModels.Snapshot("snapshot", 1, "SUCCEEDED", 1, 1, 0, Map.of(),
                 new CatalogModels.Selector("RANKING", "daily", "all", "", 1, "en"), List.of(item), "trace", 123);
         var store = mock(CatalogStore.class);
@@ -59,8 +61,8 @@ class CatalogDisplayContractTest {
         var displayed = new CatalogQueryService(store, ruby).snapshot(1, "snapshot");
 
         // 검증: 응답 전용 표기 때문에 저장 번역·언어·상태·도착 순서가 소실되지 않는다.
-        assertThat(displayed.items().getFirst().title()).isEqualTo(
-                new CatalogModels.Text("猫", "<ruby>猫<rt>ねこ</rt></ruby>", null, "Cat", "en"));
+        assertThat(displayed.items().getFirst().title())
+                .isEqualTo(new CatalogModels.Text("猫", "<ruby>猫<rt>ねこ</rt></ruby>", null, "Cat", "en"));
         assertThat(displayed.items().getFirst().arrivalSequence()).isEqualTo(1);
         assertThat(displayed.items().getFirst().cached()).isTrue();
         assertThat(displayed.selector()).isEqualTo(saved.selector());

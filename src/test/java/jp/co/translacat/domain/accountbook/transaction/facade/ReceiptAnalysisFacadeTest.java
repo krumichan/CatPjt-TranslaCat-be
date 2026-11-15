@@ -44,14 +44,14 @@ class ReceiptAnalysisFacadeTest {
 
     ReceiptAnalysisFacadeTest() {
         when(access.getAccessibleAccountBook(1L, 2L)).thenReturn(book);
-        when(keywords.findByCurrencyCodeIsNullAndEnabledTrueAndDeletedFalseOrderByDisplayOrderAscIdAsc()).thenReturn(
-                List.of());
-        when(categories.findByAccountBookIdAndActiveTrueOrderByDisplayOrderAscNameAsc(1L)).thenReturn(
-                List.of(AccountBookCategory.create(book, "Food", 1)));
-        when(rates.getRate("USD", "JPY", date)).thenReturn(
-                ExchangeRate.create("USD", "JPY", new BigDecimal("150"), date, date, "TEST"));
-        when(rates.getRate("JPY", "JPY", date)).thenReturn(
-                ExchangeRate.create("JPY", "JPY", BigDecimal.ONE, date, date, "IDENTITY"));
+        when(keywords.findByCurrencyCodeIsNullAndEnabledTrueAndDeletedFalseOrderByDisplayOrderAscIdAsc())
+                .thenReturn(List.of());
+        when(categories.findByAccountBookIdAndActiveTrueOrderByDisplayOrderAscNameAsc(1L))
+                .thenReturn(List.of(AccountBookCategory.create(book, "Food", 1)));
+        when(rates.getRate("USD", "JPY", date))
+                .thenReturn(ExchangeRate.create("USD", "JPY", new BigDecimal("150"), date, date, "TEST"));
+        when(rates.getRate("JPY", "JPY", date))
+                .thenReturn(ExchangeRate.create("JPY", "JPY", BigDecimal.ONE, date, date, "IDENTITY"));
         when(rates.getRate("EUR", "JPY", date)).thenThrow(new RateUnavailableException());
     }
 
@@ -79,15 +79,16 @@ class ReceiptAnalysisFacadeTest {
     }
 
     AiReceiptAnalysisResponse.Item item(String id, String currency, String amount, String date, String category) {
-        return new AiReceiptAnalysisResponse.Item(id, "Purchase", "Store", amount, currency, date, category, null, .9,
-                "en", "READY", List.of());
+        return new AiReceiptAnalysisResponse.Item(
+                id, "Purchase", "Store", amount, currency, date, category, null, .9, "en", "READY", List.of());
     }
 
     @Test
     void mixedCurrencyPartialFailureKeepsSuccessfulReceipt() {
-        when(ai.callReceiptAnalysis(any(), any())).thenReturn(new AiReceiptAnalysisResponse(List.of(
-                item("one", "USD", "12.34", date.toString(), "Food"),
-                item("two", "EUR", "10.25", date.toString(), "Food")), 2, List.of(), "vision", true));
+        when(ai.callReceiptAnalysis(any(), any()))
+                .thenReturn(new AiReceiptAnalysisResponse(List.of(item("one", "USD", "12.34", date.toString(), "Food"),
+                                                                  item("two", "EUR", "10.25", date.toString(), "Food")),
+                        2, List.of(), "vision", true));
         var result = facade.analyze(1L, 2L, null, null);
         assertThat(result.receiptCount()).isEqualTo(2);
         assertThat(result.receipts().getFirst().convertedAmount()).isEqualByComparingTo("1851");
@@ -95,8 +96,7 @@ class ReceiptAnalysisFacadeTest {
         var captor = org.mockito.ArgumentCaptor.forClass(AiReceiptAnalysisOptions.class);
         verify(ai).callReceiptAnalysis(any(), captor.capture());
         assertThat(captor.getValue().categoryCandidates()).containsExactly("Food");
-        assertThat(captor.getValue().defaultCategoryCandidates())
-                .contains("식비", "생활", "의료", "기타");
+        assertThat(captor.getValue().defaultCategoryCandidates()).contains("식비", "생활", "의료", "기타");
         assertThat(captor.getValue().ocrLanguage()).isNull();
         assertThat(captor.getValue().analysisMode()).isEqualTo("VISION_FIRST");
         verify(categories, never()).save(any());
@@ -104,13 +104,15 @@ class ReceiptAnalysisFacadeTest {
 
     @Test
     void malformedAmountsAndDatesRemainReviewableWhileSafeNewCategorySurvives() {
-        when(ai.callReceiptAnalysis(any(), any())).thenReturn(new AiReceiptAnalysisResponse(List.of(
-                item("one", "USD", "not-money", "2026-02-30", "invented"),
-                item("two", "USD", "12.34", date.toString(), "Food")), 2, List.of(), "vision", true));
+        when(ai.callReceiptAnalysis(any(), any()))
+                .thenReturn(
+                        new AiReceiptAnalysisResponse(List.of(item("one", "USD", "not-money", "2026-02-30", "invented"),
+                                                              item("two", "USD", "12.34", date.toString(), "Food")),
+                                2, List.of(), "vision", true));
         var result = facade.analyze(1L, 2L, null, "VISION_ONLY");
         assertThat(result.receipts()).hasSize(2);
-        assertThat(result.receipts().getFirst().warnings()).contains("INVALID_AMOUNT", "INVALID_DATE",
-                "CATEGORY_NEW_SUGGESTION");
+        assertThat(result.receipts().getFirst().warnings())
+                .contains("INVALID_AMOUNT", "INVALID_DATE", "CATEGORY_NEW_SUGGESTION");
         assertThat(result.receipts().getFirst().categoryName()).isEqualTo("invented");
         assertThat(result.receipts().getFirst().categorySource()).isEqualTo("NEW");
         assertThat(result.receipts().get(1).status()).isEqualTo("READY");
@@ -118,10 +120,10 @@ class ReceiptAnalysisFacadeTest {
 
     @Test
     void emptyActiveCategoryCandidatesAreReportedSeparatelyFromAiClassification() {
-        when(categories.findByAccountBookIdAndActiveTrueOrderByDisplayOrderAscNameAsc(1L))
-                .thenReturn(List.of());
-        when(ai.callReceiptAnalysis(any(), any())).thenReturn(new AiReceiptAnalysisResponse(List.of(
-                item("one", "USD", "12.34", date.toString(), null)), 1, List.of(), "vision", true));
+        when(categories.findByAccountBookIdAndActiveTrueOrderByDisplayOrderAscNameAsc(1L)).thenReturn(List.of());
+        when(ai.callReceiptAnalysis(any(), any()))
+                .thenReturn(new AiReceiptAnalysisResponse(
+                        List.of(item("one", "USD", "12.34", date.toString(), null)), 1, List.of(), "vision", true));
         var result = facade.analyze(1L, 2L, null, "VISION_FIRST");
         assertThat(result.warnings()).contains("CATEGORY_CANDIDATES_EMPTY");
         assertThat(result.receipts().getFirst().categoryName()).isEqualTo("기타");
@@ -131,11 +133,12 @@ class ReceiptAnalysisFacadeTest {
 
     @Test
     void nullUnreadableItemAndDuplicateIdRemainDistinctReviewCandidates() {
-        var invalid =
-                new AiReceiptAnalysisResponse.Item("same", "Purchase", null, "10", "USD", date.toString(), "Food", null,
-                        8.0, "en", "READY", List.of());
-        when(ai.callReceiptAnalysis(any(), any())).thenReturn(new AiReceiptAnalysisResponse(Arrays.asList(
-                invalid, item("same", "USD", "12", date.toString(), "Food"), null), 3, null, "ocr", false));
+        var invalid = new AiReceiptAnalysisResponse.Item(
+                "same", "Purchase", null, "10", "USD", date.toString(), "Food", null, 8.0, "en", "READY", List.of());
+        when(ai.callReceiptAnalysis(any(), any()))
+                .thenReturn(new AiReceiptAnalysisResponse(
+                        Arrays.asList(invalid, item("same", "USD", "12", date.toString(), "Food"), null), 3, null,
+                        "ocr", false));
         var result = facade.analyze(1L, 2L, null, "OCR_ONLY");
         assertThat(result.receipts()).hasSize(3);
         assertThat(result.receipts().stream().map(i -> i.receiptId()).distinct()).hasSize(3);
@@ -164,9 +167,10 @@ class ReceiptAnalysisFacadeTest {
     @Test
     void oversizedResponseHasExplicitTruncationWarning() {
         var items = java.util.stream.IntStream.range(0, 31)
-                .mapToObj(i -> item("r" + i, "USD", "10", date.toString(), "Food")).toList();
-        when(ai.callReceiptAnalysis(any(), any())).thenReturn(
-                new AiReceiptAnalysisResponse(items, 31, List.of(), "vision", true));
+                            .mapToObj(i -> item("r" + i, "USD", "10", date.toString(), "Food"))
+                            .toList();
+        when(ai.callReceiptAnalysis(any(), any()))
+                .thenReturn(new AiReceiptAnalysisResponse(items, 31, List.of(), "vision", true));
         var result = facade.analyze(1L, 2L, null, "VISION_FIRST");
         assertThat(result.receiptCount()).isEqualTo(30);
         assertThat(result.warnings()).contains("RECEIPT_LIMIT_REACHED");
@@ -175,9 +179,10 @@ class ReceiptAnalysisFacadeTest {
     @ParameterizedTest
     @ValueSource(strings = {"1E+50000000", "1E-50000000"})
     void malformedModelExponentCannotExpandIntoTheWirePayload(String amount) throws Exception {
-        when(ai.callReceiptAnalysis(any(), any())).thenReturn(new AiReceiptAnalysisResponse(List.of(
-                item("bad", "USD", amount, date.toString(), "Food"),
-                item("good", "USD", "10", date.toString(), "Food")), 2, List.of(), "vision", true));
+        when(ai.callReceiptAnalysis(any(), any()))
+                .thenReturn(new AiReceiptAnalysisResponse(List.of(item("bad", "USD", amount, date.toString(), "Food"),
+                                                                  item("good", "USD", "10", date.toString(), "Food")),
+                        2, List.of(), "vision", true));
         var result = facade.analyze(1L, 2L, null, "VISION_FIRST");
         assertThat(result.receipts().getFirst().originalAmount()).isNull();
         assertThat(result.receipts().getFirst().warnings()).contains("INVALID_AMOUNT");

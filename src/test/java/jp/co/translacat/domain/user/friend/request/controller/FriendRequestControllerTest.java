@@ -30,7 +30,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class FriendRequestControllerTest {
-
     private FriendRequestService friendRequestService;
     private FriendRequestController friendRequestController;
     private MockMvc mockMvc;
@@ -42,10 +41,9 @@ class FriendRequestControllerTest {
         friendRequestController = new FriendRequestController(friendRequestService);
         objectMapper = new ObjectMapper();
 
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(friendRequestController)
-                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
-                .build();
+        mockMvc = MockMvcBuilders.standaloneSetup(friendRequestController)
+                          .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                          .build();
     }
 
     @AfterEach
@@ -62,26 +60,16 @@ class FriendRequestControllerTest {
 
         FriendRequestSendRequestDto request = new FriendRequestSendRequestDto("TCAT-00000002");
 
-        FriendRequestResponseDto response = new FriendRequestResponseDto(
-                100L,
-                1L,
-                2L,
-                "TCAT-00000002",
-                "receiver",
-                FriendRequestStatus.PENDING,
-                LocalDateTime.of(2026, 6, 28, 10, 0),
-                null
-        );
+        FriendRequestResponseDto response = new FriendRequestResponseDto(100L, 1L, 2L, "TCAT-00000002", "receiver",
+                FriendRequestStatus.PENDING, LocalDateTime.of(2026, 6, 28, 10, 0), null);
 
         when(friendRequestService.sendFriendRequest(eq(loginUserId), any(FriendRequestSendRequestDto.class)))
                 .thenReturn(response);
 
         // when & then
-        mockMvc.perform(
-                        post("/api/v1/friend-requests")
+        mockMvc.perform(post("/api/v1/friend-requests")
                                 .contentType("application/json")
-                                .content(objectMapper.writeValueAsString(request))
-                )
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value(200))
                 .andExpect(jsonPath("$.body.id").value(100L))
@@ -103,34 +91,19 @@ class FriendRequestControllerTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestController.sendFriendRequest(null, request))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED"));
 
-        verify(friendRequestService, never()).sendFriendRequest(
-                anyLong(),
-                any(FriendRequestSendRequestDto.class)
-        );
+        verify(friendRequestService, never()).sendFriendRequest(anyLong(), any(FriendRequestSendRequestDto.class));
     }
 
     private void setAuthentication(Long userId) {
-        User user = User.createLocalUser(
-                "test@example.com",
-                "password",
-                "testUser",
-                Role.USER,
-                "TCAT-00000001"
-        );
+        User user = User.createLocalUser("test@example.com", "password", "testUser", Role.USER, "TCAT-00000001");
         user.setId(userId);
 
         UserPrincipal userPrincipal = new UserPrincipal(user);
 
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(
-                        userPrincipal,
-                        null,
-                        userPrincipal.getAuthorities()
-                );
+                new UsernamePasswordAuthenticationToken(userPrincipal, null, userPrincipal.getAuthorities());
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }

@@ -25,18 +25,13 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FriendApiServiceTest {
+    @Mock private FriendRepository friendRepository;
 
-    @Mock
-    private FriendRepository friendRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserProfileQueryService userProfileQueryService;
 
-    @Mock
-    private UserProfileQueryService userProfileQueryService;
-
-    @InjectMocks
-    private FriendService friendService;
+    @InjectMocks private FriendService friendService;
 
     @Test
     @DisplayName("친구 목록 조회 테스트")
@@ -47,12 +42,9 @@ class FriendApiServiceTest {
         Friend friend = Friend.create(loginUser, friendUser);
 
         when(friendRepository.findActiveFriendsByUserId(1L)).thenReturn(List.of(friend));
-        when(userProfileQueryService.getSummaryByUser(friendUser)).thenReturn(new UserSummaryProfileResponseDto(
-                friendUser.getId(),
-                friendUser.getPublicId(),
-                friendUser.getUsername(),
-                null
-        ));
+        when(userProfileQueryService.getSummaryByUser(friendUser))
+                .thenReturn(new UserSummaryProfileResponseDto(
+                        friendUser.getId(), friendUser.getPublicId(), friendUser.getUsername(), null));
 
         // when
         List<FriendResponseDto> responses = friendService.getFriends(1L);
@@ -73,12 +65,9 @@ class FriendApiServiceTest {
         Friend friend = Friend.create(loginUser, friendUser);
 
         when(friendRepository.findActiveFriendsByUserId(2L)).thenReturn(List.of(friend));
-        when(userProfileQueryService.getSummaryByUser(friendUser)).thenReturn(new UserSummaryProfileResponseDto(
-                friendUser.getId(),
-                friendUser.getPublicId(),
-                friendUser.getUsername(),
-                null
-        ));
+        when(userProfileQueryService.getSummaryByUser(friendUser))
+                .thenReturn(new UserSummaryProfileResponseDto(
+                        friendUser.getId(), friendUser.getPublicId(), friendUser.getUsername(), null));
 
         // when
         List<FriendResponseDto> responses = friendService.getFriends(2L);
@@ -117,24 +106,11 @@ class FriendApiServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendService.deleteFriend(1L, 2L))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_NOT_FOUND")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_NOT_FOUND"));
     }
 
-    private User createUser(
-            Long id,
-            String email,
-            String username,
-            String publicId
-    ) {
-        User user = User.createLocalUser(
-                email,
-                "password",
-                username,
-                Role.USER,
-                publicId
-        );
+    private User createUser(Long id, String email, String username, String publicId) {
+        User user = User.createLocalUser(email, "password", username, Role.USER, publicId);
         user.setId(id);
         return user;
     }

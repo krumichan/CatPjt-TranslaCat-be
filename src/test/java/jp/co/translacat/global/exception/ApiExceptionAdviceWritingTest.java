@@ -16,10 +16,8 @@ class ApiExceptionAdviceWritingTest {
 
     @Test
     void writingVerifierOutageIsServiceFailureWithSafeCode() {
-        var failure = new AiServerCommunicationException(
-                "AI Server Language Learning Daily Generation Error",
-                "WRITING_VERIFICATION_UNAVAILABLE", false, 503, new RuntimeException("private provider body")
-        );
+        var failure = new AiServerCommunicationException("AI Server Language Learning Daily Generation Error",
+                "WRITING_VERIFICATION_UNAVAILABLE", false, 503, new RuntimeException("private provider body"));
         var result = advice.handleAiServerCommunicationException(failure);
         ResponseDto<ErrorDto> response = result.getBody();
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
@@ -31,29 +29,23 @@ class ApiExceptionAdviceWritingTest {
 
     @Test
     void writingCandidateExhaustionIsNotAnInfrastructureFailure() {
-        var failure = new AiServerCommunicationException(
-                "AI Server Language Learning Daily Generation Error",
-                "WRITING_GENERATION_VALIDATION_EXHAUSTED", false, 422, null
-        );
+        var failure = new AiServerCommunicationException("AI Server Language Learning Daily Generation Error",
+                "WRITING_GENERATION_VALIDATION_EXHAUSTED", false, 422, null);
         var result = advice.handleAiServerCommunicationException(failure);
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
-        assertThat(result.getBody().getBody().getErrorCode())
-                .isEqualTo("WRITING_GENERATION_VALIDATION_EXHAUSTED");
+        assertThat(result.getBody().getBody().getErrorCode()).isEqualTo("WRITING_GENERATION_VALIDATION_EXHAUSTED");
     }
 
     @Test
     void writingFailureRetainsExistingRequestTraceId() {
         var request = new MockHttpServletRequest();
         request.setRequestURI("/api/v1/language-learning/writing/daily/1/regenerate");
-        request.setAttribute("_REQUEST_CONTEXT_VO", new RequestContextDto(
-                request.getRequestURI(), "POST", "writing-trace-1", request
-        ));
+        request.setAttribute("_REQUEST_CONTEXT_VO",
+                new RequestContextDto(request.getRequestURI(), "POST", "writing-trace-1", request));
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
         try {
-            var failure = new AiServerCommunicationException(
-                    "AI Server Language Learning Daily Generation Error",
-                    "WRITING_VERIFICATION_UNAVAILABLE", false, 503, null
-            );
+            var failure = new AiServerCommunicationException("AI Server Language Learning Daily Generation Error",
+                    "WRITING_VERIFICATION_UNAVAILABLE", false, 503, null);
             var result = advice.handleAiServerCommunicationException(failure);
             assertThat(result.getBody().getGuid()).isEqualTo("writing-trace-1");
             assertThat(result.getBody().getBody().getPath())

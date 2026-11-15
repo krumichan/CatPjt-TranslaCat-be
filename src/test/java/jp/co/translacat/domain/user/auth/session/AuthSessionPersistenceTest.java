@@ -75,7 +75,8 @@ class AuthSessionPersistenceTest {
 
     @AfterAll
     static void closeDatabase() {
-        if (context != null) context.close();
+        if (context != null)
+            context.close();
     }
 
     @BeforeEach
@@ -90,8 +91,8 @@ class AuthSessionPersistenceTest {
         sessions.deleteAll();
         legacy.deleteAll();
         users.deleteAll();
-        user = users.saveAndFlush(User.createLocalUser("session@example.invalid", "synthetic-password-hash",
-                "Session tester", Role.USER, "session-test"));
+        user = users.saveAndFlush(User.createLocalUser(
+                "session@example.invalid", "synthetic-password-hash", "Session tester", Role.USER, "session-test"));
         SecurityContextHolder.clearContext();
     }
 
@@ -111,9 +112,12 @@ class AuthSessionPersistenceTest {
             String sid = jwt.getSessionId(pair.getAccessToken());
             assertThat(jwt.getSessionId(pair.getRefreshToken())).isEqualTo(sid);
             AuthSession stored = sessions.findById(sid).orElseThrow();
-            assertThat(stored.getRefreshTokenHash()).hasSize(64).isEqualTo(AuthSessionService.hash(pair.getRefreshToken()));
+            assertThat(stored.getRefreshTokenHash())
+                    .hasSize(64)
+                    .isEqualTo(AuthSessionService.hash(pair.getRefreshToken()));
             assertThat(stored.getRefreshTokenHash()).isNotEqualTo(pair.getRefreshToken());
-            assertThat(service.refreshAccessToken(pair.getRefreshToken()).getRefreshToken()).isEqualTo(pair.getRefreshToken());
+            assertThat(service.refreshAccessToken(pair.getRefreshToken()).getRefreshToken())
+                    .isEqualTo(pair.getRefreshToken());
             assertThat(jwt.getAccessId(pair.getAccessToken())).isEqualTo(user.getId());
         }
     }
@@ -131,7 +135,8 @@ class AuthSessionPersistenceTest {
         assertThatThrownBy(() -> service.refreshAccessToken(phone.getRefreshToken())).isInstanceOf(AuthException.class);
         assertThatThrownBy(() -> jwt.getAccessId(phone.getAccessToken())).isInstanceOf(JwtException.class);
         assertThat(jwt.validateToken(phone.getAccessToken(), new UserPrincipal(user))).isFalse();
-        assertThat(service.refreshAccessToken(web.getRefreshToken()).getRefreshToken()).isEqualTo(web.getRefreshToken());
+        assertThat(service.refreshAccessToken(web.getRefreshToken()).getRefreshToken())
+                .isEqualTo(web.getRefreshToken());
         assertThat(jwt.getAccessId(web.getAccessToken())).isEqualTo(user.getId());
         assertThat(sessions.findById(jwt.getSessionId(web.getAccessToken())).orElseThrow().getRevokedAt()).isNull();
     }
@@ -199,7 +204,8 @@ class AuthSessionPersistenceTest {
         var another = tokens.create(user);
         service.logout(oldAccess);
         assertThat(legacy.findById(user.getId())).isEmpty();
-        assertThat(service.refreshAccessToken(another.getRefreshToken()).getRefreshToken()).isEqualTo(another.getRefreshToken());
+        assertThat(service.refreshAccessToken(another.getRefreshToken()).getRefreshToken())
+                .isEqualTo(another.getRefreshToken());
         assertThatThrownBy(() -> service.refreshAccessToken(oldRefresh)).isInstanceOf(AuthException.class);
     }
 
@@ -249,8 +255,9 @@ class AuthSessionPersistenceTest {
         request.addHeader("Authorization", authorization);
         var authenticated = new AtomicBoolean();
         try {
-            filter.doFilter(request, new MockHttpServletResponse(), (ignoredRequest, ignoredResponse) ->
-                    authenticated.set(SecurityContextHolder.getContext().getAuthentication() != null));
+            filter.doFilter(request, new MockHttpServletResponse(),
+                    (ignoredRequest, ignoredResponse)
+                            -> authenticated.set(SecurityContextHolder.getContext().getAuthentication() != null));
             return authenticated.get();
         } finally {
             SecurityContextHolder.clearContext();
@@ -260,43 +267,55 @@ class AuthSessionPersistenceTest {
     @Configuration(proxyBeanMethods = false)
     @EnableTransactionManagement
     @EnableJpaRepositories(basePackageClasses = {AuthSessionRepository.class, UserRepository.class},
-            excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RecentViewRepository.class))
+            excludeFilters =
+                    @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RecentViewRepository.class))
     static class Database {
-        @Bean DataSource dataSource() {
-            return new DriverManagerDataSource("jdbc:h2:mem:auth_sessions;MODE=MySQL;NON_KEYWORDS=USER;DB_CLOSE_DELAY=-1", "sa", "");
+        @Bean
+        DataSource dataSource() {
+            return new DriverManagerDataSource(
+                    "jdbc:h2:mem:auth_sessions;MODE=MySQL;NON_KEYWORDS=USER;DB_CLOSE_DELAY=-1", "sa", "");
         }
 
-        @Bean LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource source) {
+        @Bean
+        LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource source) {
             var factory = new LocalContainerEntityManagerFactoryBean();
             factory.setDataSource(source);
             factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
             factory.setManagedTypes(PersistenceManagedTypes.of(AuthSession.class.getName(), User.class.getName(),
                     RefreshToken.class.getName(), UserAllowed.class.getName()));
-            factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto", "create-drop",
-                    "hibernate.physical_naming_strategy", "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"));
+            factory.setJpaPropertyMap(
+                    Map.of("hibernate.hbm2ddl.auto", "create-drop", "hibernate.physical_naming_strategy",
+                            "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"));
             return factory;
         }
 
-        @Bean PlatformTransactionManager transactionManager(EntityManagerFactory factory) {
+        @Bean
+        PlatformTransactionManager transactionManager(EntityManagerFactory factory) {
             return new JpaTransactionManager(factory);
         }
 
-        @Bean JWTService jwtService(AuthSessionRepository repository) {
-            return new JWTService("c2Vzc2lvbi1wZXJzaXN0ZW5jZS10ZXN0LXN5bnRoZXRpYy1rZXktMjAyNg==", 300000, 604800000, repository);
+        @Bean
+        JWTService jwtService(AuthSessionRepository repository) {
+            return new JWTService(
+                    "c2Vzc2lvbi1wZXJzaXN0ZW5jZS10ZXN0LXN5bnRoZXRpYy1rZXktMjAyNg==", 300000, 604800000, repository);
         }
 
-        @Bean AuthSessionService authSessionService(AuthSessionRepository repository, UserRepository users, JWTService jwt) {
+        @Bean
+        AuthSessionService authSessionService(AuthSessionRepository repository, UserRepository users, JWTService jwt) {
             return new AuthSessionService(repository, users, jwt);
         }
 
-        @Bean MyUserDetailsService userDetailsService(UserRepository users) {
+        @Bean
+        MyUserDetailsService userDetailsService(UserRepository users) {
             return new MyUserDetailsService(users);
         }
 
-        @Bean UserService userService(UserRepository users, RefreshTokenRepository refresh,
-                                     UserAllowedRepository allowed, JWTService jwt, AuthSessionService sessions) {
-            return new UserService(users, refresh, allowed, jwt, mock(AuthenticationManager.class), mock(PasswordEncoder.class),
-                    mock(EmailVerificationService.class), mock(UserProfileRepository.class), mock(AuthAttemptLimiter.class), sessions,
+        @Bean
+        UserService userService(UserRepository users, RefreshTokenRepository refresh, UserAllowedRepository allowed,
+                JWTService jwt, AuthSessionService sessions) {
+            return new UserService(users, refresh, allowed, jwt, mock(AuthenticationManager.class),
+                    mock(PasswordEncoder.class), mock(EmailVerificationService.class),
+                    mock(UserProfileRepository.class), mock(AuthAttemptLimiter.class), sessions,
                     mock(jp.co.translacat.domain.user.deletion.AccountDeletionIdentityGate.class));
         }
     }

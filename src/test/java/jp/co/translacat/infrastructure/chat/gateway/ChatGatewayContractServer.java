@@ -51,39 +51,38 @@ public final class ChatGatewayContractServer {
         settings.put("chat.core.identity.environment", "Development");
         settings.put("chat.core.identity.secret-base64", required("CHAT_GATEWAY_CONTRACT_CORE_KEY"));
         settings.put("spring.config.location", "optional:classpath:/chat-gateway-contract-isolated.properties");
-        settings.put("spring.config.additional-location",
-                "optional:classpath:/chat-gateway-contract-isolated.properties");
+        settings.put(
+                "spring.config.additional-location", "optional:classpath:/chat-gateway-contract-isolated.properties");
         settings.put("spring.config.import", "optional:classpath:/chat-gateway-contract-isolated.properties");
         settings.put("spring.profiles.active", "chat-contract-test");
         var context = (ServletWebServerApplicationContext) new SpringApplicationBuilder(TestApplication.class)
-                .run(settings.entrySet()
-                        .stream()
-                        .map(entry -> "--" + entry.getKey() + "=" + entry.getValue())
-                        .toArray(String[]::new));
+                              .run(settings.entrySet()
+                                              .stream()
+                                              .map(entry -> "--" + entry.getKey() + "=" + entry.getValue())
+                                              .toArray(String[] ::new));
         var user = User.createLocalUser("gateway@example.invalid", "synthetic", "synthetic", Role.ADMIN, "synthetic");
         user.setId(73L);
-        when(context.getBean(UserRepository.class).findByEmail("gateway@example.invalid")).thenReturn(
-                Optional.of(user));
+        when(context.getBean(UserRepository.class).findByEmail("gateway@example.invalid"))
+                .thenReturn(Optional.of(user));
         Files.writeString(Path.of(required("CHAT_GATEWAY_CONTRACT_MANIFEST")),
                 "{\"origin\":\"http://127.0.0.1:" + context.getWebServer().getPort() + "\"}");
     }
 
     private static String required(String name) {
         var value = System.getenv(name);
-        if (value == null || value.isBlank()) throw new IllegalStateException("Test fixture setting missing.");
+        if (value == null || value.isBlank())
+            throw new IllegalStateException("Test fixture setting missing.");
         return value;
     }
 
     @TestConfiguration(proxyBeanMethods = false)
-    @EnableAutoConfiguration(exclude = {
-            DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
-            UserDetailsServiceAutoConfiguration.class
-    }, excludeName = "org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration")
-    @Import({
-            ChatGatewayConfiguration.class, ChatGatewaySecurity.class, ChatGatewayWebSocketConfiguration.class,
-            ChatCoreIdentitySecurity.class, ChatCoreIdentityController.class, SecurityConfig.class,
-            JwtFilter.class, JWTService.class, MyUserDetailsService.class, ApiLoggingFilter.class
-    })
+    @EnableAutoConfiguration(exclude = {DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
+                                     UserDetailsServiceAutoConfiguration.class},
+            excludeName =
+                    "org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration")
+    @Import({ChatGatewayConfiguration.class, ChatGatewaySecurity.class, ChatGatewayWebSocketConfiguration.class,
+            ChatCoreIdentitySecurity.class, ChatCoreIdentityController.class, SecurityConfig.class, JwtFilter.class,
+            JWTService.class, MyUserDetailsService.class, ApiLoggingFilter.class})
     static class TestApplication {
         @Bean
         UserRepository userRepository() {

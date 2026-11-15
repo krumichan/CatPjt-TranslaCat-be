@@ -27,21 +27,13 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(
-        controllers = {
-                SupportInquiryController.class, SupportNoticeController.class,
-                SupportMessageController.class, SupportNotificationController.class
-        },
-        properties = {
-                "cors.allowed-origin=http://localhost:3000",
+@WebMvcTest(controllers = {SupportInquiryController.class, SupportNoticeController.class,
+                    SupportMessageController.class, SupportNotificationController.class},
+        properties = {"cors.allowed-origin=http://localhost:3000",
                 "jwt.token.secret-key=dGVzdC1zZWNyZXQta2V5LXRlc3Qtc2VjcmV0LWtleQ==",
-                "jwt.token.expired.access=86400000",
-                "jwt.token.expired.refresh=604800000"
-        }
-)
+                "jwt.token.expired.access=86400000", "jwt.token.expired.refresh=604800000"})
 @Import({SecurityConfig.class, JwtFilter.class, JWTService.class, ApiLoggingFilter.class})
 class SupportControllerTest {
-
     @Autowired MockMvc mvc;
     @MockitoBean SupportInquiryService inquiries;
     @MockitoBean SupportNoticeService notices;
@@ -64,11 +56,15 @@ class SupportControllerTest {
         String message = "{\"recipientId\":8,\"title\":\"안내\",\"content\":\"본문\"}";
 
         // 실행 및 검증
-        mvc.perform(post("/api/v1/support/notices").with(actor(Role.USER))
-                        .contentType(MediaType.APPLICATION_JSON).content(notice))
+        mvc.perform(post("/api/v1/support/notices")
+                            .with(actor(Role.USER))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(notice))
                 .andExpect(status().isForbidden());
-        mvc.perform(post("/api/v1/support/messages").with(actor(Role.USER))
-                        .contentType(MediaType.APPLICATION_JSON).content(message))
+        mvc.perform(post("/api/v1/support/messages")
+                            .with(actor(Role.USER))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(message))
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/support/recipients").with(actor(Role.USER)).param("query", "name"))
                 .andExpect(status().isForbidden());
@@ -79,15 +75,20 @@ class SupportControllerTest {
     void blankAndOversizedInputsAreRejectedBeforePersistence() throws Exception {
         // 준비
         String blank = "{\"title\":\"  \",\"content\":\"본문\",\"category\":\"GENERAL\"}";
-        String tooLong = "{\"content\":\"" + "가".repeat(10001) + "\"}";
+        String tooLong = "{\"content\":\""
+                + "가".repeat(10001) + "\"}";
 
         // 실행 및 검증
-        mvc.perform(post("/api/v1/support/inquiries").with(actor(Role.USER))
-                        .contentType(MediaType.APPLICATION_JSON).content(blank))
+        mvc.perform(post("/api/v1/support/inquiries")
+                            .with(actor(Role.USER))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(blank))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.body.errorCode").value("SUPPORT_INVALID_REQUEST"));
-        mvc.perform(post("/api/v1/support/inquiries/1/replies").with(actor(Role.USER))
-                        .contentType(MediaType.APPLICATION_JSON).content(tooLong))
+        mvc.perform(post("/api/v1/support/inquiries/1/replies")
+                            .with(actor(Role.USER))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(tooLong))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(inquiries);
     }
@@ -97,8 +98,10 @@ class SupportControllerTest {
         // 실행 및 검증
         mvc.perform(get("/api/v1/support/inquiries").with(actor(Role.USER)).param("status", "INVALID"))
                 .andExpect(status().isBadRequest());
-        mvc.perform(patch("/api/v1/support/inquiries/1/status").with(actor(Role.USER))
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"INVALID\"}"))
+        mvc.perform(patch("/api/v1/support/inquiries/1/status")
+                            .with(actor(Role.USER))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\":\"INVALID\"}"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(inquiries);
     }
@@ -124,8 +127,10 @@ class SupportControllerTest {
         when(inquiries.reply(eq(7L), eq(1L), any())).thenThrow(SupportException.closed());
 
         // 실행 및 검증
-        mvc.perform(post("/api/v1/support/inquiries/1/replies").with(actor(Role.USER))
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"content\":\"답변\"}"))
+        mvc.perform(post("/api/v1/support/inquiries/1/replies")
+                            .with(actor(Role.USER))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"content\":\"답변\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.body.errorCode").value("SUPPORT_INQUIRY_CLOSED"));
     }
@@ -148,9 +153,11 @@ class SupportControllerTest {
         mvc.perform(get("/api/v1/support/notices/urgent").with(actor(Role.USER)).param("userId", "8"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.body").isArray());
-        mvc.perform(put("/api/v1/support/notices/12/dismiss").with(actor(Role.USER))
-                        .param("userId", "8")
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"userId\":8}"))
+        mvc.perform(put("/api/v1/support/notices/12/dismiss")
+                            .with(actor(Role.USER))
+                            .param("userId", "8")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"userId\":8}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.body").value(true));
         verify(notices).pendingUrgent(7L);
@@ -164,11 +171,15 @@ class SupportControllerTest {
         String unknown = "{\"title\":\"공지\",\"content\":\"본문\",\"noticeType\":\"IMPORTANT\"}";
 
         // 실행 및 검증: 예전 필드만 보낸 요청도 일반 공지로 조용히 저장하지 않는다.
-        mvc.perform(post("/api/v1/support/notices").with(actor(Role.ADMIN))
-                        .contentType(MediaType.APPLICATION_JSON).content(missing))
+        mvc.perform(post("/api/v1/support/notices")
+                            .with(actor(Role.ADMIN))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(missing))
                 .andExpect(status().isBadRequest());
-        mvc.perform(put("/api/v1/support/notices/12").with(actor(Role.ADMIN))
-                        .contentType(MediaType.APPLICATION_JSON).content(unknown))
+        mvc.perform(put("/api/v1/support/notices/12")
+                            .with(actor(Role.ADMIN))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(unknown))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(notices);
     }
@@ -177,14 +188,14 @@ class SupportControllerTest {
     void administratorCreatesTypedNoticeWithoutLegacyImportanceField() throws Exception {
         // 준비
         var request = new NoticeWriteRequestDto("긴급 안내", "본문", NoticeType.URGENT);
-        when(notices.create(7L, request)).thenReturn(
-                new NoticeResponseDto(12L, "긴급 안내", "본문", NoticeType.URGENT, "관리자", null, null)
-        );
+        when(notices.create(7L, request))
+                .thenReturn(new NoticeResponseDto(12L, "긴급 안내", "본문", NoticeType.URGENT, "관리자", null, null));
 
         // 실행 및 검증
-        mvc.perform(post("/api/v1/support/notices").with(actor(Role.ADMIN))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"title\":\"긴급 안내\",\"content\":\"본문\",\"noticeType\":\"URGENT\"}"))
+        mvc.perform(post("/api/v1/support/notices")
+                            .with(actor(Role.ADMIN))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"title\":\"긴급 안내\",\"content\":\"본문\",\"noticeType\":\"URGENT\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value(201))
                 .andExpect(jsonPath("$.body.noticeType").value("URGENT"))

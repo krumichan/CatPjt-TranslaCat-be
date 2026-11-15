@@ -18,13 +18,12 @@ class KeywordLegacyBoundaryTest {
     void productionSourcesDoNotReferenceRetiredCatalogEntitiesOrServices() throws Exception {
         // 준비
         Path main = Path.of("src/main/java/jp/co/translacat");
-        List<String> retired =
-                List.of("SystemKeyword", "CustomKeyword", "SystemKeywordLocale", "UserSystemKeywordSelection",
-                        "SystemKeywordRepository", "CustomKeywordRepository", "SystemKeywordLocaleRepository",
-                        "UserSystemKeywordSelectionRepository", "CustomKeywordCommandService",
-                        "SystemKeywordCommandService", "SystemKeywordSelectionCommandService",
-                        "LanguageLearningKeywordQueryService", "KeywordApplicationTimingPolicy",
-                        "KeywordValidationPolicy", "KeywordHierarchyPolicy");
+        List<String> retired = List.of("SystemKeyword", "CustomKeyword", "SystemKeywordLocale",
+                "UserSystemKeywordSelection", "SystemKeywordRepository", "CustomKeywordRepository",
+                "SystemKeywordLocaleRepository", "UserSystemKeywordSelectionRepository", "CustomKeywordCommandService",
+                "SystemKeywordCommandService", "SystemKeywordSelectionCommandService",
+                "LanguageLearningKeywordQueryService", "KeywordApplicationTimingPolicy", "KeywordValidationPolicy",
+                "KeywordHierarchyPolicy");
         var forbidden = Pattern.compile("\\b(" + String.join("|", retired) + ")\\b");
         // 실행 및 검증
         assertTrue(Files.isDirectory(main));

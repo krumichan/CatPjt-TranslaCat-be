@@ -22,13 +22,8 @@ class ChatCoreServiceTokenTest {
     private static final Instant NOW = Instant.parse("2026-09-27T00:00:00Z");
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "chat:accounts:read",
-            "chat:relations:read",
-            "chat:storage:read",
-            "chat:storage:write",
-            "chat:storage:delete"
-    })
+    @ValueSource(strings = {"chat:accounts:read", "chat:relations:read", "chat:storage:read", "chat:storage:write",
+                         "chat:storage:delete"})
     void exactWorkerScopeIsSeparatedFromUserIdentity(String scope) {
         // 준비
         var verifier = verifier();
@@ -44,20 +39,8 @@ class ChatCoreServiceTokenTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "user-sub",
-            "other-service",
-            "roles",
-            "identity-use",
-            "wrong-scope",
-            "extra-scope",
-            "empty-scope",
-            "wrong-env",
-            "expired",
-            "future",
-            "long-ttl",
-            "string-iat"
-    })
+    @ValueSource(strings = {"user-sub", "other-service", "roles", "identity-use", "wrong-scope", "extra-scope",
+                         "empty-scope", "wrong-env", "expired", "future", "long-ttl", "string-iat"})
     void malformedOrOverprivilegedServiceClaimsFailClosed(String change) {
         // 준비
         var payload = claims("chat:accounts:read");

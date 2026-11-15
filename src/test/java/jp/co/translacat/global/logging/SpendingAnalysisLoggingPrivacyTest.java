@@ -19,12 +19,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SpendingAnalysisLoggingPrivacyTest {
     @ParameterizedTest
-    @ValueSource(strings = {
-            "/api/v1/account-books/30001/spending-analysis",
-            "/api/v1/account-books/30001/spending-analysis/snapshot",
-            "/api/v1/account-books/30001/spending-analysis/history",
-            "/api/v1/account-books/30001/spending-analysis/history/8cfcb3f0-2018-4000-a1b2-123456789abc"
-    })
+    @ValueSource(strings = {"/api/v1/account-books/30001/spending-analysis",
+                         "/api/v1/account-books/30001/spending-analysis/snapshot",
+                         "/api/v1/account-books/30001/spending-analysis/history",
+                         "/api/v1/account-books/30001/spending-analysis/history/8cfcb3f0-2018-4000-a1b2-123456789abc"})
     void analysisFamilyDoesNotLogCommentsResultsOrIdentityAndDoesNotBufferBodies(String path) throws Exception {
         verifyRedacted(path, "");
     }
@@ -57,7 +55,8 @@ class SpendingAnalysisLoggingPrivacyTest {
             new ApiLoggingFilter().doFilter(request, response, (req, res) -> {
                 assertThat(req).isSameAs(request);
                 assertThat(res).isSameAs(response);
-                assertThat(new String(req.getInputStream().readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("private-comment");
+                assertThat(new String(req.getInputStream().readAllBytes(), StandardCharsets.UTF_8))
+                        .isEqualTo("private-comment");
                 response.setStatus(502);
                 res.getWriter().write("private-analysis-evidence-response");
             });
@@ -69,10 +68,13 @@ class SpendingAnalysisLoggingPrivacyTest {
         }
 
         // 검증: 고정 경로·상태만 기록하며 실제 응답과 오류 상태는 유지한다.
-        String text = logs.list.stream().map(ILoggingEvent::getFormattedMessage)
-                .collect(java.util.stream.Collectors.joining("\n"));
-        assertThat(text).contains("SPENDING_ANALYSIS_REDACTED", "Status: 502")
-                .doesNotContain("30001", "private-comment", "private-analysis-evidence-response", "private-token", "private-user@example.test");
+        String text = logs.list.stream()
+                              .map(ILoggingEvent::getFormattedMessage)
+                              .collect(java.util.stream.Collectors.joining("\n"));
+        assertThat(text)
+                .contains("SPENDING_ANALYSIS_REDACTED", "Status: 502")
+                .doesNotContain("30001", "private-comment", "private-analysis-evidence-response", "private-token",
+                        "private-user@example.test");
         assertThat(response.getStatus()).isEqualTo(502);
         assertThat(response.getContentAsString()).isEqualTo("private-analysis-evidence-response");
     }

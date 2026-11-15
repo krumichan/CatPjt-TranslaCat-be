@@ -23,7 +23,8 @@ class VoiceLanguageRetryTest {
     private final VoiceTranslationRetryQueryService retry = new VoiceTranslationRetryQueryService(segments);
 
     @ParameterizedTest
-    @ValueSource(strings = {"VOICE_AI_LANGUAGE_MISMATCH", "VOICE_AI_UNSUPPORTED_LANGUAGE", "VOICE_AI_LANGUAGE_UNDETERMINED"})
+    @ValueSource(
+            strings = {"VOICE_AI_LANGUAGE_MISMATCH", "VOICE_AI_UNSUPPORTED_LANGUAGE", "VOICE_AI_LANGUAGE_UNDETERMINED"})
     void languageRejectionIsPreservedAndCannotBeRetried(String code) {
         // 준비: 원문은 저장됐으나 언어 필터가 번역을 거절한 경우다.
         var session = mock(VoiceSession.class);
@@ -35,8 +36,7 @@ class VoiceLanguageRetryTest {
                 .thenReturn(Optional.of(segment));
         var mapper = new ObjectMapper();
         var finals = new VoiceFinalResultCommandService(sessions, segments, mock(VoiceUsageLedgerRepository.class),
-                mock(VoiceStreamCommandService.class), mapper,
-                mock(VoiceSourceReadingService.class));
+                mock(VoiceStreamCommandService.class), mapper, mock(VoiceSourceReadingService.class));
         var event = mapper.createObjectNode();
         event.put("sourceText", "A rejected utterance");
         event.putObject("error").put("stage", "LANGUAGE").put("code", code);

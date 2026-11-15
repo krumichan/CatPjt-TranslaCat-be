@@ -16,7 +16,8 @@ class AuthSessionMigrationTest {
     void migration_is_repeatable_preserves_legacy_rows_and_matches_new_mapping() throws Exception {
         // 준비: 이전 사용자·refresh 구조에 합성 fixture를 만들고 새 migration만 적용한다.
         String url = "jdbc:h2:mem:auth-session-migration;MODE=MySQL;DB_CLOSE_DELAY=-1";
-        try (var connection = DriverManager.getConnection(url, "sa", ""); var statement = connection.createStatement()) {
+        try (var connection = DriverManager.getConnection(url, "sa", "");
+                var statement = connection.createStatement()) {
             statement.execute("create table `user` (id bigint primary key)");
             statement.execute("create table refresh_token (user_id bigint primary key, token varchar(8192))");
             statement.execute("insert into `user` values (11)");
@@ -39,14 +40,13 @@ class AuthSessionMigrationTest {
         }
 
         // 검증: 실제 migration 컬럼이 신규 JPA mapping의 validation을 만족한다.
-        var registry = new StandardServiceRegistryBuilder().applySettings(Map.of(
-                "hibernate.connection.driver_class", "org.h2.Driver",
-                "hibernate.connection.url", url,
-                "hibernate.connection.username", "sa",
-                "hibernate.connection.password", "",
-                "hibernate.hbm2ddl.auto", "validate",
-                "hibernate.physical_naming_strategy", "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"
-        )).build();
+        var registry = new StandardServiceRegistryBuilder()
+                               .applySettings(Map.of("hibernate.connection.driver_class", "org.h2.Driver",
+                                       "hibernate.connection.url", url, "hibernate.connection.username", "sa",
+                                       "hibernate.connection.password", "", "hibernate.hbm2ddl.auto", "validate",
+                                       "hibernate.physical_naming_strategy",
+                                       "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"))
+                               .build();
         try {
             var metadata = new MetadataSources(registry).addAnnotatedClass(AuthSession.class).buildMetadata();
             try (var factory = metadata.buildSessionFactory()) {

@@ -27,9 +27,14 @@ class KeywordInternalJwtTest {
 
     private Claims claims(String token) {
         // 발급기와 검증기의 시간을 모두 고정한다. 실제 날짜가 바뀌어도 테스트가 만료되지 않는다.
-        return Jwts.parser().clock(() -> Date.from(NOW)).verifyWith(Keys.hmacShaKeyFor(KEY))
-                .requireIssuer("translacat-be").requireAudience("translacat-ll")
-                .build().parseSignedClaims(token).getPayload();
+        return Jwts.parser()
+                .clock(() -> Date.from(NOW))
+                .verifyWith(Keys.hmacShaKeyFor(KEY))
+                .requireIssuer("translacat-be")
+                .requireAudience("translacat-ll")
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     @Test

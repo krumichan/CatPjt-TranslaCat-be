@@ -19,7 +19,8 @@ class AuthInputsTest {
         // 검증
         assertThat(normalized).isEqualTo("first.last+cat@gmail.com");
         assertThatThrownBy(() -> AuthInputs.normalizeEmail("a..b@example.com")).isInstanceOf(AuthException.class);
-        assertThatThrownBy(() -> AuthInputs.normalizeEmail("a@example.com\r\nBcc: x@example.com")).isInstanceOf(AuthException.class);
+        assertThatThrownBy(() -> AuthInputs.normalizeEmail("a@example.com\r\nBcc: x@example.com"))
+                .isInstanceOf(AuthException.class);
     }
 
     @Test

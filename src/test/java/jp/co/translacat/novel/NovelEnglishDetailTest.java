@@ -34,7 +34,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class NovelEnglishDetailTest {
-    @Test void englishDetailKeepsSourceAndNeverGeneratesOrOverwritesKoreanMetadata() throws Exception {
+    @Test
+    void englishDetailKeepsSourceAndNeverGeneratesOrOverwritesKoreanMetadata() throws Exception {
         // 준비: 새 상세 원문에도 한국어 자동 번역 경로가 호출되지 않아야 한다.
         var platform = mock(Platform.class);
         var template = mock(PlatformUrlTemplate.class);
@@ -47,11 +48,21 @@ class NovelEnglishDetailTest {
         when(strategy.getPlatformCode()).thenReturn(PlatformCode.SYOSETU);
         when(strategy.getUrl("source-template", "n123aa", 1)).thenReturn("synthetic-source");
         var title = TranslationUnit.of("猫", "猫", "기존 한국어");
-        var context = NovelContext.builder().title(title).author(TranslationUnit.of("作者"))
-                .synopsis(TranslationUnit.of("紹介")).build();
-        when(strategy.scrape("synthetic-source")).thenReturn(NovelDetailContext.builder().novelContext(context)
-                .pageNumberContext(PageNumberContext.empty()).rawEpisodeContexts(List.of(
-                        RawEpisodeContext.builder().sequence(1).identifier("1").title(TranslationUnit.of("第一話")).build())).build());
+        var context = NovelContext.builder()
+                              .title(title)
+                              .author(TranslationUnit.of("作者"))
+                              .synopsis(TranslationUnit.of("紹介"))
+                              .build();
+        when(strategy.scrape("synthetic-source"))
+                .thenReturn(NovelDetailContext.builder()
+                                .novelContext(context)
+                                .pageNumberContext(PageNumberContext.empty())
+                                .rawEpisodeContexts(List.of(RawEpisodeContext.builder()
+                                                .sequence(1)
+                                                .identifier("1")
+                                                .title(TranslationUnit.of("第一話"))
+                                                .build()))
+                                .build());
         var ruby = mock(NovelRubyFormatter.class);
         when(ruby.markup(anyString())).thenAnswer(call -> call.getArgument(0));
         var executor = mock(TranslationExecutor.class);
@@ -60,7 +71,8 @@ class NovelEnglishDetailTest {
         var episodes = mock(EpisodeService.class);
         var recent = mock(RecentViewService.class);
         var service = new NovelService(mock(jp.co.translacat.domain.novel.novel.repository.NovelRepository.class),
-                List.of(strategy), saver, platforms, recent, episodes, episodeSaver, executor, mock(FuriganaProcessor.class), ruby);
+                List.of(strategy), saver, platforms, recent, episodes, episodeSaver, executor,
+                mock(FuriganaProcessor.class), ruby);
 
         // 실행
         var detail = service.episodes(PlatformCode.SYOSETU, "n123aa", 1, "en");
@@ -75,11 +87,14 @@ class NovelEnglishDetailTest {
         verifyNoInteractions(executor, saver, episodeSaver, episodes, recent);
     }
 
-    @Test void detailSharesOnlyReadyEnglishMetadataWithTheSameSourceGlossaryAndCurrentPolicy() throws Exception {
+    @Test
+    void detailSharesOnlyReadyEnglishMetadataWithTheSameSourceGlossaryAndCurrentPolicy() throws Exception {
         // 준비: 실제 저장소에 완료된 영어 목록 결과를 저장한다.
-        var data = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
-        new ResourceDatabasePopulator(new ClassPathResource("novel-embedded-h2.sql"),
-                new ClassPathResource("novel-catalog-h2.sql")).execute(data);
+        var data = new DriverManagerDataSource(
+                "jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
+        new ResourceDatabasePopulator(
+                new ClassPathResource("novel-embedded-h2.sql"), new ClassPathResource("novel-catalog-h2.sql"))
+                .execute(data);
         var jdbc = new JdbcTemplate(data);
         var json = new ObjectMapper();
         var catalogs = new CatalogStore(jdbc, json, new DataSourceTransactionManager(data));
@@ -88,23 +103,32 @@ class NovelEnglishDetailTest {
         when(ai.model()).thenReturn("model");
         String policy = CatalogCommandService.policyIdentity(settings, ai);
         var source = new CatalogModels.SourceCard("n123aa", 1, 0, "猫", "作者", "紹介", "連載", "", false);
-        jdbc.update("INSERT INTO novel_catalog_translation(cache_key,actor_id,platform,work_id,source_revision,language,policy_identity,source_json,glossary_json,state,result_json,trace_id,diagnostics_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                "english", 7, "syosyetu", "n123aa", "revision", "en", policy, json.writeValueAsString(source), "{}", "READY",
-                json.writeValueAsString(Map.of("title", "A cat", "author", "An author", "synopsis", "A synopsis", "statusText", "A status")), "trace", "{}", 1L);
+        jdbc.update(
+                "INSERT INTO novel_catalog_translation(cache_key,actor_id,platform,work_id,source_revision,language,policy_identity,source_json,glossary_json,state,result_json,trace_id,diagnostics_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "english", 7, "syosyetu", "n123aa", "revision", "en", policy, json.writeValueAsString(source), "{}",
+                "READY",
+                json.writeValueAsString(Map.of(
+                        "title", "A cat", "author", "An author", "synopsis", "A synopsis", "statusText", "A status")),
+                "trace", "{}", 1L);
         var repository = mock(NovelRepository.class);
-        when(repository.glossary(any(), anyLong(), eq("en"))).thenReturn(new NovelRepository.Glossary("empty-v1", Map.of(), "en"));
+        when(repository.glossary(any(), anyLong(), eq("en")))
+                .thenReturn(new NovelRepository.Glossary("empty-v1", Map.of(), "en"));
         var recent = mock(RecentViewService.class);
         var reader = new NovelMetadataQueryService(catalogs, repository, recent, settings, ai);
         var page = new NovelPageResponseDto(null, TranslationUnit.of("猫").forTarget("en", null),
-                TranslationUnit.of("作者").forTarget("en", null), TranslationUnit.of("紹介").forTarget("en", null), List.of());
+                TranslationUnit.of("作者").forTarget("en", null), TranslationUnit.of("紹介").forTarget("en", null),
+                List.of());
 
         // 실행
         var ready = reader.english(page, "syosetu", "n123aa", 7L);
         var otherActor = reader.english(page, "syosetu", "n123aa", 8L);
         var changedSource = catalogs.readyMetadata("syosyetu", "n123aa", Map.of("title", "犬"), Map.of(), policy);
-        var changedContext = catalogs.readyMetadata("syosyetu", "n123aa", Map.of("title", "猫", "author", "別の作者"), Map.of(), policy);
-        var changedGlossary = catalogs.readyMetadata("syosyetu", "n123aa", Map.of("title", "猫"), Map.of("猫", "Kitty"), policy);
-        var changedPolicy = catalogs.readyMetadata("syosyetu", "n123aa", Map.of("title", "猫"), Map.of(), policy + "-old");
+        var changedContext = catalogs.readyMetadata(
+                "syosyetu", "n123aa", Map.of("title", "猫", "author", "別の作者"), Map.of(), policy);
+        var changedGlossary =
+                catalogs.readyMetadata("syosyetu", "n123aa", Map.of("title", "猫"), Map.of("猫", "Kitty"), policy);
+        var changedPolicy =
+                catalogs.readyMetadata("syosyetu", "n123aa", Map.of("title", "猫"), Map.of(), policy + "-old");
 
         // 검증: 다른 계정도 완료 결과를 읽지만 원문 문맥·용어집·현재 정책이 다르면 재사용하지 않는다.
         assertThat(ready.title().getTranslatedText()).isEqualTo("A cat");
@@ -118,7 +142,8 @@ class NovelEnglishDetailTest {
         assertThat(changedPolicy).isEmpty();
         verify(ai, never()).translate(anyString(), anyList(), anyList(), anyLong());
         verify(ai, never()).synthesize(anyString(), anyString(), anyString(), anyLong());
-        verify(recent, times(2)).save(PlatformCode.SYOSETU, jp.co.translacat.domain.user.enums.RecentViewType.NOVEL,
-                "n123aa", null, "猫", "", null, "A cat", "en");
+        verify(recent, times(2))
+                .save(PlatformCode.SYOSETU, jp.co.translacat.domain.user.enums.RecentViewType.NOVEL, "n123aa", null,
+                        "猫", "", null, "A cat", "en");
     }
 }

@@ -29,8 +29,10 @@ class CatalogSharedCacheTest {
     private NovelRepository novels;
     private FairAiScheduler scheduler;
 
-    @BeforeEach void setup() {
-        var data = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
+    @BeforeEach
+    void setup() {
+        var data = new DriverManagerDataSource(
+                "jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
         new ResourceDatabasePopulator(new ClassPathResource("novel-catalog-h2.sql")).execute(data);
         jdbc = new JdbcTemplate(data);
         transactions = new DataSourceTransactionManager(data);
@@ -41,9 +43,13 @@ class CatalogSharedCacheTest {
         scheduler = new FairAiScheduler(4, 256);
     }
 
-    @AfterEach void close() { scheduler.close(); }
+    @AfterEach
+    void close() {
+        scheduler.close();
+    }
 
-    @Test void concurrentAccountsShareOneClaimButKeepSnapshotAndCancelAuthorization() throws Exception {
+    @Test
+    void concurrentAccountsShareOneClaimButKeepSnapshotAndCancelAuthorization() throws Exception {
         // 준비: 서로 다른 저장소 인스턴스가 같은 DB의 번역을 요청한다.
         var ai = new RecordingAi("model");
         ai.entered = new CountDownLatch(1);
@@ -72,10 +78,12 @@ class CatalogSharedCacheTest {
         assertThat(otherStore.snapshot(2, second).state()).isEqualTo("SUCCEEDED");
         assertThat(ai.calls.get()).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_catalog_translation", Integer.class)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT attempt_count FROM novel_catalog_translation", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT attempt_count FROM novel_catalog_translation", Integer.class))
+                .isEqualTo(1);
     }
 
-    @Test void simultaneousFirstRequestsUseOneSharedRowAcrossStoreInstances() throws Exception {
+    @Test
+    void simultaneousFirstRequestsUseOneSharedRowAcrossStoreInstances() throws Exception {
         // 준비: 공통 키가 아직 없는 상태에서 두 계정이 동시에 목록을 만든다.
         var ai = new RecordingAi("model");
         var firstCommands = commands(store, ai);
@@ -106,15 +114,18 @@ class CatalogSharedCacheTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_catalog_snapshot", Integer.class)).isEqualTo(2);
     }
 
-    @Test void legacyReadyResultIsCopiedOnDemandWithoutDeletingOrRegeneratingIt() throws Exception {
+    @Test
+    void legacyReadyResultIsCopiedOnDemandWithoutDeletingOrRegeneratingIt() throws Exception {
         // 준비: 배포 전 계정 전용 키로 저장한 검증 완료 번역을 남긴다.
         var ai = new RecordingAi("model");
         var source = card("猫");
         seedLegacy("legacy", 7, source, "ko", policy(ai), Map.of(), translations(source, "기존 번역"));
-        String preserved = jdbc.queryForObject("SELECT result_json FROM novel_catalog_translation WHERE cache_key='legacy'", String.class);
-        String privateDiagnostics = mapper.writeValueAsString(Map.of("traceId", "private-provider-request",
-                "inputTokens", 420, "outputTokens", 84, "estimatedUsd", 0.12));
-        jdbc.update("UPDATE novel_catalog_translation SET diagnostics_json=? WHERE cache_key='legacy'", privateDiagnostics);
+        String preserved = jdbc.queryForObject(
+                "SELECT result_json FROM novel_catalog_translation WHERE cache_key='legacy'", String.class);
+        String privateDiagnostics = mapper.writeValueAsString(Map.of(
+                "traceId", "private-provider-request", "inputTokens", 420, "outputTokens", 84, "estimatedUsd", 0.12));
+        jdbc.update(
+                "UPDATE novel_catalog_translation SET diagnostics_json=? WHERE cache_key='legacy'", privateDiagnostics);
 
         // 실행: 다른 계정의 첫 조회에서 공통 키를 만들고 다음 계정도 이를 읽는다.
         String first = commands(store, ai).start(8, "syosetu", request("first", "ko", source), "trace");
@@ -127,17 +138,27 @@ class CatalogSharedCacheTest {
         assertThat(store.snapshot(8, first).items().getFirst().cached()).isTrue();
         assertThat(store.snapshot(9, second).items().getFirst().title().ko()).isEqualTo("기존 번역 title");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_catalog_translation", Integer.class)).isEqualTo(2);
-        assertThat(jdbc.queryForObject("SELECT result_json FROM novel_catalog_translation WHERE cache_key='legacy'", String.class)).isEqualTo(preserved);
-        assertThat(jdbc.queryForObject("SELECT actor_id FROM novel_catalog_translation WHERE cache_key='legacy'", Long.class)).isEqualTo(7L);
-        assertThat(jdbc.queryForObject("SELECT diagnostics_json FROM novel_catalog_translation WHERE cache_key='legacy'", String.class))
+        assertThat(jdbc.queryForObject(
+                           "SELECT result_json FROM novel_catalog_translation WHERE cache_key='legacy'", String.class))
+                .isEqualTo(preserved);
+        assertThat(jdbc.queryForObject(
+                           "SELECT actor_id FROM novel_catalog_translation WHERE cache_key='legacy'", Long.class))
+                .isEqualTo(7L);
+        assertThat(
+                jdbc.queryForObject("SELECT diagnostics_json FROM novel_catalog_translation WHERE cache_key='legacy'",
+                        String.class))
                 .isEqualTo(privateDiagnostics);
-        assertThat(mapper.readTree(jdbc.queryForObject("SELECT diagnostics_json FROM novel_catalog_translation WHERE cache_key<>'legacy'", String.class)))
+        assertThat(mapper.readTree(jdbc.queryForObject(
+                           "SELECT diagnostics_json FROM novel_catalog_translation WHERE cache_key<>'legacy'",
+                           String.class)))
                 .isEqualTo(mapper.valueToTree(Map.of("sharedCacheReuse", true)));
-        assertThat(jdbc.queryForObject("SELECT trace_id FROM novel_catalog_translation WHERE cache_key<>'legacy'", String.class))
+        assertThat(jdbc.queryForObject(
+                           "SELECT trace_id FROM novel_catalog_translation WHERE cache_key<>'legacy'", String.class))
                 .isEqualTo("trace");
     }
 
-    @Test void sourceTargetGlossaryAndCurrentPolicyEachRemainPartOfSharedIdentity() throws Exception {
+    @Test
+    void sourceTargetGlossaryAndCurrentPolicyEachRemainPartOfSharedIdentity() throws Exception {
         // 준비: 과거 다른 계정의 번역은 원문·목표 언어·정책·용어집이 모두 같은 경우에만 유효하다.
         var ai = new RecordingAi("model");
         var source = card("猫");
@@ -162,7 +183,8 @@ class CatalogSharedCacheTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_catalog_translation", Integer.class)).isEqualTo(5);
     }
 
-    @Test void malformedLegacyReadyResultCannotBecomeASharedCacheHit() throws Exception {
+    @Test
+    void malformedLegacyReadyResultCannotBecomeASharedCacheHit() throws Exception {
         // 준비: READY라 표시됐지만 필드가 누락된 과거 결과는 재사용할 수 없다.
         var ai = new RecordingAi("model");
         var source = card("猫");
@@ -175,11 +197,13 @@ class CatalogSharedCacheTest {
         // 검증: 잘못된 과거 행은 그대로 보존하고 정상 AI 경로로 공통 결과를 새로 만든다.
         assertThat(ai.calls.get()).isEqualTo(1);
         assertThat(store.snapshot(8, id).items().getFirst().cached()).isFalse();
-        assertThat(jdbc.queryForObject("SELECT result_json FROM novel_catalog_translation WHERE cache_key='invalid'", String.class))
+        assertThat(jdbc.queryForObject(
+                           "SELECT result_json FROM novel_catalog_translation WHERE cache_key='invalid'", String.class))
                 .isEqualTo(mapper.writeValueAsString(Map.of("title", "누락된 결과")));
     }
 
-    @Test void unserializableLegacyReadyValueIsPreservedAndExcludedFromReuse() throws Exception {
+    @Test
+    void unserializableLegacyReadyValueIsPreservedAndExcludedFromReuse() throws Exception {
         // 준비: 직렬화가 깨진 과거 READY 행을 보존한다.
         var ai = new RecordingAi("model");
         var source = card("猫");
@@ -192,26 +216,34 @@ class CatalogSharedCacheTest {
 
         // 검증: 잘못된 값은 공유하지 않고 원행도 지우지 않는다.
         assertThat(ai.calls.get()).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT result_json FROM novel_catalog_translation WHERE cache_key='broken-json'", String.class)).isEqualTo("{");
+        assertThat(
+                jdbc.queryForObject("SELECT result_json FROM novel_catalog_translation WHERE cache_key='broken-json'",
+                        String.class))
+                .isEqualTo("{");
     }
 
     private CatalogCommandService commands(CatalogStore target, RecordingAi ai) {
         return new CatalogCommandService(target, novels, ai, settings, scheduler, mapper);
     }
 
-    private String policy(RecordingAi ai) { return "catalog-v1|" + settings.options(ai).fingerprint(); }
+    private String policy(RecordingAi ai) {
+        return "catalog-v1|" + settings.options(ai).fingerprint();
+    }
 
     private void seedLegacy(String key, long actor, CatalogModels.SourceCard source, String language, String policy,
-                            Map<String, String> glossary, Map<String, String> result) throws Exception {
+            Map<String, String> glossary, Map<String, String> result) throws Exception {
         String revision = SentenceSegmenter.hash(mapper.writeValueAsString(new TreeMap<>(source.text())));
-        jdbc.update("INSERT INTO novel_catalog_translation(cache_key,actor_id,platform,work_id,source_revision,language,policy_identity,source_json,glossary_json,state,result_json,trace_id,diagnostics_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                key, actor, "syosyetu", source.identifier(), revision, language, policy, mapper.writeValueAsString(source),
-                mapper.writeValueAsString(glossary), "READY", mapper.writeValueAsString(result), "legacy-trace", "{}", 1L);
+        jdbc.update(
+                "INSERT INTO novel_catalog_translation(cache_key,actor_id,platform,work_id,source_revision,language,policy_identity,source_json,glossary_json,state,result_json,trace_id,diagnostics_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                key, actor, "syosyetu", source.identifier(), revision, language, policy,
+                mapper.writeValueAsString(source), mapper.writeValueAsString(glossary), "READY",
+                mapper.writeValueAsString(result), "legacy-trace", "{}", 1L);
     }
 
     private void awaitReady(long actor, String id) throws Exception {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(4);
-        while (store.snapshot(actor, id).ready() == 0 && System.nanoTime() < deadline) Thread.sleep(10);
+        while (store.snapshot(actor, id).ready() == 0 && System.nanoTime() < deadline)
+            Thread.sleep(10);
         assertThat(store.snapshot(actor, id).ready()).isEqualTo(1);
     }
 
@@ -236,20 +268,33 @@ class CatalogSharedCacheTest {
         private CountDownLatch entered;
         private CountDownLatch release;
 
-        RecordingAi(String model) { this.model = model; }
-        public String model() { return model; }
-        public String speechModel() { return "speech-test"; }
-        public NovelPorts.Translation translate(String trace, List<SourceEpisode.Segment> items, List<String> context, long remaining) {
+        RecordingAi(String model) {
+            this.model = model;
+        }
+        public String model() {
+            return model;
+        }
+        public String speechModel() {
+            return "speech-test";
+        }
+        public NovelPorts.Translation translate(
+                String trace, List<SourceEpisode.Segment> items, List<String> context, long remaining) {
             throw new AssertionError("목표 언어가 명시돼야 한다");
         }
-        @Override public NovelPorts.Translation translate(String trace, String call, List<SourceEpisode.Segment> items,
-                List<String> context, Map<String, String> glossary, long remaining, TranslationOptions.ResponseShape shape,
-                TranslationOptions.ValidationPolicy validation, TranslationOptions.AnnotationPolicy annotation, String target) {
+        @Override
+        public NovelPorts.Translation translate(String trace, String call, List<SourceEpisode.Segment> items,
+                List<String> context, Map<String, String> glossary, long remaining,
+                TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
+                TranslationOptions.AnnotationPolicy annotation, String target) {
             calls.incrementAndGet();
-            if (entered != null) entered.countDown();
+            if (entered != null)
+                entered.countDown();
             if (release != null) {
-                try { assertThat(release.await(3, TimeUnit.SECONDS)).isTrue(); }
-                catch (InterruptedException failure) { throw new RuntimeException(failure); }
+                try {
+                    assertThat(release.await(3, TimeUnit.SECONDS)).isTrue();
+                } catch (InterruptedException failure) {
+                    throw new RuntimeException(failure);
+                }
             }
             Map<String, String> result = new HashMap<>();
             items.forEach(item -> result.put(item.id(), target + " 번역 " + item.id()));

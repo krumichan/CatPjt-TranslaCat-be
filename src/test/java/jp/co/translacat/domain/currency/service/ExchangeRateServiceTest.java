@@ -37,8 +37,9 @@ class ExchangeRateServiceTest {
 
     @Test
     void historicalMissUsesRequestedDirectionAndEffectiveDate() {
-        when(provider.fetch("USD", "JPY", date)).thenReturn(
-                new ExchangeRateProvider.Quote(new BigDecimal("147.123456789012345678"), date.minusDays(1)));
+        when(provider.fetch("USD", "JPY", date))
+                .thenReturn(
+                        new ExchangeRateProvider.Quote(new BigDecimal("147.123456789012345678"), date.minusDays(1)));
         var result = service.getRate(" usd ", "JPY", date);
         assertThat(result.getRate()).isEqualByComparingTo("147.123456789012345678");
         assertThat(result.getRequestedRateDate()).isEqualTo(date);
@@ -57,8 +58,8 @@ class ExchangeRateServiceTest {
 
     @Test
     void sourceDoesNotRequireEnabledCurrencyMaster() {
-        when(provider.fetch("THB", "JPY", date)).thenReturn(
-                new ExchangeRateProvider.Quote(new BigDecimal("4.25"), date));
+        when(provider.fetch("THB", "JPY", date))
+                .thenReturn(new ExchangeRateProvider.Quote(new BigDecimal("4.25"), date));
         assertThat(service.getRate("THB", "JPY", date).getRate()).isEqualByComparingTo("4.25");
     }
 
@@ -71,8 +72,8 @@ class ExchangeRateServiceTest {
 
     @Test
     void futureEffectiveDateIsRejected() {
-        when(provider.fetch("USD", "JPY", date)).thenReturn(
-                new ExchangeRateProvider.Quote(BigDecimal.ONE, date.plusDays(1)));
+        when(provider.fetch("USD", "JPY", date))
+                .thenReturn(new ExchangeRateProvider.Quote(BigDecimal.ONE, date.plusDays(1)));
         assertThatThrownBy(() -> service.getRate("USD", "JPY", date)).isInstanceOf(RateUnavailableException.class);
     }
 
@@ -97,13 +98,14 @@ class ExchangeRateServiceTest {
             stored.set(i.getArgument(0));
             return stored.get();
         });
-        when(provider.fetch("USD", "JPY", date)).thenReturn(
-                new ExchangeRateProvider.Quote(new BigDecimal("150"), date));
+        when(provider.fetch("USD", "JPY", date))
+                .thenReturn(new ExchangeRateProvider.Quote(new BigDecimal("150"), date));
         try (var pool = Executors.newFixedThreadPool(8)) {
             var work = java.util.stream.IntStream.range(0, 16)
-                    .<Callable<ExchangeRate>>mapToObj(i -> () -> service.getRate("USD", "JPY", date))
-                    .toList();
-            for (var future : pool.invokeAll(work)) assertThat(future.get().getRate()).isEqualByComparingTo("150");
+                               .<Callable<ExchangeRate>>mapToObj(i -> () -> service.getRate("USD", "JPY", date))
+                               .toList();
+            for (var future : pool.invokeAll(work))
+                assertThat(future.get().getRate()).isEqualByComparingTo("150");
         }
         verify(provider, times(1)).fetch("USD", "JPY", date);
     }
@@ -112,14 +114,13 @@ class ExchangeRateServiceTest {
     void staleCacheRefreshesProviderValueWhileFreshCacheDoesNot() {
         Instant now = Instant.parse("2026-09-21T00:00:00Z");
         var stale = ExchangeRate.create(
-                "USD", "JPY", new BigDecimal("149"), date, date.minusDays(1), "FAKE",
-                now.minus(Duration.ofHours(25)));
+                "USD", "JPY", new BigDecimal("149"), date, date.minusDays(1), "FAKE", now.minus(Duration.ofHours(25)));
         when(cache.find("USD", "JPY", date, "FAKE")).thenReturn(Optional.of(stale));
-        when(provider.fetch("USD", "JPY", date)).thenReturn(
-                new ExchangeRateProvider.Quote(new BigDecimal("150"), date));
+        when(provider.fetch("USD", "JPY", date))
+                .thenReturn(new ExchangeRateProvider.Quote(new BigDecimal("150"), date));
         when(cache.saveOrRefresh(any())).thenAnswer(i -> i.getArgument(0));
-        var refreshing = new ExchangeRateService(
-                cache, provider, Duration.ofHours(24), Clock.fixed(now, ZoneOffset.UTC));
+        var refreshing =
+                new ExchangeRateService(cache, provider, Duration.ofHours(24), Clock.fixed(now, ZoneOffset.UTC));
         var result = refreshing.getRate("USD", "JPY", date);
         assertThat(result.getRate()).isEqualByComparingTo("150");
         assertThat(result.getRateFetchedAt()).isEqualTo(now);

@@ -40,9 +40,12 @@ class KakuyomuStrategyTest {
         // 검증: 지원하지 않는 분기는 추가하지 않고 공개 누적 경로를 사용한다.
         assertThat(url).isEqualTo("https://kakuyomu.jp/rankings/fantasy/entire?work_variation=all&page=2");
         assertThat(args).containsExactly("TOTAL", "fantasy", 2);
-        assertThat(strategy.getPeriods()).extracting(item -> item.getCode()).containsExactly("DAILY", "WEEKLY", "MONTHLY", "YEARLY", "TOTAL");
+        assertThat(strategy.getPeriods())
+                .extracting(item -> item.getCode())
+                .containsExactly("DAILY", "WEEKLY", "MONTHLY", "YEARLY", "TOTAL");
         assertThat(result.getNovelContexts()).hasSize(2);
-        assertThatThrownBy(() -> strategy.getUrl(pattern, "QUARTER", "all", 1)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> strategy.getUrl(pattern, "QUARTER", "all", 1))
+                .isInstanceOf(IllegalArgumentException.class);
         verify(client).get(url, String.class);
         verifyNoMoreInteractions(client);
     }
@@ -86,7 +89,7 @@ class KakuyomuStrategyTest {
     void episodeStrategyUsesValidatedWorkMetadataAndPreservesContentAndPager() throws Exception {
         // 준비: 공개 회차는 정확한 작가 ID가 없어 검증된 작품 URL의 정보를 조립한다.
         var strategy = new KakuyomuEpisodeStrategy(client, parser);
-        String url = strategy.getUrl("https://kakuyomu.jp/works/%s/episodes/%s", new Object[]{WORK, EPISODE});
+        String url = strategy.getUrl("https://kakuyomu.jp/works/%s/episodes/%s", new Object[] {WORK, EPISODE});
         when(client.get(url, String.class)).thenReturn(fixture("episode"));
         when(client.get(KakuyomuUrls.workUrl(WORK), String.class)).thenReturn(fixture("work"));
 
@@ -115,10 +118,12 @@ class KakuyomuStrategyTest {
         var episode = new KakuyomuEpisodeStrategy(client, parser);
 
         // 실행·검증
-        assertThatThrownBy(() -> ranking.scrape("https://example.com/rankings/all/daily")).hasMessage("KAKUYOMU_URL_INVALID");
+        assertThatThrownBy(() -> ranking.scrape("https://example.com/rankings/all/daily"))
+                .hasMessage("KAKUYOMU_URL_INVALID");
         assertThatThrownBy(() -> search.scrape("https://kakuyomu.jp/login")).hasMessage("KAKUYOMU_URL_INVALID");
         assertThatThrownBy(() -> work.scrape("http://127.0.0.1/works/1")).hasMessage("KAKUYOMU_URL_INVALID");
-        assertThatThrownBy(() -> episode.scrape("https://kakuyomu.jp/works/1/episodes/2?redirect=elsewhere")).hasMessage("KAKUYOMU_URL_INVALID");
+        assertThatThrownBy(() -> episode.scrape("https://kakuyomu.jp/works/1/episodes/2?redirect=elsewhere"))
+                .hasMessage("KAKUYOMU_URL_INVALID");
         verifyNoInteractions(client);
     }
 

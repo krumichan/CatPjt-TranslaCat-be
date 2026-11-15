@@ -32,15 +32,16 @@ class SpendingAnalysisServiceTest {
                  "storeName":"Pharmacy","category":"생활","amount":"9007199254740993.125",
                  "transactionDate":"2026-10-12","memo":"처방약"}
                 """, AccountBookTransactionResponseDto.class);
-        var input = new AiRequest(PeriodType.MONTHLY, 2026, 10, "ko", "KWD", 3,
-                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 11, 1), transaction.amount().toPlainString(), count,
+        var input = new AiRequest(PeriodType.MONTHLY, 2026, 10, "ko", "KWD", 3, LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 11, 1), transaction.amount().toPlainString(), count,
                 new Coverage(count, count, false, null), null, request.comment(), List.of());
         return new SpendingAnalysisSnapshotService.Prepared(input, Map.of("tx-1", transaction), "fingerprint");
     }
 
     private AiResponse generated(List<String> refs) {
-        return new AiResponse("거래 목적을 확인하고 조정할 지출을 검토하세요.", List.of(
-                new AiFinding("약 구입 확인", "10월 12일 필수 약 구입 거래는 처방약 메모가 있어 필수 지출로 보입니다.",
+        return new AiResponse("거래 목적을 확인하고 조정할 지출을 검토하세요.",
+                List.of(new AiFinding("약 구입 확인",
+                        "10월 12일 필수 약 구입 거래는 처방약 메모가 있어 필수 지출로 보입니다.",
                         "필수 약은 유지하고 중복 구매만 확인하세요.", null, "복용 주기는 알 수 없습니다.", refs)));
     }
 
@@ -59,7 +60,9 @@ class SpendingAnalysisServiceTest {
         // 검증: 공급자가 금액이나 임의 거래를 응답에 삽입할 수 없다.
         assertThat(response.findings()).singleElement().satisfies(item -> {
             assertThat(item.evidenceAmount()).isEqualTo("9007199254740993.125");
-            assertThat(item.evidenceTransactions()).extracting(AccountBookTransactionResponseDto::id).containsExactly(91L);
+            assertThat(item.evidenceTransactions())
+                    .extracting(AccountBookTransactionResponseDto::id)
+                    .containsExactly(91L);
         });
         assertThat(response.contextComment()).isEqualTo(request.comment());
         verify(ai, times(1)).callSpendingAnalysis(prepared.input());
@@ -71,12 +74,15 @@ class SpendingAnalysisServiceTest {
         var prepared = prepared(1);
         when(snapshots.prepare(1L, 2L, request)).thenReturn(prepared);
         var findings = IntStream.range(0, 24)
-                .mapToObj(index -> new AiFinding("검토할 선택 " + index,
-                        "선택 기간의 실제 거래 내역을 근거로 다음번에 조정할 여지를 설명합니다.",
-                        "다음 구매에서 실제 필요를 유지하며 대안을 비교하세요.", null, null, List.of("tx-1")))
-                .toList();
+                               .mapToObj(index
+                                       -> new AiFinding("검토할 선택 " + index,
+                                               "선택 기간의 실제 거래 내역을 근거로 다음번에 조정할 여지를 설명합니다.",
+                                               "다음 구매에서 실제 필요를 유지하며 대안을 비교하세요.", null, null,
+                                               List.of("tx-1")))
+                               .toList();
         when(ai.callSpendingAnalysis(prepared.input()))
-                .thenReturn(new AiResponse("실제 거래를 근거로 정리한 월별 결과입니다.", findings, "recurring-choice-v6", null));
+                .thenReturn(new AiResponse(
+                        "실제 거래를 근거로 정리한 월별 결과입니다.", findings, "recurring-choice-v6", null));
         when(snapshots.current(1L, 2L, request))
                 .thenReturn(new SnapshotInfo("fingerprint", 1, prepared.input().totalExpense()));
 
@@ -97,8 +103,8 @@ class SpendingAnalysisServiceTest {
 
             // 실행 / 검증
             assertThatThrownBy(() -> service.generate(1L, 2L, request, true, () -> true))
-                    .isInstanceOfSatisfying(ResponseStatusException.class, error ->
-                            assertThat(error.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY));
+                    .isInstanceOfSatisfying(ResponseStatusException.class,
+                            error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY));
         }
     }
 
@@ -111,8 +117,8 @@ class SpendingAnalysisServiceTest {
         when(snapshots.current(1L, 2L, request)).thenReturn(new SnapshotInfo("changed", 1, "100"));
 
         // 실행 / 검증
-        assertThatThrownBy(() -> service.generate(1L, 2L, request, true, () -> true)).isInstanceOfSatisfying(ResponseStatusException.class,
-                error -> {
+        assertThatThrownBy(() -> service.generate(1L, 2L, request, true, () -> true))
+                .isInstanceOfSatisfying(ResponseStatusException.class, error -> {
                     assertThat(error.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
                     assertThat(error.getReason()).isEqualTo("STALE_SNAPSHOT");
                 });
@@ -130,8 +136,7 @@ class SpendingAnalysisServiceTest {
         assertThatThrownBy(() -> service.generate(1L, 2L, request, false, () -> false))
                 .isInstanceOf(java.util.concurrent.CancellationException.class);
         verifyNoInteractions(ai);
-        assertThat(service.generate(1L, 2L, request, false, () -> true).snapshotFingerprint())
-                .isEqualTo("fingerprint");
+        assertThat(service.generate(1L, 2L, request, false, () -> true).snapshotFingerprint()).isEqualTo("fingerprint");
         verify(snapshots, never()).current(1L, 2L, request);
     }
 
@@ -141,7 +146,8 @@ class SpendingAnalysisServiceTest {
         when(snapshots.prepare(1L, 2L, request)).thenThrow(new IllegalArgumentException("No access"));
 
         // 실행 / 검증
-        assertThatThrownBy(() -> service.generate(1L, 2L, request, true, () -> true)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.generate(1L, 2L, request, true, () -> true))
+                .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(ai);
 
         // 준비: 빈 기간은 정상 빈 결과로 반환한다.
@@ -161,12 +167,14 @@ class SpendingAnalysisServiceTest {
         when(ai.callSpendingAnalysis(prepared.input())).thenThrow(new RuntimeException("provider unavailable"));
 
         // 실행 / 검증
-        assertThatThrownBy(() -> service.generate(1L, 2L, request, true, () -> true)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> service.generate(1L, 2L, request, true, () -> true))
+                .isInstanceOf(ResponseStatusException.class);
         verify(ai, times(1)).callSpendingAnalysis(prepared.input());
 
         // 준비 / 실행 / 검증: 구조만 맞는 빈 문자열도 유효한 분석으로 취급하지 않는다.
         reset(ai);
         when(ai.callSpendingAnalysis(prepared.input())).thenReturn(new AiResponse(" ", List.of()));
-        assertThatThrownBy(() -> service.generate(1L, 2L, request, true, () -> true)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> service.generate(1L, 2L, request, true, () -> true))
+                .isInstanceOf(ResponseStatusException.class);
     }
 }

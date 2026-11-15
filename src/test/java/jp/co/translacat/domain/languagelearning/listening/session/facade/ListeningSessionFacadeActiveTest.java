@@ -19,9 +19,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ListeningSessionFacadeActiveTest {
-
-    @Mock
-    private ListeningGateway gateway;
+    @Mock private ListeningGateway gateway;
 
     private ListeningSessionFacade facade;
 
@@ -48,26 +46,11 @@ class ListeningSessionFacadeActiveTest {
     void returnsServerSessionWhenActiveSessionExists() {
         // 준비
         LocalDateTime now = LocalDateTime.now();
-        ListeningApiContract.SessionView session =
-                new ListeningApiContract.SessionView(
-                        -99L,
-                        -11L,
-                        ListeningSessionStatus.IN_PROGRESS,
-                        List.of(ListeningTaskType.DICTATION),
-                        0,
-                        0,
-                        0L,
-                        now,
-                        now,
-                        now.plusHours(2),
-                        List.of(),
-                        jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDailySetStatus.GENERATING,
-                        5,
-                        0,
-                        null,
-                        0,
-                        true
-                );
+        ListeningApiContract.SessionView session = new ListeningApiContract.SessionView(-99L, -11L,
+                ListeningSessionStatus.IN_PROGRESS, List.of(ListeningTaskType.DICTATION), 0, 0, 0L, now, now,
+                now.plusHours(2), List.of(),
+                jp.co.translacat.domain.languagelearning.listening.common.enums.ListeningDailySetStatus.GENERATING, 5,
+                0, null, 0, true);
         when(gateway.get(7L, "/sessions/active", ListeningApiContract.ActiveSessionView.class))
                 .thenReturn(new ListeningApiContract.ActiveSessionView(true, session));
 

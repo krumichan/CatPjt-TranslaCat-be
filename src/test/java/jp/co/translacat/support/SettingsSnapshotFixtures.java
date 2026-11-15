@@ -14,16 +14,13 @@ public final class SettingsSnapshotFixtures {
     }
 
     public static AdminSettingResponseDto adminDto() {
-        return new AdminSettingResponseDto(
-                5, 1, 20, 5, 7, 30, true, true, true, true, 5, 3, 20,
-                30, 5, 10, 20, 1.0, 60, 10485760L, 7, 30, 2, 2, 1,
-                30, 30, 60, 1000, false);
+        return new AdminSettingResponseDto(5, 1, 20, 5, 7, 30, true, true, true, true, 5, 3, 20, 30, 5, 10, 20, 1.0, 60,
+                10485760L, 7, 30, 2, 2, 1, 30, 30, 60, 1000, false);
     }
 
     public static UserSettingResponseDto userDto() {
         return new UserSettingResponseDto("ko", "ja", "ko", "Asia/Tokyo", 5, 5, "marin", "NORMAL", 5,
-                List.of(ListeningTaskType.DICTATION), null, null, null, null, null, null, null, null,
-                1, 20, 3, 20, 1, 20, true);
+                List.of(ListeningTaskType.DICTATION), null, null, null, null, null, null, null, null, 1, 20, 3, 20, 1,
+                20, true);
     }
-
 }

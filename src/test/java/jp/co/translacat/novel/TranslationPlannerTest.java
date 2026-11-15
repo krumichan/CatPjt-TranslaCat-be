@@ -14,14 +14,18 @@ class TranslationPlannerTest {
     void requestedChunksAndConcurrencyAreIndependentAndEveryTargetOccursExactlyOnce() {
         var source = source(IntStream.range(0, 180).mapToObj(i -> "番号" + i + "の猫が歩いた。犬も歩いた。").toList());
         var ids = source.segments().stream().map(SourceEpisode.Segment::id).toList();
-        for (int n : new int[]{1, 2, 3, 5, 8, 10, 16}) {
-            for (int c : new int[]{1, 2, 4, 5, 6, 8, 10}) {
-                if (c > n) continue;
+        for (int n : new int[] {1, 2, 3, 5, 8, 10, 16}) {
+            for (int c : new int[] {1, 2, 4, 5, 6, 8, 10}) {
+                if (c > n)
+                    continue;
                 var plan = planner.plan(source, options(n, c, "BALANCED", "SMALL", 32768));
                 assertThat(plan.requestedN()).isEqualTo(n);
                 assertThat(plan.actualN()).isEqualTo(n);
                 assertThat(plan.effectiveC()).isEqualTo(c);
-                assertThat(plan.chunks().stream().flatMap(chunk -> chunk.targets().stream()).map(SourceEpisode.Segment::id))
+                assertThat(plan.chunks()
+                                   .stream()
+                                   .flatMap(chunk -> chunk.targets().stream())
+                                   .map(SourceEpisode.Segment::id))
                         .containsExactlyElementsOf(ids);
                 assertThat(plan.chunks()).allSatisfy(chunk -> assertThat(chunk.targets()).isNotEmpty());
             }
@@ -44,7 +48,8 @@ class TranslationPlannerTest {
 
     @Test
     void semanticBoundariesPreferWholeParagraphsAndContextNeverBecomesTarget() {
-        var source = source(List.of("「猫がいる。」「本当だ。」", "二人は歩いた。橋を渡った。", "雨が降った。傘を開いた。"));
+        var source =
+                source(List.of("「猫がいる。」「本当だ。」", "二人は歩いた。橋を渡った。", "雨が降った。傘を開いた。"));
         var plan = planner.plan(source, options(3, 2, "SEMANTIC", "WIDE", 32768));
         assertThat(plan.chunks()).hasSize(3);
         assertThat(plan.chunks()).allSatisfy(chunk -> {
@@ -61,7 +66,11 @@ class TranslationPlannerTest {
         assertThat(small.fingerprint()).isNotEqualTo(options(2, 2, "BALANCED", "SMALL", 32768).fingerprint());
         assertThat(small.fingerprint()).isNotEqualTo(options(2, 1, "BALANCED", "WIDE", 32768).fingerprint());
         assertThat(small.fingerprint()).isNotEqualTo(options(2, 1, "SEMANTIC", "SMALL", 32768).fingerprint());
-        assertThat(planner.plan(source, small).chunks().stream().flatMap(c -> c.targets().stream()).map(SourceEpisode.Segment::id))
+        assertThat(planner.plan(source, small)
+                           .chunks()
+                           .stream()
+                           .flatMap(c -> c.targets().stream())
+                           .map(SourceEpisode.Segment::id))
                 .containsExactlyElementsOf(source.segments().stream().map(SourceEpisode.Segment::id).toList());
     }
 

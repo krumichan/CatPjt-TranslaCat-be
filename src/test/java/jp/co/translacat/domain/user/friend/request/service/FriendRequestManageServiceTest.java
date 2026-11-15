@@ -28,24 +28,17 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class FriendRequestManageServiceTest {
+    @Mock private FriendRequestRepository friendRequestRepository;
 
-    @Mock
-    private FriendRequestRepository friendRequestRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserProfileQueryService userProfileQueryService;
 
-    @Mock
-    private UserProfileQueryService userProfileQueryService;
+    @Mock private FriendService friendService;
 
-    @Mock
-    private FriendService friendService;
+    @Mock private UserBlockService userBlockService;
 
-    @Mock
-    private UserBlockService userBlockService;
-
-    @InjectMocks
-    private FriendRequestService friendRequestService;
+    @InjectMocks private FriendRequestService friendRequestService;
 
     @Test
     @DisplayName("받은 PENDING 친구 요청 목록 조회")
@@ -56,14 +49,12 @@ class FriendRequestManageServiceTest {
         FriendRequest friendRequest = FriendRequest.create(requester, receiver);
 
         when(friendRequestRepository.findAllByReceiverUserIdAndStatusAndDeletedFalseOrderByRequestedAtDesc(
-                2L,
-                FriendRequestStatus.PENDING
-        )).thenReturn(List.of(friendRequest));
+                     2L, FriendRequestStatus.PENDING))
+                .thenReturn(List.of(friendRequest));
         mockProfiles(requester, receiver);
 
         // when
-        List<FriendRequestListItemResponseDto> responses =
-                friendRequestService.getReceivedPendingRequests(2L);
+        List<FriendRequestListItemResponseDto> responses = friendRequestService.getReceivedPendingRequests(2L);
 
         // then
         assertThat(responses).hasSize(1);
@@ -81,14 +72,12 @@ class FriendRequestManageServiceTest {
         FriendRequest friendRequest = FriendRequest.create(requester, receiver);
 
         when(friendRequestRepository.findAllByRequesterUserIdAndStatusAndDeletedFalseOrderByRequestedAtDesc(
-                1L,
-                FriendRequestStatus.PENDING
-        )).thenReturn(List.of(friendRequest));
+                     1L, FriendRequestStatus.PENDING))
+                .thenReturn(List.of(friendRequest));
         mockProfiles(requester, receiver);
 
         // when
-        List<FriendRequestListItemResponseDto> responses =
-                friendRequestService.getSentPendingRequests(1L);
+        List<FriendRequestListItemResponseDto> responses = friendRequestService.getSentPendingRequests(1L);
 
         // then
         assertThat(responses).hasSize(1);
@@ -131,9 +120,7 @@ class FriendRequestManageServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.acceptFriendRequest(1L, 100L))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_RECEIVER")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_RECEIVER"));
 
         verify(friendService, never()).createFriend(any(User.class), any(User.class));
     }
@@ -193,9 +180,7 @@ class FriendRequestManageServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.cancelFriendRequest(2L, 100L))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_REQUESTER")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_REQUESTER"));
     }
 
     @Test
@@ -212,44 +197,23 @@ class FriendRequestManageServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.rejectFriendRequest(2L, 100L))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PROCESSED")
-                );
+                .satisfies(exception
+                        -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PROCESSED"));
 
         verify(friendService, never()).createFriend(any(User.class), any(User.class));
     }
 
-    private void mockProfiles(
-            User requester,
-            User receiver
-    ) {
-        when(userProfileQueryService.getSummaryByUser(requester)).thenReturn(new UserSummaryProfileResponseDto(
-                requester.getId(),
-                requester.getPublicId(),
-                requester.getUsername(),
-                null
-        ));
-        when(userProfileQueryService.getSummaryByUser(receiver)).thenReturn(new UserSummaryProfileResponseDto(
-                receiver.getId(),
-                receiver.getPublicId(),
-                receiver.getUsername(),
-                null
-        ));
+    private void mockProfiles(User requester, User receiver) {
+        when(userProfileQueryService.getSummaryByUser(requester))
+                .thenReturn(new UserSummaryProfileResponseDto(
+                        requester.getId(), requester.getPublicId(), requester.getUsername(), null));
+        when(userProfileQueryService.getSummaryByUser(receiver))
+                .thenReturn(new UserSummaryProfileResponseDto(
+                        receiver.getId(), receiver.getPublicId(), receiver.getUsername(), null));
     }
 
-    private User createUser(
-            Long id,
-            String email,
-            String username,
-            String publicId
-    ) {
-        User user = User.createLocalUser(
-                email,
-                "password",
-                username,
-                Role.USER,
-                publicId
-        );
+    private User createUser(Long id, String email, String username, String publicId) {
+        User user = User.createLocalUser(email, "password", username, Role.USER, publicId);
         user.setId(id);
         return user;
     }

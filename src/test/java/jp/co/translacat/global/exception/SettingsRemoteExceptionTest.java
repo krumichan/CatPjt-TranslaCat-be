@@ -36,9 +36,8 @@ class SettingsRemoteExceptionTest {
 
     @Test
     void disabledRemoteRemainsUnavailableRatherThanSuccessfulDefault() {
-        var response = advice.handleLanguageLearningServiceException(
-                new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, "LL_SETTINGS_REMOTE_DISABLED",
-                        "연결 비활성"));
+        var response = advice.handleLanguageLearningServiceException(new LanguageLearningServiceException(
+                HttpStatus.SERVICE_UNAVAILABLE, "LL_SETTINGS_REMOTE_DISABLED", "연결 비활성"));
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
     }
 }

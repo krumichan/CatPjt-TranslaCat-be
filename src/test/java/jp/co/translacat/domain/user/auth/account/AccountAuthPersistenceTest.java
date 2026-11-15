@@ -63,17 +63,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest(classes = AccountAuthPersistenceTest.Config.class,
-        webEnvironment = SpringBootTest.WebEnvironment.NONE,
-        properties = {
-                "spring.config.location=optional:classpath:/account-auth-isolated-test.properties",
+@SpringBootTest(classes = AccountAuthPersistenceTest.Config.class, webEnvironment = SpringBootTest.WebEnvironment.NONE,
+        properties = {"spring.config.location=optional:classpath:/account-auth-isolated-test.properties",
                 "spring.datasource.url=jdbc:h2:mem:account-auth;MODE=MySQL;NON_KEYWORDS=USER;DB_CLOSE_DELAY=-1",
-                "spring.datasource.driver-class-name=org.h2.Driver",
-                "spring.datasource.username=sa",
-                "spring.datasource.password=",
-                "spring.jpa.hibernate.ddl-auto=create-drop",
-                "spring.jpa.show-sql=false"
-        })
+                "spring.datasource.driver-class-name=org.h2.Driver", "spring.datasource.username=sa",
+                "spring.datasource.password=", "spring.jpa.hibernate.ddl-auto=create-drop",
+                "spring.jpa.show-sql=false"})
 class AccountAuthPersistenceTest {
     @Autowired UserService userService;
     @Autowired AccountAuthService accounts;
@@ -129,11 +124,13 @@ class AccountAuthPersistenceTest {
         assertThat(passwords.matches("long-password-2026", stored.getPassword())).isTrue();
         assertThat(stored.getBirthDate()).isEqualTo(LocalDate.of(2000, 1, 2));
         assertThat(stored.getEmailVerifiedAt()).isNotNull();
-        assertThat(profiles.findByUserIdAndDeletedFalse(stored.getId()).orElseThrow().getNickname()).isEqualTo("Nickname");
+        assertThat(profiles.findByUserIdAndDeletedFalse(stored.getId()).orElseThrow().getNickname())
+                .isEqualTo("Nickname");
         assertThat(challenges.findById(challenge.challengeId()).orElseThrow().getConsumedAt()).isNotNull();
         assertThat(jwt.getAccessId(refreshed.getAccessToken())).isEqualTo(stored.getId());
         assertThat(json.writeValueAsString(stored)).doesNotContain("birthDate", "password", "emailVerifiedAt");
-        assertThatThrownBy(() -> userService.register(registration(emailAddress, "Nickname", proof))).isInstanceOf(AuthException.class);
+        assertThatThrownBy(() -> userService.register(registration(emailAddress, "Nickname", proof)))
+                .isInstanceOf(AuthException.class);
     }
 
     @Test
@@ -146,7 +143,8 @@ class AccountAuthPersistenceTest {
 
         try {
             // 실행
-            assertThatThrownBy(() -> userService.register(registration(address, "RejectMe", proof))).isInstanceOf(AuthException.class);
+            assertThatThrownBy(() -> userService.register(registration(address, "RejectMe", proof)))
+                    .isInstanceOf(AuthException.class);
 
             // 검증: 사용자와 프로필의 부분 저장 또는 증명만 소진되는 상태가 남지 않는다.
             assertThat(users.findByEmailIgnoreCase(address)).isEmpty();
@@ -164,7 +162,8 @@ class AccountAuthPersistenceTest {
         var intent = accounts.startGoogle(original.getId(), GoogleAuthPurpose.REAUTHENTICATE, null);
         when(google.verify("signed-token")).thenAnswer(call -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-            return new GoogleIdentityVerifier.Identity("original-sub", original.getEmail(), "Provider name", intent.nonce());
+            return new GoogleIdentityVerifier.Identity(
+                    "original-sub", original.getEmail(), "Provider name", intent.nonce());
         });
         var reauth = accounts.completeGoogle(original.getId(), intent.intentToken(), "signed-token");
         var challenge = accounts.sendPasswordChallenge(original.getId());
@@ -173,7 +172,8 @@ class AccountAuthPersistenceTest {
         // 실행
         accounts.addPassword(original.getId(), "long-password-2026", proof, (String) reauth.get("reauthToken"));
         var tokens = userService.authentication(login(original.getEmail(), "long-password-2026"));
-        User throughGoogle = userService.getOrRegisterSocialUser("changed@example.com", "Other name", "original-sub", SocialType.GOOGLE);
+        User throughGoogle = userService.getOrRegisterSocialUser(
+                "changed@example.com", "Other name", "original-sub", SocialType.GOOGLE);
 
         // 검증: 두 로그인 수단이 같은 ID를 사용하고 기존 공개 ID/닉네임을 유지한다.
         assertThat(jwt.getAccessId(tokens.getAccessToken())).isEqualTo(original.getId());
@@ -182,8 +182,10 @@ class AccountAuthPersistenceTest {
         assertThat(throughGoogle.getUsername()).isEqualTo("Original nickname");
         assertThat(challenges.findById(challenge.challengeId()).orElseThrow().getConsumedAt()).isNotNull();
         assertThat(grants.findAll()).singleElement().satisfies(grant -> assertThat(grant.getConsumedAt()).isNotNull());
-        assertThatThrownBy(() -> accounts.addPassword(original.getId(), "replacement-password", proof,
-                (String) reauth.get("reauthToken"))).isInstanceOf(AuthException.class);
+        assertThatThrownBy(()
+                                   -> accounts.addPassword(original.getId(), "replacement-password", proof,
+                                           (String) reauth.get("reauthToken")))
+                .isInstanceOf(AuthException.class);
     }
 
     @Test
@@ -191,9 +193,11 @@ class AccountAuthPersistenceTest {
         // 준비: 비밀번호 저장 실패를 DB 제약으로 강제한다.
         User original = googleUser("rollback-password@example.com", "original-sub", "TCAT-GOOGLE02");
         var intent = accounts.startGoogle(original.getId(), GoogleAuthPurpose.REAUTHENTICATE, null);
-        when(google.verify("signed-token")).thenReturn(new GoogleIdentityVerifier.Identity(
-                "original-sub", original.getEmail(), "Provider name", intent.nonce()));
-        String reauth = (String) accounts.completeGoogle(original.getId(), intent.intentToken(), "signed-token").get("reauthToken");
+        when(google.verify("signed-token"))
+                .thenReturn(new GoogleIdentityVerifier.Identity(
+                        "original-sub", original.getEmail(), "Provider name", intent.nonce()));
+        String reauth = (String) accounts.completeGoogle(original.getId(), intent.intentToken(), "signed-token")
+                                .get("reauthToken");
         var challenge = accounts.sendPasswordChallenge(original.getId());
         String proof = email.verify(challenge.challengeId(), sender.codes.get(original.getEmail())).verificationToken();
         jdbc.execute("alter table user add constraint audit_reject_password check (password is null)");
@@ -215,8 +219,8 @@ class AccountAuthPersistenceTest {
     @Test
     void concurrentCompletionConsumesIntentOnlyOnce() throws Exception {
         // 준비: 두 요청이 같은 유효한 Google 응답을 확보한 뒤 DB 잠금을 경쟁한다.
-        User user = users.saveAndFlush(User.createLocalUser("linked@example.com", passwords.encode("long-password-2026"),
-                "Nickname", Role.USER, "TCAT-LINK0001"));
+        User user = users.saveAndFlush(User.createLocalUser(
+                "linked@example.com", passwords.encode("long-password-2026"), "Nickname", Role.USER, "TCAT-LINK0001"));
         var intent = accounts.startGoogle(user.getId(), GoogleAuthPurpose.LINK, "long-password-2026");
         CountDownLatch verified = new CountDownLatch(2);
         when(google.verify(any())).thenAnswer(call -> {
@@ -256,8 +260,8 @@ class AccountAuthPersistenceTest {
     @Test
     void distinctLinkIntentsCannotOverwriteAConnectionFromStaleAuthenticatedUsers() throws Exception {
         // 준비: 같은 사용자의 두 요청이 연결 전 User를 각각 OSIV 캐시에 보관한다.
-        User user = users.saveAndFlush(User.createLocalUser("stale-link@example.com", passwords.encode("long-password-2026"),
-                "Nickname", Role.USER, "TCAT-STALE001"));
+        User user = users.saveAndFlush(User.createLocalUser("stale-link@example.com",
+                passwords.encode("long-password-2026"), "Nickname", Role.USER, "TCAT-STALE001"));
         var firstIntent = accounts.startGoogle(user.getId(), GoogleAuthPurpose.LINK, "long-password-2026");
         var secondIntent = accounts.startGoogle(user.getId(), GoogleAuthPurpose.LINK, "long-password-2026");
         CountDownLatch verified = new CountDownLatch(2);
@@ -267,8 +271,8 @@ class AccountAuthPersistenceTest {
                 throw new IllegalStateException("second stale-user request did not start");
             }
             boolean first = "token-first".equals(call.getArgument(0));
-            return new GoogleIdentityVerifier.Identity(first ? "subject-first" : "subject-second",
-                    user.getEmail(), "Google", first ? firstIntent.nonce() : secondIntent.nonce());
+            return new GoogleIdentityVerifier.Identity(first ? "subject-first" : "subject-second", user.getEmail(),
+                    "Google", first ? firstIntent.nonce() : secondIntent.nonce());
         });
         var pool = Executors.newFixedThreadPool(2);
 
@@ -298,7 +302,8 @@ class AccountAuthPersistenceTest {
         String proof = email.verify(challenge.challengeId(), sender.codes.get(user.getEmail())).verificationToken();
         String firstPasswordHash = passwords.encode("first-password-2026");
         var requestEntityManager = entityManagerFactory.createEntityManager();
-        TransactionSynchronizationManager.bindResource(entityManagerFactory, new EntityManagerHolder(requestEntityManager));
+        TransactionSynchronizationManager.bindResource(
+                entityManagerFactory, new EntityManagerHolder(requestEntityManager));
 
         try {
             // 준비: 인증 단계에서 캐시한 상태는 비밀번호 없음이지만, 별도 요청이 먼저 비밀번호를 커밋한다.
@@ -331,16 +336,19 @@ class AccountAuthPersistenceTest {
     }
 
     private User googleUser(String email, String subject, String publicId) {
-        return users.saveAndFlush(User.createSocialUser(email, "Original nickname", SocialType.GOOGLE, subject, Role.USER, publicId));
+        return users.saveAndFlush(
+                User.createSocialUser(email, "Original nickname", SocialType.GOOGLE, subject, Role.USER, publicId));
     }
 
     private UserCreateRequestDto registration(String email, String nickname, String proof) throws Exception {
         return json.readValue(json.writeValueAsBytes(Map.of("email", email, "password", "long-password-2026",
-                "nickname", nickname, "birthDate", "2000-01-02", "verificationToken", proof)), UserCreateRequestDto.class);
+                                      "nickname", nickname, "birthDate", "2000-01-02", "verificationToken", proof)),
+                UserCreateRequestDto.class);
     }
 
     private UserLoginRequestDto login(String email, String password) throws Exception {
-        return json.readValue(json.writeValueAsBytes(Map.of("email", email, "password", password)), UserLoginRequestDto.class);
+        return json.readValue(
+                json.writeValueAsBytes(Map.of("email", email, "password", password)), UserLoginRequestDto.class);
     }
 
     private String completeOutcome(Long userId, String intent) {
@@ -366,52 +374,80 @@ class AccountAuthPersistenceTest {
 
     @Configuration(proxyBeanMethods = false)
     @EnableTransactionManagement
-    @ImportAutoConfiguration({DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class, TransactionAutoConfiguration.class})
-    @EnableJpaRepositories(basePackageClasses = {UserRepository.class, UserProfileRepository.class,
-            GoogleAuthIntentRepository.class, EmailVerificationChallengeRepository.class, AuthSessionRepository.class},
-            excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RecentViewRepository.class))
+    @ImportAutoConfiguration({DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
+            TransactionAutoConfiguration.class})
+    @EnableJpaRepositories(
+            basePackageClasses = {UserRepository.class, UserProfileRepository.class, GoogleAuthIntentRepository.class,
+                    EmailVerificationChallengeRepository.class, AuthSessionRepository.class},
+            excludeFilters =
+                    @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RecentViewRepository.class))
     static class Config {
-        @Bean PersistenceManagedTypes persistenceManagedTypes() {
-            return PersistenceManagedTypes.of(User.class.getName(), UserAllowed.class.getName(), RefreshToken.class.getName(),
-                    UserProfile.class.getName(), GoogleAuthIntent.class.getName(), ReauthenticationGrant.class.getName(),
-                    EmailVerificationChallenge.class.getName(), EmailVerificationQuota.class.getName(), AuthSession.class.getName());
+        @Bean
+        PersistenceManagedTypes persistenceManagedTypes() {
+            return PersistenceManagedTypes.of(User.class.getName(), UserAllowed.class.getName(),
+                    RefreshToken.class.getName(), UserProfile.class.getName(), GoogleAuthIntent.class.getName(),
+                    ReauthenticationGrant.class.getName(), EmailVerificationChallenge.class.getName(),
+                    EmailVerificationQuota.class.getName(), AuthSession.class.getName());
         }
 
-        @Bean FakeSender fakeSender() { return new FakeSender(); }
-        @Bean JdbcTemplate jdbcTemplate(DataSource source) { return new JdbcTemplate(source); }
-        @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(12); }
-        @Bean GoogleIdentityVerifier googleIdentityVerifier() { return mock(GoogleIdentityVerifier.class); }
-        @Bean AuthAttemptLimiter authAttemptLimiter() { return mock(AuthAttemptLimiter.class); }
-
-        @Bean EmailVerificationService emailVerificationService(EmailVerificationChallengeRepository challenges,
-                EmailVerificationQuotaRepository quotas, UserRepository users, FakeSender sender, PlatformTransactionManager manager) {
-            return new EmailVerificationService(challenges, quotas, users, sender, manager,
-                    "test-email-hmac-secret-minimum-32-bytes", 400);
+        @Bean
+        FakeSender fakeSender() {
+            return new FakeSender();
+        }
+        @Bean
+        JdbcTemplate jdbcTemplate(DataSource source) {
+            return new JdbcTemplate(source);
+        }
+        @Bean
+        PasswordEncoder passwordEncoder() {
+            return new BCryptPasswordEncoder(12);
+        }
+        @Bean
+        GoogleIdentityVerifier googleIdentityVerifier() {
+            return mock(GoogleIdentityVerifier.class);
+        }
+        @Bean
+        AuthAttemptLimiter authAttemptLimiter() {
+            return mock(AuthAttemptLimiter.class);
         }
 
-        @Bean JWTService jwtService(AuthSessionRepository sessions) {
-            return new JWTService("YXVkaXQtbG9jYWwtYXV0aC1vbmx5LXN5bnRoZXRpYy1rZXktMjAyNg==", 300000, 604800000, sessions);
+        @Bean
+        EmailVerificationService emailVerificationService(EmailVerificationChallengeRepository challenges,
+                EmailVerificationQuotaRepository quotas, UserRepository users, FakeSender sender,
+                PlatformTransactionManager manager) {
+            return new EmailVerificationService(
+                    challenges, quotas, users, sender, manager, "test-email-hmac-secret-minimum-32-bytes", 400);
         }
 
-        @Bean AuthSessionService authSessionService(AuthSessionRepository sessions, UserRepository users, JWTService jwt) {
+        @Bean
+        JWTService jwtService(AuthSessionRepository sessions) {
+            return new JWTService(
+                    "YXVkaXQtbG9jYWwtYXV0aC1vbmx5LXN5bnRoZXRpYy1rZXktMjAyNg==", 300000, 604800000, sessions);
+        }
+
+        @Bean
+        AuthSessionService authSessionService(AuthSessionRepository sessions, UserRepository users, JWTService jwt) {
             return new AuthSessionService(sessions, users, jwt);
         }
 
-        @Bean AuthenticationManager authenticationManager(UserRepository users, PasswordEncoder encoder) {
+        @Bean
+        AuthenticationManager authenticationManager(UserRepository users, PasswordEncoder encoder) {
             DaoAuthenticationProvider provider = new DaoAuthenticationProvider(new MyUserDetailsService(users));
             provider.setPasswordEncoder(encoder);
             return new ProviderManager(provider);
         }
 
-        @Bean UserService userService(UserRepository users, RefreshTokenRepository refresh, UserAllowedRepository allowed,
+        @Bean
+        UserService userService(UserRepository users, RefreshTokenRepository refresh, UserAllowedRepository allowed,
                 JWTService jwt, AuthenticationManager authentication, PasswordEncoder passwords,
                 EmailVerificationService email, UserProfileRepository profiles, AuthAttemptLimiter attempts,
                 AuthSessionService sessions) {
-            return new UserService(users, refresh, allowed, jwt, authentication, passwords, email, profiles, attempts, sessions,
-                    mock(jp.co.translacat.domain.user.deletion.AccountDeletionIdentityGate.class));
+            return new UserService(users, refresh, allowed, jwt, authentication, passwords, email, profiles, attempts,
+                    sessions, mock(jp.co.translacat.domain.user.deletion.AccountDeletionIdentityGate.class));
         }
 
-        @Bean AccountAuthService accountAuthService(UserRepository users, GoogleAuthIntentRepository intents,
+        @Bean
+        AccountAuthService accountAuthService(UserRepository users, GoogleAuthIntentRepository intents,
                 ReauthenticationGrantRepository grants, GoogleIdentityVerifier google, EmailVerificationService email,
                 PasswordEncoder passwords, PlatformTransactionManager manager, AuthAttemptLimiter attempts) {
             return new AccountAuthService(users, intents, grants, google, email, passwords, manager, attempts);
@@ -427,6 +463,8 @@ class AccountAuthPersistenceTest {
         }
 
         @Override
-        public boolean isConfigured() { return true; }
+        public boolean isConfigured() {
+            return true;
+        }
     }
 }

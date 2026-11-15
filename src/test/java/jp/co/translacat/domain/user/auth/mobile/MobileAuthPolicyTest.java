@@ -41,9 +41,11 @@ class MobileAuthPolicyTest {
                 .isInstanceOfSatisfying(AuthException.class,
                         failure -> assertThat(failure.getErrorCode()).isEqualTo("MOBILE_AUTH_NOT_CONFIGURED"));
         configured.requireAllowed("translacat://auth/callback");
-        assertThatThrownBy(() -> configured.requireAllowed("translacat-dev://auth/callback")).isInstanceOf(AuthException.class);
+        assertThatThrownBy(() -> configured.requireAllowed("translacat-dev://auth/callback"))
+                .isInstanceOf(AuthException.class);
         assertThatThrownBy(() -> new MobileAuthRedirects("https://evil.invalid/callback", true))
-                .isInstanceOf(IllegalArgumentException.class).hasMessage("Invalid mobile redirect allowlist configuration");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid mobile redirect allowlist configuration");
     }
 
     @Test

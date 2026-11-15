@@ -41,11 +41,14 @@ class LegacyNovelPersistenceTest {
         var repository = mock(EpisodeContentRepository.class);
         var episode = mock(Episode.class);
         when(episode.getId()).thenReturn(3L);
-        var saver = new EpisodeContentSafeSaver(repository, mock(EpisodeRepository.class), mock(FuriganaProcessor.class));
+        var saver =
+                new EpisodeContentSafeSaver(repository, mock(EpisodeRepository.class), mock(FuriganaProcessor.class));
         var invalid = EpisodeContent.create(episode, 0, "雨。", "雨。", "");
 
         // 실행 및 검증
-        assertThatThrownBy(() -> saver.saveEpisodeContents(episode, List.of(invalid), EpisodeContentSnapshot.fingerprint(List.of())))
+        assertThatThrownBy(()
+                                   -> saver.saveEpisodeContents(
+                                           episode, List.of(invalid), EpisodeContentSnapshot.fingerprint(List.of())))
                 .isInstanceOf(IllegalStateException.class);
         verify(repository, never()).deleteAllByEpisodeId(anyLong());
         verify(repository, never()).batchInsertAll(anyList());
@@ -65,7 +68,8 @@ class LegacyNovelPersistenceTest {
         var late = EpisodeContent.create(episode, 0, "雨。", "雨。", "비.");
 
         // 실행 및 검증
-        assertThatThrownBy(() -> saver.saveEpisodeContents(episode, List.of(late), EpisodeContentSnapshot.fingerprint(List.of())))
+        assertThatThrownBy(
+                () -> saver.saveEpisodeContents(episode, List.of(late), EpisodeContentSnapshot.fingerprint(List.of())))
                 .hasMessageContaining("existing data preserved");
         verify(repository, never()).deleteAllByEpisodeId(anyLong());
         verify(repository, never()).batchInsertAll(anyList());
@@ -81,8 +85,9 @@ class LegacyNovelPersistenceTest {
             jp.co.translacat.global.utils.TransactionUtil.runAfterCommit(callback);
 
             // 실행: 상위 트랜잭션이 실패했다.
-            org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations()
-                    .forEach(sync -> sync.afterCompletion(org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK));
+            org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations().forEach(sync
+                    -> sync.afterCompletion(
+                            org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK));
 
             // 검증
             verifyNoInteractions(callback);

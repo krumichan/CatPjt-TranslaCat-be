@@ -28,31 +28,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(
-        controllers = PlatformController.class,
-        properties = {
-                "cors.allowed-origin=http://localhost:3000",
+@WebMvcTest(controllers = PlatformController.class,
+        properties = {"cors.allowed-origin=http://localhost:3000",
                 "jwt.token.secret-key=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
-                "jwt.token.expired.access=86400000",
-                "jwt.token.expired.refresh=604800000"
-        }
-)
-@Import({
-        SecurityConfig.class,
-        JwtFilter.class,
-        JWTService.class,
-        ApiLoggingFilter.class,
+                "jwt.token.expired.access=86400000", "jwt.token.expired.refresh=604800000"})
+@Import({SecurityConfig.class, JwtFilter.class, JWTService.class, ApiLoggingFilter.class,
         SecurityConfigNovelAccessTest.SecurityRegressionController.class,
-        SecurityConfigNovelAccessTest.TestSupportConfig.class
-})
+        SecurityConfigNovelAccessTest.TestSupportConfig.class})
 @ContextConfiguration(classes = PlatformController.class)
 class SecurityConfigNovelAccessTest {
+    @Autowired private MockMvc mockMvc;
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private JWTService jwt;
+    @Autowired private JWTService jwt;
 
     @Test
     void refreshAndBasicCannotAuthenticateAccountApis() throws Exception {
@@ -62,8 +49,9 @@ class SecurityConfigNovelAccessTest {
         // 실행 / 검증
         mockMvc.perform(get("/api/v1/auth/account").header("Authorization", "Bearer " + refresh))
                 .andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/v1/auth/account")
-                        .with(SecurityMockMvcRequestPostProcessors.httpBasic("fixture@example.com", "password")))
+        mockMvc.perform(
+                       get("/api/v1/auth/account")
+                               .with(SecurityMockMvcRequestPostProcessors.httpBasic("fixture@example.com", "password")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(result -> assertThat(result.getResponse().getHeader("WWW-Authenticate")).isNull());
     }
@@ -81,33 +69,26 @@ class SecurityConfigNovelAccessTest {
 
     @Test
     void adminCanAccessNovelApi() throws Exception {
-        mockMvc.perform(get("/api/v1/platforms")
-                        .with(SecurityMockMvcRequestPostProcessors.user("admin").roles("ADMIN")))
+        mockMvc.perform(
+                       get("/api/v1/platforms").with(SecurityMockMvcRequestPostProcessors.user("admin").roles("ADMIN")))
                 .andExpect(status().isOk());
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "/api/v1/platforms",
-            "/api/v1/syosetu/genres",
-            "/api/v1/syosetu/ranking/periods",
-            "/api/v1/syosetu/novels/n1234",
-            "/api/v1/syosetu/n1234/episodes/1",
-            "/api/v1/syosyetu/n1234ab/episodes/1/reader",
-            "/api/v1/syosyetu/n1234ab/episodes/1/translations/job-1",
-            "/api/v1/syosetu/search/novels",
-            "/api/v1/recent/top10"
-    })
+    @ValueSource(strings = {"/api/v1/platforms", "/api/v1/syosetu/genres", "/api/v1/syosetu/ranking/periods",
+                         "/api/v1/syosetu/novels/n1234", "/api/v1/syosetu/n1234/episodes/1",
+                         "/api/v1/syosyetu/n1234ab/episodes/1/reader",
+                         "/api/v1/syosyetu/n1234ab/episodes/1/translations/job-1", "/api/v1/syosetu/search/novels",
+                         "/api/v1/recent/top10"})
     void userSeesNotFoundForEveryNovelGetApi(String path) throws Exception {
-        mockMvc.perform(get(path)
-                        .with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER")))
+        mockMvc.perform(get(path).with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER")))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void userSeesNotFoundForNovelDictionaryApi() throws Exception {
         mockMvc.perform(post("/api/v1/dictionary/register")
-                        .with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER")))
+                                .with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER")))
                 .andExpect(status().isNotFound());
     }
 
@@ -123,17 +104,15 @@ class SecurityConfigNovelAccessTest {
 
     @Test
     void anonymousUserSeesNotFoundForNovelApi() throws Exception {
-        mockMvc.perform(get("/api/v1/platforms"))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/platforms")).andExpect(status().isNotFound());
     }
 
     @Test
     void nonNovelProtectedApisKeepUnauthorizedAndForbiddenResponses() throws Exception {
-        mockMvc.perform(get("/api/v1/security-regression/protected"))
-                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/security-regression/protected")).andExpect(status().isUnauthorized());
 
         mockMvc.perform(get("/api/v1/admin/security-regression")
-                        .with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER")))
+                                .with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER")))
                 .andExpect(status().isForbidden());
     }
 
@@ -141,7 +120,7 @@ class SecurityConfigNovelAccessTest {
     void languageLearningAdminDenialDoesNotRedispatchAsAnonymousError() throws Exception {
         // 준비: 일반 사용자 인증은 유효하지만 언어학습 관리자 권한은 없다.
         var request = get("/api/v1/admin/language-learning/settings")
-                .with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER"));
+                              .with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER"));
 
         // 실행 및 검증: sendError를 통한 익명 /error 재진입 없이 원래 403을 확정한다.
         mockMvc.perform(request)
@@ -151,7 +130,6 @@ class SecurityConfigNovelAccessTest {
 
     @RestController
     public static class SecurityRegressionController {
-
         @GetMapping("/api/v1/{platformCode}/genres")
         String genres() {
             return "ok";
@@ -200,7 +178,6 @@ class SecurityConfigNovelAccessTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class TestSupportConfig {
-
         @Bean
         PlatformService platformService() {
             return new PlatformService(null, null) {

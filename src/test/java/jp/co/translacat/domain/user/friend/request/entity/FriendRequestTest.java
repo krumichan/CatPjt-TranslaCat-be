@@ -11,7 +11,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 class FriendRequestTest {
-
     @Test
     @DisplayName("FriendRequest 생성 테스트")
     void createFriendRequest() {
@@ -40,9 +39,8 @@ class FriendRequestTest {
 
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> FriendRequest.create(requester, receiver))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_SELF_NOT_ALLOWED")
-                );
+                .satisfies(
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_SELF_NOT_ALLOWED"));
     }
 
     @Test
@@ -100,9 +98,8 @@ class FriendRequestTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(friendRequest::reject)
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PROCESSED")
-                );
+                .satisfies(exception
+                        -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PROCESSED"));
     }
 
     private FriendRequest createPendingFriendRequest() {
@@ -111,19 +108,8 @@ class FriendRequestTest {
         return FriendRequest.create(requester, receiver);
     }
 
-    private User createUser(
-            Long id,
-            String email,
-            String username,
-            String publicId
-    ) {
-        User user = User.createLocalUser(
-                email,
-                "password",
-                username,
-                Role.USER,
-                publicId
-        );
+    private User createUser(Long id, String email, String username, String publicId) {
+        User user = User.createLocalUser(email, "password", username, Role.USER, publicId);
         user.setId(id);
         return user;
     }

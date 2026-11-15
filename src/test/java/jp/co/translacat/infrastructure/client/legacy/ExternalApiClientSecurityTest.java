@@ -15,7 +15,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 class ExternalApiClientSecurityTest {
-
     @Test
     void postFallbackRedactsSensitiveHeadersAndDoesNotExposeRequestBody() {
         ExternalApiClient client = new ExternalApiClient(mock(WebClient.class));
@@ -25,13 +24,11 @@ class ExternalApiClientSecurityTest {
         headers.put("X-Correlation-ID", "trace-123");
         Map<String, String> request = Map.of("answer", "private learner answer");
 
-        assertThatThrownBy(() -> client.postFallback(
-                "http://localhost:8000/api/v1/language-learning/level-test/questions/generate",
-                request,
-                headers,
-                Map.class,
-                notFoundException()
-        ))
+        assertThatThrownBy(
+                ()
+                        -> client.postFallback(
+                                "http://localhost:8000/api/v1/language-learning/level-test/questions/generate", request,
+                                headers, Map.class, notFoundException()))
                 .isInstanceOf(ExternalApiInvocationException.class)
                 .satisfies(error -> {
                     String message = error.getMessage();
@@ -46,12 +43,7 @@ class ExternalApiClientSecurityTest {
     }
 
     private WebClientResponseException notFoundException() {
-        return WebClientResponseException.create(
-                404,
-                "Not Found",
-                HttpHeaders.EMPTY,
-                "{\"detail\":\"Not Found\"}".getBytes(StandardCharsets.UTF_8),
-                StandardCharsets.UTF_8
-        );
+        return WebClientResponseException.create(404, "Not Found", HttpHeaders.EMPTY,
+                "{\"detail\":\"Not Found\"}".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8);
     }
 }

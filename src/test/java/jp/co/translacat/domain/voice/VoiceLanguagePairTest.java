@@ -47,8 +47,7 @@ class VoiceLanguagePairTest {
         var service = new VoiceSessionCommandService(entityManager, sessions, channels,
                 mock(VoiceSegmentRepository.class), usage, policy, new ObjectMapper());
         var request = new VoiceSessionCreateRequestDto(VoiceMode.MEDIA, VoiceSourceLanguageMode.MANUAL,
-                target.toUpperCase(Locale.ROOT), true,
-                Map.of(VoiceChannel.REMOTE, source.toUpperCase(Locale.ROOT)));
+                target.toUpperCase(Locale.ROOT), true, Map.of(VoiceChannel.REMOTE, source.toUpperCase(Locale.ROOT)));
 
         // 실행
         service.create(123L, request);

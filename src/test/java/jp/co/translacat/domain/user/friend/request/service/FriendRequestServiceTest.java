@@ -25,24 +25,17 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class FriendRequestServiceTest {
+    @Mock private FriendRequestRepository friendRequestRepository;
 
-    @Mock
-    private FriendRequestRepository friendRequestRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserProfileQueryService userProfileQueryService;
 
-    @Mock
-    private UserProfileQueryService userProfileQueryService;
+    @Mock private FriendService friendService;
 
-    @Mock
-    private FriendService friendService;
+    @Mock private UserBlockService userBlockService;
 
-    @Mock
-    private UserBlockService userBlockService;
-
-    @InjectMocks
-    private FriendRequestService friendRequestService;
+    @InjectMocks private FriendRequestService friendRequestService;
 
     @Test
     @DisplayName("친구 요청 생성 테스트")
@@ -54,8 +47,8 @@ class FriendRequestServiceTest {
         when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(false);
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(false);
         when(friendService.areFriends(1L, 2L)).thenReturn(false);
-        when(friendRequestRepository.save(any(FriendRequest.class))).thenAnswer(
-                invocation -> invocation.getArgument(0));
+        when(friendRequestRepository.save(any(FriendRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
         FriendRequest friendRequest = friendRequestService.createPendingRequest(requester, receiver);
@@ -80,9 +73,7 @@ class FriendRequestServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.createPendingRequest(requester, receiver))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("USER_BLOCKED_BETWEEN")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("USER_BLOCKED_BETWEEN"));
 
         verify(friendRequestRepository, never()).save(any(FriendRequest.class));
     }
@@ -100,9 +91,8 @@ class FriendRequestServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.createPendingRequest(requester, receiver))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PENDING")
-                );
+                .satisfies(
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PENDING"));
 
         verify(friendRequestRepository, never()).save(any(FriendRequest.class));
     }
@@ -121,9 +111,7 @@ class FriendRequestServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.createPendingRequest(requester, receiver))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_ALREADY_EXISTS")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_ALREADY_EXISTS"));
 
         verify(friendRequestRepository, never()).save(any(FriendRequest.class));
     }
@@ -139,9 +127,7 @@ class FriendRequestServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.getFriendRequest(requestId))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_FOUND")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_FOUND"));
     }
 
     @Test
@@ -192,19 +178,8 @@ class FriendRequestServiceTest {
         return FriendRequest.create(requester, receiver);
     }
 
-    private User createUser(
-            Long id,
-            String email,
-            String username,
-            String publicId
-    ) {
-        User user = User.createLocalUser(
-                email,
-                "password",
-                username,
-                Role.USER,
-                publicId
-        );
+    private User createUser(Long id, String email, String username, String publicId) {
+        User user = User.createLocalUser(email, "password", username, Role.USER, publicId);
         user.setId(id);
         return user;
     }

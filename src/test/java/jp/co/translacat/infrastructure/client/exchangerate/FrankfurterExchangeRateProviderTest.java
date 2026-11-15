@@ -42,13 +42,12 @@ class FrankfurterExchangeRateProviderTest {
         });
         server.start();
         var retryRegistry = RetryRegistry.of(RetryConfig.custom()
-                .maxAttempts(2)
-                .waitDuration(java.time.Duration.ZERO)
-                .retryExceptions(RetryableRateUnavailableException.class)
-                .build());
-        provider =
-                new FrankfurterExchangeRateProvider("http://127.0.0.1:" + server.getAddress().getPort(), 1000, 1000, 31,
-                        retryRegistry);
+                        .maxAttempts(2)
+                        .waitDuration(java.time.Duration.ZERO)
+                        .retryExceptions(RetryableRateUnavailableException.class)
+                        .build());
+        provider = new FrankfurterExchangeRateProvider(
+                "http://127.0.0.1:" + server.getAddress().getPort(), 1000, 1000, 31, retryRegistry);
     }
 
     @AfterEach

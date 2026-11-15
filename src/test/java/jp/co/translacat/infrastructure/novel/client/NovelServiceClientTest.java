@@ -29,7 +29,8 @@ class NovelServiceClientTest {
     @AfterEach
     void cleanup() {
         RequestContextHolder.resetRequestAttributes();
-        if (server != null) server.stop(0);
+        if (server != null)
+            server.stop(0);
     }
 
     @Test
@@ -78,8 +79,11 @@ class NovelServiceClientTest {
                 Map.of("revision", "source-v1", "idempotencyKey", "test-key"));
 
         // 검증: 내부 키/주체/audience와 시도 횟수를 검증하며 사용자 토큰은 전달하지 않는다.
-        var claims = Jwts.parser().verifyWith(Keys.hmacShaKeyFor(key)).build()
-                .parseSignedClaims(authorization.get().substring(7)).getPayload();
+        var claims = Jwts.parser()
+                             .verifyWith(Keys.hmacShaKeyFor(key))
+                             .build()
+                             .parseSignedClaims(authorization.get().substring(7))
+                             .getPayload();
         assertThat(claims.getSubject()).isEqualTo("41");
         assertThat(claims.getAudience()).containsExactly("translacat-novel");
         assertThat(claims.get("tokenUse")).isEqualTo("novel-internal");
@@ -95,11 +99,13 @@ class NovelServiceClientTest {
 
         // 실행 및 검증
         assertThatThrownBy(() -> client.get(1, "/internal/v1/novel/syosyetu/n1234/episodes/1/reader"))
-                .isInstanceOfSatisfying(NovelGatewayException.class, error -> {
-                    assertThat(error.status()).isEqualTo(502);
-                    assertThat(error.code()).isEqualTo("NOVEL_INTERNAL_AUTH_FAILED");
-                    assertThat(error.retryable()).isFalse();
-                }).hasMessageNotContaining("must-not-leak");
+                .isInstanceOfSatisfying(NovelGatewayException.class,
+                        error -> {
+                            assertThat(error.status()).isEqualTo(502);
+                            assertThat(error.code()).isEqualTo("NOVEL_INTERNAL_AUTH_FAILED");
+                            assertThat(error.retryable()).isFalse();
+                        })
+                .hasMessageNotContaining("must-not-leak");
         assertThat(calls).hasValue(1);
     }
 
@@ -140,7 +146,7 @@ class NovelServiceClientTest {
     void externalHttpAndCredentialBearingBaseUrlsAreRejected() {
         // 실행 및 검증: 서버가 지정한 HTTPS 또는 로컬 개발 목적지만 허용한다.
         for (String value : java.util.List.of("http://example.com", "https://user:pass@example.com",
-                "http://169.254.169.254", "https://example.com/path", "https://example.com?x=1")) {
+                     "http://169.254.169.254", "https://example.com/path", "https://example.com?x=1")) {
             assertThatThrownBy(() -> NovelServiceClient.validateBase(value)).isInstanceOf(IllegalStateException.class);
         }
     }
@@ -154,7 +160,8 @@ class NovelServiceClientTest {
             exchange.getRequestBody().readAllBytes();
             byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(status, bytes.length == 0 ? -1 : bytes.length);
-            if (bytes.length != 0) exchange.getResponseBody().write(bytes);
+            if (bytes.length != 0)
+                exchange.getResponseBody().write(bytes);
             exchange.close();
         });
         server.start();

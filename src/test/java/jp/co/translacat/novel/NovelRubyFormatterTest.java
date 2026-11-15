@@ -68,8 +68,8 @@ class NovelRubyFormatterTest {
 
         // 검증: 텍스트를 태그로 신뢰하지 않고 발음 위치는 원문과 일치한다.
         assertThat(tokens).hasSize(2);
-        assertThat(tokens).allSatisfy(token ->
-                assertThat(source.substring(token.startOffset(), token.endOffset())).isEqualTo(token.text()));
+        assertThat(tokens).allSatisfy(
+                token -> assertThat(source.substring(token.startOffset(), token.endOffset())).isEqualTo(token.text()));
         assertThat(markup).contains("&lt;ruby&gt;").contains("&lt;/ruby&gt; &amp; ");
     }
 
@@ -106,7 +106,9 @@ class NovelRubyFormatterTest {
         var title = TranslationUnit.of("猫の旅", "猫の旅", "고양이의 여행");
         var entry = RawEpisodeContext.builder().sequence(1).identifier("1").title(title).build();
         var paragraph = EpisodeContentContext.builder()
-                .sequence(1).content(TranslationUnit.of("猫が歩く。", "猫が歩く。", "고양이가 걷는다.")).build();
+                                .sequence(1)
+                                .content(TranslationUnit.of("猫が歩く。", "猫が歩く。", "고양이가 걷는다."))
+                                .build();
 
         // 실행: 목록과 구형 본문 응답에만 Sudachi 표시값을 복원한다.
         var listed = NovelResponseDto.of(entry, formatter);

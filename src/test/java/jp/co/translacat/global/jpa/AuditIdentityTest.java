@@ -14,7 +14,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class AuditIdentityTest {
-
     private static class AuditedFixture extends BaseAuditable {
         void insert() {
             prePersist();

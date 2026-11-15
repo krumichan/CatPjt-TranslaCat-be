@@ -37,25 +37,34 @@ class AccountDeletionControllerTest {
         JWTService jwt = mock(JWTService.class);
         when(jwt.getSessionId("synthetic")).thenReturn(sid);
         mvc = MockMvcBuilders.standaloneSetup(new AccountDeletionController(deletion, reauth, jwt))
-                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
-                .setControllerAdvice(new AuthExceptionAdvice()).build();
+                      .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                      .setControllerAdvice(new AuthExceptionAdvice())
+                      .build();
         User user = User.createLocalUser("synthetic@example.com", "hash", "Synthetic", Role.USER, "TCAT-SYNTHETIC");
         user.setId(42L);
         var principal = new UserPrincipal(user);
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
     }
 
-    @AfterEach void cleanup() { SecurityContextHolder.clearContext(); }
+    @AfterEach
+    void cleanup() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void successfulProofResponseIsNoStoreAndBoundToAuthenticatedActorAndSid() throws Exception {
         // 준비
-        when(reauth.password(42, sid, "synthetic-password")).thenReturn(new AccountDeletionReauthentication.ProofResponse("synthetic-proof", 300));
+        when(reauth.password(42, sid, "synthetic-password"))
+                .thenReturn(new AccountDeletionReauthentication.ProofResponse("synthetic-proof", 300));
 
         // 실행
         mvc.perform(post("/api/v1/users/me/deletion-reauthentication/password")
-                        .header("Authorization", "Bearer synthetic").contentType("application/json").content("{\"password\":\"synthetic-password\"}"))
-                .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
+                            .header("Authorization", "Bearer synthetic")
+                            .contentType("application/json")
+                            .content("{\"password\":\"synthetic-password\"}"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"));
 
         // 검증
         verify(reauth).password(42, sid, "synthetic-password");
@@ -64,10 +73,14 @@ class AccountDeletionControllerTest {
     @Test
     void unknownActorFieldAndDuplicateKeysAreRejectedWithoutServiceCall() throws Exception {
         // 준비 및 실행
-        for (String body : java.util.List.of("{\"password\":\"secret\",\"actorId\":7}", "{\"password\":\"first\",\"password\":\"second\"}")) {
+        for (String body : java.util.List.of(
+                     "{\"password\":\"secret\",\"actorId\":7}", "{\"password\":\"first\",\"password\":\"second\"}")) {
             mvc.perform(post("/api/v1/users/me/deletion-reauthentication/password")
-                            .header("Authorization", "Bearer synthetic").contentType("application/json").content(body))
-                    .andExpect(status().isBadRequest()).andExpect(header().string("Cache-Control", "no-store"));
+                                .header("Authorization", "Bearer synthetic")
+                                .contentType("application/json")
+                                .content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(header().string("Cache-Control", "no-store"));
         }
 
         // 검증
@@ -77,11 +90,14 @@ class AccountDeletionControllerTest {
     @Test
     void oversizedBodyCannotReachReauthenticationService() throws Exception {
         // 준비
-        String body = "{\"password\":\"" + "x".repeat(25000) + "\"}";
+        String body = "{\"password\":\""
+                + "x".repeat(25000) + "\"}";
 
         // 실행
         mvc.perform(post("/api/v1/users/me/deletion-reauthentication/password")
-                        .header("Authorization", "Bearer synthetic").contentType("application/json").content(body))
+                            .header("Authorization", "Bearer synthetic")
+                            .contentType("application/json")
+                            .content(body))
                 .andExpect(status().isBadRequest());
 
         // 검증
@@ -94,12 +110,15 @@ class AccountDeletionControllerTest {
         SecurityContextHolder.clearContext();
         String id = UUID.randomUUID().toString();
         String receipt = DeletionTokens.issue();
-        when(deletion.status(any(), any())).thenReturn(new AccountDeletionService.Status(id, "PENDING", Instant.now(), null, null));
+        when(deletion.status(any(), any()))
+                .thenReturn(new AccountDeletionService.Status(id, "PENDING", Instant.now(), null, null));
 
         // 실행
-        mvc.perform(post("/api/v1/account-deletion/status").contentType("application/json")
-                        .content("{\"operationId\":\"" + id + "\",\"receiptSecret\":\"" + receipt + "\"}"))
-                .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
+        mvc.perform(post("/api/v1/account-deletion/status")
+                            .contentType("application/json")
+                            .content("{\"operationId\":\"" + id + "\",\"receiptSecret\":\"" + receipt + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"));
 
         // 검증
         verify(deletion).status(eq(new AccountDeletionService.StatusRequest(id, receipt)), any());

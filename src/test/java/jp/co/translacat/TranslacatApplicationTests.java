@@ -7,9 +7,7 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 @SpringBootTest
 class TranslacatApplicationTests {
-
     @Test
     void contextLoads() {
     }
-
 }

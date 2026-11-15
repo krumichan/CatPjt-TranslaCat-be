@@ -26,47 +26,67 @@ class CatalogProgressionTest {
     ObjectMapper mapper = new ObjectMapper();
     FairAiScheduler scheduler;
 
-    @BeforeEach void setup() {
+    @BeforeEach
+    void setup() {
         var ds = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
-        new ResourceDatabasePopulator(new ClassPathResource("novel-embedded-h2.sql"), new ClassPathResource("novel-catalog-h2.sql")).execute(ds);
+        new ResourceDatabasePopulator(
+                new ClassPathResource("novel-embedded-h2.sql"), new ClassPathResource("novel-catalog-h2.sql"))
+                .execute(ds);
         jdbc = new JdbcTemplate(ds);
         manager = new DataSourceTransactionManager(ds);
         store = new CatalogStore(jdbc, mapper, manager);
         novels = new NovelStore(jdbc, manager, mapper);
         scheduler = new FairAiScheduler(4, 256);
     }
-    @AfterEach void close() { scheduler.close(); }
+    @AfterEach
+    void close() {
+        scheduler.close();
+    }
 
-    @Test void englishCatalogHasItsOwnProviderTargetStoredResultAndGenericTextAfterRestart() throws Exception {
+    @Test
+    void englishCatalogHasItsOwnProviderTargetStoredResultAndGenericTextAfterRestart() throws Exception {
         // 준비: 실제 목록 orchestration과 저장소를 사용하되 언어별 결과를 구분하는 합성 AI를 둔다.
         AtomicInteger calls = new AtomicInteger();
         NovelPorts.Ai ai = new NovelPorts.Ai() {
-            public String model() { return "test-openai"; }
-            public String speechModel() { return "test-speech"; }
-            public NovelPorts.Translation translate(String trace, List<SourceEpisode.Segment> items, List<String> context, long remaining) {
+            public String model() {
+                return "test-openai";
+            }
+            public String speechModel() {
+                return "test-speech";
+            }
+            public NovelPorts.Translation translate(
+                    String trace, List<SourceEpisode.Segment> items, List<String> context, long remaining) {
                 throw new AssertionError("명시 목표 언어를 잃으면 안 됩니다.");
             }
-            @Override public NovelPorts.Translation translate(String trace, String call, List<SourceEpisode.Segment> items,
-                    List<String> context, Map<String,String> glossary, long remaining, TranslationOptions.ResponseShape shape,
-                    TranslationOptions.ValidationPolicy validation, TranslationOptions.AnnotationPolicy annotation, String target) {
+            @Override
+            public NovelPorts.Translation translate(String trace, String call, List<SourceEpisode.Segment> items,
+                    List<String> context, Map<String, String> glossary, long remaining,
+                    TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
+                    TranslationOptions.AnnotationPolicy annotation, String target) {
                 calls.incrementAndGet();
-                Map<String,String> translated = new HashMap<>();
-                items.forEach(item -> translated.put(item.id(), target.equals("en") ? "English " + item.id() : "한국어 " + item.id()));
+                Map<String, String> translated = new HashMap<>();
+                items.forEach(item
+                        -> translated.put(
+                                item.id(), target.equals("en") ? "English " + item.id() : "한국어 " + item.id()));
                 return new NovelPorts.Translation(translated, "OPENAI", model(), 10, 10);
             }
             public NovelPorts.Speech synthesize(String id, String text, String language, long remaining) {
                 throw new AssertionError("목록 조회는 음성을 합성하지 않습니다.");
             }
         };
-        var commands = new CatalogCommandService(store, novels, ai, NovelExecutionSettings.baseline(), scheduler, mapper);
+        var commands =
+                new CatalogCommandService(store, novels, ai, NovelExecutionSettings.baseline(), scheduler, mapper);
         var source = new CatalogModels.SourcePage(cards(1), Map.of(), 0);
 
         // 실행: 같은 원문의 영어/한국어를 별도로 완료하고 새 목록에서도 기존 영어를 재사용한다.
-        String english = commands.start(1, "syosetu", new CatalogModels.Start(selector("RANKING", "en", null), "en-first", source), "trace-en");
+        String english = commands.start(
+                1, "syosetu", new CatalogModels.Start(selector("RANKING", "en", null), "en-first", source), "trace-en");
         awaitReady(english);
-        String korean = commands.start(1, "syosetu", new CatalogModels.Start(selector("RANKING", "ko", null), "ko-first", source), "trace-ko");
+        String korean = commands.start(
+                1, "syosetu", new CatalogModels.Start(selector("RANKING", "ko", null), "ko-first", source), "trace-ko");
         awaitReady(korean);
-        String reused = commands.start(1, "syosetu", new CatalogModels.Start(selector("SEARCH", "en", "猫"), "en-search", source), "trace-search");
+        String reused = commands.start(1, "syosetu",
+                new CatalogModels.Start(selector("SEARCH", "en", "猫"), "en-search", source), "trace-search");
         awaitReady(reused);
         var englishItem = new CatalogStore(jdbc, mapper, manager).snapshot(1, english).items().getFirst();
 
@@ -76,24 +96,32 @@ class CatalogProgressionTest {
         assertThat(englishItem.title().ko()).isNull();
         assertThat(store.snapshot(1, korean).items().getFirst().title().ko()).isEqualTo("한국어 title");
         assertThat(calls.get()).isEqualTo(2);
-        assertThatThrownBy(() -> commands.start(1, "syosetu", new CatalogModels.Start(selector("RANKING", "ko", null), "en-first", source), "conflict"))
+        assertThatThrownBy(()
+                                   -> commands.start(1, "syosetu",
+                                           new CatalogModels.Start(selector("RANKING", "ko", null), "en-first", source),
+                                           "conflict"))
                 .hasMessage("IDEMPOTENCY_CONFLICT");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_catalog_translation", Integer.class)).isEqualTo(2);
     }
 
-    @Test void fiftyCardsPersistCompletionOrderAndOriginalRankAcrossRestart() {
+    @Test
+    void fiftyCardsPersistCompletionOrderAndOriginalRankAcrossRestart() {
         // 준비: 순위순 원문은 아직 화면에 도착하지 않았다.
         var cards = cards(50);
         String id = create("first", selector("RANKING", "ko", null), cards);
         assertThat(store.snapshot(1, id).items()).isEmpty();
         List<Integer> order = new ArrayList<>(List.of(1, 7, 15, 3));
-        for (int rank = 1; rank <= 50; rank++) if (!order.contains(rank)) order.add(rank);
+        for (int rank = 1; rank <= 50; rank++)
+            if (!order.contains(rank))
+                order.add(rank);
 
         // 실행: 제어된 provider 완료 순서를 그대로 저장한다.
         for (int rank : order) {
             var owner = store.claim("key" + rank, 60000);
-            if (rank == 20) store.failed(owner, "FIXTURE_FAILURE");
-            else store.ready(owner, Map.of("title", "제목" + rank, "synopsis", "소개"), Map.of());
+            if (rank == 20)
+                store.failed(owner, "FIXTURE_FAILURE");
+            else
+                store.ready(owner, Map.of("title", "제목" + rank, "synopsis", "소개"), Map.of());
         }
         var restarted = new CatalogStore(jdbc, mapper, manager);
         var snapshot = restarted.snapshot(1, id);
@@ -103,15 +131,26 @@ class CatalogProgressionTest {
         assertThat(snapshot.ready()).isEqualTo(49);
         assertThat(snapshot.failed()).isEqualTo(1);
         assertThat(snapshot.state()).isEqualTo("PARTIAL");
-        long arrival = snapshot.items().stream().filter(item -> item.rank() == 20).findFirst().orElseThrow().arrivalSequence();
+        long arrival =
+                snapshot.items().stream().filter(item -> item.rank() == 20).findFirst().orElseThrow().arrivalSequence();
         restarted.retry(1, id, "n20a", "retry-one");
         restarted.ready(restarted.claim("key20", 60000), Map.of("title", "회복"), Map.of());
         assertThat(restarted.snapshot(1, id).state()).isEqualTo("SUCCEEDED");
-        assertThat(restarted.snapshot(1, id).items()).extracting(CatalogModels.Item::rank).containsExactlyElementsOf(order);
-        assertThat(restarted.snapshot(1, id).items().stream().filter(item -> item.rank() == 20).findFirst().orElseThrow().arrivalSequence()).isEqualTo(arrival);
+        assertThat(restarted.snapshot(1, id).items())
+                .extracting(CatalogModels.Item::rank)
+                .containsExactlyElementsOf(order);
+        assertThat(restarted.snapshot(1, id)
+                           .items()
+                           .stream()
+                           .filter(item -> item.rank() == 20)
+                           .findFirst()
+                           .orElseThrow()
+                           .arrivalSequence())
+                .isEqualTo(arrival);
     }
 
-    @Test void sharedWorkHasIndependentConsumersAndStaleOwnerCannotPublishAfterExpiry() {
+    @Test
+    void sharedWorkHasIndependentConsumersAndStaleOwnerCannotPublishAfterExpiry() {
         // 준비: 두 목록이 같은 cache key를 구독한다.
         String first = create("first", selector("RANKING", "ko", null), cards(1));
         String second = create("second", selector("SEARCH", "ko", "猫"), cards(1));
@@ -130,10 +169,13 @@ class CatalogProgressionTest {
 
         // 검증: 마지막 소비자도 떠나면 queue에서 provider를 시작할 수 없다.
         assertThat(store.claim("key1", 60000)).isNull();
-        assertThat(jdbc.queryForObject("SELECT attempt_count FROM novel_catalog_translation WHERE cache_key='key1'", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                           "SELECT attempt_count FROM novel_catalog_translation WHERE cache_key='key1'", Integer.class))
+                .isEqualTo(1);
     }
 
-    @Test void cachedCardsArriveFirstAndRequestKeysCannotChangeSelector() {
+    @Test
+    void cachedCardsArriveFirstAndRequestKeysCannotChangeSelector() {
         // 준비
         String first = create("first", selector("RANKING", "ko", null), cards(3));
         store.ready(store.claim("key3", 60000), Map.of("title", "캐시"), Map.of());
@@ -143,10 +185,12 @@ class CatalogProgressionTest {
         assertThat(store.snapshot(1, second).items()).extracting(CatalogModels.Item::rank).containsExactly(3);
         assertThat(store.snapshot(1, second).items().getFirst().cached()).isTrue();
         assertThat(create("first", selector("RANKING", "ko", null), cards(3))).isEqualTo(first);
-        assertThatThrownBy(() -> create("first", selector("SEARCH", "ko", "猫"), cards(3))).hasMessage("IDEMPOTENCY_CONFLICT");
+        assertThatThrownBy(() -> create("first", selector("SEARCH", "ko", "猫"), cards(3)))
+                .hasMessage("IDEMPOTENCY_CONFLICT");
     }
 
-    @Test void abandonedPendingQueueBecomesRetryableWithoutAutomaticGeneration() {
+    @Test
+    void abandonedPendingQueueBecomesRetryableWithoutAutomaticGeneration() {
         // 준비: 프로세스가 실행 전에 중단된 영속 대기 항목.
         String id = create("queue", selector("RANKING", "ko", null), cards(1));
         jdbc.update("UPDATE novel_catalog_translation SET updated_at=0 WHERE cache_key='key1'");
@@ -157,10 +201,13 @@ class CatalogProgressionTest {
 
         // 검증: 재시도 직후 과거 timestamp 때문에 다시 실패하거나 호출을 시작하지 않는다.
         assertThat(store.snapshot(1, id).items().getFirst().status()).isEqualTo("PENDING");
-        assertThat(jdbc.queryForObject("SELECT attempt_count FROM novel_catalog_translation WHERE cache_key='key1'", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject(
+                           "SELECT attempt_count FROM novel_catalog_translation WHERE cache_key='key1'", Integer.class))
+                .isZero();
     }
 
-    @Test void twoMinuteQueueWaitIsPendingButFiveMinuteOrphanFailsWithoutClaiming() {
+    @Test
+    void twoMinuteQueueWaitIsPendingButFiveMinuteOrphanFailsWithoutClaiming() {
         // 준비: 정상 C4 목록의 대기 시간은 provider 실행 시간과 분리한다.
         String id = create("queue-budget", selector("RANKING", "ko", null), cards(1));
         jdbc.update("UPDATE novel_catalog_translation SET updated_at=? WHERE cache_key='key1'",
@@ -172,10 +219,13 @@ class CatalogProgressionTest {
         jdbc.update("UPDATE novel_catalog_translation SET updated_at=? WHERE cache_key='key1'",
                 System.currentTimeMillis() - 301000);
         assertThat(store.snapshot(1, id).items().getFirst().errorCode()).isEqualTo("CATALOG_QUEUE_INTERRUPTED");
-        assertThat(jdbc.queryForObject("SELECT attempt_count FROM novel_catalog_translation WHERE cache_key='key1'", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject(
+                           "SELECT attempt_count FROM novel_catalog_translation WHERE cache_key='key1'", Integer.class))
+                .isZero();
     }
 
-    @Test void queuedCardReceivesFullProviderBudgetAndSeparateCommitLease() throws Exception {
+    @Test
+    void queuedCardReceivesFullProviderBudgetAndSeparateCommitLease() throws Exception {
         // 준비: 공유 슬롯을 점유하여 목록을 실제 scheduler 대기열에 둔다.
         scheduler.close();
         scheduler = new FairAiScheduler(1, 256);
@@ -190,11 +240,18 @@ class CatalogProgressionTest {
         AtomicLong providerBudget = new AtomicLong();
         AtomicLong leaseRemaining = new AtomicLong();
         NovelPorts.Ai ai = new NovelPorts.Ai() {
-            public String model() { return "test-openai"; }
-            public String speechModel() { return "test-speech"; }
-            public NovelPorts.Translation translate(String trace, List<SourceEpisode.Segment> items, List<String> context, long remaining) {
+            public String model() {
+                return "test-openai";
+            }
+            public String speechModel() {
+                return "test-speech";
+            }
+            public NovelPorts.Translation translate(
+                    String trace, List<SourceEpisode.Segment> items, List<String> context, long remaining) {
                 providerBudget.set(remaining);
-                leaseRemaining.set(jdbc.queryForObject("SELECT lease_until FROM novel_catalog_translation WHERE state='RUNNING'", Long.class)
+                leaseRemaining.set(
+                        jdbc.queryForObject(
+                                "SELECT lease_until FROM novel_catalog_translation WHERE state='RUNNING'", Long.class)
                         - System.currentTimeMillis());
                 Map<String, String> result = new HashMap<>();
                 items.forEach(item -> result.put(item.id(), "검증 번역"));
@@ -204,30 +261,48 @@ class CatalogProgressionTest {
                 throw new AssertionError("목록은 음성을 합성하지 않는다");
             }
         };
-        var commands = new CatalogCommandService(store, novels, ai, NovelExecutionSettings.baseline(), scheduler, mapper);
-        String id = commands.start(1, "syosyetu", new CatalogModels.Start(selector("RANKING", "ko", null),
-                "delayed", new CatalogModels.SourcePage(cards(1), Map.of(), 0)), "trace-queue");
+        var commands =
+                new CatalogCommandService(store, novels, ai, NovelExecutionSettings.baseline(), scheduler, mapper);
+        String id = commands.start(1, "syosyetu",
+                new CatalogModels.Start(selector("RANKING", "ko", null), "delayed",
+                        new CatalogModels.SourcePage(cards(1), Map.of(), 0)),
+                "trace-queue");
 
         // 실행: 실제 대기를 거친 뒤에도 provider 120초와 저장 여유가 그대로 주어진다.
-        try { Thread.sleep(1200); } finally { releaseBlocker.countDown(); }
+        try {
+            Thread.sleep(1200);
+        } finally {
+            releaseBlocker.countDown();
+        }
         awaitReady(id);
         assertThat(providerBudget.get()).isEqualTo(120000);
         assertThat(leaseRemaining.get()).isBetween(149000L, 150000L);
-        assertThat(jdbc.queryForObject("SELECT attempt_count FROM novel_catalog_translation", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT attempt_count FROM novel_catalog_translation", Integer.class))
+                .isEqualTo(1);
     }
 
-    @Test void commandReusesTranslationAcrossRankQueryAndActorButNotSourceChange() throws Exception {
+    @Test
+    void commandReusesTranslationAcrossRankQueryAndActorButNotSourceChange() throws Exception {
         // 준비: 실제 service orchestration, 제어된 AI port.
         AtomicInteger calls = new AtomicInteger();
         CountDownLatch entered = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         NovelPorts.Ai ai = new NovelPorts.Ai() {
-            public String model() { return "test-openai"; }
-            public String speechModel() { return "test-speech"; }
-            public NovelPorts.Translation translate(String trace, List<SourceEpisode.Segment> items, List<String> context, long remaining) {
-                calls.incrementAndGet(); entered.countDown();
-                try { assertThat(release.await(3, TimeUnit.SECONDS)).isTrue(); }
-                catch (InterruptedException failure) { throw new RuntimeException(failure); }
+            public String model() {
+                return "test-openai";
+            }
+            public String speechModel() {
+                return "test-speech";
+            }
+            public NovelPorts.Translation translate(
+                    String trace, List<SourceEpisode.Segment> items, List<String> context, long remaining) {
+                calls.incrementAndGet();
+                entered.countDown();
+                try {
+                    assertThat(release.await(3, TimeUnit.SECONDS)).isTrue();
+                } catch (InterruptedException failure) {
+                    throw new RuntimeException(failure);
+                }
                 Map<String, String> result = new HashMap<>();
                 items.forEach(item -> result.put(item.id(), "검증 번역"));
                 return new NovelPorts.Translation(result, "OPENAI", model(), 10, 10);
@@ -236,14 +311,18 @@ class CatalogProgressionTest {
                 throw new AssertionError("목록은 음성을 합성하지 않는다");
             }
         };
-        var commands = new CatalogCommandService(store, novels, ai, NovelExecutionSettings.baseline(), scheduler, mapper);
-        var ranking = new CatalogModels.Start(selector("RANKING", "ko", null), "ranking", new CatalogModels.SourcePage(cards(1), Map.of(), 0));
+        var commands =
+                new CatalogCommandService(store, novels, ai, NovelExecutionSettings.baseline(), scheduler, mapper);
+        var ranking = new CatalogModels.Start(
+                selector("RANKING", "ko", null), "ranking", new CatalogModels.SourcePage(cards(1), Map.of(), 0));
         String first = commands.start(1, "syosetu", ranking, "trace-one");
         assertThat(entered.await(3, TimeUnit.SECONDS)).isTrue();
         String same = commands.start(1, "syosyetu", ranking, "trace-two");
         var changedRank = new CatalogModels.SourceCard("n1a", 7, 0, "題1", "著者", "物語1", "", "", false);
-        String second = commands.start(1, "syosetu", new CatalogModels.Start(selector("SEARCH", "ko", "物語"), "search",
-                new CatalogModels.SourcePage(List.of(changedRank), Map.of(), 0)), "trace-three");
+        String second = commands.start(1, "syosetu",
+                new CatalogModels.Start(selector("SEARCH", "ko", "物語"), "search",
+                        new CatalogModels.SourcePage(List.of(changedRank), Map.of(), 0)),
+                "trace-three");
         commands.cancel(1, first);
 
         // 실행: 하나의 구독 취소가 다른 목록의 유료 응답을 버리지 않는다.
@@ -252,7 +331,9 @@ class CatalogProgressionTest {
         assertThat(same).isEqualTo(first);
         assertThat(calls.get()).isEqualTo(1);
         assertThat(store.snapshot(1, second).items().getFirst().rank()).isEqualTo(7);
-        commands.start(1, "syosetu", new CatalogModels.Start(selector("SEARCH", "ko", "다른검색"), "other-search", ranking.source()), "trace");
+        commands.start(1, "syosetu",
+                new CatalogModels.Start(selector("SEARCH", "ko", "다른검색"), "other-search", ranking.source()),
+                "trace");
         assertThat(calls.get()).isEqualTo(1);
 
         // 검증: 다른 사용자도 같은 공개 번역을 재사용하고 변경된 원문만 새로 번역한다.
@@ -261,29 +342,40 @@ class CatalogProgressionTest {
         assertThat(calls.get()).isEqualTo(1);
         assertThat(store.snapshot(2, third).items().getFirst().cached()).isTrue();
         var changed = new CatalogModels.SourceCard("n1a", 1, 0, "新しい題", "著者", "物語1", "", "", false);
-        String fourth = commands.start(1, "syosetu", new CatalogModels.Start(ranking.selector(), "changed",
-                new CatalogModels.SourcePage(List.of(changed), Map.of(), 0)), "trace");
+        String fourth = commands.start(1, "syosetu",
+                new CatalogModels.Start(
+                        ranking.selector(), "changed", new CatalogModels.SourcePage(List.of(changed), Map.of(), 0)),
+                "trace");
         awaitReady(fourth);
         assertThat(calls.get()).isEqualTo(2);
     }
 
-    private void awaitReady(String id) throws Exception { awaitReady(1, id); }
+    private void awaitReady(String id) throws Exception {
+        awaitReady(1, id);
+    }
     private void awaitReady(long actor, String id) throws Exception {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(4);
-        while (store.snapshot(actor, id).ready() == 0 && System.nanoTime() < deadline) Thread.sleep(10);
+        while (store.snapshot(actor, id).ready() == 0 && System.nanoTime() < deadline)
+            Thread.sleep(10);
         assertThat(store.snapshot(actor, id).ready()).isEqualTo(1);
     }
     private String create(String request, CatalogModels.Selector selector, List<CatalogModels.SourceCard> cards) {
-        return store.create(1, "syosyetu", request, SentenceSegmenter.hash(selector.toString()), selector, new CatalogModels.SourcePage(cards, Map.of(), 0),
-                cards.stream().map(card -> new CatalogStore.Prepared("key" + card.rank(), "revision", "policy", card, Map.of())).toList(), "trace");
+        return store.create(1, "syosyetu", request, SentenceSegmenter.hash(selector.toString()), selector,
+                new CatalogModels.SourcePage(cards, Map.of(), 0),
+                cards.stream()
+                        .map(card
+                                -> new CatalogStore.Prepared("key" + card.rank(), "revision", "policy", card, Map.of()))
+                        .toList(),
+                "trace");
     }
     private static CatalogModels.Selector selector(String kind, String language, String keyword) {
         return new CatalogModels.Selector(kind, "daily", "0", keyword, 1, language);
     }
     private static List<CatalogModels.SourceCard> cards(int count) {
         List<CatalogModels.SourceCard> cards = new ArrayList<>();
-        for (int i = 1; i <= count; i++) cards.add(new CatalogModels.SourceCard("n" + i + "a", i, i - 1,
-                "題" + i, "著者", "物語" + i, "", "", false));
+        for (int i = 1; i <= count; i++)
+            cards.add(
+                    new CatalogModels.SourceCard("n" + i + "a", i, i - 1, "題" + i, "著者", "物語" + i, "", "", false));
         return cards;
     }
 }

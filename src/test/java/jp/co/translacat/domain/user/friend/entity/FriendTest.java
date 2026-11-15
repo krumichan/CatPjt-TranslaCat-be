@@ -10,7 +10,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 class FriendTest {
-
     @Test
     @DisplayName("친구 관계 생성 테스트")
     void createFriend() {
@@ -53,9 +52,7 @@ class FriendTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> Friend.create(user, user))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_SELF_NOT_ALLOWED")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_SELF_NOT_ALLOWED"));
     }
 
     @Test
@@ -111,19 +108,8 @@ class FriendTest {
         return Friend.create(user1, user2);
     }
 
-    private User createUser(
-            Long id,
-            String email,
-            String username,
-            String publicId
-    ) {
-        User user = User.createLocalUser(
-                email,
-                "password",
-                username,
-                Role.USER,
-                publicId
-        );
+    private User createUser(Long id, String email, String username, String publicId) {
+        User user = User.createLocalUser(email, "password", username, Role.USER, publicId);
         user.setId(id);
         return user;
     }

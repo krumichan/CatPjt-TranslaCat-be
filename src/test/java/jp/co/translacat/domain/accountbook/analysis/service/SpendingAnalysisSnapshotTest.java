@@ -26,9 +26,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 
-@DataJpaTest(showSql = false, properties = {
-        "spring.datasource.url=jdbc:h2:mem:spending-analysis;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER"
-})
+@DataJpaTest(showSql = false,
+        properties =
+                {"spring.datasource.url=jdbc:h2:mem:spending-analysis;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER"})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @Import({QueryDslConfig.class, SpendingAnalysisSnapshotService.class, AccountBookAccessService.class})
@@ -57,11 +57,12 @@ class SpendingAnalysisSnapshotTest {
         add(LocalDate.of(2024, 2, 29), 100, "처방약");
         add(LocalDate.of(2024, 1, 31), 80, "이전 월");
         add(LocalDate.of(2024, 3, 1), 900, "다음 월");
-        entities.persist(AccountBookTransaction.create(book, AccountBookTransactionType.INCOME,
-                BigDecimal.valueOf(500), "Income", null, "월급", LocalDate.of(2024, 2, 2), null));
+        entities.persist(AccountBookTransaction.create(book, AccountBookTransactionType.INCOME, BigDecimal.valueOf(500),
+                "Income", null, "월급", LocalDate.of(2024, 2, 2), null));
 
         // 실행
-        var snapshot = snapshots.prepare(book.getId(), owner.getId(), new Request(PeriodType.MONTHLY, 2024, 2, "ko", " 필수 약 "));
+        var snapshot = snapshots.prepare(
+                book.getId(), owner.getId(), new Request(PeriodType.MONTHLY, 2024, 2, "ko", " 필수 약 "));
 
         // 검증
         assertThat(snapshot.input().transactionCount()).isEqualTo(1);
@@ -86,7 +87,8 @@ class SpendingAnalysisSnapshotTest {
         add(LocalDate.of(2025, 1, 1), 900, "Next year");
 
         // 실행
-        var snapshot = snapshots.prepare(book.getId(), owner.getId(), new Request(PeriodType.YEARLY, 2024, null, "en", null));
+        var snapshot =
+                snapshots.prepare(book.getId(), owner.getId(), new Request(PeriodType.YEARLY, 2024, null, "en", null));
 
         // 검증
         assertThat(snapshot.input().transactionCount()).isEqualTo(12);
@@ -105,11 +107,11 @@ class SpendingAnalysisSnapshotTest {
         var first = snapshots.current(book.getId(), owner.getId(), PeriodType.MONTHLY, 2024, 2);
 
         // 실행: 현재 기간의 메모만 바뀌어도 기존 분석은 오래된 결과다.
-        transaction.update(AccountBookTransactionType.EXPENSE, BigDecimal.valueOf(100), "Transaction", "Shop",
-                "생활", transaction.getTransactionDate(), "Changed reason");
+        transaction.update(AccountBookTransactionType.EXPENSE, BigDecimal.valueOf(100), "Transaction", "Shop", "생활",
+                transaction.getTransactionDate(), "Changed reason");
         var memoChanged = snapshots.current(book.getId(), owner.getId(), PeriodType.MONTHLY, 2024, 2);
-        previous.update(AccountBookTransactionType.EXPENSE, BigDecimal.valueOf(90), "Transaction", "Shop",
-                "생활", previous.getTransactionDate(), "Prior amount");
+        previous.update(AccountBookTransactionType.EXPENSE, BigDecimal.valueOf(90), "Transaction", "Shop", "생활",
+                previous.getTransactionDate(), "Prior amount");
         var priorChanged = snapshots.current(book.getId(), owner.getId(), PeriodType.MONTHLY, 2024, 2);
 
         // 검증
@@ -150,7 +152,8 @@ class SpendingAnalysisSnapshotTest {
         }
 
         // 실행
-        var snapshot = snapshots.prepare(book.getId(), owner.getId(), new Request(PeriodType.YEARLY, 2024, null, "ko", null));
+        var snapshot =
+                snapshots.prepare(book.getId(), owner.getId(), new Request(PeriodType.YEARLY, 2024, null, "ko", null));
 
         // 검증
         assertThat(snapshot.input().coverage().isPartial()).isFalse();
@@ -168,7 +171,8 @@ class SpendingAnalysisSnapshotTest {
         }
 
         // 실행
-        var snapshot = snapshots.prepare(book.getId(), owner.getId(), new Request(PeriodType.MONTHLY, 2024, 2, "ko", null));
+        var snapshot =
+                snapshots.prepare(book.getId(), owner.getId(), new Request(PeriodType.MONTHLY, 2024, 2, "ko", null));
 
         // 검증
         assertThat(snapshot.input().coverage().isPartial()).isTrue();
@@ -187,8 +191,10 @@ class SpendingAnalysisSnapshotTest {
         // 실행 / 검증
         assertThatThrownBy(() -> snapshots.current(book.getId(), outsider.getId(), PeriodType.YEARLY, 2024, null))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> snapshots.prepare(book.getId(), outsider.getId(),
-                new Request(PeriodType.YEARLY, 2024, null, "ko", null))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(()
+                                   -> snapshots.prepare(book.getId(), outsider.getId(),
+                                           new Request(PeriodType.YEARLY, 2024, null, "ko", null)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -200,7 +206,8 @@ class SpendingAnalysisSnapshotTest {
             // 실행 / 검증
             assertThat(validator.validate(new Request(PeriodType.YEARLY, 2024, 2, "ko", null))).isNotEmpty();
             assertThat(validator.validate(new Request(PeriodType.MONTHLY, 2024, null, "ko", null))).isNotEmpty();
-            assertThat(validator.validate(new Request(PeriodType.MONTHLY, 2024, 2, "ko", "x".repeat(2001)))).isNotEmpty();
+            assertThat(validator.validate(new Request(PeriodType.MONTHLY, 2024, 2, "ko", "x".repeat(2001))))
+                    .isNotEmpty();
             assertThat(validator.validate(new Request(PeriodType.YEARLY, 2024, null, "ja", null))).isEmpty();
         }
     }

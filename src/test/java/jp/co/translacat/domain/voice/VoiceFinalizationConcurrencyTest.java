@@ -62,16 +62,15 @@ class VoiceFinalizationConcurrencyTest {
         segments = beans.getBean(VoiceSegmentRepository.class);
         usage = beans.getBean(VoiceUsageLedgerRepository.class);
         mapper = beans.getBean(ObjectMapper.class);
-        var entityManager = SharedEntityManagerCreator.createSharedEntityManager(
-                beans.getBean(EntityManagerFactory.class)
-        );
+        var entityManager =
+                SharedEntityManagerCreator.createSharedEntityManager(beans.getBean(EntityManagerFactory.class));
 
         stream = transactions.execute(status -> {
-            User user = User.createLocalUser("voice-test@example.invalid", "unused", "Voice test",
-                    Role.USER, "voice-test");
+            User user =
+                    User.createLocalUser("voice-test@example.invalid", "unused", "Voice test", Role.USER, "voice-test");
             entityManager.persist(user);
-            VoiceSession session = VoiceSession.create(user, VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO,
-                    "ko", false, "{}");
+            VoiceSession session =
+                    VoiceSession.create(user, VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO, "ko", false, "{}");
             sessions.saveAndFlush(session);
             return new VoiceStreamContext(user.getId(), session.getId(), VoiceChannel.REMOTE, "test-connection",
                     VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO, null, null, "ko", "{}", 0);
@@ -93,11 +92,13 @@ class VoiceFinalizationConcurrencyTest {
         var failureStarted = new CountDownLatch(1);
 
         try (var workers = Executors.newFixedThreadPool(2)) {
-            var writer = CompletableFuture.runAsync(() -> transactions.executeWithoutResult(status -> {
+            var writer = CompletableFuture.runAsync(()
+                                                            -> transactions.executeWithoutResult(status -> {
                 finals.persistTranscriptFinal(stream, transcript("final-1"), 1);
                 finalWritten.countDown();
                 await(releaseFinal);
-            }), workers);
+            }),
+                    workers);
 
             try {
                 assertThat(finalWritten.await(5, TimeUnit.SECONDS)).isTrue();
@@ -108,8 +109,7 @@ class VoiceFinalizationConcurrencyTest {
                     commands.fail(stream.userId(), stream.sessionId());
                 }, workers);
                 assertThat(failureStarted.await(5, TimeUnit.SECONDS)).isTrue();
-                assertThatThrownBy(() -> failure.get(150, TimeUnit.MILLISECONDS))
-                        .isInstanceOf(TimeoutException.class);
+                assertThatThrownBy(() -> failure.get(150, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
                 releaseFinal.countDown();
                 writer.get(5, TimeUnit.SECONDS);
                 failure.get(5, TimeUnit.SECONDS);
@@ -134,11 +134,13 @@ class VoiceFinalizationConcurrencyTest {
         var completionStarted = new CountDownLatch(1);
 
         try (var workers = Executors.newFixedThreadPool(2)) {
-            var failure = CompletableFuture.runAsync(() -> transactions.executeWithoutResult(status -> {
+            var failure = CompletableFuture.runAsync(()
+                                                             -> transactions.executeWithoutResult(status -> {
                 commands.fail(stream.userId(), stream.sessionId());
                 failureApplied.countDown();
                 await(releaseFailure);
-            }), workers);
+            }),
+                    workers);
 
             try {
                 assertThat(failureApplied.await(5, TimeUnit.SECONDS)).isTrue();
@@ -157,8 +159,9 @@ class VoiceFinalizationConcurrencyTest {
                 // 검증: terminal 상태가 확인되면 저장을 거절하고 삭제된 원문/번역은 복원하지 않는다.
                 assertThatThrownBy(() -> completion.get(5, TimeUnit.SECONDS))
                         .hasCauseInstanceOf(BusinessException.class)
-                        .satisfies(error -> assertThat(((BusinessException) error.getCause()).getErrorCode())
-                                .isEqualTo(VoiceErrorCode.LATE_FINAL_EVENT));
+                        .satisfies(error
+                                -> assertThat(((BusinessException) error.getCause()).getErrorCode())
+                                        .isEqualTo(VoiceErrorCode.LATE_FINAL_EVENT));
                 assertThat(segments.count()).isZero();
                 assertThat(usage.count()).isEqualTo(1);
             } finally {
@@ -211,8 +214,10 @@ class VoiceFinalizationConcurrencyTest {
 
             // 실행: HTTP flush 대기 중 AI worker의 별도 EntityManager가 사용량/version을 commit한다.
             try (var worker = Executors.newSingleThreadExecutor()) {
-                CompletableFuture.runAsync(() -> finals.persistTranscriptFinal(stream, transcript("concurrent-final"), 1),
-                        worker).get(5, TimeUnit.SECONDS);
+                CompletableFuture
+                        .runAsync(
+                                () -> finals.persistTranscriptFinal(stream, transcript("concurrent-final"), 1), worker)
+                        .get(5, TimeUnit.SECONDS);
             }
             assertThat(requestEntityManager.find(VoiceSession.class, stream.sessionId()).getVersion())
                     .isEqualTo(cachedVersion);
@@ -241,8 +246,9 @@ class VoiceFinalizationConcurrencyTest {
 
             // 실행: 별도 AI worker commit 직후 같은 HTTP 요청의 실패 정리를 수행한다.
             try (var worker = Executors.newSingleThreadExecutor()) {
-                CompletableFuture.runAsync(() -> finals.persistTranscriptFinal(stream, transcript("before-failure"), 1),
-                        worker).get(5, TimeUnit.SECONDS);
+                CompletableFuture
+                        .runAsync(() -> finals.persistTranscriptFinal(stream, transcript("before-failure"), 1), worker)
+                        .get(5, TimeUnit.SECONDS);
             }
             commands.fail(stream.userId(), stream.sessionId());
         } finally {
@@ -262,8 +268,8 @@ class VoiceFinalizationConcurrencyTest {
     void nestedLanguageUpdatePreservesFinalUsageInTheSameTransaction() {
         // 준비: Final 저장 중 언어 lock 갱신이 같은 세션을 다시 조회한다.
         transactions.executeWithoutResult(status -> {
-            var channel = VoiceSessionChannel.create(sessions.findById(stream.sessionId()).orElseThrow(),
-                    VoiceChannel.REMOTE, null);
+            var channel = VoiceSessionChannel.create(
+                    sessions.findById(stream.sessionId()).orElseThrow(), VoiceChannel.REMOTE, null);
             channel.connecting(stream.connectionId());
             channel.streaming(stream.connectionId());
             beans.getBean(VoiceSessionChannelRepository.class).saveAndFlush(channel);
@@ -321,7 +327,8 @@ class VoiceFinalizationConcurrencyTest {
         // 검증
         assertThat(segments.findAll().getFirst().getStatus()).isEqualTo(VoiceSegmentStatus.TRANSLATION_FAILED);
         assertThat(sessions.findById(retained.sessionId()).orElseThrow().getCompletedAt()).isEqualTo(completedAt);
-        assertThat(sessions.findById(retained.sessionId()).orElseThrow().getStatus()).isEqualTo(VoiceSessionStatus.COMPLETED);
+        assertThat(sessions.findById(retained.sessionId()).orElseThrow().getStatus())
+                .isEqualTo(VoiceSessionStatus.COMPLETED);
         assertThat(usage.count()).isEqualTo(1);
     }
 
@@ -361,11 +368,13 @@ class VoiceFinalizationConcurrencyTest {
         var cleanupStarted = new CountDownLatch(1);
 
         try (var workers = Executors.newFixedThreadPool(2)) {
-            var failure = CompletableFuture.runAsync(() -> transactions.executeWithoutResult(status -> {
+            var failure = CompletableFuture.runAsync(()
+                                                             -> transactions.executeWithoutResult(status -> {
                 commands.fail(stream.userId(), stream.sessionId());
                 failureApplied.countDown();
                 await(releaseFailure);
-            }), workers);
+            }),
+                    workers);
 
             try {
                 assertThat(failureApplied.await(5, TimeUnit.SECONDS)).isTrue();
@@ -376,8 +385,7 @@ class VoiceFinalizationConcurrencyTest {
                     return commands.startCompleting(stream.userId(), stream.sessionId());
                 }, workers);
                 assertThat(cleanupStarted.await(5, TimeUnit.SECONDS)).isTrue();
-                assertThatThrownBy(() -> cleanup.get(150, TimeUnit.MILLISECONDS))
-                        .isInstanceOf(TimeoutException.class);
+                assertThatThrownBy(() -> cleanup.get(150, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
                 releaseFailure.countDown();
                 failure.get(5, TimeUnit.SECONDS);
 
@@ -397,8 +405,7 @@ class VoiceFinalizationConcurrencyTest {
     private VoiceStreamContext createRetainedSession() {
         return transactions.execute(status -> {
             var owner = sessions.findById(stream.sessionId()).orElseThrow().getUser();
-            var session = VoiceSession.create(owner, VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO,
-                    "ko", true, "{}");
+            var session = VoiceSession.create(owner, VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO, "ko", true, "{}");
             sessions.saveAndFlush(session);
             return new VoiceStreamContext(stream.userId(), session.getId(), VoiceChannel.REMOTE, "retained",
                     VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO, null, null, "ko", "{}", 0);
@@ -459,7 +466,8 @@ class VoiceFinalizationConcurrencyTest {
         @Bean
         DataSource dataSource() {
             return new DriverManagerDataSource("jdbc:h2:mem:voice-" + UUID.randomUUID()
-                    + ";MODE=MySQL;NON_KEYWORDS=USER;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=5000", "sa", "");
+                            + ";MODE=MySQL;NON_KEYWORDS=USER;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=5000",
+                    "sa", "");
         }
 
         @Bean
@@ -467,10 +475,10 @@ class VoiceFinalizationConcurrencyTest {
             var factory = new LocalContainerEntityManagerFactoryBean();
             factory.setDataSource(dataSource);
             factory.setManagedTypes(PersistenceManagedTypes.of(User.class.getName(), VoiceSession.class.getName(),
-                    VoiceSessionChannel.class.getName(), VoiceSegment.class.getName(), VoiceUsageLedger.class.getName()));
+                    VoiceSessionChannel.class.getName(), VoiceSegment.class.getName(),
+                    VoiceUsageLedger.class.getName()));
             factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-            factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto", "create-drop",
-                    "hibernate.show_sql", "false",
+            factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto", "create-drop", "hibernate.show_sql", "false",
                     "hibernate.physical_naming_strategy",
                     "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"));
             return factory;
@@ -499,8 +507,8 @@ class VoiceFinalizationConcurrencyTest {
 
         @Bean
         VoicePolicyProperties policy() {
-            return new VoicePolicyProperties(3600000, 7200000, 6400, 3000, 100, 30,
-                    3000, 10, 3, 25000, 90, 300, 250, 10000, 0.8, 0.85, 3);
+            return new VoicePolicyProperties(
+                    3600000, 7200000, 6400, 3000, 100, 30, 3000, 10, 3, 25000, 90, 300, 250, 10000, 0.8, 0.85, 3);
         }
     }
 }

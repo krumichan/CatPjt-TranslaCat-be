@@ -52,7 +52,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MobileAuthPersistenceTest {
     private static final String REDIRECT = "translacat-dev://auth/callback";
-    private static final String VERIFIER = "proof-" + "v".repeat(58);
+    private static final String VERIFIER = "proof-"
+            + "v".repeat(58);
     private static final String STATE = "s".repeat(43);
     private static AnnotationConfigApplicationContext context;
     private MobileAuthService mobile;
@@ -72,7 +73,8 @@ class MobileAuthPersistenceTest {
 
     @AfterAll
     static void closeDatabase() {
-        if (context != null) context.close();
+        if (context != null)
+            context.close();
     }
 
     @BeforeEach
@@ -89,8 +91,8 @@ class MobileAuthPersistenceTest {
         requests.deleteAll();
         sessions.deleteAll();
         users.deleteAll();
-        user = users.saveAndFlush(User.createLocalUser("handoff@example.invalid", "synthetic-hash", "Handoff",
-                Role.USER, "handoff-user"));
+        user = users.saveAndFlush(User.createLocalUser(
+                "handoff@example.invalid", "synthetic-hash", "Handoff", Role.USER, "handoff-user"));
         peer = UUID.randomUUID().toString();
     }
 
@@ -128,11 +130,14 @@ class MobileAuthPersistenceTest {
 
         // 실행·검증: 승인 재요청이 기존 code를 교체하지 않는다.
         assertCode(() -> mobile.authorize(started.requestId(), user.getId()), "MOBILE_AUTH_ALREADY_APPROVED");
-        assertThat(requests.findById(started.requestId()).orElseThrow().getCodeHash()).isEqualTo(MobileAuthProofs.hash(approved.code()));
+        assertThat(requests.findById(started.requestId()).orElseThrow().getCodeHash())
+                .isEqualTo(MobileAuthProofs.hash(approved.code()));
         mobile.exchange(started.requestId(), approved.code(), VERIFIER, peer);
 
         // 실행·검증: 성공한 code를 재전송해도 추가 세션이 생기지 않는다.
-        assertCode(() -> mobile.exchange(started.requestId(), approved.code(), VERIFIER, peer), "MOBILE_AUTH_ALREADY_USED");
+        assertCode(()
+                           -> mobile.exchange(started.requestId(), approved.code(), VERIFIER, peer),
+                "MOBILE_AUTH_ALREADY_USED");
         assertThat(sessions.count()).isOne();
     }
 
@@ -145,12 +150,18 @@ class MobileAuthPersistenceTest {
         mobile.authorize(other.requestId(), user.getId());
 
         // 실행·검증: 올바른 형식의 잘못된 verifier·code와 다른 요청의 code를 모두 거부한다.
-        assertCode(() -> mobile.exchange(started.requestId(), approved.code(), "z".repeat(43), peer), "MOBILE_AUTH_INVALID_PROOF");
-        assertCode(() -> mobile.exchange(started.requestId(), "x".repeat(43), VERIFIER, peer), "MOBILE_AUTH_INVALID_PROOF");
-        assertCode(() -> mobile.exchange(other.requestId(), approved.code(), VERIFIER, peer), "MOBILE_AUTH_INVALID_PROOF");
+        assertCode(()
+                           -> mobile.exchange(started.requestId(), approved.code(), "z".repeat(43), peer),
+                "MOBILE_AUTH_INVALID_PROOF");
+        assertCode(()
+                           -> mobile.exchange(started.requestId(), "x".repeat(43), VERIFIER, peer),
+                "MOBILE_AUTH_INVALID_PROOF");
+        assertCode(
+                () -> mobile.exchange(other.requestId(), approved.code(), VERIFIER, peer), "MOBILE_AUTH_INVALID_PROOF");
         assertThat(requests.findById(started.requestId()).orElseThrow().getConsumedAt()).isNull();
         assertThat(sessions.count()).isZero();
-        assertThat(mobile.exchange(started.requestId(), approved.code(), VERIFIER, peer).getPublicId()).isEqualTo(user.getPublicId());
+        assertThat(mobile.exchange(started.requestId(), approved.code(), VERIFIER, peer).getPublicId())
+                .isEqualTo(user.getPublicId());
     }
 
     @Test
@@ -164,7 +175,8 @@ class MobileAuthPersistenceTest {
         var codeExpired = create();
         var approved = mobile.authorize(codeExpired.requestId(), user.getId());
         clock.advance(60);
-        assertCode(() -> mobile.exchange(codeExpired.requestId(), approved.code(), VERIFIER, peer), "MOBILE_AUTH_EXPIRED");
+        assertCode(
+                () -> mobile.exchange(codeExpired.requestId(), approved.code(), VERIFIER, peer), "MOBILE_AUTH_EXPIRED");
 
         // 검증: 늦은 승인이 요청 전체 수명을 늘리지 않는다.
         var late = create();
@@ -183,15 +195,23 @@ class MobileAuthPersistenceTest {
         var started = create();
 
         // 실행·검증: 익명 요청 생성만으로 계정을 선택하거나 token을 발급할 수 없다.
-        assertCode(() -> mobile.exchange(started.requestId(), "c".repeat(43), VERIFIER, peer), "MOBILE_AUTH_INVALID_PROOF");
+        assertCode(()
+                           -> mobile.exchange(started.requestId(), "c".repeat(43), VERIFIER, peer),
+                "MOBILE_AUTH_INVALID_PROOF");
         assertCode(() -> mobile.create("short", STATE, REDIRECT, peer), "MOBILE_AUTH_INVALID_INPUT");
-        assertCode(() -> mobile.create(MobileAuthProofs.challenge(VERIFIER), "short", REDIRECT, peer), "MOBILE_AUTH_INVALID_INPUT");
-        assertCode(() -> mobile.exchange(started.requestId(), "c".repeat(43), "=".repeat(43), peer), "MOBILE_AUTH_INVALID_INPUT");
+        assertCode(()
+                           -> mobile.create(MobileAuthProofs.challenge(VERIFIER), "short", REDIRECT, peer),
+                "MOBILE_AUTH_INVALID_INPUT");
+        assertCode(()
+                           -> mobile.exchange(started.requestId(), "c".repeat(43), "=".repeat(43), peer),
+                "MOBILE_AUTH_INVALID_INPUT");
         assertCode(() -> mobile.authorize("1-1-1-1-1", user.getId()), "MOBILE_AUTH_INVALID_INPUT");
         for (String redirect : List.of("https://evil.invalid/auth/callback", "other://auth/callback",
-                REDIRECT + "?next=evil", REDIRECT + "#fragment", "translacat-dev://user@auth/callback",
-                "translacat-dev://auth:80/callback", "translacat-dev://auth/%63allback", "//auth/callback")) {
-            assertCode(() -> mobile.create(MobileAuthProofs.challenge(VERIFIER), STATE, redirect, peer), "MOBILE_AUTH_REDIRECT_NOT_ALLOWED");
+                     REDIRECT + "?next=evil", REDIRECT + "#fragment", "translacat-dev://user@auth/callback",
+                     "translacat-dev://auth:80/callback", "translacat-dev://auth/%63allback", "//auth/callback")) {
+            assertCode(()
+                               -> mobile.create(MobileAuthProofs.challenge(VERIFIER), STATE, redirect, peer),
+                    "MOBILE_AUTH_REDIRECT_NOT_ALLOWED");
         }
         assertThat(sessions.count()).isZero();
     }
@@ -199,7 +219,8 @@ class MobileAuthPersistenceTest {
     @Test
     void peer_and_approving_user_abuse_limits_are_enforced_before_further_writes() {
         // 실행: 동일 연결 주소의 새 요청을 허용 횟수까지 생성한다.
-        for (int index = 0; index < 10; index++) create();
+        for (int index = 0; index < 10; index++)
+            create();
 
         // 검증: 11번째는 저장하지 않고 모바일용 429 오류로 변환한다.
         assertCode(this::create, "MOBILE_AUTH_RATE_LIMITED");
@@ -207,10 +228,12 @@ class MobileAuthPersistenceTest {
 
         // 실행·검증: 승인자의 서로 다른 요청도 같은 사용자 한도를 공유한다.
         for (int index = 0; index < 10; index++) {
-            var request = mobile.create(MobileAuthProofs.challenge(VERIFIER), STATE, REDIRECT, UUID.randomUUID().toString());
+            var request =
+                    mobile.create(MobileAuthProofs.challenge(VERIFIER), STATE, REDIRECT, UUID.randomUUID().toString());
             mobile.authorize(request.requestId(), user.getId());
         }
-        var blocked = mobile.create(MobileAuthProofs.challenge(VERIFIER), STATE, REDIRECT, UUID.randomUUID().toString());
+        var blocked =
+                mobile.create(MobileAuthProofs.challenge(VERIFIER), STATE, REDIRECT, UUID.randomUUID().toString());
         assertCode(() -> mobile.authorize(blocked.requestId(), user.getId()), "MOBILE_AUTH_RATE_LIMITED");
         assertThat(requests.findById(blocked.requestId()).orElseThrow().getApprovedAt()).isNull();
     }
@@ -246,22 +269,27 @@ class MobileAuthPersistenceTest {
         jdbc.execute("alter table auth_session add constraint reject_mobile_session check (user_id < 0)");
         try {
             // 실행·검증: 세션 저장 실패 시 일회용 증명을 소진한 부분 상태가 남지 않는다.
-            assertThatThrownBy(() -> mobile.exchange(started.requestId(), approved.code(), VERIFIER, peer)).isInstanceOf(RuntimeException.class);
+            assertThatThrownBy(() -> mobile.exchange(started.requestId(), approved.code(), VERIFIER, peer))
+                    .isInstanceOf(RuntimeException.class);
             assertThat(requests.findById(started.requestId()).orElseThrow().getConsumedAt()).isNull();
             assertThat(sessions.count()).isZero();
         } finally {
             jdbc.execute("alter table auth_session drop constraint reject_mobile_session");
         }
-        assertThat(mobile.exchange(started.requestId(), approved.code(), VERIFIER, peer).getPublicId()).isEqualTo(user.getPublicId());
+        assertThat(mobile.exchange(started.requestId(), approved.code(), VERIFIER, peer).getPublicId())
+                .isEqualTo(user.getPublicId());
     }
 
     @Test
     void cleanup_is_bounded_and_preserves_active_requests() {
         // 준비: 한 batch를 넘는 만료 요청과 현재 유효한 요청을 함께 저장한다.
         Instant now = clock.instant();
-        requests.saveAllAndFlush(IntStream.range(0, 502).mapToObj(index -> MobileAuthRequest.create(
-                UUID.randomUUID().toString(), MobileAuthProofs.challenge(VERIFIER), STATE, REDIRECT,
-                now.minusSeconds(400), now.minusSeconds(100))).toList());
+        requests.saveAllAndFlush(IntStream.range(0, 502)
+                        .mapToObj(index
+                                -> MobileAuthRequest.create(UUID.randomUUID().toString(),
+                                        MobileAuthProofs.challenge(VERIFIER), STATE, REDIRECT, now.minusSeconds(400),
+                                        now.minusSeconds(100)))
+                        .toList());
         var active = create();
 
         // 실행·검증: 한 번에 최대 500개이고 다음 실행에서 남은 만료 행을 정리한다.
@@ -276,9 +304,11 @@ class MobileAuthPersistenceTest {
         return mobile.create(MobileAuthProofs.challenge(VERIFIER), STATE, REDIRECT, peer);
     }
 
-    private String exchangeOutcome(String requestId, String code, CountDownLatch ready, CountDownLatch release) throws Exception {
+    private String exchangeOutcome(String requestId, String code, CountDownLatch ready, CountDownLatch release)
+            throws Exception {
         ready.countDown();
-        if (!release.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Test barrier timeout");
+        if (!release.await(5, TimeUnit.SECONDS))
+            throw new IllegalStateException("Test barrier timeout");
         try {
             mobile.exchange(requestId, code, VERIFIER, peer);
             return "issued";
@@ -288,50 +318,89 @@ class MobileAuthPersistenceTest {
     }
 
     private void assertCode(Runnable action, String code) {
-        assertThatThrownBy(action::run).isInstanceOfSatisfying(AuthException.class,
-                failure -> assertThat(failure.getErrorCode()).isEqualTo(code));
+        assertThatThrownBy(action::run)
+                .isInstanceOfSatisfying(
+                        AuthException.class, failure -> assertThat(failure.getErrorCode()).isEqualTo(code));
     }
 
     static final class MutableClock extends Clock {
         private final AtomicReference<Instant> now = new AtomicReference<>(Instant.now());
-        void set(Instant value) { now.set(value); }
-        void advance(long seconds) { now.updateAndGet(value -> value.plusSeconds(seconds)); }
-        @Override public ZoneId getZone() { return ZoneOffset.UTC; }
-        @Override public Clock withZone(ZoneId zone) { return this; }
-        @Override public Instant instant() { return now.get(); }
+        void set(Instant value) {
+            now.set(value);
+        }
+        void advance(long seconds) {
+            now.updateAndGet(value -> value.plusSeconds(seconds));
+        }
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+        @Override
+        public Instant instant() {
+            return now.get();
+        }
     }
 
     @Configuration(proxyBeanMethods = false)
     @EnableTransactionManagement
-    @EnableJpaRepositories(basePackageClasses = {MobileAuthRequestRepository.class, AuthSessionRepository.class, UserRepository.class},
-            excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RecentViewRepository.class))
+    @EnableJpaRepositories(
+            basePackageClasses = {MobileAuthRequestRepository.class, AuthSessionRepository.class, UserRepository.class},
+            excludeFilters =
+                    @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = RecentViewRepository.class))
     static class Database {
-        @Bean DataSource dataSource() {
-            return new DriverManagerDataSource("jdbc:h2:mem:mobile_handoff;MODE=MySQL;NON_KEYWORDS=USER;DB_CLOSE_DELAY=-1", "sa", "");
+        @Bean
+        DataSource dataSource() {
+            return new DriverManagerDataSource(
+                    "jdbc:h2:mem:mobile_handoff;MODE=MySQL;NON_KEYWORDS=USER;DB_CLOSE_DELAY=-1", "sa", "");
         }
-        @Bean LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource source) {
+        @Bean
+        LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource source) {
             var factory = new LocalContainerEntityManagerFactoryBean();
             factory.setDataSource(source);
             factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-            factory.setManagedTypes(PersistenceManagedTypes.of(MobileAuthRequest.class.getName(), AuthSession.class.getName(),
-                    User.class.getName(), UserAllowed.class.getName(), RefreshToken.class.getName()));
-            factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto", "create-drop",
-                    "hibernate.physical_naming_strategy", "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"));
+            factory.setManagedTypes(
+                    PersistenceManagedTypes.of(MobileAuthRequest.class.getName(), AuthSession.class.getName(),
+                            User.class.getName(), UserAllowed.class.getName(), RefreshToken.class.getName()));
+            factory.setJpaPropertyMap(
+                    Map.of("hibernate.hbm2ddl.auto", "create-drop", "hibernate.physical_naming_strategy",
+                            "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"));
             return factory;
         }
-        @Bean PlatformTransactionManager transactionManager(EntityManagerFactory factory) { return new JpaTransactionManager(factory); }
-        @Bean JdbcTemplate jdbcTemplate(DataSource source) { return new JdbcTemplate(source); }
-        @Bean MutableClock clock() { return new MutableClock(); }
-        @Bean AuthAttemptLimiter attempts() { return new AuthAttemptLimiter(); }
-        @Bean MobileAuthRedirects redirects() { return new MobileAuthRedirects("", false); }
-        @Bean JWTService jwt(AuthSessionRepository sessions) {
+        @Bean
+        PlatformTransactionManager transactionManager(EntityManagerFactory factory) {
+            return new JpaTransactionManager(factory);
+        }
+        @Bean
+        JdbcTemplate jdbcTemplate(DataSource source) {
+            return new JdbcTemplate(source);
+        }
+        @Bean
+        MutableClock clock() {
+            return new MutableClock();
+        }
+        @Bean
+        AuthAttemptLimiter attempts() {
+            return new AuthAttemptLimiter();
+        }
+        @Bean
+        MobileAuthRedirects redirects() {
+            return new MobileAuthRedirects("", false);
+        }
+        @Bean
+        JWTService jwt(AuthSessionRepository sessions) {
             return new JWTService("bW9iaWxlLWhhbmRvZmYtdGVzdC1zeW50aGV0aWMta2V5LTIwMjY=", 300000, 604800000, sessions);
         }
-        @Bean AuthSessionService sessionTokens(AuthSessionRepository sessions, UserRepository users, JWTService jwt) {
+        @Bean
+        AuthSessionService sessionTokens(AuthSessionRepository sessions, UserRepository users, JWTService jwt) {
             return new AuthSessionService(sessions, users, jwt);
         }
-        @Bean MobileAuthService mobile(MobileAuthRequestRepository requests, MobileAuthRedirects redirects,
-                                      AuthSessionService sessions, UserRepository users, AuthAttemptLimiter attempts, MutableClock clock) {
+        @Bean
+        MobileAuthService mobile(MobileAuthRequestRepository requests, MobileAuthRedirects redirects,
+                AuthSessionService sessions, UserRepository users, AuthAttemptLimiter attempts, MutableClock clock) {
             return new MobileAuthService(requests, redirects, sessions, users, attempts, clock);
         }
     }

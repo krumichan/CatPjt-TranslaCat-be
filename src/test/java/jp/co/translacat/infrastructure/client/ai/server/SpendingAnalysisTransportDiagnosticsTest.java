@@ -74,7 +74,8 @@ class SpendingAnalysisTransportDiagnosticsTest {
         try (var fixture = new Harness(422, PRIVATE)) {
             // 실행 / 검증
             assertThatThrownBy(() -> fixture.client.callSpendingAnalysis(null))
-                    .isInstanceOf(IllegalStateException.class).hasMessage("Spending analysis response is unavailable");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Spending analysis response is unavailable");
             assertThat(fixture.calls.get()).isEqualTo(1);
             fixture.assertFailure("CHECK_RESPONSE", 422, "IllegalStateException");
         }
@@ -89,7 +90,8 @@ class SpendingAnalysisTransportDiagnosticsTest {
 
             // 실행 / 검증
             assertThatThrownBy(() -> fixture.client.callSpendingAnalysis(null))
-                    .isInstanceOf(IllegalStateException.class).hasMessage("Spending analysis communication failed");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Spending analysis communication failed");
             assertThat(fixture.calls.get()).isEqualTo(1);
             fixture.assertFailure("DECODE_RESPONSE", 200, "JsonParseException");
         }
@@ -103,7 +105,8 @@ class SpendingAnalysisTransportDiagnosticsTest {
 
             // 실행 / 검증
             assertThatThrownBy(() -> fixture.client.callSpendingAnalysis(null))
-                    .isInstanceOf(IllegalStateException.class).hasMessage("Spending analysis communication failed");
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Spending analysis communication failed");
             assertThat(fixture.calls.get()).isZero();
             fixture.assertFailure("BUILD_REQUEST", 0, "JsonMappingException");
         }

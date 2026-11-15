@@ -20,8 +20,8 @@ class RemoteListeningGatewayTest {
     void missingRequiredClientFailsStartupEvenWithRetiredFalseSetting() {
         // 준비: 없어진 OFF 값을 전달해도 실제 원격 client 구성을 생략할 수 없다.
         var runner = new ApplicationContextRunner()
-                .withPropertyValues("language-learning.remote.enabled=false")
-                .withUserConfiguration(ListeningClientConfiguration.class, RemoteListeningGateway.class);
+                             .withPropertyValues("language-learning.remote.enabled=false")
+                             .withUserConfiguration(ListeningClientConfiguration.class, RemoteListeningGateway.class);
 
         // 실행 / 검증: 필수 전송 빈 누락은 비활성 503 상태로 기동하지 않고 시작 시 실패한다.
         runner.run(context -> {
@@ -38,19 +38,19 @@ class RemoteListeningGatewayTest {
         var response = new Object();
         var body = Map.of("synthetic", true);
         when(client.post(123L, "/sessions", body, Object.class)).thenReturn(response);
-        var failure = new LanguageLearningServiceException(HttpStatus.NOT_FOUND,
-                "LISTENING_AUDIO_NOT_FOUND", "합성 오디오 없음");
+        var failure = new LanguageLearningServiceException(
+                HttpStatus.NOT_FOUND, "LISTENING_AUDIO_NOT_FOUND", "합성 오디오 없음");
         when(client.audio(123L, "/audio/synthetic")).thenThrow(failure);
         var runner = new ApplicationContextRunner()
-                .withUserConfiguration(RemoteListeningGateway.class)
-                .withBean(LanguageLearningListeningClient.class, () -> client);
+                             .withUserConfiguration(RemoteListeningGateway.class)
+                             .withBean(LanguageLearningListeningClient.class, () -> client);
 
         // 실행: 업무 요청과 오디오 요청 모두 기존 전송 클라이언트로 전달한다.
         runner.run(context -> {
             var gateway = context.getBean(ListeningGateway.class);
             var actual = gateway.post(123L, "/sessions", body, Object.class);
-            var error = assertThrows(LanguageLearningServiceException.class,
-                    () -> gateway.audio(123L, "/audio/synthetic"));
+            var error =
+                    assertThrows(LanguageLearningServiceException.class, () -> gateway.audio(123L, "/audio/synthetic"));
 
             // 검증: 원본 결과·오류가 유지되며 추가 호출이나 숨은 재시도가 없다.
             assertInstanceOf(RemoteListeningGateway.class, gateway);

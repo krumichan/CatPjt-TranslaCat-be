@@ -46,8 +46,8 @@ class LanguageCatalogTest {
     void existingEnglishAndOtherCatalogRowsKeepTheirCodesNamesAndOrder() {
         // 준비: 수동 관리 중인 영어 표시명과 기존의 추가 언어를 그대로 제공한다.
         var repository = mock(LanguageRepository.class);
-        var existing = List.of(language("ja", "日本語"), language("EN", "영어"),
-                language("ko", "한국어"), language("fr", "Français"));
+        var existing = List.of(
+                language("ja", "日本語"), language("EN", "영어"), language("ko", "한국어"), language("fr", "Français"));
         when(repository.findAll()).thenReturn(existing);
 
         // 실행
@@ -63,8 +63,8 @@ class LanguageCatalogTest {
     @Test
     void manualEnglishSeedIsRepeatableAndPreservesExistingDisplayNames() throws Exception {
         // 준비: 운영 DB와 무관한 H2 메모리 DB에 기존 PK와 표시명만 구성한다.
-        try (var connection = DriverManager.getConnection("jdbc:h2:mem:language-" + UUID.randomUUID()
-                + ";MODE=MySQL", "sa", "")) {
+        try (var connection = DriverManager.getConnection(
+                     "jdbc:h2:mem:language-" + UUID.randomUUID() + ";MODE=MySQL", "sa", "")) {
             try (var statement = connection.createStatement()) {
                 statement.execute("CREATE TABLE language (code VARCHAR(2) PRIMARY KEY, name VARCHAR(50) NOT NULL)");
                 statement.execute("INSERT INTO language VALUES ('ko', '한국어'), ('ja', '日本語')");
@@ -81,7 +81,7 @@ class LanguageCatalogTest {
 
             // 검증: 재실행은 PK 충돌이나 표시명 덮어쓰기 없이 동일 세 행을 보존한다.
             try (var statement = connection.createStatement();
-                 var rows = statement.executeQuery("SELECT code, name FROM language ORDER BY code")) {
+                    var rows = statement.executeQuery("SELECT code, name FROM language ORDER BY code")) {
                 assertThat(rows.next()).isTrue();
                 assertThat(rows.getString("code")).isEqualTo("EN");
                 assertThat(rows.getString("name")).isEqualTo("영어");

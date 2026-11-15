@@ -25,8 +25,9 @@ class RecentViewLanguageControllerTest {
         // 실행
         mvc.perform(post("/api/v1/recent/save").contentType("application/json").content("{" + base + "}"))
                 .andExpect(status().isOk());
-        mvc.perform(post("/api/v1/recent/save").contentType("application/json")
-                        .content("{" + base + ",\"targetLanguage\":\"en\",\"titleEn\":\"English title\"}"))
+        mvc.perform(post("/api/v1/recent/save")
+                            .contentType("application/json")
+                            .content("{" + base + ",\"targetLanguage\":\"en\",\"titleEn\":\"English title\"}"))
                 .andExpect(status().isOk());
 
         // 검증
@@ -44,9 +45,10 @@ class RecentViewLanguageControllerTest {
         var mvc = MockMvcBuilders.standaloneSetup(new RecentViewController(service)).build();
 
         // 실행
-        mvc.perform(post("/api/v1/recent/save").contentType("application/json")
-                        .content("{\"platformCode\":\"SYOSETU\",\"type\":\"NOVEL\",\"novelId\":\"n123aa\","
-                                + "\"title\":\"原題\",\"titleJa\":\"原題\",\"targetLanguage\":\"ja\"}"))
+        mvc.perform(post("/api/v1/recent/save")
+                            .contentType("application/json")
+                            .content("{\"platformCode\":\"SYOSETU\",\"type\":\"NOVEL\",\"novelId\":\"n123aa\","
+                                    + "\"title\":\"原題\",\"titleJa\":\"原題\",\"targetLanguage\":\"ja\"}"))
                 .andExpect(status().isBadRequest());
 
         // 검증

@@ -47,8 +47,7 @@ class NovelCatalogSourceAdapterTest {
     }
 
     static Stream<Arguments> rankingTemplates() {
-        return Stream.of(
-                Arguments.of("/rank/list/type/%s_%s/?p=%s", "_201", "/rank/genrelist/type/daily_201/?p=2"),
+        return Stream.of(Arguments.of("/rank/list/type/%s_%s/?p=%s", "_201", "/rank/genrelist/type/daily_201/?p=2"),
                 Arguments.of("/rank/list/type/%s_%s/?p=%s", "201", "/rank/genrelist/type/daily_201/?p=2"),
                 Arguments.of("/rank/list/type/%s%s/?p=%s", "_201", "/rank/genrelist/type/daily_201/?p=2"),
                 Arguments.of("/rank/list/type/%1$s%2$s/?p=%3$d", "_201", "/rank/genrelist/type/daily_201/?p=2"),
@@ -58,9 +57,11 @@ class NovelCatalogSourceAdapterTest {
                 Arguments.of("/rank/list/type/%s%s/?p=%s", "_total", "/rank/list/type/daily_total/?p=2"));
     }
 
-    @Test void firstRankingPageNeedsNoPreviousLinkAndPreservesSourceRank() {
+    @Test
+    void firstRankingPageNeedsNoPreviousLinkAndPreservesSourceRank() {
         // 준비: 실제 첫 페이지처럼 이전 링크가 없는 원문 fixture.
-        var source = new NovelCatalogSourceAdapter(mock(PlatformService.class), new SyosetuParser(), new ObjectMapper());
+        var source =
+                new NovelCatalogSourceAdapter(mock(PlatformService.class), new SyosetuParser(), new ObjectMapper());
         String html = """
                 <a class="c-pager__item" title="次の50作品へ" href="?p=2">次へ</a>
                 <div class="c-card p-ranklist-item">
@@ -83,14 +84,18 @@ class NovelCatalogSourceAdapterTest {
         assertThat(result.at("/pageInfo/nextPage").asInt()).isEqualTo(2);
     }
 
-    @Test void externalSourceAddressAndPublicRawTextAreNotAccepted() {
+    @Test
+    void externalSourceAddressAndPublicRawTextAreNotAccepted() {
         // 준비 및 실행/검증
-        for (String uri : new String[]{"http://yomou.syosetu.com/rank/list/type/daily_total/", "https://localhost/search.php",
-                "https://yomou.syosetu.com@localhost/search.php", "https://yomou.syosetu.com:443/search.php",
-                "https://yomou.syosetu.com/other", "https://yomou.syosetu.com/search.php#fragment"}) {
-            assertThatThrownBy(() -> NovelCatalogSourceAdapter.allowedUri(uri)).hasMessage("NOVEL_CATALOG_SOURCE_FORBIDDEN");
+        for (String uri :
+                new String[] {"http://yomou.syosetu.com/rank/list/type/daily_total/", "https://localhost/search.php",
+                        "https://yomou.syosetu.com@localhost/search.php", "https://yomou.syosetu.com:443/search.php",
+                        "https://yomou.syosetu.com/other", "https://yomou.syosetu.com/search.php#fragment"}) {
+            assertThatThrownBy(() -> NovelCatalogSourceAdapter.allowedUri(uri))
+                    .hasMessage("NOVEL_CATALOG_SOURCE_FORBIDDEN");
         }
-        assertThat(NovelCatalogSourceAdapter.allowedUri("https://yomou.syosetu.com/search.php?word=%E7%8C%AB&p=1").getHost())
+        assertThat(NovelCatalogSourceAdapter.allowedUri("https://yomou.syosetu.com/search.php?word=%E7%8C%AB&p=1")
+                           .getHost())
                 .isEqualTo("yomou.syosetu.com");
         assertThatThrownBy(() -> new NovelCatalogRequest("SEARCH", null, null, "猫", 1, null, "request"))
                 .hasMessage("NOVEL_CATALOG_REQUEST_INVALID");

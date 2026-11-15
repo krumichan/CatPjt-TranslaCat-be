@@ -19,12 +19,13 @@ class GrowthReadOwnershipTest {
     @Test
     void currentReadConfigurationRequiresNoCoreDatabaseOrMigrationWorker() {
         // 준비: 현재 조회는 외부 DTO용 Gateway이며 이관 DB·dispatcher는 조립하지 않는다.
-        var runner = new ApplicationContextRunner().withUserConfiguration(GrowthConfiguration.class)
-                .withBean("languageLearningRestClient", RestClient.class,
-                        () -> RestClient.builder().baseUrl("https://ll.fixture.invalid").build())
-                .withBean(LanguageLearningInternalJwtProvider.class,
-                        () -> mock(LanguageLearningInternalJwtProvider.class))
-                .withBean(ObjectMapper.class, ObjectMapper::new);
+        var runner = new ApplicationContextRunner()
+                             .withUserConfiguration(GrowthConfiguration.class)
+                             .withBean("languageLearningRestClient", RestClient.class,
+                                     () -> RestClient.builder().baseUrl("https://ll.fixture.invalid").build())
+                             .withBean(LanguageLearningInternalJwtProvider.class,
+                                     () -> mock(LanguageLearningInternalJwtProvider.class))
+                             .withBean(ObjectMapper.class, ObjectMapper::new);
 
         // 실행 및 검증
         runner.run(context -> {

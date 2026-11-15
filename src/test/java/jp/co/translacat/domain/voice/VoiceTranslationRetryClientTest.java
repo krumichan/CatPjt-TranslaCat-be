@@ -22,7 +22,8 @@ import java.util.Properties;
 import static org.assertj.core.api.Assertions.*;
 
 class VoiceTranslationRetryClientTest {
-    private final VoiceTranslationRetryContext context = new VoiceTranslationRetryContext("Synthetic sentence.", "en", "ko");
+    private final VoiceTranslationRetryContext context =
+            new VoiceTranslationRetryContext("Synthetic sentence.", "en", "ko");
 
     @Test
     void configuredClientAcceptsTranslationResponseAfterTheOldFiveSecondLimit() throws Exception {
@@ -32,12 +33,19 @@ class VoiceTranslationRetryClientTest {
             properties.load(input);
         }
         try (var beans = new AnnotationConfigApplicationContext()) {
-            beans.getEnvironment().getPropertySources().addFirst(new MapPropertySource("retry-test", Map.of(
-                    "ai-server.url", "http://localhost:1", "ai-server.api-key", "synthetic-key",
-                    "translacat.voice.ai-retry-timeout-ms", properties.getProperty("translacat.voice.ai-retry-timeout-ms"))));
-            beans.registerBean(WebClient.class, () -> WebClient.builder().exchangeFunction(request ->
-                    Mono.delay(Duration.ofMillis(5300)).map(ignored -> response(HttpStatus.OK,
-                            "{\"translatedText\":\"합성 문장입니다.\",\"translationSkipped\":false}"))).build());
+            beans.getEnvironment().getPropertySources().addFirst(new MapPropertySource("retry-test",
+                    Map.of("ai-server.url", "http://localhost:1", "ai-server.api-key", "synthetic-key",
+                            "translacat.voice.ai-retry-timeout-ms",
+                            properties.getProperty("translacat.voice.ai-retry-timeout-ms"))));
+            beans.registerBean(WebClient.class,
+                    ()
+                            -> WebClient.builder()
+                                    .exchangeFunction(request
+                                            -> Mono.delay(Duration.ofMillis(5300))
+                                                    .map(ignored
+                                                            -> response(HttpStatus.OK,
+                                                                    "{\"translatedText\":\"합성 문장입니다.\",\"translationSkipped\":false}")))
+                                    .build());
             beans.register(VoiceAiTranslationRetryClient.class);
             beans.refresh();
 
@@ -52,8 +60,9 @@ class VoiceTranslationRetryClientTest {
     @Test
     void aiTimeoutResponsePreservesItsPublicErrorCode() {
         // 준비
-        var client = client(request -> Mono.just(response(HttpStatus.GATEWAY_TIMEOUT,
-                "{\"detail\":{\"code\":\"VOICE_AI_TRANSLATION_TIMEOUT\",\"message\":\"provider internals\"}}")));
+        var client = client(request
+                -> Mono.just(response(HttpStatus.GATEWAY_TIMEOUT,
+                        "{\"detail\":{\"code\":\"VOICE_AI_TRANSLATION_TIMEOUT\",\"message\":\"provider internals\"}}")));
 
         // 실행/검증: AI의 구체적 오류 코드는 유지하고 외부 상세 메시지는 전달하지 않는다.
         assertThatThrownBy(() -> client.retry("synthetic", 1L, context))
@@ -78,8 +87,9 @@ class VoiceTranslationRetryClientTest {
     @Test
     void unrecognizedErrorBodyKeepsGenericRetryFailure() {
         // 준비
-        var client = client(request -> Mono.just(response(HttpStatus.BAD_GATEWAY,
-                "{\"detail\":{\"code\":\"unrecognized upstream detail\"}}")));
+        var client = client(request
+                -> Mono.just(
+                        response(HttpStatus.BAD_GATEWAY, "{\"detail\":{\"code\":\"unrecognized upstream detail\"}}")));
 
         // 실행/검증
         assertThatThrownBy(() -> client.retry("synthetic", 1L, context))
@@ -96,6 +106,9 @@ class VoiceTranslationRetryClientTest {
     }
 
     private static ClientResponse response(HttpStatus status, String body) {
-        return ClientResponse.create(status).header("Content-Type", MediaType.APPLICATION_JSON_VALUE).body(body).build();
+        return ClientResponse.create(status)
+                .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .body(body)
+                .build();
     }
 }

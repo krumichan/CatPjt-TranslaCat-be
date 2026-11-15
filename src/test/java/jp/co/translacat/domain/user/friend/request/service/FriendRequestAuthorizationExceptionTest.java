@@ -24,24 +24,17 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class FriendRequestAuthorizationExceptionTest {
+    @Mock private FriendRequestRepository friendRequestRepository;
 
-    @Mock
-    private FriendRequestRepository friendRequestRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserProfileQueryService userProfileQueryService;
 
-    @Mock
-    private UserProfileQueryService userProfileQueryService;
+    @Mock private FriendService friendService;
 
-    @Mock
-    private FriendService friendService;
+    @Mock private UserBlockService userBlockService;
 
-    @Mock
-    private UserBlockService userBlockService;
-
-    @InjectMocks
-    private FriendRequestService friendRequestService;
+    @InjectMocks private FriendRequestService friendRequestService;
 
     @Test
     @DisplayName("친구 요청 수신자가 아니면 수락할 수 없다")
@@ -53,15 +46,12 @@ class FriendRequestAuthorizationExceptionTest {
 
         FriendRequest friendRequest = FriendRequest.create(requester, receiver);
 
-        when(friendRequestRepository.findByIdAndDeletedFalse(100L))
-                .thenReturn(Optional.of(friendRequest));
+        when(friendRequestRepository.findByIdAndDeletedFalse(100L)).thenReturn(Optional.of(friendRequest));
 
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.acceptFriendRequest(otherUser.getId(), 100L))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_RECEIVER")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_RECEIVER"));
 
         verify(friendService, never()).createFriend(any(User.class), any(User.class));
     }
@@ -76,15 +66,12 @@ class FriendRequestAuthorizationExceptionTest {
 
         FriendRequest friendRequest = FriendRequest.create(requester, receiver);
 
-        when(friendRequestRepository.findByIdAndDeletedFalse(100L))
-                .thenReturn(Optional.of(friendRequest));
+        when(friendRequestRepository.findByIdAndDeletedFalse(100L)).thenReturn(Optional.of(friendRequest));
 
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.rejectFriendRequest(otherUser.getId(), 100L))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_RECEIVER")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_RECEIVER"));
 
         verify(friendService, never()).createFriend(any(User.class), any(User.class));
     }
@@ -99,15 +86,12 @@ class FriendRequestAuthorizationExceptionTest {
 
         FriendRequest friendRequest = FriendRequest.create(requester, receiver);
 
-        when(friendRequestRepository.findByIdAndDeletedFalse(100L))
-                .thenReturn(Optional.of(friendRequest));
+        when(friendRequestRepository.findByIdAndDeletedFalse(100L)).thenReturn(Optional.of(friendRequest));
 
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.cancelFriendRequest(otherUser.getId(), 100L))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_REQUESTER")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_REQUESTER"));
 
         verify(friendService, never()).createFriend(any(User.class), any(User.class));
     }
@@ -122,15 +106,13 @@ class FriendRequestAuthorizationExceptionTest {
         FriendRequest friendRequest = FriendRequest.create(requester, receiver);
         friendRequest.reject();
 
-        when(friendRequestRepository.findByIdAndDeletedFalse(100L))
-                .thenReturn(Optional.of(friendRequest));
+        when(friendRequestRepository.findByIdAndDeletedFalse(100L)).thenReturn(Optional.of(friendRequest));
 
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.acceptFriendRequest(receiver.getId(), 100L))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PROCESSED")
-                );
+                .satisfies(exception
+                        -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PROCESSED"));
 
         verify(friendService, never()).createFriend(any(User.class), any(User.class));
     }
@@ -139,32 +121,18 @@ class FriendRequestAuthorizationExceptionTest {
     @DisplayName("존재하지 않는 친구 요청은 처리할 수 없다")
     void failWhenFriendRequestDoesNotExist() {
         // given
-        when(friendRequestRepository.findByIdAndDeletedFalse(999L))
-                .thenReturn(Optional.empty());
+        when(friendRequestRepository.findByIdAndDeletedFalse(999L)).thenReturn(Optional.empty());
 
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.acceptFriendRequest(2L, 999L))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_FOUND")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_NOT_FOUND"));
 
         verify(friendService, never()).createFriend(any(User.class), any(User.class));
     }
 
-    private User createUser(
-            Long id,
-            String email,
-            String username,
-            String publicId
-    ) {
-        User user = User.createLocalUser(
-                email,
-                "password",
-                username,
-                Role.USER,
-                publicId
-        );
+    private User createUser(Long id, String email, String username, String publicId) {
+        User user = User.createLocalUser(email, "password", username, Role.USER, publicId);
         user.setId(id);
         return user;
     }

@@ -30,7 +30,7 @@ class NovelReaderCommandServiceTest {
         var address = new NovelReaderAddress("syosyetu", "n123aa", "1");
 
         // 실행 및 검증: 요청 body에서 사용자나 작업 주소를 받지 않는다.
-        for (String invalid : new String[]{null, "", "../job", "job/cancel", "job?actor=2"}) {
+        for (String invalid : new String[] {null, "", "../job", "job/cancel", "job?actor=2"}) {
             assertThatThrownBy(() -> service.cancel(12L, address, invalid)).hasMessage("NOVEL_REQUEST_INVALID");
         }
         verifyNoInteractions(embedded);

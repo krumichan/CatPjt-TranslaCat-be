@@ -17,7 +17,7 @@ class KeywordControllerCutoverTest {
     @Test
     void externalAdminPathAndSecurityAnnotationRemainStable() {
         var type = AdminLanguageLearningKeywordController.class;
-        assertArrayEquals(new String[]{"/api/v1/admin/language-learning/system-keywords"},
+        assertArrayEquals(new String[] {"/api/v1/admin/language-learning/system-keywords"},
                 type.getAnnotation(RequestMapping.class).value());
         assertEquals("hasRole('ADMIN')", type.getAnnotation(PreAuthorize.class).value());
     }

@@ -71,7 +71,7 @@ class JwtPurposeTest {
         var filter = new JwtFilter(jwt, context);
 
         // 실행: 인증 실패는 다음 보안 필터가 처리하며 사용자 조회까지 진행하지 않는다.
-        for (String token : new String[]{jwt.generateRefreshToken(1L, "cat@example.com"), "malformed"}) {
+        for (String token : new String[] {jwt.generateRefreshToken(1L, "cat@example.com"), "malformed"}) {
             var request = new MockHttpServletRequest("GET", "/api/v1/auth/account");
             request.addHeader("Authorization", "Bearer " + token);
             var continued = new AtomicBoolean();
@@ -86,8 +86,12 @@ class JwtPurposeTest {
 
     private String legacy(long lifetime) {
         long now = System.currentTimeMillis();
-        return Jwts.builder().subject("cat@example.com").claim("id", 1L)
-                .issuedAt(new Date(now)).expiration(new Date(now + lifetime))
-                .signWith(Keys.hmacShaKeyFor(key)).compact();
+        return Jwts.builder()
+                .subject("cat@example.com")
+                .claim("id", 1L)
+                .issuedAt(new Date(now))
+                .expiration(new Date(now + lifetime))
+                .signWith(Keys.hmacShaKeyFor(key))
+                .compact();
     }
 }

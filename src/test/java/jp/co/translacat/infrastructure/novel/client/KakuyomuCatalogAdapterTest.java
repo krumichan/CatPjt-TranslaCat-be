@@ -26,13 +26,25 @@ class KakuyomuCatalogAdapterTest {
     void originalHundredCardsRemainInRankOrderAcrossTwoLogicalPages() {
         // 준비: 원본 한 페이지 100개를 기존 공개 DTO의 최대 50개로 나눈다.
         var parser = mock(KakuyomuParser.class);
-        var cards = IntStream.rangeClosed(1, 100).mapToObj(rank -> NovelContext.builder()
-                .identifier("1105482266289675" + String.format("%04d", rank)).rank(rank)
-                .title(TranslationUnit.of("猫" + rank)).author(TranslationUnit.of("作者"))
-                .synopsis(TranslationUnit.of("紹介")).status(TranslationUnit.of("連載中")).genreText("SF").build()).toList();
-        when(parser.parseNovelRanking(any())).thenReturn(NovelRankingContext.builder().novelContexts(cards)
-                .pageNumberContext(PageNumberContext.builder().current(1).next(2).build()).build());
-        var adapter = new NovelCatalogSourceAdapter(mock(PlatformService.class), new SyosetuParser(), new ObjectMapper(), parser);
+        var cards = IntStream.rangeClosed(1, 100)
+                            .mapToObj(rank
+                                    -> NovelContext.builder()
+                                            .identifier("1105482266289675" + String.format("%04d", rank))
+                                            .rank(rank)
+                                            .title(TranslationUnit.of("猫" + rank))
+                                            .author(TranslationUnit.of("作者"))
+                                            .synopsis(TranslationUnit.of("紹介"))
+                                            .status(TranslationUnit.of("連載中"))
+                                            .genreText("SF")
+                                            .build())
+                            .toList();
+        when(parser.parseNovelRanking(any()))
+                .thenReturn(NovelRankingContext.builder()
+                                .novelContexts(cards)
+                                .pageNumberContext(PageNumberContext.builder().current(1).next(2).build())
+                                .build());
+        var adapter = new NovelCatalogSourceAdapter(
+                mock(PlatformService.class), new SyosetuParser(), new ObjectMapper(), parser);
 
         // 실행
         var first = adapter.parse("kakuyomu", ranking(1, "daily"), "<html></html>", 1);
@@ -59,8 +71,10 @@ class KakuyomuCatalogAdapterTest {
         when(platform.getId()).thenReturn(2L);
         when(platforms.getPlatformByCode(PlatformCode.KAKUYOMU)).thenReturn(platform);
         when(platforms.getUrlTemplate(2L, PlatformUrlType.RANKING)).thenReturn(template);
-        when(template.getUrlPattern()).thenReturn("https://kakuyomu.jp/rankings/%2$s/%1$s?work_variation=all&page=%3$d");
-        var adapter = new NovelCatalogSourceAdapter(platforms, new SyosetuParser(), new ObjectMapper(), new KakuyomuParser());
+        when(template.getUrlPattern())
+                .thenReturn("https://kakuyomu.jp/rankings/%2$s/%1$s?work_variation=all&page=%3$d");
+        var adapter =
+                new NovelCatalogSourceAdapter(platforms, new SyosetuParser(), new ObjectMapper(), new KakuyomuParser());
 
         // 실행·검증: 누적은 entire로 요청하고 화면 3페이지는 원본 2페이지를 읽는다.
         assertThat(adapter.sourceUri("kakuyomu", ranking(3, "total")).toString())
@@ -75,12 +89,14 @@ class KakuyomuCatalogAdapterTest {
     @Test
     void catalogCannotUseOtherHostsOrEpisodeAndAccountPaths() {
         // 실행·검증: 원문 수집에 필요한 공개 목록 경로만 허용한다.
-        for (String url : new String[]{"https://kakuyomu.jp/works/123/episodes/456", "https://kakuyomu.jp/login",
-                "https://evil.example/rankings/all/daily", "https://kakuyomu.jp@localhost/search",
-                "http://kakuyomu.jp/search", "https://kakuyomu.jp/search#fragment"}) {
-            assertThatThrownBy(() -> NovelCatalogSourceAdapter.allowedUri("kakuyomu", url)).isInstanceOf(RuntimeException.class);
+        for (String url : new String[] {"https://kakuyomu.jp/works/123/episodes/456", "https://kakuyomu.jp/login",
+                     "https://evil.example/rankings/all/daily", "https://kakuyomu.jp@localhost/search",
+                     "http://kakuyomu.jp/search", "https://kakuyomu.jp/search#fragment"}) {
+            assertThatThrownBy(() -> NovelCatalogSourceAdapter.allowedUri("kakuyomu", url))
+                    .isInstanceOf(RuntimeException.class);
         }
-        assertThat(NovelCatalogSourceAdapter.allowedUri("kakuyomu", "https://kakuyomu.jp/search?q=%E7%8C%AB&page=1").getHost())
+        assertThat(NovelCatalogSourceAdapter.allowedUri("kakuyomu", "https://kakuyomu.jp/search?q=%E7%8C%AB&page=1")
+                           .getHost())
                 .isEqualTo("kakuyomu.jp");
     }
 

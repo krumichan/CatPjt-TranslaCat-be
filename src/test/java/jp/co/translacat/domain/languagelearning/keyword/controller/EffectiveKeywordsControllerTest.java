@@ -29,21 +29,19 @@ class EffectiveKeywordsControllerTest {
         var principal = mock(UserPrincipal.class);
         when(principal.getId()).thenReturn(123L);
         var candidate = new KeywordCandidateSnapshot(
-                "CUSTOM:12", "요건정의", KeywordSource.CUSTOM, KeywordType.TOPIC, null, LocalDate.of(2026, 10, 15)
-        );
+                "CUSTOM:12", "요건정의", KeywordSource.CUSTOM, KeywordType.TOPIC, null, LocalDate.of(2026, 10, 15));
         when(facade.getEffectiveKeywords(123L)).thenReturn(new EffectiveKeywordsResponseDto(List.of(candidate)));
         var mvc = MockMvcBuilders.standaloneSetup(new LanguageLearningKeywordController(facade))
-                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
-                .build();
+                          .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                          .build();
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(principal, null, List.of())
-        );
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
 
         try {
             // 실행
             mvc.perform(get("/api/v1/language-learning/keywords/effective")
-                            .param("userId", "999")
-                            .param("learningDate", "2099-12-31"))
+                                .param("userId", "999")
+                                .param("learningDate", "2099-12-31"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.body.candidates[0].key").value("CUSTOM:12"))
                     .andExpect(jsonPath("$.body.candidates[0].text").value("요건정의"));

@@ -34,8 +34,8 @@ class AccountAuthServiceTest {
     private final GoogleIdentityVerifier google = mock(GoogleIdentityVerifier.class);
     private final EmailVerificationService email = mock(EmailVerificationService.class);
     private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder(4);
-    private final AccountAuthService service = new AccountAuthService(users, intents, grants, google, email,
-            passwords, mock(PlatformTransactionManager.class), mock(AuthAttemptLimiter.class), Clock.fixed(NOW, ZoneOffset.UTC));
+    private final AccountAuthService service = new AccountAuthService(users, intents, grants, google, email, passwords,
+            mock(PlatformTransactionManager.class), mock(AuthAttemptLimiter.class), Clock.fixed(NOW, ZoneOffset.UTC));
 
     @BeforeEach
     void preparePersistenceBoundary() {
@@ -50,7 +50,8 @@ class AccountAuthServiceTest {
         when(users.findLockedById(1L)).thenReturn(Optional.of(user));
 
         // 실행 및 검증
-        assertError(() -> service.startGoogle(1L, GoogleAuthPurpose.LINK, "wrong-password"), "CURRENT_PASSWORD_INVALID");
+        assertError(
+                () -> service.startGoogle(1L, GoogleAuthPurpose.LINK, "wrong-password"), "CURRENT_PASSWORD_INVALID");
         verifyNoInteractions(intents, google);
     }
 
@@ -66,8 +67,12 @@ class AccountAuthServiceTest {
         var captor = ArgumentCaptor.forClass(GoogleAuthIntent.class);
         verify(intents).save(captor.capture());
         var saved = captor.getValue();
-        assertThat(saved.getTokenHash()).isEqualTo(AccountProofTokens.hash(result.intentToken())).isNotEqualTo(result.intentToken());
-        assertThat(saved.getNonceHash()).isEqualTo(AccountProofTokens.hash(result.nonce())).isNotEqualTo(result.nonce());
+        assertThat(saved.getTokenHash())
+                .isEqualTo(AccountProofTokens.hash(result.intentToken()))
+                .isNotEqualTo(result.intentToken());
+        assertThat(saved.getNonceHash())
+                .isEqualTo(AccountProofTokens.hash(result.nonce()))
+                .isNotEqualTo(result.nonce());
         assertThat(saved.getPurpose()).isEqualTo(GoogleAuthPurpose.LINK);
         assertThat(saved.getUserId()).isEqualTo(1L);
         assertThat(saved.getExpiresAt()).isEqualTo(NOW.plusSeconds(300));
@@ -178,7 +183,8 @@ class AccountAuthServiceTest {
         // 검증: 기존 연결의 subject를 확인한 경우에만 비밀번호 추가용 증명을 만든다.
         var captor = ArgumentCaptor.forClass(ReauthenticationGrant.class);
         verify(grants).save(captor.capture());
-        assertThat(captor.getValue().getTokenHash()).isEqualTo(AccountProofTokens.hash((String) result.get("reauthToken")));
+        assertThat(captor.getValue().getTokenHash())
+                .isEqualTo(AccountProofTokens.hash((String) result.get("reauthToken")));
         assertThat(captor.getValue().getPurpose()).isEqualTo("ADD_PASSWORD");
         assertThat(captor.getValue().getUserId()).isEqualTo(1L);
     }
@@ -209,7 +215,9 @@ class AccountAuthServiceTest {
         prepareGrant(2L, NOW.plusSeconds(300));
 
         // 실행 및 검증
-        assertError(() -> service.addPassword(1L, "new-password-2026", "email-proof", "reauth"), "AUTH_PROOF_INVALID_OR_EXPIRED");
+        assertError(()
+                            -> service.addPassword(1L, "new-password-2026", "email-proof", "reauth"),
+                "AUTH_PROOF_INVALID_OR_EXPIRED");
         verifyNoInteractions(email);
         verify(users, never()).saveAndFlush(any());
     }
@@ -221,12 +229,16 @@ class AccountAuthServiceTest {
         prepareGrant(1L, NOW);
 
         // 실행 및 검증: 만료시각과 같은 시점부터 거절한다.
-        assertError(() -> service.addPassword(1L, "new-password-2026", "email-proof", "reauth"), "AUTH_PROOF_INVALID_OR_EXPIRED");
+        assertError(()
+                            -> service.addPassword(1L, "new-password-2026", "email-proof", "reauth"),
+                "AUTH_PROOF_INVALID_OR_EXPIRED");
 
         // 준비 및 검증: 유효기간 안이어도 이미 사용한 증명은 거절한다.
         ReauthenticationGrant consumed = prepareGrant(1L, NOW.plusSeconds(300));
         consumed.consume(NOW.minusSeconds(1));
-        assertError(() -> service.addPassword(1L, "new-password-2026", "email-proof", "reauth"), "AUTH_PROOF_INVALID_OR_EXPIRED");
+        assertError(()
+                            -> service.addPassword(1L, "new-password-2026", "email-proof", "reauth"),
+                "AUTH_PROOF_INVALID_OR_EXPIRED");
         verifyNoInteractions(email);
     }
 
@@ -238,7 +250,9 @@ class AccountAuthServiceTest {
         ReflectionTestUtils.setField(grant, "purpose", "OTHER_ACTION");
 
         // 실행 및 검증
-        assertError(() -> service.addPassword(1L, "new-password-2026", "email-proof", "reauth"), "AUTH_PROOF_INVALID_OR_EXPIRED");
+        assertError(()
+                            -> service.addPassword(1L, "new-password-2026", "email-proof", "reauth"),
+                "AUTH_PROOF_INVALID_OR_EXPIRED");
         verifyNoInteractions(email);
         verify(users, never()).saveAndFlush(any());
     }
@@ -251,7 +265,8 @@ class AccountAuthServiceTest {
         when(users.findLockedById(1L)).thenReturn(Optional.of(user));
 
         // 실행 및 검증
-        assertError(() -> service.addPassword(1L, "new-password-2026", "email-proof", "reauth"), "PASSWORD_ALREADY_SET");
+        assertError(
+                () -> service.addPassword(1L, "new-password-2026", "email-proof", "reauth"), "PASSWORD_ALREADY_SET");
         assertThat(user.getPassword()).isEqualTo("existing-encoded-password");
         verifyNoInteractions(email, grants);
     }
@@ -259,8 +274,10 @@ class AccountAuthServiceTest {
     private GoogleAuthIntent prepareIntent(User user, GoogleAuthPurpose purpose, Instant expiry) {
         GoogleAuthIntent intent = GoogleAuthIntent.create("intent", 1L, purpose, "nonce", expiry);
         String hash = AccountProofTokens.hash("intent");
-        when(intents.findStateByHash(hash)).thenAnswer(call -> Optional.of(
-                new GoogleAuthIntentSnapshot(intent.getUserId(), intent.getExpiresAt(), intent.getConsumedAt())));
+        when(intents.findStateByHash(hash))
+                .thenAnswer(call
+                        -> Optional.of(new GoogleAuthIntentSnapshot(
+                                intent.getUserId(), intent.getExpiresAt(), intent.getConsumedAt())));
         when(intents.findLockedByHash(hash)).thenReturn(Optional.of(intent));
         when(users.findLockedById(1L)).thenReturn(Optional.of(user));
         return intent;
@@ -277,19 +294,21 @@ class AccountAuthServiceTest {
     }
 
     private User localUser() {
-        User user = User.createLocalUser("user@example.com", passwords.encode("existing-password"), "Nickname", Role.USER, "TCAT-USER0001");
+        User user = User.createLocalUser(
+                "user@example.com", passwords.encode("existing-password"), "Nickname", Role.USER, "TCAT-USER0001");
         user.setId(1L);
         return user;
     }
 
     private User googleUser() {
-        User user = User.createSocialUser("user@example.com", "Nickname", SocialType.GOOGLE, "google-sub", Role.USER, "TCAT-USER0001");
+        User user = User.createSocialUser(
+                "user@example.com", "Nickname", SocialType.GOOGLE, "google-sub", Role.USER, "TCAT-USER0001");
         user.setId(1L);
         return user;
     }
 
     private void assertError(org.assertj.core.api.ThrowableAssert.ThrowingCallable action, String code) {
-        assertThatThrownBy(action).isInstanceOfSatisfying(AuthException.class,
-                failure -> assertThat(failure.getErrorCode()).isEqualTo(code));
+        assertThatThrownBy(action).isInstanceOfSatisfying(
+                AuthException.class, failure -> assertThat(failure.getErrorCode()).isEqualTo(code));
     }
 }

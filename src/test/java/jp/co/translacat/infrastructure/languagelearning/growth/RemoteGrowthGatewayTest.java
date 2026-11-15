@@ -45,14 +45,14 @@ class RemoteGrowthGatewayTest {
         var activity = mock(GrowthActivitySnapshot.class);
         var from = LocalDate.parse("2026-09-01");
         var to = LocalDate.parse("2026-09-27");
-        when(client.activities(123, null, from, to, 0)).thenReturn(
-                new GrowthHttpClient.ActivityPage(123, List.of(activity), 5L, "1"));
-        when(client.activities(123, null, from, to, 5)).thenReturn(
-                new GrowthHttpClient.ActivityPage(123, List.of(), null, "2"));
+        when(client.activities(123, null, from, to, 0))
+                .thenReturn(new GrowthHttpClient.ActivityPage(123, List.of(activity), 5L, "1"));
+        when(client.activities(123, null, from, to, 5))
+                .thenReturn(new GrowthHttpClient.ActivityPage(123, List.of(), null, "2"));
 
         // 실행
-        var failure = assertThrows(LanguageLearningServiceException.class,
-                () -> gateway(client).activities(123L, null, from, to));
+        var failure = assertThrows(
+                LanguageLearningServiceException.class, () -> gateway(client).activities(123L, null, from, to));
 
         // 검증
         assertEquals("GROWTH_READ_CHANGED", failure.getErrorCode());
@@ -63,8 +63,9 @@ class RemoteGrowthGatewayTest {
         // 준비
         var client = mock(GrowthHttpClient.class);
         var date = LocalDate.parse("2026-09-27");
-        when(client.activities(123, null, date, date, 0)).thenReturn(
-                new GrowthHttpClient.ActivityPage(123, List.of(mock(GrowthActivitySnapshot.class)), 0L, "1"));
+        when(client.activities(123, null, date, date, 0))
+                .thenReturn(
+                        new GrowthHttpClient.ActivityPage(123, List.of(mock(GrowthActivitySnapshot.class)), 0L, "1"));
 
         // 실행 및 검증
         assertThrows(IllegalStateException.class, () -> gateway(client).activities(123L, null, date, date));

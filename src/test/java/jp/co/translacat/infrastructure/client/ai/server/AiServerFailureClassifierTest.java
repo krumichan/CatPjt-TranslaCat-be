@@ -16,7 +16,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 class AiServerFailureClassifierTest {
-
     @Test
     void classifiesRetryableInfrastructureFailures() {
         assertThat(AiServerFailureClassifier.classify(mock(CallNotPermittedException.class)))
@@ -25,14 +24,12 @@ class AiServerFailureClassifierTest {
                 .isEqualTo(AiServerFailureCode.CONNECT_FAILURE);
         assertThat(AiServerFailureClassifier.classify(new SocketTimeoutException("timed out")))
                 .isEqualTo(AiServerFailureCode.CONNECT_TIMEOUT);
-        assertThat(AiServerFailureClassifier.classify(response(503)))
-                .isEqualTo(AiServerFailureCode.HTTP_5XX);
+        assertThat(AiServerFailureClassifier.classify(response(503))).isEqualTo(AiServerFailureCode.HTTP_5XX);
     }
 
     @Test
     void classifiesTerminalProtocolAndConfigurationFailures() {
-        assertThat(AiServerFailureClassifier.classify(
-                new ExternalApiClient4xxException(response(422))))
+        assertThat(AiServerFailureClassifier.classify(new ExternalApiClient4xxException(response(422))))
                 .isEqualTo(AiServerFailureCode.HTTP_4XX);
         assertThat(AiServerFailureClassifier.classify(new DecodingException("invalid json")))
                 .isEqualTo(AiServerFailureCode.RESPONSE_DECODE);
@@ -42,11 +39,6 @@ class AiServerFailureClassifierTest {
 
     private WebClientResponseException response(int status) {
         return WebClientResponseException.create(
-                status,
-                "downstream",
-                HttpHeaders.EMPTY,
-                new byte[0],
-                StandardCharsets.UTF_8
-        );
+                status, "downstream", HttpHeaders.EMPTY, new byte[0], StandardCharsets.UTF_8);
     }
 }

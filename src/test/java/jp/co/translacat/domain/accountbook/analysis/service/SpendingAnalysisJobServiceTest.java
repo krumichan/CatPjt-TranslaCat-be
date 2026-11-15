@@ -55,8 +55,9 @@ class SpendingAnalysisJobServiceTest {
         // 실행 / 검증
         assertThat(jobs.current(1, 7).canCancel()).isFalse();
         assertThat(jobs.current(1, 8).canCancel()).isTrue();
-        assertThatThrownBy(() -> jobs.cancel(1, 7, 13)).isInstanceOfSatisfying(ResponseStatusException.class,
-                error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+        assertThatThrownBy(() -> jobs.cancel(1, 7, 13))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
         verify(store, never()).cancel(anyLong());
 
         // 검증: 소유자는 타인이 요청한 작업도 취소할 수 있다.
@@ -73,10 +74,12 @@ class SpendingAnalysisJobServiceTest {
                 .thenThrow(new DuplicateKeyException("active job"));
 
         // 실행 / 검증
-        assertThatThrownBy(() -> jobs.enqueue(1, 7, request)).isInstanceOfSatisfying(ResponseStatusException.class,
-                error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
-        assertThatThrownBy(() -> jobs.runLegacy(1, 7, request)).isInstanceOfSatisfying(ResponseStatusException.class,
-                error -> assertThat(error.getReason()).isEqualTo("ANALYSIS_IN_PROGRESS"));
+        assertThatThrownBy(() -> jobs.enqueue(1, 7, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+        assertThatThrownBy(() -> jobs.runLegacy(1, 7, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getReason()).isEqualTo("ANALYSIS_IN_PROGRESS"));
         verifyNoInteractions(analysis, history, notifications);
     }
 

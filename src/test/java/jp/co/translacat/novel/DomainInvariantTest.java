@@ -26,7 +26,8 @@ class DomainInvariantTest {
     @Test
     void reconstructionPreservesQuotesWhitespaceEmptyParagraphsAndDuplicatePositions() {
         // 준비
-        List<String> paragraphs = List.of("「本当！？」「本当！？」\n　彼は3.14を見た……。", "", "同じ。 同じ。", "x😀".repeat(900));
+        List<String> paragraphs =
+                List.of("「本当！？」「本当！？」\n　彼は3.14を見た……。", "", "同じ。 同じ。", "x😀".repeat(900));
 
         // 실행
         SourceEpisode source = segmenter.segment(key, "題", paragraphs, null, "2");
@@ -37,8 +38,11 @@ class DomainInvariantTest {
         assertThat(source.segments()).extracting(SourceEpisode.Segment::id).doesNotHaveDuplicates();
         for (int p = 0; p < paragraphs.size(); p++) {
             int index = p;
-            String reassembled = source.segments().stream().filter(s -> s.paragraphIndex() == index)
-                    .map(SourceEpisode.Segment::rawJa).collect(Collectors.joining());
+            String reassembled = source.segments()
+                                         .stream()
+                                         .filter(s -> s.paragraphIndex() == index)
+                                         .map(SourceEpisode.Segment::rawJa)
+                                         .collect(Collectors.joining());
             assertThat(reassembled).isEqualTo(paragraphs.get(p));
         }
         assertThat(source.segments()).allSatisfy(segment -> {
@@ -74,21 +78,23 @@ class DomainInvariantTest {
         String first = units.getFirst().id();
         String second = units.getLast().id();
         StrictTranslationValidator validator = new StrictTranslationValidator();
-        var valid = json.valueToTree(Map.of("items", List.of(Map.of("id", second, "text", "\"둘\""), Map.of("id", first, "text", "ABC"))));
+        var valid = json.valueToTree(
+                Map.of("items", List.of(Map.of("id", second, "text", "\"둘\""), Map.of("id", first, "text", "ABC"))));
 
         // 실행 및 검증
         assertThat(validator.validate(valid, units)).containsEntry(second, "\"둘\"").containsEntry(first, "ABC");
-        List<Object> malformed = List.of(
-                Map.of("items", List.of(Map.of("id", first, "text", "하나"))),
+        List<Object> malformed = List.of(Map.of("items", List.of(Map.of("id", first, "text", "하나"))),
                 Map.of("items", List.of(Map.of("id", first, "text", "하나"), Map.of("id", first, "text", "둘"))),
                 Map.of("items", List.of(Map.of("id", first, "text", "하나"), Map.of("id", "extra", "text", "둘"))),
                 Map.of("items", List.of(Map.of("id", first, "text", 2), Map.of("id", second, "text", "둘"))),
                 Map.of("items", List.of(Map.of("id", first, "text", "  "), Map.of("id", second, "text", "둘"))),
                 Map.of("items", valid.get("items"), "extra", true));
         for (Object bad : malformed) {
-            assertThatThrownBy(() -> validator.validate(json.valueToTree(bad), units)).hasMessage("TRANSLATION_SCHEMA_INVALID");
+            assertThatThrownBy(() -> validator.validate(json.valueToTree(bad), units))
+                    .hasMessage("TRANSLATION_SCHEMA_INVALID");
         }
-        assertThatThrownBy(() -> validator.validate(json.readTree("{\"items\":null}"), units)).isInstanceOf(NovelProblem.class);
+        assertThatThrownBy(() -> validator.validate(json.readTree("{\"items\":null}"), units))
+                .isInstanceOf(NovelProblem.class);
     }
 
     @Test
@@ -123,9 +129,11 @@ class DomainInvariantTest {
 
         // 검증
         assertThat(String.join("", parts)).isEqualTo(text);
-        assertThat(parts).allSatisfy(part -> assertThat(part.getBytes(StandardCharsets.UTF_8).length).isLessThanOrEqualTo(1200));
+        assertThat(parts).allSatisfy(
+                part -> assertThat(part.getBytes(StandardCharsets.UTF_8).length).isLessThanOrEqualTo(1200));
         assertThat(chunks).hasSize(1);
         assertThat(chunks.getFirst()).hasSize(3);
-        assertThatThrownBy(() -> segmenter.segment(key, "", List.of("あ".repeat(100_001)), null, null)).hasMessage("SOURCE_SIZE_INVALID");
+        assertThatThrownBy(() -> segmenter.segment(key, "", List.of("あ".repeat(100_001)), null, null))
+                .hasMessage("SOURCE_SIZE_INVALID");
     }
 }

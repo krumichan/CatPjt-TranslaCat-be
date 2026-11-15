@@ -30,22 +30,15 @@ import java.util.concurrent.*;
 
 import static org.assertj.core.api.Assertions.*;
 
-@DataJpaTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:support-persistence;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER",
-        "spring.jpa.show-sql=false"
-})
+@DataJpaTest(
+        properties =
+                {"spring.datasource.url=jdbc:h2:mem:support-persistence;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER",
+                        "spring.jpa.show-sql=false"})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
-@Import({
-        QueryDslConfig.class,
-        SupportAccessService.class,
-        SupportInquiryService.class,
-        SupportNoticeService.class,
-        SupportMessageService.class,
-        SupportNotificationService.class
-})
+@Import({QueryDslConfig.class, SupportAccessService.class, SupportInquiryService.class, SupportNoticeService.class,
+        SupportMessageService.class, SupportNotificationService.class})
 class SupportPersistenceTest {
-
     @Autowired UserRepository users;
     @Autowired SupportInquiryRepository inquiries;
     @Autowired SupportReplyRepository replies;
@@ -103,8 +96,8 @@ class SupportPersistenceTest {
         assertThat(strangerList.items()).isEmpty();
         assertThat(adminList.items()).extracting(InquiryResponseDto::id).containsExactly(inquiry.id());
         assertThatThrownBy(() -> inquiryService.detail(stranger.getId(), inquiry.id()))
-                .isInstanceOfSatisfying(SupportException.class,
-                        error -> assertThat(error.getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+                .isInstanceOfSatisfying(
+                        SupportException.class, error -> assertThat(error.getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
     }
 
     @Test
@@ -113,9 +106,8 @@ class SupportPersistenceTest {
         InquiryResponseDto inquiry = createInquiry(owner);
 
         // 실행: 관리자의 답변은 해결 상태와 별도로 ANSWERED를 만든다.
-        InquiryResponseDto answered = inquiryService.reply(
-                admin.getId(), inquiry.id(), new ReplyCreateRequestDto("관리자 답변", null)
-        );
+        InquiryResponseDto answered =
+                inquiryService.reply(admin.getId(), inquiry.id(), new ReplyCreateRequestDto("관리자 답변", null));
 
         // 검증
         assertThat(answered.status()).isEqualTo(InquiryStatus.ANSWERED);
@@ -126,10 +118,8 @@ class SupportPersistenceTest {
 
         // 실행: 상세 확인 후 같은 답변 아래에 추가 질문을 남긴다.
         inquiryService.detail(owner.getId(), inquiry.id());
-        InquiryResponseDto followup = inquiryService.reply(
-                owner.getId(), inquiry.id(),
-                new ReplyCreateRequestDto("추가 질문", answered.replies().getFirst().id())
-        );
+        InquiryResponseDto followup = inquiryService.reply(owner.getId(), inquiry.id(),
+                new ReplyCreateRequestDto("추가 질문", answered.replies().getFirst().id()));
 
         // 검증
         assertThat(notificationService.unreadCount(owner.getId()).count()).isZero();
@@ -144,15 +134,17 @@ class SupportPersistenceTest {
         // 준비
         InquiryResponseDto first = createInquiry(owner);
         InquiryResponseDto second = createInquiry(owner);
-        Long parentId = inquiryService.reply(
-                admin.getId(), first.id(), new ReplyCreateRequestDto("첫 문의 답변", null)
-        ).replies().getFirst().id();
+        Long parentId = inquiryService.reply(admin.getId(), first.id(), new ReplyCreateRequestDto("첫 문의 답변", null))
+                                .replies()
+                                .getFirst()
+                                .id();
 
         // 실행 및 검증
-        assertThatThrownBy(() -> inquiryService.reply(
-                owner.getId(), second.id(), new ReplyCreateRequestDto("잘못된 연결", parentId)
-        )).isInstanceOfSatisfying(SupportException.class,
-                error -> assertThat(error.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertThatThrownBy(()
+                                   -> inquiryService.reply(owner.getId(), second.id(),
+                                           new ReplyCreateRequestDto("잘못된 연결", parentId)))
+                .isInstanceOfSatisfying(SupportException.class,
+                        error -> assertThat(error.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
         assertThat(replies.findByInquiry_IdOrderByIdAsc(second.id())).isEmpty();
     }
 
@@ -163,10 +155,11 @@ class SupportPersistenceTest {
         inquiryService.changeStatus(owner.getId(), inquiry.id(), new InquiryStatusRequestDto(InquiryStatus.CLOSED));
 
         // 실행 및 검증
-        assertThatThrownBy(() -> inquiryService.reply(
-                admin.getId(), inquiry.id(), new ReplyCreateRequestDto("종료 후 답변", null)
-        )).isInstanceOfSatisfying(SupportException.class,
-                error -> assertThat(error.getStatus()).isEqualTo(HttpStatus.CONFLICT));
+        assertThatThrownBy(()
+                                   -> inquiryService.reply(admin.getId(), inquiry.id(),
+                                           new ReplyCreateRequestDto("종료 후 답변", null)))
+                .isInstanceOfSatisfying(
+                        SupportException.class, error -> assertThat(error.getStatus()).isEqualTo(HttpStatus.CONFLICT));
         assertThat(replies.findByInquiry_IdOrderByIdAsc(inquiry.id())).isEmpty();
     }
 
@@ -178,11 +171,9 @@ class SupportPersistenceTest {
 
         // 실행
         InquiryResponseDto reopened = inquiryService.changeStatus(
-                owner.getId(), inquiry.id(), new InquiryStatusRequestDto(InquiryStatus.WAITING)
-        );
-        InquiryResponseDto answered = inquiryService.reply(
-                admin.getId(), inquiry.id(), new ReplyCreateRequestDto("재개 후 답변", null)
-        );
+                owner.getId(), inquiry.id(), new InquiryStatusRequestDto(InquiryStatus.WAITING));
+        InquiryResponseDto answered =
+                inquiryService.reply(admin.getId(), inquiry.id(), new ReplyCreateRequestDto("재개 후 답변", null));
 
         // 검증
         assertThat(reopened.status()).isEqualTo(InquiryStatus.WAITING);
@@ -196,21 +187,20 @@ class SupportPersistenceTest {
 
         // 실행 및 검증
         assertThatThrownBy(() -> messageService.create(owner.getId(), request))
-                .isInstanceOfSatisfying(SupportException.class,
-                        error -> assertThat(error.getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
+                .isInstanceOfSatisfying(
+                        SupportException.class, error -> assertThat(error.getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
         assertThat(messages.count()).isZero();
-        assertThatThrownBy(() -> noticeService.create(
-                owner.getId(), new NoticeWriteRequestDto("공지", "본문", NoticeType.URGENT)
-        )).isInstanceOf(SupportException.class);
+        assertThatThrownBy(
+                () -> noticeService.create(owner.getId(), new NoticeWriteRequestDto("공지", "본문", NoticeType.URGENT)))
+                .isInstanceOf(SupportException.class);
         assertThat(notices.count()).isZero();
     }
 
     @Test
     void personalMessageReadStateBelongsToRecipient() {
         // 준비
-        MessageResponseDto message = messageService.create(
-                admin.getId(), new MessageCreateRequestDto(owner.getId(), "안내", "개인 메시지")
-        );
+        MessageResponseDto message =
+                messageService.create(admin.getId(), new MessageCreateRequestDto(owner.getId(), "안내", "개인 메시지"));
 
         // 실행: 관리자 발송 확인은 상대방의 읽음 상태를 바꾸지 않는다.
         MessageResponseDto adminView = messageService.detail(admin.getId(), message.id());
@@ -232,32 +222,32 @@ class SupportPersistenceTest {
     @Test
     void privateMessageAndRelatedInquiryRejectOtherRecipients() {
         // 준비
-        MessageResponseDto message = messageService.create(
-                admin.getId(), new MessageCreateRequestDto(owner.getId(), "안내", "개인 메시지")
-        );
+        MessageResponseDto message =
+                messageService.create(admin.getId(), new MessageCreateRequestDto(owner.getId(), "안내", "개인 메시지"));
 
         // 실행 및 검증
         assertThatThrownBy(() -> messageService.detail(stranger.getId(), message.id()))
                 .isInstanceOf(SupportException.class);
-        assertThatThrownBy(() -> inquiryService.create(
-                stranger.getId(), new InquiryCreateRequestDto(
-                        "연결 문의", "본문", InquiryCategory.GENERAL, message.id()
-                )
-        )).isInstanceOf(SupportException.class);
+        assertThatThrownBy(()
+                                   -> inquiryService.create(stranger.getId(),
+                                           new InquiryCreateRequestDto(
+                                                   "연결 문의", "본문", InquiryCategory.GENERAL, message.id())))
+                .isInstanceOf(SupportException.class);
         assertThat(inquiries.count()).isZero();
     }
 
     @Test
     void urgentNoticeBroadcastsOnceAndDeletionRemovesLinks() {
         // 준비
-        NoticeResponseDto notice = noticeService.create(
-                admin.getId(), new NoticeWriteRequestDto("일반 공지", "본문", NoticeType.NORMAL)
-        );
+        NoticeResponseDto notice =
+                noticeService.create(admin.getId(), new NoticeWriteRequestDto("일반 공지", "본문", NoticeType.NORMAL));
         assertThat(notificationService.unreadCount(owner.getId()).count()).isZero();
 
         // 실행: 긴급 유형 전환에서만 알리고 단순 수정에는 재발송하지 않는다.
-        noticeService.update(admin.getId(), notice.id(), new NoticeWriteRequestDto("긴급 공지", "본문", NoticeType.URGENT));
-        noticeService.update(admin.getId(), notice.id(), new NoticeWriteRequestDto("수정 공지", "새 본문", NoticeType.URGENT));
+        noticeService.update(
+                admin.getId(), notice.id(), new NoticeWriteRequestDto("긴급 공지", "본문", NoticeType.URGENT));
+        noticeService.update(
+                admin.getId(), notice.id(), new NoticeWriteRequestDto("수정 공지", "새 본문", NoticeType.URGENT));
 
         // 검증
         assertThat(notificationService.unreadCount(owner.getId()).count()).isEqualTo(1);
@@ -337,7 +327,8 @@ class SupportPersistenceTest {
             }));
             assertThat(replySaved.await(5, TimeUnit.SECONDS)).isTrue();
 
-            Future<InquiryResponseDto> reader = executor.submit(() -> inquiryService.detail(owner.getId(), inquiry.id()));
+            Future<InquiryResponseDto> reader =
+                    executor.submit(() -> inquiryService.detail(owner.getId(), inquiry.id()));
 
             // 검증: 미확정 답변이 있는 동안 상세는 반환되지 않는다.
             try {
@@ -348,7 +339,8 @@ class SupportPersistenceTest {
 
             // 실행 및 검증: 확정된 답변을 실제 반환한 뒤에만 읽음 상태가 된다.
             writer.get(5, TimeUnit.SECONDS);
-            assertThat(reader.get(5, TimeUnit.SECONDS).replies()).extracting(ReplyResponseDto::content)
+            assertThat(reader.get(5, TimeUnit.SECONDS).replies())
+                    .extracting(ReplyResponseDto::content)
                     .containsExactly("동시 답변");
             assertThat(notificationService.unreadCount(owner.getId()).count()).isZero();
         } finally {
@@ -371,9 +363,9 @@ class SupportPersistenceTest {
                 await(commitDetail);
             }));
             assertThat(detailRead.await(5, TimeUnit.SECONDS)).isTrue();
-            Future<?> writer = executor.submit(() -> inquiryService.reply(
-                    admin.getId(), inquiry.id(), new ReplyCreateRequestDto("나중 답변", null)
-            ));
+            Future<?> writer = executor.submit(()
+                                                       -> inquiryService.reply(admin.getId(), inquiry.id(),
+                                                               new ReplyCreateRequestDto("나중 답변", null)));
 
             // 검증: 상세 이후의 답변은 읽음 처리 트랜잭션을 통과한 뒤 저장된다.
             try {
@@ -401,23 +393,21 @@ class SupportPersistenceTest {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             Future<?> closer = executor.submit(() -> transaction().executeWithoutResult(status -> {
                 inquiryService.changeStatus(
-                        owner.getId(), inquiry.id(), new InquiryStatusRequestDto(InquiryStatus.CLOSED)
-                );
+                        owner.getId(), inquiry.id(), new InquiryStatusRequestDto(InquiryStatus.CLOSED));
                 closed.countDown();
                 await(commitClose);
             }));
             assertThat(closed.await(5, TimeUnit.SECONDS)).isTrue();
-            Future<?> writer = executor.submit(() -> inquiryService.reply(
-                    admin.getId(), inquiry.id(), new ReplyCreateRequestDto("늦은 답변", null)
-            ));
+            Future<?> writer = executor.submit(()
+                                                       -> inquiryService.reply(admin.getId(), inquiry.id(),
+                                                               new ReplyCreateRequestDto("늦은 답변", null)));
 
             // 실행: 종료 확정 후 대기하던 답변이 상태를 다시 확인한다.
             commitClose.countDown();
             closer.get(5, TimeUnit.SECONDS);
 
             // 검증
-            assertThatThrownBy(() -> writer.get(5, TimeUnit.SECONDS))
-                    .hasCauseInstanceOf(SupportException.class);
+            assertThatThrownBy(() -> writer.get(5, TimeUnit.SECONDS)).hasCauseInstanceOf(SupportException.class);
             assertThat(inquiries.findById(inquiry.id()).orElseThrow().getStatus()).isEqualTo(InquiryStatus.CLOSED);
             assertThat(replies.count()).isZero();
         } finally {
@@ -440,9 +430,9 @@ class SupportPersistenceTest {
         // 검증: 긴급 팝업 대상은 최신순이며 전체 게시판에는 일반 공지도 남는다.
         assertThat(pending).extracting(NoticeResponseDto::id).containsExactly(newer.id(), older.id());
         assertThat(adminPending).extracting(NoticeResponseDto::id).containsExactly(newer.id(), older.id());
-        assertThat(all.items()).extracting(NoticeResponseDto::id)
-                .containsExactly(newer.id(), older.id(), normal.id());
-        assertThat(all.items()).extracting(NoticeResponseDto::noticeType)
+        assertThat(all.items()).extracting(NoticeResponseDto::id).containsExactly(newer.id(), older.id(), normal.id());
+        assertThat(all.items())
+                .extracting(NoticeResponseDto::noticeType)
                 .containsExactly(NoticeType.URGENT, NoticeType.URGENT, NoticeType.NORMAL);
     }
 
@@ -458,10 +448,10 @@ class SupportPersistenceTest {
         // 검증: 숨김은 본인 팝업에만 적용되고 공지 게시판과 알림 읽음을 바꾸지 않는다.
         assertThat(dismissals.count()).isEqualTo(1);
         assertThat(noticeService.pendingUrgent(owner.getId())).isEmpty();
-        assertThat(noticeService.pendingUrgent(stranger.getId())).extracting(NoticeResponseDto::id)
+        assertThat(noticeService.pendingUrgent(stranger.getId()))
+                .extracting(NoticeResponseDto::id)
                 .containsExactly(notice.id());
-        assertThat(noticeService.list(0, 20).items()).extracting(NoticeResponseDto::id)
-                .containsExactly(notice.id());
+        assertThat(noticeService.list(0, 20).items()).extracting(NoticeResponseDto::id).containsExactly(notice.id());
         assertThat(notificationService.unreadCount(owner.getId()).count()).isEqualTo(1);
     }
 
@@ -475,7 +465,8 @@ class SupportPersistenceTest {
 
         // 검증
         assertThat(notificationService.unreadCount(owner.getId()).count()).isZero();
-        assertThat(noticeService.pendingUrgent(owner.getId())).extracting(NoticeResponseDto::id)
+        assertThat(noticeService.pendingUrgent(owner.getId()))
+                .extracting(NoticeResponseDto::id)
                 .containsExactly(notice.id());
         assertThat(dismissals.count()).isZero();
     }
@@ -488,20 +479,19 @@ class SupportPersistenceTest {
 
         // 실행: 같은 공지 수정이나 유형 재전환으로 사용자의 영구 선택을 취소하지 않는다.
         noticeService.update(
-                admin.getId(), original.id(), new NoticeWriteRequestDto("수정", "새 본문", NoticeType.URGENT)
-        );
+                admin.getId(), original.id(), new NoticeWriteRequestDto("수정", "새 본문", NoticeType.URGENT));
         noticeService.update(
-                admin.getId(), original.id(), new NoticeWriteRequestDto("일반 전환", "본문", NoticeType.NORMAL)
-        );
+                admin.getId(), original.id(), new NoticeWriteRequestDto("일반 전환", "본문", NoticeType.NORMAL));
         noticeService.update(
-                admin.getId(), original.id(), new NoticeWriteRequestDto("긴급 재전환", "본문", NoticeType.URGENT)
-        );
+                admin.getId(), original.id(), new NoticeWriteRequestDto("긴급 재전환", "본문", NoticeType.URGENT));
         NoticeResponseDto separate = createNotice(NoticeType.URGENT);
 
         // 검증: 새 공지 ID는 독립적으로 표시한다.
-        assertThat(noticeService.pendingUrgent(owner.getId())).extracting(NoticeResponseDto::id)
+        assertThat(noticeService.pendingUrgent(owner.getId()))
+                .extracting(NoticeResponseDto::id)
                 .containsExactly(separate.id());
-        assertThat(noticeService.pendingUrgent(stranger.getId())).extracting(NoticeResponseDto::id)
+        assertThat(noticeService.pendingUrgent(stranger.getId()))
+                .extracting(NoticeResponseDto::id)
                 .containsExactly(separate.id(), original.id());
         assertThat(dismissals.count()).isEqualTo(1);
     }
@@ -514,12 +504,12 @@ class SupportPersistenceTest {
         // 실행
         noticeService.dismiss(owner.getId(), notice.id());
         noticeService.update(
-                admin.getId(), notice.id(), new NoticeWriteRequestDto("긴급 전환", "본문", NoticeType.URGENT)
-        );
+                admin.getId(), notice.id(), new NoticeWriteRequestDto("긴급 전환", "본문", NoticeType.URGENT));
 
         // 검증
         assertThat(noticeService.pendingUrgent(owner.getId())).isEmpty();
-        assertThat(noticeService.pendingUrgent(stranger.getId())).extracting(NoticeResponseDto::id)
+        assertThat(noticeService.pendingUrgent(stranger.getId()))
+                .extracting(NoticeResponseDto::id)
                 .containsExactly(notice.id());
     }
 
@@ -544,8 +534,8 @@ class SupportPersistenceTest {
     void missingNoticeCannotCreateDanglingDismissal() {
         // 실행 및 검증
         assertThatThrownBy(() -> noticeService.dismiss(owner.getId(), Long.MAX_VALUE))
-                .isInstanceOfSatisfying(SupportException.class,
-                        error -> assertThat(error.getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+                .isInstanceOfSatisfying(
+                        SupportException.class, error -> assertThat(error.getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
         assertThat(dismissals.count()).isZero();
     }
 
@@ -569,8 +559,7 @@ class SupportPersistenceTest {
 
             // 검증: 중복 삽입 예외를 잡아 성공으로 위장하지 않고 첫 저장의 확정을 기다린다.
             try {
-                assertThatThrownBy(() -> second.get(150, TimeUnit.MILLISECONDS))
-                        .isInstanceOf(TimeoutException.class);
+                assertThatThrownBy(() -> second.get(150, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
             } finally {
                 commitFirst.countDown();
             }
@@ -591,14 +580,12 @@ class SupportPersistenceTest {
     private User user(Role role) {
         String identifier = UUID.randomUUID().toString().substring(0, 12);
         return users.saveAndFlush(
-                User.createLocalUser(identifier + "@test.invalid", "test", identifier, role, identifier)
-        );
+                User.createLocalUser(identifier + "@test.invalid", "test", identifier, role, identifier));
     }
 
     private InquiryResponseDto createInquiry(User user) {
         return inquiryService.create(
-                user.getId(), new InquiryCreateRequestDto("문의 제목", "비공개 내용", InquiryCategory.GENERAL, null)
-        );
+                user.getId(), new InquiryCreateRequestDto("문의 제목", "비공개 내용", InquiryCategory.GENERAL, null));
     }
 
     private TransactionTemplate transaction() {

@@ -14,11 +14,16 @@ class WritingPlanContractTest {
 
     private ObjectNode plan(int target, int acquired) {
         ObjectNode value = json.createObjectNode();
-        value.put("policyVersion", WritingPlanContract.POLICY).put("resultPolicy", "REFERENCE_ONLY")
-                .put("targetItemCount", target).put("acquiredItemCount", acquired)
-                .put("remainingItemCount", target - acquired).put("submittedItemCount", 0)
-                .put("feedbackCompletedItemCount", 0).put("sentenceCount", target)
-                .put("generatedItemCount", acquired).put("planRevision", 1)
+        value.put("policyVersion", WritingPlanContract.POLICY)
+                .put("resultPolicy", "REFERENCE_ONLY")
+                .put("targetItemCount", target)
+                .put("acquiredItemCount", acquired)
+                .put("remainingItemCount", target - acquired)
+                .put("submittedItemCount", 0)
+                .put("feedbackCompletedItemCount", 0)
+                .put("sentenceCount", target)
+                .put("generatedItemCount", acquired)
+                .put("planRevision", 1)
                 .put("personalizedFeedbackStatus", "DISABLED_PENDING_QUALITY_GATE")
                 .put("status", target == acquired ? "READY" : "PARTIAL");
         var items = value.putArray("items");
@@ -88,13 +93,17 @@ class WritingPlanContractTest {
     void activeFeedbackMustBeBoundToActualAnswerAndRemainNonScoring() {
         // 준비: 실제 LL의 활성화 상태·원문·체크리스트 구조를 가진 답안.
         var value = plan(1, 1);
-        value.put("personalizedFeedbackStatus", "ACTIVE_QA").put("submittedItemCount", 1)
-                .put("feedbackCompletedItemCount", 1).put("status", "COMPLETED");
+        value.put("personalizedFeedbackStatus", "ACTIVE_QA")
+                .put("submittedItemCount", 1)
+                .put("feedbackCompletedItemCount", 1)
+                .put("status", "COMPLETED");
         var item = (ObjectNode) value.path("items").get(0);
         item.put("answered", true);
         item.putObject("reference").putArray("checklist").add("전달 내용");
         var attempt = item.putArray("attempts").addObject();
-        attempt.put("answer", "欠席した生徒も増えていました。").put("resultPolicy", "REFERENCE_ONLY").putNull("evaluation");
+        attempt.put("answer", "欠席した生徒も増えていました。")
+                .put("resultPolicy", "REFERENCE_ONLY")
+                .putNull("evaluation");
         var feedback = attempt.putObject("feedback");
         feedback.put("status", "SUCCEEDED").put("canRetry", false).putNull("failureCode");
         var result = feedback.putObject("result");
@@ -119,13 +128,16 @@ class WritingPlanContractTest {
         assertSame(value, WritingPlanContract.plan(value));
         result.put("policyVersion", "curated-writing-feedback-v3");
         assertSame(value, WritingPlanContract.plan(value));
-        result.withArray("necessaryCorrections").addObject().put("requirementId", "C1")
-                .put("segmentId", "S1").put("original", "欠席した生徒も増えていました。")
+        result.withArray("necessaryCorrections")
+                .addObject()
+                .put("requirementId", "C1")
+                .put("segmentId", "S1")
+                .put("original", "欠席した生徒も増えていました。")
                 .put("replacement", "出張があるため変更してください。");
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
         result.withArray("necessaryCorrections").removeAll();
-        var alternative = result.withArray("optionalAlternatives").addObject()
-                .put("original", "欠席した生徒も増えていました。");
+        var alternative =
+                result.withArray("optionalAlternatives").addObject().put("original", "欠席した生徒も増えていました。");
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
         alternative.put("suggestionKind", "HYPOTHETICAL_EXAMPLE");
         assertSame(value, WritingPlanContract.plan(value));
@@ -148,16 +160,32 @@ class WritingPlanContractTest {
 
     private ObjectNode typedPlan() {
         var value = plan(1, 1);
-        value.put("personalizedFeedbackStatus", "ACTIVE_QA").put("submittedItemCount", 1).put("feedbackCompletedItemCount", 1).put("status", "COMPLETED");
+        value.put("personalizedFeedbackStatus", "ACTIVE_QA")
+                .put("submittedItemCount", 1)
+                .put("feedbackCompletedItemCount", 1)
+                .put("status", "COMPLETED");
         var item = (ObjectNode) value.path("items").get(0);
         item.put("answered", true).putObject("reference").putArray("checklist").add("시각 전달");
-        var attempt = item.withArray("attempts").addObject().put("answer", "午前九時に始まります。").put("resultPolicy", "REFERENCE_ONLY").putNull("evaluation");
-        var result = attempt.putObject("feedback").put("status", "SUCCEEDED").put("canRetry", false).putObject("result");
+        var attempt = item.withArray("attempts")
+                              .addObject()
+                              .put("answer", "午前九時に始まります。")
+                              .put("resultPolicy", "REFERENCE_ONLY")
+                              .putNull("evaluation");
+        var result =
+                attempt.putObject("feedback").put("status", "SUCCEEDED").put("canRetry", false).putObject("result");
         result.put("policyVersion", "curated-writing-feedback-v4").put("resultPolicy", "REFERENCE_ONLY");
-        var observation = result.putArray("observations").addObject().put("requirementId", "C1").put("status", "MET").put("evidenceKind", "LEARNER_TEXT");
+        var observation = result.putArray("observations")
+                                  .addObject()
+                                  .put("requirementId", "C1")
+                                  .put("status", "MET")
+                                  .put("evidenceKind", "LEARNER_TEXT");
         observation.putArray("segmentIds").add("S1");
         observation.putArray("answerQuotes").add("午前九時に始まります。");
-        observation.putObject("relationChecks").put("causality", "NOT_APPLICABLE").put("chronology", "PRESERVED").put("specificity", "PRESERVED").put("stance", "NOT_APPLICABLE");
+        observation.putObject("relationChecks")
+                .put("causality", "NOT_APPLICABLE")
+                .put("chronology", "PRESERVED")
+                .put("specificity", "PRESERVED")
+                .put("stance", "NOT_APPLICABLE");
         result.putArray("necessaryCorrections");
         result.putArray("optionalAlternatives");
         result.putArray("uncertainties");
@@ -195,8 +223,15 @@ class WritingPlanContractTest {
         var observation = (ObjectNode) result.path("observations").get(0);
         observation.put("status", "UNMET");
         ((ObjectNode) observation.path("relationChecks")).put("chronology", "CONFLICT");
-        var correction = result.withArray("necessaryCorrections").addObject().put("requirementId", "C1").put("segmentId", "S1")
-                .put("original", "午前九時").put("replacement", "午前十時").put("issueType", "TASK_FACT_CONFLICT").put("sourceFactId", "T1").put("formReason", "NONE");
+        var correction = result.withArray("necessaryCorrections")
+                                 .addObject()
+                                 .put("requirementId", "C1")
+                                 .put("segmentId", "S1")
+                                 .put("original", "午前九時")
+                                 .put("replacement", "午前十時")
+                                 .put("issueType", "TASK_FACT_CONFLICT")
+                                 .put("sourceFactId", "T1")
+                                 .put("formReason", "NONE");
 
         // 실행·검증
         assertSame(value, WritingPlanContract.plan(value));
@@ -213,8 +248,16 @@ class WritingPlanContractTest {
     void typedLanguageFormDoesNotMakePunctuationMandatory() {
         // 준비
         var value = typedPlan();
-        var correction = result(value).withArray("necessaryCorrections").addObject().put("requirementId", "C1").put("segmentId", "S1")
-                .put("original", "始まります").put("replacement", "始まりました").put("issueType", "LANGUAGE_FORM").put("sourceFactId", "").put("formReason", "INFLECTION");
+        var correction = result(value)
+                                 .withArray("necessaryCorrections")
+                                 .addObject()
+                                 .put("requirementId", "C1")
+                                 .put("segmentId", "S1")
+                                 .put("original", "始まります")
+                                 .put("replacement", "始まりました")
+                                 .put("issueType", "LANGUAGE_FORM")
+                                 .put("sourceFactId", "")
+                                 .put("formReason", "INFLECTION");
 
         // 실행·검증: 실제 형태 교정과 선택적인 구두점을 구분한다.
         assertSame(value, WritingPlanContract.plan(value));
@@ -235,7 +278,8 @@ class WritingPlanContractTest {
         observation.putArray("segmentIds");
         observation.putArray("answerQuotes");
         var relations = observation.putObject("relationChecks");
-        for (String key : new String[] {"causality", "chronology", "specificity", "stance"}) relations.put(key, "NOT_APPLICABLE");
+        for (String key : new String[] {"causality", "chronology", "specificity", "stance"})
+            relations.put(key, "NOT_APPLICABLE");
 
         // 실행·검증
         assertSame(value, WritingPlanContract.plan(value));
@@ -249,10 +293,17 @@ class WritingPlanContractTest {
         var value = typedPlan();
         var result = result(value);
         result.put("policyVersion", "curated-writing-feedback-v5");
-        var alternative = result.withArray("optionalAlternatives").addObject().put("suggestionKind", "EXPRESSION_ONLY")
-                .put("segmentId", "S1").put("original", "午前九時に始まります。").put("replacement", "開始は午前九時です。");
-        var relations = alternative.putObject("relationChecks").put("causality", "NOT_APPLICABLE")
-                .put("chronology", "PRESERVED").put("specificity", "PRESERVED").put("stance", "NOT_APPLICABLE");
+        var alternative = result.withArray("optionalAlternatives")
+                                  .addObject()
+                                  .put("suggestionKind", "EXPRESSION_ONLY")
+                                  .put("segmentId", "S1")
+                                  .put("original", "午前九時に始まります。")
+                                  .put("replacement", "開始は午前九時です。");
+        var relations = alternative.putObject("relationChecks")
+                                .put("causality", "NOT_APPLICABLE")
+                                .put("chronology", "PRESERVED")
+                                .put("specificity", "PRESERVED")
+                                .put("stance", "NOT_APPLICABLE");
 
         // 실행·검증: 누락·알 수 없는 값·추가 사실·불확실은 표현만 바뀐 것으로 중계하지 않는다.
         assertSame(value, WritingPlanContract.plan(value));
@@ -271,10 +322,17 @@ class WritingPlanContractTest {
         var value = typedPlan();
         var result = result(value);
         result.put("policyVersion", "curated-writing-feedback-v5");
-        var alternative = result.withArray("optionalAlternatives").addObject().put("suggestionKind", "HYPOTHETICAL_EXAMPLE")
-                .put("segmentId", "S1").put("original", "午前九時に始まります。").put("replacement", "遅れる場合は午前十時に始まります。");
-        var relations = alternative.putObject("relationChecks").put("causality", "UNCERTAIN")
-                .put("chronology", "CONFLICT").put("specificity", "CONFLICT").put("stance", "NOT_APPLICABLE");
+        var alternative = result.withArray("optionalAlternatives")
+                                  .addObject()
+                                  .put("suggestionKind", "HYPOTHETICAL_EXAMPLE")
+                                  .put("segmentId", "S1")
+                                  .put("original", "午前九時に始まります。")
+                                  .put("replacement", "遅れる場合は午前十時に始まります。");
+        var relations = alternative.putObject("relationChecks")
+                                .put("causality", "UNCERTAIN")
+                                .put("chronology", "CONFLICT")
+                                .put("specificity", "CONFLICT")
+                                .put("stance", "NOT_APPLICABLE");
 
         // 실행·검증: 가정은 허용하지만 관계 근거의 필수 구조를 생략하지 않는다.
         assertSame(value, WritingPlanContract.plan(value));
@@ -287,8 +345,12 @@ class WritingPlanContractTest {
         // 준비: 과거 v4 저장 결과를 새 계약으로 재작성하지 않는다.
         var value = typedPlan();
         var result = result(value);
-        result.withArray("optionalAlternatives").addObject().put("suggestionKind", "EXPRESSION_ONLY")
-                .put("segmentId", "S1").put("original", "午前九時に始まります。").put("replacement", "開始は午前九時です。");
+        result.withArray("optionalAlternatives")
+                .addObject()
+                .put("suggestionKind", "EXPRESSION_ONLY")
+                .put("segmentId", "S1")
+                .put("original", "午前九時に始まります。")
+                .put("replacement", "開始は午前九時です。");
 
         // 실행·검증
         assertSame(value, WritingPlanContract.plan(value));
@@ -302,19 +364,30 @@ class WritingPlanContractTest {
         item.putArray("taskRequirements").add("시각 전달");
         result(value).put("policyVersion", "curated-writing-feedback-v6");
         var observation = (ObjectNode) result(value).path("observations").get(0);
-        var part = observation.putArray("requirementParts").addObject().put("requirementQuote", "시각 전달").put("status", "PRESENT");
+        var part = observation.putArray("requirementParts")
+                           .addObject()
+                           .put("requirementQuote", "시각 전달")
+                           .put("status", "PRESENT");
         part.putArray("evidence").addObject().put("segmentId", "S1").put("quote", "午前九時に始まります。");
         part.putArray("taskFactIds").add("T1");
         return value;
     }
 
     private ObjectNode structuredAlternative(ObjectNode value) {
-        var alternative = result(value).withArray("optionalAlternatives").addObject().put("requirementId", "C1")
-                .put("suggestionKind", "EXPRESSION_ONLY").put("segmentId", "S1")
-                .put("original", "午前九時に始まります。").put("replacement", "九時に始まります。");
+        var alternative = result(value)
+                                  .withArray("optionalAlternatives")
+                                  .addObject()
+                                  .put("requirementId", "C1")
+                                  .put("suggestionKind", "EXPRESSION_ONLY")
+                                  .put("segmentId", "S1")
+                                  .put("original", "午前九時に始まります。")
+                                  .put("replacement", "九時に始まります。");
         alternative.putObject("patch").put("original", "午前").put("replacement", "");
-        alternative.putObject("relationChecks").put("causality", "NOT_APPLICABLE").put("chronology", "PRESERVED")
-                .put("specificity", "PRESERVED").put("stance", "NOT_APPLICABLE");
+        alternative.putObject("relationChecks")
+                .put("causality", "NOT_APPLICABLE")
+                .put("chronology", "PRESERVED")
+                .put("specificity", "PRESERVED")
+                .put("stance", "NOT_APPLICABLE");
         return alternative;
     }
 
@@ -322,8 +395,11 @@ class WritingPlanContractTest {
         var value = structuredPlan();
         value.put("writingType", "GUIDED");
         var item = (ObjectNode) value.path("items").get(0);
-        item.putArray("requiredIntents").add("").add("원래 예정 시각임을 나타낸다.")
-                .add("원래 예정 시각임을 나타낸다.").add("변경 결정을 나타낸다.");
+        item.putArray("requiredIntents")
+                .add("")
+                .add("원래 예정 시각임을 나타낸다.")
+                .add("원래 예정 시각임을 나타낸다.")
+                .add("변경 결정을 나타낸다.");
         result(value).put("policyVersion", "curated-writing-feedback-v8");
         var part = (ObjectNode) result(value).path("observations").get(0).path("requirementParts").get(0);
         part.putArray("taskConditionIds").add("P1").add("P2");
@@ -335,11 +411,17 @@ class WritingPlanContractTest {
         observation.put("status", "UNMET");
         ((ObjectNode) observation.path("relationChecks")).put("chronology", "CONFLICT");
         ((ObjectNode) observation.path("requirementParts").get(0)).put("status", "CONFLICT");
-        var correction = result(value).withArray("necessaryCorrections").addObject()
-                .put("requirementId", "C1").put("segmentId", "S1")
-                .put("original", "午前九時に始まります。").put("replacement", "午前九時に始まる予定でした。")
-                .put("issueType", "TASK_CONDITION_CONFLICT").put("sourceFactId", "")
-                .put("sourceAuthorityId", "P1").put("formReason", "NONE");
+        var correction = result(value)
+                                 .withArray("necessaryCorrections")
+                                 .addObject()
+                                 .put("requirementId", "C1")
+                                 .put("segmentId", "S1")
+                                 .put("original", "午前九時に始まります。")
+                                 .put("replacement", "午前九時に始まる予定でした。")
+                                 .put("issueType", "TASK_CONDITION_CONFLICT")
+                                 .put("sourceFactId", "")
+                                 .put("sourceAuthorityId", "P1")
+                                 .put("formReason", "NONE");
         correction.putObject("patch").put("original", "始まります").put("replacement", "始まる予定でした");
         return correction;
     }
@@ -376,7 +458,9 @@ class WritingPlanContractTest {
 
     @Test
     void oldAndNewSemanticFeedbackPreservesStoredResultAndExactPatchAuthority() {
-        for (String version : new String[] {"curated-writing-feedback-v8", "curated-writing-feedback-v9", "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12", "curated-writing-feedback-v13"}) {
+        for (String version : new String[] {"curated-writing-feedback-v8", "curated-writing-feedback-v9",
+                     "curated-writing-feedback-v10", "curated-writing-feedback-v11", "curated-writing-feedback-v12",
+                     "curated-writing-feedback-v13"}) {
             // 준비: 의미 판정 버전이 달라도 저장 DTO의 기존 권한 경계를 유지한다.
             var value = prescribedPlan();
             result(value).put("policyVersion", version);
@@ -433,7 +517,8 @@ class WritingPlanContractTest {
 
     private ObjectNode serverRepairPlan() {
         var value = prescribedPlan();
-        result(value).put("policyVersion", "curated-writing-feedback-v14")
+        result(value)
+                .put("policyVersion", "curated-writing-feedback-v14")
                 .put("meaningContractId", "authored-task-v1")
                 .put("meaningContractVersion", "curated-writing-meaning-contract-v1")
                 .put("meaningContractHash", "a".repeat(64))
@@ -466,7 +551,7 @@ class WritingPlanContractTest {
     void v14RejectsMissingIdentityInvalidOptionalStateAndLeakedFailedSuggestion() {
         // 준비 / 실행 / 검증: 새 상태 분리에서도 기존 권한과 근거 검증을 모두 적용한다.
         for (String key : new String[] {"repairPlanHash", "repairPlanVersion", "meaningContractHash",
-                "optionalSuggestionsStatus", "optionalSuggestionsFailureCode"}) {
+                     "optionalSuggestionsStatus", "optionalSuggestionsFailureCode"}) {
             var value = serverRepairPlan();
             result(value).remove(key);
             assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
@@ -511,7 +596,8 @@ class WritingPlanContractTest {
 
             // 실행·검증: P 연결을 지운 단순 관찰은 기존과 같이 조회한다.
             result(value).withArray("necessaryCorrections").removeAll();
-            ((ObjectNode) result(value).path("observations").get(0).path("requirementParts").get(0)).putArray("taskConditionIds");
+            ((ObjectNode) result(value).path("observations").get(0).path("requirementParts").get(0))
+                    .putArray("taskConditionIds");
             assertSame(value, WritingPlanContract.plan(value));
         }
     }
@@ -526,7 +612,10 @@ class WritingPlanContractTest {
         first.put("requirementQuote", "시각 ").put("status", "PRESENT");
         first.putArray("taskConditionIds").add("P2");
         first.putArray("evidence").addObject().put("segmentId", "S1").put("quote", "午前九時");
-        var conflict = observation.withArray("requirementParts").addObject().put("requirementQuote", "전달").put("status", "CONFLICT");
+        var conflict = observation.withArray("requirementParts")
+                               .addObject()
+                               .put("requirementQuote", "전달")
+                               .put("status", "CONFLICT");
         conflict.putArray("taskFactIds");
         conflict.putArray("taskConditionIds").add("P1");
         conflict.putArray("evidence").addObject().put("segmentId", "S1").put("quote", "始まります");
@@ -549,7 +638,10 @@ class WritingPlanContractTest {
         assertSame(value, WritingPlanContract.plan(value));
         correction.put("sourceAuthorityId", "P1");
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
-        correction.put("issueType", "LANGUAGE_FORM").put("sourceFactId", "").put("sourceAuthorityId", "").put("formReason", "INFLECTION");
+        correction.put("issueType", "LANGUAGE_FORM")
+                .put("sourceFactId", "")
+                .put("sourceAuthorityId", "")
+                .put("formReason", "INFLECTION");
         assertSame(value, WritingPlanContract.plan(value));
         correction.remove("sourceAuthorityId");
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
@@ -563,7 +655,10 @@ class WritingPlanContractTest {
         observation.put("status", "UNMET");
         var present = (ObjectNode) observation.path("requirementParts").get(0);
         present.put("requirementQuote", "시각 ").putArray("taskConditionIds").add("P2");
-        var absent = observation.withArray("requirementParts").addObject().put("requirementQuote", "전달").put("status", "ABSENT");
+        var absent = observation.withArray("requirementParts")
+                             .addObject()
+                             .put("requirementQuote", "전달")
+                             .put("status", "ABSENT");
         absent.putArray("evidence");
         absent.putArray("taskFactIds");
         absent.putArray("taskConditionIds").add("P1");
@@ -618,7 +713,10 @@ class WritingPlanContractTest {
         var observation = (ObjectNode) result(value).path("observations").get(0);
         var first = (ObjectNode) observation.path("requirementParts").get(0);
         first.put("requirementQuote", "시각 ");
-        var second = observation.withArray("requirementParts").addObject().put("requirementQuote", "전달").put("status", "PRESENT");
+        var second = observation.withArray("requirementParts")
+                             .addObject()
+                             .put("requirementQuote", "전달")
+                             .put("status", "PRESENT");
         second.putArray("evidence").addObject().put("segmentId", "S1").put("quote", "始まります");
         second.putArray("taskFactIds");
 
@@ -656,7 +754,10 @@ class WritingPlanContractTest {
         observation.put("status", "UNMET").put("evidenceKind", "LEARNER_TEXT");
         var first = (ObjectNode) observation.path("requirementParts").get(0);
         first.put("requirementQuote", "시각 ");
-        var absent = observation.withArray("requirementParts").addObject().put("requirementQuote", "전달").put("status", "ABSENT");
+        var absent = observation.withArray("requirementParts")
+                             .addObject()
+                             .put("requirementQuote", "전달")
+                             .put("status", "ABSENT");
         absent.putArray("evidence");
         absent.putArray("taskFactIds");
 
@@ -683,7 +784,8 @@ class WritingPlanContractTest {
         var part = (ObjectNode) observation.path("requirementParts").get(0);
         part.put("status", "ABSENT").putArray("evidence");
         var relations = observation.putObject("relationChecks");
-        for (String key : new String[] {"causality", "chronology", "specificity", "stance"}) relations.put(key, "NOT_APPLICABLE");
+        for (String key : new String[] {"causality", "chronology", "specificity", "stance"})
+            relations.put(key, "NOT_APPLICABLE");
 
         // 실행·검증
         assertSame(value, WritingPlanContract.plan(value));
@@ -720,10 +822,18 @@ class WritingPlanContractTest {
         var present = parts.addObject().put("requirementQuote", "전달").put("status", "PRESENT");
         present.putArray("evidence").addObject().put("segmentId", "S1").put("quote", "始まります");
         present.putArray("taskFactIds").add("T2");
-        var correction = result(value).withArray("necessaryCorrections").addObject().put("requirementId", "C1").put("segmentId", "S1")
-                .put("original", "午前九時に始まります。").put("replacement", "午後十時に始まります。")
-                .put("issueType", "TASK_FACT_CONFLICT").put("sourceFactId", "T1").put("formReason", "NONE")
-                .put("originText", "주어진 시각을 확인하세요.").put("learningText", "指定時刻を確認してください。");
+        var correction = result(value)
+                                 .withArray("necessaryCorrections")
+                                 .addObject()
+                                 .put("requirementId", "C1")
+                                 .put("segmentId", "S1")
+                                 .put("original", "午前九時に始まります。")
+                                 .put("replacement", "午後十時に始まります。")
+                                 .put("issueType", "TASK_FACT_CONFLICT")
+                                 .put("sourceFactId", "T1")
+                                 .put("formReason", "NONE")
+                                 .put("originText", "주어진 시각을 확인하세요.")
+                                 .put("learningText", "指定時刻を確認してください。");
         correction.putObject("patch").put("original", "午前九時").put("replacement", "午後十時");
 
         // 실행·검증: 명시된 충돌 사실의 인용만 교정할 수 있다.
@@ -754,9 +864,16 @@ class WritingPlanContractTest {
         // 준비: 한 구간에 필수 교정과 선택 표현을 동시에 제안한 응답.
         var value = structuredPlan();
         var alternative = structuredAlternative(value);
-        var correction = result(value).withArray("necessaryCorrections").addObject().put("requirementId", "C1").put("segmentId", "S1")
-                .put("original", "午前九時に始まります。").put("replacement", "午前九時に始まりました。")
-                .put("issueType", "LANGUAGE_FORM").put("sourceFactId", "").put("formReason", "INFLECTION");
+        var correction = result(value)
+                                 .withArray("necessaryCorrections")
+                                 .addObject()
+                                 .put("requirementId", "C1")
+                                 .put("segmentId", "S1")
+                                 .put("original", "午前九時に始まります。")
+                                 .put("replacement", "午前九時に始まりました。")
+                                 .put("issueType", "LANGUAGE_FORM")
+                                 .put("sourceFactId", "")
+                                 .put("formReason", "INFLECTION");
         correction.putObject("patch").put("original", "始まります").put("replacement", "始まりました");
 
         // 실행·검증: 충돌하는 action은 거절하고, 가상 예시는 MET 강제 없이 별도 분류로 유지한다.
@@ -794,8 +911,10 @@ class WritingPlanContractTest {
     void v14CompositeConditionUsesTheSameConflictingPartAuthority() {
         // 준비: 동일한 원문 범위를 실제 연결된 P2 조건 권한으로 고치는 경우도 같은 인용 경계를 쓴다.
         var value = compositeConflictPlan();
-        compositeCorrection(value).put("issueType", "TASK_CONDITION_CONFLICT")
-                .put("sourceFactId", "").put("sourceAuthorityId", "P2");
+        compositeCorrection(value)
+                .put("issueType", "TASK_CONDITION_CONFLICT")
+                .put("sourceFactId", "")
+                .put("sourceAuthorityId", "P2");
 
         // 실행 / 검증: P2는 통과하지만 다른 part의 유효 P1은 이 범위의 권한이 아니다.
         assertSame(value, WritingPlanContract.plan(value));
@@ -837,7 +956,9 @@ class WritingPlanContractTest {
         var crossPart = compositeConflictPlan();
         var conflictingEvidence = compositeConflictPart(crossPart).withArray("evidence");
         var removed = conflictingEvidence.remove(1);
-        ((ObjectNode) compositeObservation(crossPart).path("requirementParts").get(0)).withArray("evidence").add(removed);
+        ((ObjectNode) compositeObservation(crossPart).path("requirementParts").get(0))
+                .withArray("evidence")
+                .add(removed);
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(crossPart));
     }
 
@@ -875,7 +996,8 @@ class WritingPlanContractTest {
         // 준비: 실제 patch가 첫 글자 뒤에서 시작하면 그 밖의 인용 전체를 합쳐 권한을 넓히지 않는다.
         var escaped = compositeConflictPlan();
         var correction = compositeCorrection(escaped);
-        ((ObjectNode) correction.path("patch")).put("original", correction.path("original").asText().substring(1))
+        ((ObjectNode) correction.path("patch"))
+                .put("original", correction.path("original").asText().substring(1))
                 .put("replacement", correction.path("replacement").asText().substring(1));
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(escaped));
 
@@ -884,26 +1006,36 @@ class WritingPlanContractTest {
         compositeCorrection(wrongPatch).put("replacement", "別の内容です。");
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(wrongPatch));
         var wrongFullSegment = compositeConflictPlan();
-        compositeObservation(wrongFullSegment).withArray("answerQuotes").set(1,
-                json.getNodeFactory().textNode(compositeCorrection(wrongFullSegment).path("original").asText() + "追加。"));
+        compositeObservation(wrongFullSegment)
+                .withArray("answerQuotes")
+                .set(1,
+                        json.getNodeFactory().textNode(
+                                compositeCorrection(wrongFullSegment).path("original").asText() + "追加。"));
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(wrongFullSegment));
     }
 
     @Test
     void compositeFallbackDoesNotApplyToV13OrLanguageFormAndSingleQuoteStillWorks() {
         // 준비: 새 연결 허용은 v14의 TASK_FACT/CONDITION에만 한정한다.
-        for (String version : new String[] {"curated-writing-feedback-v8", "curated-writing-feedback-v12", "curated-writing-feedback-v13"}) {
+        for (String version : new String[] {
+                     "curated-writing-feedback-v8", "curated-writing-feedback-v12", "curated-writing-feedback-v13"}) {
             var value = compositeConflictPlan();
             result(value).put("policyVersion", version);
             assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
         }
         var language = compositeConflictPlan();
-        compositeCorrection(language).put("issueType", "LANGUAGE_FORM").put("sourceFactId", "")
-                .put("sourceAuthorityId", "").put("formReason", "INFLECTION");
+        compositeCorrection(language)
+                .put("issueType", "LANGUAGE_FORM")
+                .put("sourceFactId", "")
+                .put("sourceAuthorityId", "")
+                .put("formReason", "INFLECTION");
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(language));
 
         // 실행 / 검증: 기존 단일 인용 LF 경로는 그대로 통과한다.
-        compositeConflictPart(language).putArray("evidence").addObject().put("segmentId", "S3")
+        compositeConflictPart(language)
+                .putArray("evidence")
+                .addObject()
+                .put("segmentId", "S3")
                 .put("quote", compositeCorrection(language).path("original").asText());
         assertSame(language, WritingPlanContract.plan(language));
     }
@@ -914,17 +1046,26 @@ class WritingPlanContractTest {
             assertNotNull(source);
             var fixture = json.readTree(source);
             var value = plan(1, 1);
-            value.put("personalizedFeedbackStatus", "ACTIVE_QA").put("submittedItemCount", 1)
-                    .put("feedbackCompletedItemCount", 1).put("status", "COMPLETED").put("writingType", "GUIDED");
+            value.put("personalizedFeedbackStatus", "ACTIVE_QA")
+                    .put("submittedItemCount", 1)
+                    .put("feedbackCompletedItemCount", 1)
+                    .put("status", "COMPLETED")
+                    .put("writingType", "GUIDED");
             var item = (ObjectNode) value.path("items").get(0);
             item.put("answered", true);
             item.set("taskRequirements", fixture.path("taskRequirements").deepCopy());
             item.set("requiredIntents", fixture.path("requiredIntents").deepCopy());
             item.putObject("reference").set("checklist", fixture.path("taskRequirements").deepCopy());
-            var attempt = item.withArray("attempts").addObject().put("answer", fixture.path("answer").asText())
-                    .put("resultPolicy", "REFERENCE_ONLY").putNull("evaluation");
-            attempt.putObject("feedback").put("status", "SUCCEEDED").put("canRetry", false)
-                    .putNull("failureCode").set("result", fixture.path("result").deepCopy());
+            var attempt = item.withArray("attempts")
+                                  .addObject()
+                                  .put("answer", fixture.path("answer").asText())
+                                  .put("resultPolicy", "REFERENCE_ONLY")
+                                  .putNull("evaluation");
+            attempt.putObject("feedback")
+                    .put("status", "SUCCEEDED")
+                    .put("canRetry", false)
+                    .putNull("failureCode")
+                    .set("result", fixture.path("result").deepCopy());
             return value;
         } catch (java.io.IOException failure) {
             throw new AssertionError("Controlled actual N01 public feedback fixture cannot be read", failure);
@@ -933,14 +1074,16 @@ class WritingPlanContractTest {
 
     private ObjectNode compositeObservation(ObjectNode value) {
         for (var observation : result(value).path("observations")) {
-            if ("C4".equals(observation.path("requirementId").asText())) return (ObjectNode) observation;
+            if ("C4".equals(observation.path("requirementId").asText()))
+                return (ObjectNode) observation;
         }
         throw new AssertionError("Actual N01 C4 observation is missing");
     }
 
     private ObjectNode compositeConflictPart(ObjectNode value) {
         for (var part : compositeObservation(value).path("requirementParts")) {
-            if ("CONFLICT".equals(part.path("status").asText())) return (ObjectNode) part;
+            if ("CONFLICT".equals(part.path("status").asText()))
+                return (ObjectNode) part;
         }
         throw new AssertionError("Actual N01 conflicting part is missing");
     }
@@ -953,13 +1096,12 @@ class WritingPlanContractTest {
     void v14CompositeFallbackRejectsAnAdditionalActualQuoteFromAnotherSegmentInTheSamePart() {
         // 준비: S3 두 절은 완전히 이어져 있어도 같은 CONFLICT part에 S1 인용을 더해 범위를 섞지 않는다.
         var value = compositeConflictPlan();
-        var actualOtherSegment = compositeObservation(value).path("requirementParts").get(0)
-                .path("evidence").get(0).deepCopy();
+        var actualOtherSegment =
+                compositeObservation(value).path("requirementParts").get(0).path("evidence").get(0).deepCopy();
         assertEquals("S1", actualOtherSegment.path("segmentId").asText());
         compositeConflictPart(value).withArray("evidence").add(actualOtherSegment);
 
         // 실행 / 검증: 다른 문장을 무시해서 앞선 S3 coverage만으로 수용하지 않는다.
         assertThrows(LanguageLearningServiceException.class, () -> WritingPlanContract.plan(value));
     }
-
 }

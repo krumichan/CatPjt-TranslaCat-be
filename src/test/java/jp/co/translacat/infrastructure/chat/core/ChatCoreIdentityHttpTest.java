@@ -69,29 +69,29 @@ class ChatCoreIdentityHttpTest {
         properties.put("chat.core.identity.environment", "Development");
         properties.put("chat.core.identity.secret-base64", Base64.getEncoder().encodeToString(key));
         properties.put("spring.config.location", "optional:classpath:/chat-identity-isolated-test.properties");
-        properties.put("spring.config.additional-location",
-                "optional:classpath:/chat-identity-isolated-test.properties");
+        properties.put(
+                "spring.config.additional-location", "optional:classpath:/chat-identity-isolated-test.properties");
         properties.put("spring.config.import", "optional:classpath:/chat-identity-isolated-test.properties");
         properties.put("spring.profiles.active", "chat-contract-test");
         return (ServletWebServerApplicationContext) new SpringApplicationBuilder(TestApplication.class)
                 .run(properties.entrySet()
-                        .stream()
-                        .map(entry -> "--" + entry.getKey() + "=" + entry.getValue())
-                        .toArray(String[]::new));
+                                .stream()
+                                .map(entry -> "--" + entry.getKey() + "=" + entry.getValue())
+                                .toArray(String[] ::new));
     }
 
     @AfterAll
     static void stopServer() {
-        if (context != null) context.close();
+        if (context != null)
+            context.close();
     }
 
     @BeforeEach
     void prepareCurrentAccount() {
         // 준비: 계정 저장소만 합성이다. 기존 UserPrincipal의 현재 role/상태 계산을 그대로 사용한다.
         reset(users);
-        User user =
-                User.createLocalUser("synthetic@example.invalid", "unused-synthetic-password", "synthetic", Role.USER,
-                        "synthetic-public-id");
+        User user = User.createLocalUser("synthetic@example.invalid", "unused-synthetic-password", "synthetic",
+                Role.USER, "synthetic-public-id");
         user.setId(73L);
         when(users.findByEmail("synthetic@example.invalid")).thenReturn(Optional.of(user));
     }
@@ -132,11 +132,9 @@ class ChatCoreIdentityHttpTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "missing", "wrong-key", "issuer", "audience", "service", "use", "environment",
-            "scope", "extra-scope", "expired", "future-issued", "overlong", "missing-issued", "missing-expiry",
-            "zero-subject", "negative-subject", "leading-zero-subject", "overflow-subject", "algorithm"
-    })
+    @ValueSource(strings = {"missing", "wrong-key", "issuer", "audience", "service", "use", "environment", "scope",
+                         "extra-scope", "expired", "future-issued", "overlong", "missing-issued", "missing-expiry",
+                         "zero-subject", "negative-subject", "leading-zero-subject", "overflow-subject", "algorithm"})
     void invalidServiceCredentialCannotQueryAnyAccount(String failure) throws Exception {
         // 준비
         var claims = claims();
@@ -162,8 +160,8 @@ class ChatCoreIdentityHttpTest {
             case "overflow-subject" -> claims.put("sub", "9223372036854775808");
         }
         var credential = failure.equals("missing") ? null
-                : failure.equals("algorithm") ?
-                Jwts.builder().claims(claims).signWith(Keys.hmacShaKeyFor(KEY), Jwts.SIG.HS384).compact()
+                : failure.equals("algorithm")
+                ? Jwts.builder().claims(claims).signWith(Keys.hmacShaKeyFor(KEY), Jwts.SIG.HS384).compact()
                 : token(claims, failure.equals("wrong-key") ? randomKey() : KEY);
 
         // 실행
@@ -176,15 +174,8 @@ class ChatCoreIdentityHttpTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "missing-id",
-            "null-subject",
-            "string-id",
-            "duplicate-id",
-            "oversize",
-            "malformed",
-            "extra-field"
-    })
+    @ValueSource(strings = {"missing-id", "null-subject", "string-id", "duplicate-id", "oversize", "malformed",
+                         "extra-field"})
     void malformedBodyIsBoundedBeforeAnyAccountLookup(String failure) throws Exception {
         // 준비
         String body = switch (failure) {
@@ -233,7 +224,9 @@ class ChatCoreIdentityHttpTest {
     void sameServiceTokenCannotReachOtherInternalOperation() throws Exception {
         // 준비
         var request = HttpRequest.newBuilder(origin.resolve("/internal/v1/chat/other"))
-                .header("Authorization", "Bearer " + token(claims(), KEY)).GET().build();
+                              .header("Authorization", "Bearer " + token(claims(), KEY))
+                              .GET()
+                              .build();
 
         // 실행
         var response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
@@ -245,9 +238,12 @@ class ChatCoreIdentityHttpTest {
 
     private static HttpResponse<String> post(String token, String body) throws Exception {
         var request = HttpRequest.newBuilder(origin.resolve("/internal/v1/chat/identity"))
-                .header("Content-Type", "application/json").header("X-User-Id", "74").header("X-Role", "ROLE_ADMIN")
-                .POST(HttpRequest.BodyPublishers.ofString(body));
-        if (token != null) request.header("Authorization", "Bearer " + token);
+                              .header("Content-Type", "application/json")
+                              .header("X-User-Id", "74")
+                              .header("X-Role", "ROLE_ADMIN")
+                              .POST(HttpRequest.BodyPublishers.ofString(body));
+        if (token != null)
+            request.header("Authorization", "Bearer " + token);
         return HTTP.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }
 
@@ -277,15 +273,12 @@ class ChatCoreIdentityHttpTest {
     }
 
     @TestConfiguration(proxyBeanMethods = false)
-    @EnableAutoConfiguration(exclude = {
-            DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
-            UserDetailsServiceAutoConfiguration.class
-    }, excludeName =
-            "org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration")
-    @Import({
-            ChatCoreIdentitySecurity.class, ChatCoreIdentityController.class, SecurityConfig.class,
-            JwtFilter.class, JWTService.class, MyUserDetailsService.class, ApiLoggingFilter.class
-    })
+    @EnableAutoConfiguration(exclude = {DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
+                                     UserDetailsServiceAutoConfiguration.class},
+            excludeName =
+                    "org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration")
+    @Import({ChatCoreIdentitySecurity.class, ChatCoreIdentityController.class, SecurityConfig.class, JwtFilter.class,
+            JWTService.class, MyUserDetailsService.class, ApiLoggingFilter.class})
     static class TestApplication {
         @Bean
         UserRepository userRepository() {

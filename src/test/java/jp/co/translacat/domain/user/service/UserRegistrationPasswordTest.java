@@ -39,37 +39,28 @@ import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 class UserRegistrationPasswordTest {
-    @Mock
-    UserRepository userRepository;
-    @Mock
-    RefreshTokenRepository refreshTokenRepository;
-    @Mock
-    UserAllowedRepository userAllowedRepository;
-    @Mock
-    JWTService jwtService;
-    @Mock
-    AuthenticationManager authenticationManager;
-    @Mock
-    PasswordEncoder passwordEncoder;
-    @Mock
-    EmailVerificationService emailVerification;
-    @Mock
-    UserProfileRepository userProfiles;
-    @Mock
-    AuthAttemptLimiter attempts;
-    @Mock
-    jp.co.translacat.domain.user.deletion.AccountDeletionIdentityGate deletionIdentities;
-    @InjectMocks
-    UserService userService;
+    @Mock UserRepository userRepository;
+    @Mock RefreshTokenRepository refreshTokenRepository;
+    @Mock UserAllowedRepository userAllowedRepository;
+    @Mock JWTService jwtService;
+    @Mock AuthenticationManager authenticationManager;
+    @Mock PasswordEncoder passwordEncoder;
+    @Mock EmailVerificationService emailVerification;
+    @Mock UserProfileRepository userProfiles;
+    @Mock AuthAttemptLimiter attempts;
+    @Mock jp.co.translacat.domain.user.deletion.AccountDeletionIdentityGate deletionIdentities;
+    @InjectMocks UserService userService;
 
     @Test
     void pendingDeletionReservationStopsLocalRegistrationBeforeConsumingProof() throws Exception {
         // 준비
         doThrow(new AuthException(HttpStatus.CONFLICT, "ACCOUNT_DELETION_PENDING", "pending"))
-                .when(deletionIdentities).requireNewAccountAllowed("receipt@example.com");
+                .when(deletionIdentities)
+                .requireNewAccountAllowed("receipt@example.com");
 
         // 실행
-        assertThatThrownBy(() -> userService.register(request("receipt@example.com", "proof"))).isInstanceOf(AuthException.class);
+        assertThatThrownBy(() -> userService.register(request("receipt@example.com", "proof")))
+                .isInstanceOf(AuthException.class);
 
         // 검증
         verifyNoInteractions(emailVerification, userProfiles);
@@ -81,10 +72,14 @@ class UserRegistrationPasswordTest {
         // 준비
         when(userRepository.findBySocialIdAndSocialType("new-subject", SocialType.GOOGLE)).thenReturn(Optional.empty());
         doThrow(new AuthException(HttpStatus.CONFLICT, "ACCOUNT_DELETION_PENDING", "pending"))
-                .when(deletionIdentities).requireNewAccountAllowed("receipt@example.com");
+                .when(deletionIdentities)
+                .requireNewAccountAllowed("receipt@example.com");
 
         // 실행
-        assertThatThrownBy(() -> userService.getOrRegisterSocialUser("receipt@example.com", "New", "new-subject", SocialType.GOOGLE)).isInstanceOf(AuthException.class);
+        assertThatThrownBy(()
+                                   -> userService.getOrRegisterSocialUser(
+                                           "receipt@example.com", "New", "new-subject", SocialType.GOOGLE))
+                .isInstanceOf(AuthException.class);
 
         // 검증
         verify(userRepository, never()).saveAndFlush(any());
@@ -118,7 +113,8 @@ class UserRegistrationPasswordTest {
         // 준비
         var request = request("receipt@example.com", "invalid");
         doThrow(new AuthException(HttpStatus.UNAUTHORIZED, "INVALID_PROOF", "invalid"))
-                .when(emailVerification).consume("invalid", request.getEmail(), EmailVerificationPurpose.REGISTER, null);
+                .when(emailVerification)
+                .consume("invalid", request.getEmail(), EmailVerificationPurpose.REGISTER, null);
 
         // 실행 및 검증
         assertThatThrownBy(() -> userService.register(request)).isInstanceOf(AuthException.class);
@@ -133,8 +129,9 @@ class UserRegistrationPasswordTest {
         when(userRepository.findByEmailIgnoreCase(request.getEmail())).thenReturn(Optional.of(localUser()));
 
         // 실행 및 검증
-        assertThatThrownBy(() -> userService.register(request)).isInstanceOfSatisfying(AuthException.class,
-                error -> assertThat(error.getErrorCode()).isEqualTo("ACCOUNT_ALREADY_EXISTS"));
+        assertThatThrownBy(() -> userService.register(request))
+                .isInstanceOfSatisfying(AuthException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo("ACCOUNT_ALREADY_EXISTS"));
         verify(userRepository, never()).saveAndFlush(any());
         verifyNoInteractions(userProfiles, passwordEncoder);
     }
@@ -146,8 +143,11 @@ class UserRegistrationPasswordTest {
         when(userRepository.findByEmailIgnoreCase("receipt@example.com")).thenReturn(Optional.of(localUser()));
 
         // 실행 및 검증
-        assertThatThrownBy(() -> userService.getOrRegisterSocialUser("receipt@example.com", "Google", "google-sub", SocialType.GOOGLE))
-                .isInstanceOfSatisfying(AuthException.class, error -> assertThat(error.getErrorCode()).isEqualTo("ACCOUNT_LINK_REQUIRED"));
+        assertThatThrownBy(()
+                                   -> userService.getOrRegisterSocialUser(
+                                           "receipt@example.com", "Google", "google-sub", SocialType.GOOGLE))
+                .isInstanceOfSatisfying(AuthException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo("ACCOUNT_LINK_REQUIRED"));
         verify(userRepository, never()).saveAndFlush(any());
     }
 
@@ -156,10 +156,12 @@ class UserRegistrationPasswordTest {
         // 준비
         User existing = localUser();
         existing.linkGoogle("google-sub");
-        when(userRepository.findBySocialIdAndSocialType("google-sub", SocialType.GOOGLE)).thenReturn(Optional.of(existing));
+        when(userRepository.findBySocialIdAndSocialType("google-sub", SocialType.GOOGLE))
+                .thenReturn(Optional.of(existing));
 
         // 실행
-        var actual = userService.getOrRegisterSocialUser("changed@example.com", "Changed", "google-sub", SocialType.GOOGLE);
+        var actual =
+                userService.getOrRegisterSocialUser("changed@example.com", "Changed", "google-sub", SocialType.GOOGLE);
 
         // 검증: 원래 프로필과 로그인 이메일을 다른 Google 속성으로 덮어쓰지 않는다.
         assertThat(actual).isSameAs(existing);
@@ -170,8 +172,8 @@ class UserRegistrationPasswordTest {
     }
 
     private UserCreateRequestDto request(String email, String proof) throws Exception {
-        return new ObjectMapper().findAndRegisterModules().readValue(
-                "{\"email\":\"" + email + "\",\"password\":\"plain-secret\",\"nickname\":\"receipt\","
+        return new ObjectMapper().findAndRegisterModules().readValue("{\"email\":\"" + email
+                        + "\",\"password\":\"plain-secret\",\"nickname\":\"receipt\","
                         + "\"birthDate\":\"2000-01-02\",\"verificationToken\":\"" + proof + "\"}",
                 UserCreateRequestDto.class);
     }

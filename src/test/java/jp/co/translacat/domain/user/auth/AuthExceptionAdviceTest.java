@@ -32,7 +32,8 @@ class AuthExceptionAdviceTest {
     @Test
     void exposesStableCodeAndRetryIntervalWithoutCaching() {
         // 준비
-        var failure = new AuthException(HttpStatus.TOO_MANY_REQUESTS, "AUTH_EMAIL_RESEND_TOO_SOON", "잠시 후 다시 시도해주세요.", 60);
+        var failure = new AuthException(
+                HttpStatus.TOO_MANY_REQUESTS, "AUTH_EMAIL_RESEND_TOO_SOON", "잠시 후 다시 시도해주세요.", 60);
 
         // 실행
         var response = advice.handleAuth(failure);

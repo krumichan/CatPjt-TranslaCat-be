@@ -49,7 +49,7 @@ class SecurityCorsConfigurationTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"https://unregistered.fixture.invalid", "https://native.fixture.invalid.evil",
-            "http://native.fixture.invalid", "https://native.fixture.invalid:8443", "null"})
+                         "http://native.fixture.invalid", "https://native.fixture.invalid:8443", "null"})
     void unregisteredOriginsCannotReachTheDownstreamChain(String origin) throws Exception {
         // 준비
         CorsConfigurationSource source = productionSource(FRONTEND + "," + NATIVE);
@@ -73,7 +73,8 @@ class SecurityCorsConfigurationTest {
     void unregisteredPreflightReturns403WithoutCorsHeadersOrDownstreamExecution() throws Exception {
         // 준비: 미등록 브라우저의 preflight를 실제 보안 CORS source에 전달한다.
         CorsConfigurationSource source = productionSource(FRONTEND + "," + NATIVE);
-        MockHttpServletRequest request = request("OPTIONS", "/api/v1/chat/rooms", "https://unregistered.fixture.invalid");
+        MockHttpServletRequest request =
+                request("OPTIONS", "/api/v1/chat/rooms", "https://unregistered.fixture.invalid");
         request.addHeader("Access-Control-Request-Method", "GET");
         request.addHeader("Access-Control-Request-Headers", "Authorization");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -132,9 +133,11 @@ class SecurityCorsConfigurationTest {
         environment.getPropertySources().remove(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME);
         environment.getPropertySources().remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
         Map<String, Object> values = new LinkedHashMap<>(Map.of("FRONTEND_URL", FRONTEND));
-        if (override != null) values.put("CORS_ALLOWED_ORIGINS", override);
+        if (override != null)
+            values.put("CORS_ALLOWED_ORIGINS", override);
         environment.getPropertySources().addFirst(new MapPropertySource("synthetic-env", values));
-        new PropertiesPropertySourceLoader().load("prod", new ClassPathResource("application-prod.properties"))
+        new PropertiesPropertySourceLoader()
+                .load("prod", new ClassPathResource("application-prod.properties"))
                 .forEach(environment.getPropertySources()::addLast);
 
         // 실행: 보안 filter는 대체하지 않고 실제 SecurityConfig가 만든 CORS source를 사용한다.
@@ -150,13 +153,14 @@ class SecurityCorsConfigurationTest {
         request.setSecure(true);
         request.setServerName("be.fixture.invalid");
         request.setServerPort(443);
-        if (origin != null) request.addHeader("Origin", origin);
+        if (origin != null)
+            request.addHeader("Origin", origin);
         return request;
     }
 
     private static void assertAccepted(CorsConfigurationSource source, String origin) throws Exception {
         // 준비: WS handshake와 HTTP API에 동일한 origin 정책을 적용한다.
-        for (String path : new String[]{"/ws/chat", "/api/v1/chat/rooms"}) {
+        for (String path : new String[] {"/ws/chat", "/api/v1/chat/rooms"}) {
             MockHttpServletRequest request = request("GET", path, origin);
             MockHttpServletResponse response = new MockHttpServletResponse();
             AtomicBoolean chained = new AtomicBoolean();
@@ -178,8 +182,8 @@ class SecurityCorsConfigurationTest {
         AtomicBoolean chained = new AtomicBoolean();
 
         // 실행
-        new CorsFilter(source).doFilter(request("GET", "/ws/chat", origin), response,
-                (ignoredRequest, ignoredResponse) -> chained.set(true));
+        new CorsFilter(source).doFilter(
+                request("GET", "/ws/chat", origin), response, (ignoredRequest, ignoredResponse) -> chained.set(true));
 
         // 검증
         assertThat(response.getStatus()).isEqualTo(403);

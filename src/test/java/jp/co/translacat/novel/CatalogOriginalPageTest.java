@@ -39,35 +39,43 @@ class CatalogOriginalPageTest {
         var ai = mock(NovelPorts.Ai.class);
         when(ai.executionIdentity()).thenReturn("qa-original");
         when(ai.maxOutputTokens()).thenReturn(8192);
-        var cards = java.util.stream.IntStream.range(0, 50).mapToObj(index ->
-                new CatalogModels.SourceCard(Long.toString(10000 + index), 51 + index, index,
-                        "猫の旅" + index, "作者", "夜空を見る物語。", "連載中", "", false)).toList();
+        var cards = java.util.stream.IntStream.range(0, 50)
+                            .mapToObj(index
+                                    -> new CatalogModels.SourceCard(Long.toString(10000 + index), 51 + index, index,
+                                            "猫の旅" + index, "作者", "夜空を見る物語。", "連載中", "", false))
+                            .toList();
         var selector = new CatalogModels.Selector("RANKING", "daily", "all", "", 2, "ja");
         var source = new CatalogModels.SourcePage(cards, Map.of(), 123);
 
         try (var scheduler = new FairAiScheduler(4, 256)) {
-            var commands = new CatalogCommandService(store, repository, ai, NovelExecutionSettings.baseline(), scheduler, new ObjectMapper());
+            var commands = new CatalogCommandService(
+                    store, repository, ai, NovelExecutionSettings.baseline(), scheduler, new ObjectMapper());
 
             // 실행: 새 50개 목록과 다른 계정의 같은 원문 목록을 각각 만든다.
             data.executions.set(0);
-            String first = commands.start(1, "kakuyomu", new CatalogModels.Start(selector, "original-first", source), "trace-first");
+            String first = commands.start(
+                    1, "kakuyomu", new CatalogModels.Start(selector, "original-first", source), "trace-first");
             int coldExecutions = data.executions.get();
             data.executions.set(0);
-            String second = commands.start(2, "kakuyomu", new CatalogModels.Start(selector, "original-second", source), "trace-second");
+            String second = commands.start(
+                    2, "kakuyomu", new CatalogModels.Start(selector, "original-second", source), "trace-second");
             int warmExecutions = data.executions.get();
             var saved = store.snapshot(1, first);
             var reused = store.snapshot(2, second);
 
             // 실행: 이미 실패로 기록된 공유 행은 새 원문 목록에서도 성공으로 덮지 않는다.
-            jdbc.update("UPDATE novel_catalog_translation SET state='FAILED',error_code='FIXTURE_FAILURE' WHERE work_id='10000'");
-            String partial = commands.start(3, "kakuyomu", new CatalogModels.Start(selector, "original-partial", source), "trace-partial");
+            jdbc.update(
+                    "UPDATE novel_catalog_translation SET state='FAILED',error_code='FIXTURE_FAILURE' WHERE work_id='10000'");
+            String partial = commands.start(
+                    3, "kakuyomu", new CatalogModels.Start(selector, "original-partial", source), "trace-partial");
             var failed = store.snapshot(3, partial);
 
             // 검증: 표시 정보·계정 권한·공통 재사용을 보존하며 원문은 유료 작업과 용어 조회가 필요 없다.
             assertThat(saved.state()).isEqualTo("SUCCEEDED");
             assertThat(saved.ready()).isEqualTo(50);
             assertThat(saved.sourceFetchMs()).isEqualTo(123);
-            assertThat(saved.items()).extracting(CatalogModels.Item::rank)
+            assertThat(saved.items())
+                    .extracting(CatalogModels.Item::rank)
                     .containsExactlyElementsOf(java.util.stream.IntStream.rangeClosed(51, 100).boxed().toList());
             assertThat(saved.items()).allSatisfy(item -> {
                 assertThat(item.title().rawJa()).isEqualTo(item.title().ja());
@@ -79,14 +87,17 @@ class CatalogOriginalPageTest {
             assertThat(failed.failed()).isEqualTo(1);
             assertThat(failed.items().getFirst().errorCode()).isEqualTo("FIXTURE_FAILURE");
             assertThat(failed.items().getFirst().title().rawJa()).isEqualTo("猫の旅0");
-            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_catalog_translation", Integer.class)).isEqualTo(50);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_catalog_translation", Integer.class))
+                    .isEqualTo(50);
             assertThatThrownBy(() -> store.snapshot(1, second)).hasMessage("CATALOG_NOT_FOUND");
             System.out.printf("originalPageDbExecutions cold=%d warm=%d%n", coldExecutions, warmExecutions);
             assertThat(coldExecutions).as("50-card cold source DB executions").isLessThanOrEqualTo(15);
             assertThat(warmExecutions).as("50-card warm source DB executions").isLessThanOrEqualTo(15);
             verify(repository, never()).glossary(any(), anyLong(), anyString());
-            assertThat(mockingDetails(ai).getInvocations()).noneMatch(call ->
-                    call.getMethod().getName().startsWith("translate") || call.getMethod().getName().startsWith("synthesize"));
+            assertThat(mockingDetails(ai).getInvocations())
+                    .noneMatch(call
+                            -> call.getMethod().getName().startsWith("translate")
+                                    || call.getMethod().getName().startsWith("synthesize"));
         }
     }
 
@@ -99,11 +110,16 @@ class CatalogOriginalPageTest {
         var mapper = new ObjectMapper();
         var first = new CatalogStore(jdbc, mapper, new DataSourceTransactionManager(data));
         var second = new CatalogStore(jdbc, mapper, new DataSourceTransactionManager(data));
-        var cards = java.util.stream.IntStream.range(0, 50).mapToObj(index ->
-                new CatalogModels.SourceCard(Long.toString(20000 + index), index + 1, index,
-                        "猫" + index, "作者", "夜空。", "連載中", "", false)).toList();
-        var prepared = cards.stream().map(card -> new CatalogStore.Prepared(
-                SentenceSegmenter.hash(card.identifier()), "revision", "policy", card, Map.of())).toList();
+        var cards = java.util.stream.IntStream.range(0, 50)
+                            .mapToObj(index
+                                    -> new CatalogModels.SourceCard(Long.toString(20000 + index), index + 1, index,
+                                            "猫" + index, "作者", "夜空。", "連載中", "", false))
+                            .toList();
+        var prepared = cards.stream()
+                               .map(card
+                                       -> new CatalogStore.Prepared(SentenceSegmenter.hash(card.identifier()),
+                                               "revision", "policy", card, Map.of()))
+                               .toList();
         var selector = new CatalogModels.Selector("RANKING", "daily", "all", "", 1, "ja");
         var source = new CatalogModels.SourcePage(cards, Map.of(), 0);
         var start = new CountDownLatch(1);
@@ -126,7 +142,8 @@ class CatalogOriginalPageTest {
             assertThat(oneId).isNotEqualTo(twoId);
             assertThat(first.snapshot(1, oneId).ready()).isEqualTo(50);
             assertThat(second.snapshot(2, twoId).ready()).isEqualTo(50);
-            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_catalog_translation", Integer.class)).isEqualTo(50);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_catalog_translation", Integer.class))
+                    .isEqualTo(50);
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_catalog_item", Integer.class)).isEqualTo(100);
         }
     }
@@ -138,21 +155,30 @@ class CatalogOriginalPageTest {
             super("jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
         }
 
-        @Override public Connection getConnection() throws SQLException {
+        @Override
+        public Connection getConnection() throws SQLException {
             Connection target = super.getConnection();
-            return (Connection) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{Connection.class}, (proxy, method, arguments) -> {
-                try {
-                    Object value = method.invoke(target, arguments);
-                    if (!(value instanceof PreparedStatement statement)) return value;
-                    return Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{PreparedStatement.class}, (ignored, operation, parameters) -> {
-                        if (Set.of("execute", "executeUpdate", "executeQuery", "executeBatch").contains(operation.getName())) executions.incrementAndGet();
-                        try { return operation.invoke(statement, parameters); }
-                        catch (InvocationTargetException failure) { throw failure.getCause(); }
+            return (Connection) Proxy.newProxyInstance(
+                    getClass().getClassLoader(), new Class<?>[] {Connection.class}, (proxy, method, arguments) -> {
+                        try {
+                            Object value = method.invoke(target, arguments);
+                            if (!(value instanceof PreparedStatement statement))
+                                return value;
+                            return Proxy.newProxyInstance(getClass().getClassLoader(),
+                                    new Class<?>[] {PreparedStatement.class}, (ignored, operation, parameters) -> {
+                                        if (Set.of("execute", "executeUpdate", "executeQuery", "executeBatch")
+                                                        .contains(operation.getName()))
+                                            executions.incrementAndGet();
+                                        try {
+                                            return operation.invoke(statement, parameters);
+                                        } catch (InvocationTargetException failure) {
+                                            throw failure.getCause();
+                                        }
+                                    });
+                        } catch (InvocationTargetException failure) {
+                            throw failure.getCause();
+                        }
                     });
-                } catch (InvocationTargetException failure) {
-                    throw failure.getCause();
-                }
-            });
         }
     }
 }

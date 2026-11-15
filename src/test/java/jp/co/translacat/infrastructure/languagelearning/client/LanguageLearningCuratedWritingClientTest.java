@@ -31,8 +31,10 @@ class LanguageLearningCuratedWritingClientTest {
     }
 
     private String set(int count) {
-        var items = IntStream.rangeClosed(1, count).mapToObj(number -> "{\"itemId\":" + number + "}")
-                .reduce((left, right) -> left + "," + right).orElse("");
+        var items = IntStream.rangeClosed(1, count)
+                            .mapToObj(number -> "{\"itemId\":" + number + "}")
+                            .reduce((left, right) -> left + "," + right)
+                            .orElse("");
         return "{\"policyVersion\":\"curated-writing-v1\",\"resultPolicy\":\"REFERENCE_ONLY\",\"sentenceCount\":5,\"generatedItemCount\":5,\"items\":["
                 + items + "]}";
     }

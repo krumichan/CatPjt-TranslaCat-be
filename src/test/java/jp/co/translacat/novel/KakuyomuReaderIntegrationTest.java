@@ -79,11 +79,16 @@ class KakuyomuReaderIntegrationTest {
         var revision = new AtomicLong();
         var processor = mock(FuriganaProcessor.class);
         when(processor.dictionaryRevision()).thenAnswer(ignored -> revision.get());
-        when(processor.convertToRuby(anyString())).thenAnswer(call -> ((String) call.getArgument(0))
-                .replace("猫", "<ruby>猫<rt>" + (revision.get() == 0 ? "ねこ" : "ねこせんせい") + "</rt></ruby>"));
+        when(processor.convertToRuby(anyString()))
+                .thenAnswer(call
+                        -> ((String) call.getArgument(0))
+                                .replace("猫",
+                                        "<ruby>猫<rt>" + (revision.get() == 0 ? "ねこ" : "ねこせんせい")
+                                                + "</rt></ruby>"));
         var formatter = new NovelRubyFormatter(processor);
         var ai = new ControlledAi();
-        var query = new NovelQueryService(store, ignored -> source, ai, 600, NovelExecutionSettings.baseline(), formatter);
+        var query =
+                new NovelQueryService(store, ignored -> source, ai, 600, NovelExecutionSettings.baseline(), formatter);
 
         var commands = new NovelCommandService(store, query, ai, 10_000);
         try {
@@ -103,7 +108,8 @@ class KakuyomuReaderIntegrationTest {
             assertThat(completed.durableComplete()).isTrue();
             assertThat(reused.durableComplete()).isTrue();
             assertThat(reused.jobId()).isNotEqualTo(first.jobId()).isNotEqualTo(second.jobId());
-            assertThat(reused.segments()).extracting(ReaderSnapshot.Segment::translatedText)
+            assertThat(reused.segments())
+                    .extracting(ReaderSnapshot.Segment::translatedText)
                     .containsExactly(target + "-0", target + "-1");
             assertThat(ai.calls).hasValue(1);
             assertThat(store.byId(key, reused.jobId(), 73).providerCalls()).isZero();
@@ -112,10 +118,10 @@ class KakuyomuReaderIntegrationTest {
             // 실행·검증: 사전 revision 변경은 화면 발음만 갱신하고 저장 원문/번역/캐시를 보존한다.
             revision.incrementAndGet();
             var dictionaryUpdated = query.reader(key, 73, target);
-            assertThat(dictionaryUpdated.segments().getFirst().rubyTokens()).anySatisfy(token ->
-                    assertThat(token.reading()).isEqualTo("ねこせんせい"));
-            assertThat(dictionaryUpdated.segments().get(1).rubyTokens()).anySatisfy(token ->
-                    assertThat(token.reading()).isEqualTo("はるか"));
+            assertThat(dictionaryUpdated.segments().getFirst().rubyTokens())
+                    .anySatisfy(token -> assertThat(token.reading()).isEqualTo("ねこせんせい"));
+            assertThat(dictionaryUpdated.segments().get(1).rubyTokens())
+                    .anySatisfy(token -> assertThat(token.reading()).isEqualTo("はるか"));
             assertThat(dictionaryUpdated.revision()).isEqualTo(source.revision());
             assertThat(ai.calls).hasValue(1);
         } finally {
@@ -129,7 +135,8 @@ class KakuyomuReaderIntegrationTest {
         ReaderSnapshot result;
         do {
             result = query.status(key, actor, job);
-            if (result.durableComplete()) return result;
+            if (result.durableComplete())
+                return result;
             Thread.sleep(10);
         } while (System.nanoTime() < end);
         assertThat(result.durableComplete()).isTrue();
@@ -140,16 +147,24 @@ class KakuyomuReaderIntegrationTest {
         final AtomicInteger calls = new AtomicInteger();
         final CountDownLatch prefix = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
-        public String model() { return "controlled-openai-port"; }
-        public String speechModel() { return "controlled-speech"; }
-        public boolean progressiveAEnabled() { return true; }
-        public NovelPorts.Translation translate(String trace, List<SourceEpisode.Segment> items, List<String> context, long left) {
+        public String model() {
+            return "controlled-openai-port";
+        }
+        public String speechModel() {
+            return "controlled-speech";
+        }
+        public boolean progressiveAEnabled() {
+            return true;
+        }
+        public NovelPorts.Translation translate(
+                String trace, List<SourceEpisode.Segment> items, List<String> context, long left) {
             throw new AssertionError("Use the target-aware progressive contract");
         }
         public NovelPorts.Translation translateProgressive(String trace, String call, List<SourceEpisode.Segment> items,
                 List<String> context, Map<String, String> glossary, long left, TranslationOptions.ResponseShape shape,
                 TranslationOptions.ValidationPolicy validation, TranslationOptions.AnnotationPolicy annotation,
-                BiConsumer<SourceEpisode.Segment, String> sentence, BiConsumer<SourceEpisode.Segment, String> failure, String target) {
+                BiConsumer<SourceEpisode.Segment, String> sentence, BiConsumer<SourceEpisode.Segment, String> failure,
+                String target) {
             calls.incrementAndGet();
             var results = new LinkedHashMap<String, String>();
             for (var item : items) {
@@ -157,8 +172,9 @@ class KakuyomuReaderIntegrationTest {
                 sentence.accept(item, results.get(item.id()));
                 if (item.order() == 0) {
                     prefix.countDown();
-                    try { assertThat(release.await(5, TimeUnit.SECONDS)).isTrue(); }
-                    catch (InterruptedException interrupted) {
+                    try {
+                        assertThat(release.await(5, TimeUnit.SECONDS)).isTrue();
+                    } catch (InterruptedException interrupted) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException(interrupted);
                     }

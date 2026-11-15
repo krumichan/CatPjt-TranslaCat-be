@@ -17,7 +17,8 @@ class MobileAuthMigrationTest {
     void handoff_schema_is_repeatable_and_preserves_preexisting_sessions() throws Exception {
         // 준비: 사용자·기존 세션을 만든 뒤 별도 handoff migration을 적용한다.
         String url = "jdbc:h2:mem:mobile-handoff-migration;MODE=MySQL;DB_CLOSE_DELAY=-1";
-        try (var connection = DriverManager.getConnection(url, "sa", ""); var statement = connection.createStatement()) {
+        try (var connection = DriverManager.getConnection(url, "sa", "");
+                var statement = connection.createStatement()) {
             statement.execute("create table `user` (id bigint primary key)");
             statement.execute("insert into `user` values (21)");
             ScriptUtils.executeSqlScript(connection, new FileSystemResource("scripts/sql/20261019_auth_sessions.sql"));
@@ -44,17 +45,18 @@ class MobileAuthMigrationTest {
         }
 
         // 검증: 실제 SQL 결과가 두 인증 entity mapping과 일치한다.
-        var registry = new StandardServiceRegistryBuilder().applySettings(Map.of(
-                "hibernate.connection.driver_class", "org.h2.Driver",
-                "hibernate.connection.url", url,
-                "hibernate.connection.username", "sa",
-                "hibernate.connection.password", "",
-                "hibernate.hbm2ddl.auto", "validate",
-                "hibernate.physical_naming_strategy", "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"
-        )).build();
+        var registry = new StandardServiceRegistryBuilder()
+                               .applySettings(Map.of("hibernate.connection.driver_class", "org.h2.Driver",
+                                       "hibernate.connection.url", url, "hibernate.connection.username", "sa",
+                                       "hibernate.connection.password", "", "hibernate.hbm2ddl.auto", "validate",
+                                       "hibernate.physical_naming_strategy",
+                                       "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"))
+                               .build();
         try {
-            var metadata = new MetadataSources(registry).addAnnotatedClass(AuthSession.class)
-                    .addAnnotatedClass(MobileAuthRequest.class).buildMetadata();
+            var metadata = new MetadataSources(registry)
+                                   .addAnnotatedClass(AuthSession.class)
+                                   .addAnnotatedClass(MobileAuthRequest.class)
+                                   .buildMetadata();
             try (var factory = metadata.buildSessionFactory()) {
                 assertThat(factory.isOpen()).isTrue();
             }

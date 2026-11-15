@@ -60,21 +60,28 @@ class NovelTocTranslationTest {
     private FakeAi ai;
     private NovelTocTranslationService service;
 
-    @BeforeEach void prepare() {
+    @BeforeEach
+    void prepare() {
         var data = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
         new ResourceDatabasePopulator(new ClassPathResource("novel-toc-h2.sql")).execute(data);
         jdbc = new JdbcTemplate(data);
         store = new NovelTocStore(jdbc, new ObjectMapper(), new DataSourceTransactionManager(data));
         repository = mock(NovelRepository.class);
-        when(repository.glossary(any(), anyLong(), eq("ko"))).thenReturn(new NovelRepository.Glossary("empty", Map.of()));
+        when(repository.glossary(any(), anyLong(), eq("ko")))
+                .thenReturn(new NovelRepository.Glossary("empty", Map.of()));
         scheduler = new FairAiScheduler(2, 16);
         ai = new FakeAi();
         service = service(ai);
     }
 
-    @AfterEach void close() { scheduler.close(); RequestTrace.clear(); }
+    @AfterEach
+    void close() {
+        scheduler.close();
+        RequestTrace.clear();
+    }
 
-    @Test void legacyReviewPatchesOnlyTheInconsistentTitleAndKeepsOriginalStorageAcrossAccounts() {
+    @Test
+    void legacyReviewPatchesOnlyTheInconsistentTitleAndKeepsOriginalStorageAcrossAccounts() {
         // 준비: 기존 50개 목차 중 한 제목만 소개의 인명과 다르다. 정답은 실행 코드가 아닌 fixture에 있다.
         var titles = titles(50);
         titles.get(25).getTitle().setRawJa("真神幸一郎の帰還");
@@ -92,18 +99,23 @@ class NovelTocTranslationTest {
         assertThat(ai.reviews).hasValue(1);
         assertThat(ai.generations).hasValue(0);
         assertThat(ai.lastTitles).hasSize(50);
-        assertThat(ai.lastReferences).contains(new NovelPorts.TitleReference("真神幸一郎が帰還した。", "마가미 코이치로가 귀환했다."));
+        assertThat(ai.lastReferences)
+                .contains(new NovelPorts.TitleReference("真神幸一郎が帰還した。", "마가미 코이치로가 귀환했다."));
         assertThat(titles.get(25).getTitle().getKo()).isEqualTo("마가미 코이치로의 귀환");
         assertThat(other.get(25).getTitle().getKo()).isEqualTo("마가미 코이치로의 귀환");
         assertThat(saved.get(25).getTitle().getKo()).isEqualTo("진신 코이치로의 귀환");
         for (int index = 0; index < titles.size(); index++) {
-            if (index != 25) assertThat(titles.get(index).getTitle().getKo()).isEqualTo(saved.get(index).getTitle().getKo());
+            if (index != 25)
+                assertThat(titles.get(index).getTitle().getKo()).isEqualTo(saved.get(index).getTitle().getKo());
         }
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_toc_translation WHERE state='READY'", Integer.class)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT input_json FROM novel_toc_translation", String.class)).contains("진신 코이치로의 귀환");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_toc_translation WHERE state='READY'", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT input_json FROM novel_toc_translation", String.class))
+                .contains("진신 코이치로의 귀환");
     }
 
-    @Test void noChangeReviewIsDurableAcrossServiceRestartWithoutAnotherProviderCall() {
+    @Test
+    void noChangeReviewIsDurableAcrossServiceRestartWithoutAnotherProviderCall() {
         // 준비
         service.resolve(key, 11, work(), titles(2), List.of());
         var restartedAi = new FakeAi();
@@ -118,12 +130,14 @@ class NovelTocTranslationTest {
         assertThat(jdbc.queryForObject("SELECT result_json FROM novel_toc_translation", String.class)).isEqualTo("{}");
     }
 
-    @Test void sourceExistingTranslationReferencesGlossaryAndPolicyEachSeparateReviewIdentity() {
+    @Test
+    void sourceExistingTranslationReferencesGlossaryAndPolicyEachSeparateReviewIdentity() {
         // 준비
         service.resolve(key, 11, work(), titles(2), List.of());
 
         // 실행: 같은 내용/용어집은 계정·버전이 달라도 공유하고 실제 입력 변경만 검토를 분리한다.
-        when(repository.glossary(any(), eq(22L), eq("ko"))).thenReturn(new NovelRepository.Glossary("another-version", Map.of()));
+        when(repository.glossary(any(), eq(22L), eq("ko")))
+                .thenReturn(new NovelRepository.Glossary("another-version", Map.of()));
         service.resolve(key, 22, work(), titles(2), List.of());
         var changedSource = titles(2);
         changedSource.getFirst().getTitle().setRawJa("別の題名");
@@ -134,7 +148,8 @@ class NovelTocTranslationTest {
         var changedReference = work();
         changedReference.getSynopsis().setKo("확정된 다른 소개");
         service.resolve(key, 11, changedReference, titles(2), List.of());
-        when(repository.glossary(any(), eq(33L), eq("ko"))).thenReturn(new NovelRepository.Glossary("terms", Map.of("術式", "술식")));
+        when(repository.glossary(any(), eq(33L), eq("ko")))
+                .thenReturn(new NovelRepository.Glossary("terms", Map.of("術式", "술식")));
         service.resolve(key, 33, work(), titles(2), List.of());
         ai.identity = "another-policy";
         service.resolve(key, 11, work(), titles(2), List.of());
@@ -144,9 +159,11 @@ class NovelTocTranslationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM novel_toc_translation", Integer.class)).isEqualTo(6);
     }
 
-    @Test void newDirtyTitleUsesWorkContextAndGlossaryAndItsNextGetNeedsNoReview() {
+    @Test
+    void newDirtyTitleUsesWorkContextAndGlossaryAndItsNextGetNeedsNoReview() {
         // 준비: 최초 생성도 작품 소개의 확정 번역을 참고한다.
-        when(repository.glossary(any(), anyLong(), eq("ko"))).thenReturn(new NovelRepository.Glossary("terms", Map.of("術式", "술식")));
+        when(repository.glossary(any(), anyLong(), eq("ko")))
+                .thenReturn(new NovelRepository.Glossary("terms", Map.of("術式", "술식")));
         var titles = titles(1);
         titles.getFirst().getTitle().setKo("");
         ai.generated = Map.of("1", "새 목차 번역");
@@ -160,12 +177,14 @@ class NovelTocTranslationTest {
         assertThat(ai.reviews).hasValue(0);
         assertThat(ai.lastSegments).extracting(SourceEpisode.Segment::id).containsExactly("1");
         assertThat(ai.lastContext).contains("真神幸一郎が帰還した。");
-        assertThat(ai.lastAccepted).contains(Map.of("source", "真神幸一郎が帰還した。", "translation", "마가미 코이치로가 귀환했다."));
+        assertThat(ai.lastAccepted)
+                .contains(Map.of("source", "真神幸一郎が帰還した。", "translation", "마가미 코이치로가 귀환했다."));
         assertThat(ai.lastGlossary).containsEntry("術式", "술식");
         assertThat(saved.getFirst().getTitle().getKo()).isEqualTo("새 목차 번역");
     }
 
-    @Test void mixedPageGeneratesOnlyDirtyTargetsAndKeepsReadyNeighborsOutOfTranslationTargets() {
+    @Test
+    void mixedPageGeneratesOnlyDirtyTargetsAndKeepsReadyNeighborsOutOfTranslationTargets() {
         // 준비
         var titles = titles(3);
         var dirty = titles.get(1).getTitle();
@@ -182,7 +201,8 @@ class NovelTocTranslationTest {
         assertThat(saved.get(2).getTitle().getKo()).isEqualTo("기존 제목 3");
     }
 
-    @Test void invalidReviewDoesNotApplyOrPersistAReadyPatchAndDoesNotAutomaticallyChargeAgain() {
+    @Test
+    void invalidReviewDoesNotApplyOrPersistAReadyPatchAndDoesNotAutomaticallyChargeAgain() {
         // 준비
         ai.review = ignored -> Map.of("unknown-id", "잘못된 변경");
         var titles = titles(2);
@@ -198,10 +218,12 @@ class NovelTocTranslationTest {
         assertThat(other).extracting(title -> title.getTitle().getKo()).containsExactly("기존 제목 1", "기존 제목 2");
         assertThat(ai.reviews).hasValue(1);
         assertThat(jdbc.queryForObject("SELECT state FROM novel_toc_translation", String.class)).isEqualTo("FAILED");
-        assertThat(jdbc.queryForObject("SELECT failure_code FROM novel_toc_translation", String.class)).isEqualTo("TOC_REVIEW_RESULT_INVALID");
+        assertThat(jdbc.queryForObject("SELECT failure_code FROM novel_toc_translation", String.class))
+                .isEqualTo("TOC_REVIEW_RESULT_INVALID");
     }
 
-    @Test void invalidGenerationIsNotCachedAsReadyOrCopiedOverTheExistingTitle() {
+    @Test
+    void invalidGenerationIsNotCachedAsReadyOrCopiedOverTheExistingTitle() {
         // 준비
         var titles = titles(1);
         var dirty = titles.getFirst().getTitle();
@@ -210,21 +232,28 @@ class NovelTocTranslationTest {
 
         // 실행
         assertThatThrownBy(() -> service.resolve(key, 11, work(), titles, List.of(dirty)))
-                .isInstanceOf(NovelProblem.class).hasMessage("TOC_TRANSLATION_RESULT_INVALID");
+                .isInstanceOf(NovelProblem.class)
+                .hasMessage("TOC_TRANSLATION_RESULT_INVALID");
 
         // 검증
         assertThat(dirty.getKo()).isEmpty();
         assertThat(jdbc.queryForObject("SELECT state FROM novel_toc_translation", String.class)).isEqualTo("FAILED");
     }
 
-    @Test void twoActorsCannotRunTheSamePaidReviewConcurrently() throws Exception {
+    @Test
+    void twoActorsCannotRunTheSamePaidReviewConcurrently() throws Exception {
         // 준비: 첫 provider 요청을 완료시키지 않은 상태에서 다른 계정이 같은 검토를 요청한다.
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         ai.review = ignored -> {
             entered.countDown();
-            try { if (!release.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("test timeout"); }
-            catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new IllegalStateException(interrupted); }
+            try {
+                if (!release.await(5, TimeUnit.SECONDS))
+                    throw new IllegalStateException("test timeout");
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(interrupted);
+            }
             return Map.of("1", "수정된 제목");
         };
         try (var requests = Executors.newSingleThreadExecutor()) {
@@ -234,7 +263,9 @@ class NovelTocTranslationTest {
             // 실행
             var waiting = titles(2);
             var waitingStorage = service.resolve(key, 22, work(), waiting, List.of());
-            assertThat(waiting).extracting(title -> title.getTitle().getKo()).containsExactly("기존 제목 1", "기존 제목 2");
+            assertThat(waiting)
+                    .extracting(title -> title.getTitle().getKo())
+                    .containsExactly("기존 제목 1", "기존 제목 2");
             assertThat(waitingStorage).extracting(RawEpisodeContext::getIdentifier).containsExactly("1", "2");
             release.countDown();
             first.get(5, TimeUnit.SECONDS);
@@ -249,7 +280,8 @@ class NovelTocTranslationTest {
         }
     }
 
-    @Test void syosetuHundredTitlePageKeepsEveryIdSequenceAndTranslationWithoutNewGeneration() {
+    @Test
+    void syosetuHundredTitlePageKeepsEveryIdSequenceAndTranslationWithoutNewGeneration() {
         // 준비: 카쿠요무의 50개 화면과 달리 기존 소설가가 되자 원본 목차는 한 페이지에 100개다.
         var syosetu = new EpisodeKey("syosetu", "n3159fs", "1");
         var titles = titles(100);
@@ -263,15 +295,21 @@ class NovelTocTranslationTest {
         assertThat(ai.lastTitles).hasSize(100);
         assertThat(titles).hasSize(100);
         assertThat(storage).hasSize(100);
-        assertThat(titles).extracting(RawEpisodeContext::getIdentifier)
-                .containsExactlyElementsOf(java.util.stream.IntStream.rangeClosed(1, 100).mapToObj(Integer::toString).toList());
-        assertThat(storage).extracting(episode -> episode.getTitle().getKo())
+        assertThat(titles)
+                .extracting(RawEpisodeContext::getIdentifier)
+                .containsExactlyElementsOf(
+                        java.util.stream.IntStream.rangeClosed(1, 100).mapToObj(Integer::toString).toList());
+        assertThat(storage)
+                .extracting(episode -> episode.getTitle().getKo())
                 .containsExactlyElementsOf(titles.stream().map(episode -> episode.getTitle().getKo()).toList());
     }
 
-    @Test void firstProviderReviewFailureKeepsStoredTitlesAvailableWithoutChargingAgain() {
+    @Test
+    void firstProviderReviewFailureKeepsStoredTitlesAvailableWithoutChargingAgain() {
         // 준비: 선택적 문맥 검토의 첫 provider 요청이 실패해도 정상 저장된 목차를 읽을 수 있어야 한다.
-        ai.review = ignored -> { throw new NovelProblem("AI_REVIEW_TIMED_OUT", 502); };
+        ai.review = ignored -> {
+            throw new NovelProblem("AI_REVIEW_TIMED_OUT", 502);
+        };
         var titles = titles(2);
 
         // 실행
@@ -311,12 +349,15 @@ class NovelTocTranslationTest {
         assertThat(jdbc.queryForObject("SELECT state FROM novel_toc_translation", String.class)).isEqualTo(state);
     }
 
-    @Test void databaseAccessFailureIsPropagatedRatherThanTreatedAsAnUnavailableOptionalReview() {
+    @Test
+    void databaseAccessFailureIsPropagatedRatherThanTreatedAsAnUnavailableOptionalReview() {
         // 준비: DB 연결/권한 오류는 검토 cache miss나 정상 조회로 위장하지 않는다.
         var unavailable = spy(store);
         doThrow(new org.springframework.dao.DataAccessResourceFailureException("database unavailable"))
-                .when(unavailable).claim(anyString(), anyString(), anyString(), anyString(), anyString());
-        var subject = new NovelTocTranslationService(unavailable, repository, ai, NovelExecutionSettings.baseline(), scheduler);
+                .when(unavailable)
+                .claim(anyString(), anyString(), anyString(), anyString(), anyString());
+        var subject = new NovelTocTranslationService(
+                unavailable, repository, ai, NovelExecutionSettings.baseline(), scheduler);
 
         // 실행 / 검증
         assertThatThrownBy(() -> subject.resolve(key, 11, work(), titles(2), List.of()))
@@ -325,7 +366,8 @@ class NovelTocTranslationTest {
         assertThat(ai.generations).hasValue(0);
     }
 
-    @Test void requestTraceSurvivesSchedulerThreadForGenerationAndReview() {
+    @Test
+    void requestTraceSurvivesSchedulerThreadForGenerationAndReview() {
         // 준비: 새/기존 제목이 섞이면 서로 다른 scheduler 실행에서도 동일 HTTP trace를 이어야 한다.
         var trace = RequestTrace.begin(null).id();
         var titles = titles(2);
@@ -341,12 +383,16 @@ class NovelTocTranslationTest {
         assertThat(ai.reviewTrace).isEqualTo(trace);
     }
 
-    @Test void transientDatabaseSaveFailureReusesTheSamePaidReviewResult() {
+    @Test
+    void transientDatabaseSaveFailureReusesTheSamePaidReviewResult() {
         // 준비: provider 성공 뒤 첫 DB 저장만 일시적으로 실패한다.
         var unstable = spy(store);
         doThrow(new org.springframework.dao.CannotAcquireLockException("transient test failure"))
-                .doCallRealMethod().when(unstable).complete(any(), anyMap());
-        var subject = new NovelTocTranslationService(unstable, repository, ai, NovelExecutionSettings.baseline(), scheduler);
+                .doCallRealMethod()
+                .when(unstable)
+                .complete(any(), anyMap());
+        var subject =
+                new NovelTocTranslationService(unstable, repository, ai, NovelExecutionSettings.baseline(), scheduler);
         ai.review = ignored -> Map.of("1", "교정된 제목");
         var titles = titles(2);
 
@@ -361,16 +407,21 @@ class NovelTocTranslationTest {
         assertThat(jdbc.queryForObject("SELECT state FROM novel_toc_translation", String.class)).isEqualTo("READY");
     }
 
-    @Test void lostSaveAcknowledgementConfirmsTheAlreadyCommittedResultWithoutNewAi() {
+    @Test
+    void lostSaveAcknowledgementConfirmsTheAlreadyCommittedResultWithoutNewAi() {
         // 준비: 첫 DB commit은 성공했지만 호출자에게 전달된 성공 응답만 소실된다.
         var unstable = spy(store);
         var saves = new AtomicInteger();
         doAnswer(call -> {
             call.callRealMethod();
-            if (saves.incrementAndGet() == 1) throw new org.springframework.dao.DataAccessResourceFailureException("lost acknowledgement");
+            if (saves.incrementAndGet() == 1)
+                throw new org.springframework.dao.DataAccessResourceFailureException("lost acknowledgement");
             return null;
-        }).when(unstable).complete(any(), anyMap());
-        var subject = new NovelTocTranslationService(unstable, repository, ai, NovelExecutionSettings.baseline(), scheduler);
+        })
+                .when(unstable)
+                .complete(any(), anyMap());
+        var subject =
+                new NovelTocTranslationService(unstable, repository, ai, NovelExecutionSettings.baseline(), scheduler);
 
         // 실행
         subject.resolve(key, 11, work(), titles(2), List.of());
@@ -390,19 +441,24 @@ class NovelTocTranslationTest {
         var queued = new CountDownLatch(1);
         doAnswer(call -> {
             var future = call.callRealMethod();
-            if (call.getArgument(0, String.class).startsWith("toc:")) queued.countDown();
+            if (call.getArgument(0, String.class).startsWith("toc:"))
+                queued.countDown();
             return future;
-        }).when(observed).submitCatalog(anyString(), eq(1), anyLong(), any(), any());
+        })
+                .when(observed)
+                .submitCatalog(anyString(), eq(1), anyLong(), any(), any());
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
-        var blocker = observed.submitCatalog("deadline-blocker", 1, System.nanoTime() + TimeUnit.SECONDS.toNanos(10),
-                ignored -> {}, () -> {
+        var blocker = observed.submitCatalog(
+                "deadline-blocker", 1, System.nanoTime() + TimeUnit.SECONDS.toNanos(10), ignored -> {}, () -> {
                     entered.countDown();
-                    if (!release.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("test timeout");
+                    if (!release.await(5, TimeUnit.SECONDS))
+                        throw new IllegalStateException("test timeout");
                     return "released";
                 });
         assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
-        var subject = new NovelTocTranslationService(store, repository, ai, NovelExecutionSettings.baseline(), observed);
+        var subject =
+                new NovelTocTranslationService(store, repository, ai, NovelExecutionSettings.baseline(), observed);
         var titles = titles(1);
         List<TranslationUnit> dirty = generation ? List.of(titles.getFirst().getTitle()) : List.of();
         if (generation) {
@@ -438,15 +494,21 @@ class NovelTocTranslationTest {
     }
 
     private NovelContext work() {
-        return NovelContext.builder().identifier(key.novel()).title(TranslationUnit.of("帰還", "帰還", "귀환"))
-                .synopsis(TranslationUnit.of("真神幸一郎が帰還した。", "原文", "마가미 코이치로가 귀환했다.")).build();
+        return NovelContext.builder()
+                .identifier(key.novel())
+                .title(TranslationUnit.of("帰還", "帰還", "귀환"))
+                .synopsis(TranslationUnit.of("真神幸一郎が帰還した。", "原文", "마가미 코이치로가 귀환했다."))
+                .build();
     }
 
     private List<RawEpisodeContext> titles(int count) {
         var result = new ArrayList<RawEpisodeContext>();
         for (int index = 1; index <= count; index++) {
-            result.add(RawEpisodeContext.builder().identifier(Integer.toString(index)).sequence(index)
-                    .title(TranslationUnit.of("第" + index + "話", "原文", "기존 제목 " + index)).build());
+            result.add(RawEpisodeContext.builder()
+                            .identifier(Integer.toString(index))
+                            .sequence(index)
+                            .title(TranslationUnit.of("第" + index + "話", "原文", "기존 제목 " + index))
+                            .build());
         }
         return result;
     }
@@ -468,10 +530,18 @@ class NovelTocTranslationTest {
         long generationRemaining;
         long reviewRemaining;
 
-        @Override public String model() { return identity; }
-        @Override public String speechModel() { return "speech"; }
-        @Override public NovelPorts.TitleReview reviewTitles(String trace, String call, List<NovelPorts.TitleCandidate> titles,
-                List<NovelPorts.TitleReference> references, Map<String, String> glossary, long remaining, String language) {
+        @Override
+        public String model() {
+            return identity;
+        }
+        @Override
+        public String speechModel() {
+            return "speech";
+        }
+        @Override
+        public NovelPorts.TitleReview reviewTitles(String trace, String call, List<NovelPorts.TitleCandidate> titles,
+                List<NovelPorts.TitleReference> references, Map<String, String> glossary, long remaining,
+                String language) {
             reviews.incrementAndGet();
             reviewTrace = trace;
             reviewRemaining = remaining;
@@ -480,9 +550,10 @@ class NovelTocTranslationTest {
             lastGlossary = glossary;
             return new NovelPorts.TitleReview(review.apply(titles), "openai", identity, 10, 5, Map.of());
         }
-        @Override public NovelPorts.Translation repair(String trace, String call, List<SourceEpisode.Segment> items,
-                List<String> context, Map<String, String> glossary, List<Map<String, String>> accepted,
-                long remaining, TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
+        @Override
+        public NovelPorts.Translation repair(String trace, String call, List<SourceEpisode.Segment> items,
+                List<String> context, Map<String, String> glossary, List<Map<String, String>> accepted, long remaining,
+                TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
                 TranslationOptions.AnnotationPolicy annotation, String language) {
             generations.incrementAndGet();
             generationTrace = trace;
@@ -493,10 +564,13 @@ class NovelTocTranslationTest {
             lastGlossary = glossary;
             return new NovelPorts.Translation(generated, "openai", identity, 10, 5);
         }
-        @Override public NovelPorts.Translation translate(String trace, List<SourceEpisode.Segment> items, List<String> context, long remaining) {
+        @Override
+        public NovelPorts.Translation translate(
+                String trace, List<SourceEpisode.Segment> items, List<String> context, long remaining) {
             throw new AssertionError("context-free legacy translation must not be used");
         }
-        @Override public NovelPorts.Speech synthesize(String id, String text, String language, long remaining) {
+        @Override
+        public NovelPorts.Speech synthesize(String id, String text, String language, long remaining) {
             throw new AssertionError("TOC must never generate speech");
         }
     }

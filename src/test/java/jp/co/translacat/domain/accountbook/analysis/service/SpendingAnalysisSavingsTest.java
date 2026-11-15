@@ -12,14 +12,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SpendingAnalysisSavingsTest {
     private AccountBookTransactionResponseDto purchase(String amount, String title, String memo) throws Exception {
         return JsonMapper.builder().findAndAddModules().build().readValue(
-                "{\"id\":1,\"accountBookId\":1,\"type\":\"EXPENSE\",\"amount\":\"" + amount
-                        + "\",\"title\":\"" + title + "\",\"memo\":\"" + memo + "\",\"category\":\"쇼핑\"}",
+                "{\"id\":1,\"accountBookId\":1,\"type\":\"EXPENSE\",\"amount\":\"" + amount + "\",\"title\":\"" + title
+                        + "\",\"memo\":\"" + memo + "\",\"category\":\"쇼핑\"}",
                 AccountBookTransactionResponseDto.class);
     }
 
     private SavingsScenario proposal(String kind) {
-        return new SavingsScenario("999999", "999999", "999999", "999999", "0", 9999, 9999,
-                0, 0, kind, "선택 구매의 일부를 조정하는 가정");
+        return new SavingsScenario("999999", "999999", "999999", "999999", "0", 9999, 9999, 0, 0, kind,
+                "선택 구매의 일부를 조정하는 가정");
     }
 
     @Test
@@ -59,9 +59,15 @@ class SpendingAnalysisSavingsTest {
 
         // 실행 / 검증: 산정 불가를 0원 절약으로 바꾸지 않는다.
         assertThat(SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"), List.of(drink), 0, true)).isNull();
-        assertThat(SpendingAnalysisSavings.calculate(proposal("SKIP_EXTRA_ITEM"), List.of(purchase("1000", "일반 결제", "")), 0, false)).isNull();
-        assertThat(SpendingAnalysisSavings.calculate(proposal("SKIP_EXTRA_ITEM"), List.of(purchase("1000", "약국", "처방약")), 0, false)).isNull();
-        assertThat(SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"), List.of(drink, purchase("2000", "식당", "정식과 커피")), 0, false)).isNull();
+        assertThat(SpendingAnalysisSavings.calculate(
+                           proposal("SKIP_EXTRA_ITEM"), List.of(purchase("1000", "일반 결제", "")), 0, false))
+                .isNull();
+        assertThat(SpendingAnalysisSavings.calculate(
+                           proposal("SKIP_EXTRA_ITEM"), List.of(purchase("1000", "약국", "처방약")), 0, false))
+                .isNull();
+        assertThat(SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"),
+                           List.of(drink, purchase("2000", "식당", "정식과 커피")), 0, false))
+                .isNull();
     }
 
     @Test
@@ -71,7 +77,8 @@ class SpendingAnalysisSavingsTest {
         var water = purchase("10000", "Amazon 天然水", "天然水 24本");
 
         // 실행 / 검증
-        assertThat(SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"), List.of(cola), 0, false).estimate()).isEqualTo("525");
+        assertThat(SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"), List.of(cola), 0, false).estimate())
+                .isEqualTo("525");
         assertThat(SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"), List.of(water), 0, false)).isNull();
     }
 
@@ -82,7 +89,10 @@ class SpendingAnalysisSavingsTest {
         var accessory = purchase("10000", "アメリカーノ用グラス", "");
 
         // 실행 / 검증
-        assertThat(SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"), List.of(drink), 0, false).estimate()).isEqualTo("525");
-        assertThat(SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"), List.of(accessory), 0, false)).isNull();
+        assertThat(
+                SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"), List.of(drink), 0, false).estimate())
+                .isEqualTo("525");
+        assertThat(SpendingAnalysisSavings.calculate(proposal("DRINK_REPLACEMENT"), List.of(accessory), 0, false))
+                .isNull();
     }
 }

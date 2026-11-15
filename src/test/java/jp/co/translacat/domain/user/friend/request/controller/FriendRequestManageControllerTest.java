@@ -30,7 +30,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class FriendRequestManageControllerTest {
-
     private FriendRequestService friendRequestService;
     private FriendRequestController friendRequestController;
     private MockMvc mockMvc;
@@ -40,10 +39,9 @@ class FriendRequestManageControllerTest {
         friendRequestService = mock(FriendRequestService.class);
         friendRequestController = new FriendRequestController(friendRequestService);
 
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(friendRequestController)
-                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
-                .build();
+        mockMvc = MockMvcBuilders.standaloneSetup(friendRequestController)
+                          .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                          .build();
     }
 
     @AfterEach
@@ -157,9 +155,7 @@ class FriendRequestManageControllerTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestController.getReceivedPendingRequests(null))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED"));
 
         verify(friendRequestService, never()).getReceivedPendingRequests(anyLong());
     }
@@ -169,34 +165,21 @@ class FriendRequestManageControllerTest {
     }
 
     private FriendRequestListItemResponseDto createResponse(FriendRequestStatus status) {
-        return new FriendRequestListItemResponseDto(
-                100L,
+        return new FriendRequestListItemResponseDto(100L,
                 new UserSummaryProfileResponseDto(1L, "TCAT-00000001", "requester", null),
-                new UserSummaryProfileResponseDto(2L, "TCAT-00000002", "receiver", null),
-                status,
+                new UserSummaryProfileResponseDto(2L, "TCAT-00000002", "receiver", null), status,
                 LocalDateTime.of(2026, 6, 28, 10, 0),
-                status == FriendRequestStatus.PENDING ? null : LocalDateTime.of(2026, 6, 28, 10, 5)
-        );
+                status == FriendRequestStatus.PENDING ? null : LocalDateTime.of(2026, 6, 28, 10, 5));
     }
 
     private void setAuthentication(Long userId) {
-        User user = User.createLocalUser(
-                "test@example.com",
-                "password",
-                "testUser",
-                Role.USER,
-                "TCAT-00000001"
-        );
+        User user = User.createLocalUser("test@example.com", "password", "testUser", Role.USER, "TCAT-00000001");
         user.setId(userId);
 
         UserPrincipal userPrincipal = new UserPrincipal(user);
 
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(
-                        userPrincipal,
-                        null,
-                        userPrincipal.getAuthorities()
-                );
+                new UsernamePasswordAuthenticationToken(userPrincipal, null, userPrincipal.getAuthorities());
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }

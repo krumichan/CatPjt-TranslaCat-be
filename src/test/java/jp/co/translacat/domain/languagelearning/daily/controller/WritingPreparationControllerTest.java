@@ -32,13 +32,18 @@ class WritingPreparationControllerTest {
     @Test
     void preparationUsesAuthenticatedPrincipalAndOriginalRequestBody() throws Exception {
         // 준비: 임의 userId 쿼리는 인증 소유자를 대신할 수 없다.
-        var body = json.readTree("{\"requestKey\":\"prep-1\",\"writingType\":\"GUIDED\",\"targetBand\":3,\"topicKey\":\"school-life\"}");
+        var body = json.readTree(
+                "{\"requestKey\":\"prep-1\",\"writingType\":\"GUIDED\",\"targetBand\":3,\"topicKey\":\"school-life\"}");
         when(client.writingPreparationStart(101L, body)).thenReturn(json.readTree("{\"requestKey\":\"prep-1\"}"));
 
         // 실행
-        mvc(101L, true).perform(post("/api/v1/language-learning/writing/curated/preparations")
-                        .param("userId", "999").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.body.requestKey").value("prep-1"));
+        mvc(101L, true)
+                .perform(post("/api/v1/language-learning/writing/curated/preparations")
+                                .param("userId", "999")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.body.requestKey").value("prep-1"));
 
         // 검증
         verify(client).writingPreparationStart(101L, body);
@@ -55,10 +60,13 @@ class WritingPreparationControllerTest {
 
         // 실행
         mvc.perform(get("/api/v1/language-learning/writing/curated/preparations/prep-1"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.body.status").value("UNCERTAIN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.body.status").value("UNCERTAIN"));
         mvc.perform(post("/api/v1/language-learning/writing/curated/plans/items/-99/replacement")
-                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.body.planRevision").value(3));
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.body.planRevision").value(3));
 
         // 검증
         verify(client).writingPreparationGet(101L, "prep-1");
@@ -75,10 +83,12 @@ class WritingPreparationControllerTest {
         mvc.perform(get("/api/v1/language-learning/writing/curated/preparations/prep-1"))
                 .andExpect(jsonPath("$.body.errorCode").value("UNAUTHORIZED"));
         mvc.perform(post("/api/v1/language-learning/writing/curated/preparations")
-                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
                 .andExpect(jsonPath("$.body.errorCode").value("UNAUTHORIZED"));
         mvc.perform(post("/api/v1/language-learning/writing/curated/plans/items/-99/replacement")
-                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
                 .andExpect(jsonPath("$.body.errorCode").value("UNAUTHORIZED"));
 
         // 검증
@@ -88,20 +98,27 @@ class WritingPreparationControllerTest {
     @Test
     void keepsNotFoundConflictAndUnavailableAsFailures() throws Exception {
         // 준비
-        when(client.writingPreparationGet(101L, "foreign")).thenThrow(new LanguageLearningServiceException(
-                HttpStatus.NOT_FOUND, "WRITING_PREPARATION_NOT_FOUND", "not found"));
-        when(client.writingPlanReplacement(eq(101L), eq(-99L), any())).thenThrow(new LanguageLearningServiceException(
-                HttpStatus.CONFLICT, "WRITING_PREPARATION_CONFLICT", "conflict"));
+        when(client.writingPreparationGet(101L, "foreign"))
+                .thenThrow(new LanguageLearningServiceException(
+                        HttpStatus.NOT_FOUND, "WRITING_PREPARATION_NOT_FOUND", "not found"));
+        when(client.writingPlanReplacement(eq(101L), eq(-99L), any()))
+                .thenThrow(new LanguageLearningServiceException(
+                        HttpStatus.CONFLICT, "WRITING_PREPARATION_CONFLICT", "conflict"));
         var mvc = mvc(101L, true);
 
         // 실행·검증: 실패를 빈 성공으로 바꾸거나 새 준비 명령을 실행하지 않는다.
         mvc.perform(get("/api/v1/language-learning/writing/curated/preparations/foreign"))
-                .andExpect(status().isNotFound()).andExpect(jsonPath("$.body.errorCode").value("WRITING_PREPARATION_NOT_FOUND"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.body.errorCode").value("WRITING_PREPARATION_NOT_FOUND"));
         mvc.perform(post("/api/v1/language-learning/writing/curated/plans/items/-99/replacement")
-                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isConflict()).andExpect(jsonPath("$.body.errorCode").value("WRITING_PREPARATION_CONFLICT"));
-        mvc(101L, false).perform(get("/api/v1/language-learning/writing/curated/preparations/prep-1"))
-                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.body.errorCode").value("LL_WRITING_REMOTE_DISABLED"));
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.body.errorCode").value("WRITING_PREPARATION_CONFLICT"));
+        mvc(101L, false)
+                .perform(get("/api/v1/language-learning/writing/curated/preparations/prep-1"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.body.errorCode").value("LL_WRITING_REMOTE_DISABLED"));
         verify(client, never()).writingPreparationStart(anyLong(), any());
     }
 
@@ -109,16 +126,18 @@ class WritingPreparationControllerTest {
     void preparationAndReplacementControllersKeepExplicitQaGate() {
         // 준비: 프로퍼티를 생략하거나 false로 두면 두 경로 자체가 등록되지 않는다.
         var context = new ApplicationContextRunner()
-                .withUserConfiguration(WritingPreparationController.class, WritingPlanController.class)
-                .withBean(LanguageLearningWritingClient.class, () -> client);
+                              .withUserConfiguration(WritingPreparationController.class, WritingPlanController.class)
+                              .withBean(LanguageLearningWritingClient.class, () -> client);
 
         // 실행·검증
         context.run(value -> {
             org.assertj.core.api.Assertions.assertThat(value).doesNotHaveBean(WritingPreparationController.class);
             org.assertj.core.api.Assertions.assertThat(value).doesNotHaveBean(WritingPlanController.class);
         });
-        context.withPropertyValues("app.language-learning.writing-paragraph-qa-enabled=false").run(value ->
-                org.assertj.core.api.Assertions.assertThat(value).doesNotHaveBean(WritingPreparationController.class));
+        context.withPropertyValues("app.language-learning.writing-paragraph-qa-enabled=false")
+                .run(value
+                        -> org.assertj.core.api.Assertions.assertThat(value).doesNotHaveBean(
+                                WritingPreparationController.class));
         context.withPropertyValues("app.language-learning.writing-paragraph-qa-enabled=true").run(value -> {
             org.assertj.core.api.Assertions.assertThat(value).hasSingleBean(WritingPreparationController.class);
             org.assertj.core.api.Assertions.assertThat(value).hasSingleBean(WritingPlanController.class);
@@ -130,9 +149,11 @@ class WritingPreparationControllerTest {
         when(user.getId()).thenReturn(userId);
         var principal = userId == null ? null : new UserPrincipal(user);
         var beans = new StaticListableBeanFactory();
-        if (connected) beans.addBean("client", client);
+        if (connected)
+            beans.addBean("client", client);
         var provider = beans.getBeanProvider(LanguageLearningWritingClient.class);
-        return MockMvcBuilders.standaloneSetup(new WritingPreparationController(provider), new WritingPlanController(provider))
+        return MockMvcBuilders
+                .standaloneSetup(new WritingPreparationController(provider), new WritingPlanController(provider))
                 .setControllerAdvice(new ApiExceptionAdvice())
                 .setCustomArgumentResolvers(new HandlerMethodArgumentResolver() {
                     @Override
@@ -142,9 +163,10 @@ class WritingPreparationControllerTest {
 
                     @Override
                     public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer container,
-                                                  NativeWebRequest request, WebDataBinderFactory factory) {
+                            NativeWebRequest request, WebDataBinderFactory factory) {
                         return principal;
                     }
-                }).build();
+                })
+                .build();
     }
 }

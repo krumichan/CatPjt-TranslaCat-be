@@ -27,23 +27,18 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = {WebAiLearningController.class, WebAiExternalController.class}, properties = {
-        "cors.allowed-origin=http://localhost:3000",
-        "jwt.token.secret-key=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
-        "jwt.token.expired.access=86400000",
-        "jwt.token.expired.refresh=604800000"
-})
-@Import({SecurityConfig.class, JwtFilter.class, JWTService.class, ApiLoggingFilter.class,
-        WebAiExceptionAdvice.class, WebAiSecurityTest.Support.class})
+@WebMvcTest(controllers = {WebAiLearningController.class, WebAiExternalController.class},
+        properties = {"cors.allowed-origin=http://localhost:3000",
+                "jwt.token.secret-key=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+                "jwt.token.expired.access=86400000", "jwt.token.expired.refresh=604800000"})
+@Import({SecurityConfig.class, JwtFilter.class, JWTService.class, ApiLoggingFilter.class, WebAiExceptionAdvice.class,
+        WebAiSecurityTest.Support.class})
 class WebAiSecurityTest {
     private static final String ROOT = "/api/v1/language-learning/web-ai";
     private static final String CAPABILITY = "tcwa_synthetic_plan_capability_123456789";
-    @Autowired
-    private MockMvc mvc;
-    @Autowired
-    private LanguageLearningWebAiClient client;
-    @Autowired
-    private ObjectMapper json;
+    @Autowired private MockMvc mvc;
+    @Autowired private LanguageLearningWebAiClient client;
+    @Autowired private ObjectMapper json;
 
     @BeforeEach
     void resetClient() {
@@ -68,8 +63,10 @@ class WebAiSecurityTest {
         // 준비 / 실행
         mvc.perform(get(ROOT + "/external/prompt").header("Authorization", "Bearer " + CAPABILITY))
                 .andExpect(status().isUnauthorized());
-        mvc.perform(post(ROOT + "/external/other").header("Authorization", "Bearer " + CAPABILITY)
-                        .contentType("application/json").content("{}"))
+        mvc.perform(post(ROOT + "/external/other")
+                            .header("Authorization", "Bearer " + CAPABILITY)
+                            .contentType("application/json")
+                            .content("{}"))
                 .andExpect(status().isUnauthorized());
 
         // 검증
@@ -82,9 +79,12 @@ class WebAiSecurityTest {
         when(client.externalPrompt(eq(CAPABILITY), any())).thenReturn(json.readTree("{\"id\":\"run-1\"}"));
 
         // 실행
-        mvc.perform(post(ROOT + "/external/prompt").header("Authorization", "Bearer " + CAPABILITY)
-                        .contentType("application/json").content("{\"executionKey\":\"2026-10-15T18:00\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.body.id").value("run-1"))
+        mvc.perform(post(ROOT + "/external/prompt")
+                            .header("Authorization", "Bearer " + CAPABILITY)
+                            .contentType("application/json")
+                            .content("{\"executionKey\":\"2026-10-15T18:00\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.body.id").value("run-1"))
                 .andExpect(header().string("Cache-Control", "no-store"));
 
         // 검증
@@ -96,9 +96,12 @@ class WebAiSecurityTest {
     void missingOrMalformedCapabilityIsUnauthorizedWithoutNetworkCall() throws Exception {
         // 준비 / 실행
         mvc.perform(post(ROOT + "/external/results").contentType("application/json").content("{}"))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.body.errorCode").value("WEB_AI_TOKEN_INVALID"));
-        mvc.perform(post(ROOT + "/external/prompt").header("Authorization", "Bearer too-short")
-                        .contentType("application/json").content("{}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.body.errorCode").value("WEB_AI_TOKEN_INVALID"));
+        mvc.perform(post(ROOT + "/external/prompt")
+                            .header("Authorization", "Bearer too-short")
+                            .contentType("application/json")
+                            .content("{}"))
                 .andExpect(status().isUnauthorized());
 
         // 검증
@@ -109,18 +112,24 @@ class WebAiSecurityTest {
     void revokedCapabilityKeeps401WhileInternalAuthFailureBecomes502() throws Exception {
         // 준비
         when(client.externalPrompt(eq(CAPABILITY), any()))
-                .thenThrow(new LanguageLearningServiceException(HttpStatus.UNAUTHORIZED,
-                        "WEB_AI_TOKEN_REVOKED", "연결이 해제되었습니다."))
-                .thenThrow(new LanguageLearningServiceException(HttpStatus.UNAUTHORIZED,
-                        "INTERNAL_AUTH_INVALID", "내부 인증 실패"));
+                .thenThrow(new LanguageLearningServiceException(
+                        HttpStatus.UNAUTHORIZED, "WEB_AI_TOKEN_REVOKED", "연결이 해제되었습니다."))
+                .thenThrow(new LanguageLearningServiceException(
+                        HttpStatus.UNAUTHORIZED, "INTERNAL_AUTH_INVALID", "내부 인증 실패"));
 
         // 실행 / 검증
-        mvc.perform(post(ROOT + "/external/prompt").header("Authorization", "Bearer " + CAPABILITY)
-                        .contentType("application/json").content("{}"))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.body.errorCode").value("WEB_AI_TOKEN_REVOKED"));
-        mvc.perform(post(ROOT + "/external/prompt").header("Authorization", "Bearer " + CAPABILITY)
-                        .contentType("application/json").content("{}"))
-                .andExpect(status().isBadGateway()).andExpect(jsonPath("$.body.errorCode").value("LL_INTERNAL_AUTH_FAILED"));
+        mvc.perform(post(ROOT + "/external/prompt")
+                            .header("Authorization", "Bearer " + CAPABILITY)
+                            .contentType("application/json")
+                            .content("{}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.body.errorCode").value("WEB_AI_TOKEN_REVOKED"));
+        mvc.perform(post(ROOT + "/external/prompt")
+                            .header("Authorization", "Bearer " + CAPABILITY)
+                            .contentType("application/json")
+                            .content("{}"))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.body.errorCode").value("LL_INTERNAL_AUTH_FAILED"));
     }
 
     @Test
@@ -133,7 +142,8 @@ class WebAiSecurityTest {
 
         // 실행
         mvc.perform(get(ROOT + "/plans").param("userId", "999").with(authentication(auth)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.body.plans").isArray());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.body.plans").isArray());
 
         // 검증
         verify(client).plans(123L);
@@ -144,13 +154,16 @@ class WebAiSecurityTest {
     void disabledLearnerDenialIsNotAnInternalAuthenticationFailure() throws Exception {
         // 준비
         when(client.externalPrompt(eq(CAPABILITY), any()))
-                .thenThrow(new LanguageLearningServiceException(HttpStatus.FORBIDDEN,
-                        "LEARNER_UNAVAILABLE", "이 학습자는 현재 이용할 수 없습니다."));
+                .thenThrow(new LanguageLearningServiceException(
+                        HttpStatus.FORBIDDEN, "LEARNER_UNAVAILABLE", "이 학습자는 현재 이용할 수 없습니다."));
 
         // 실행 / 검증
-        mvc.perform(post(ROOT + "/external/prompt").header("Authorization", "Bearer " + CAPABILITY)
-                        .contentType("application/json").content("{}"))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.body.errorCode").value("LEARNER_UNAVAILABLE"));
+        mvc.perform(post(ROOT + "/external/prompt")
+                            .header("Authorization", "Bearer " + CAPABILITY)
+                            .contentType("application/json")
+                            .content("{}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.body.errorCode").value("LEARNER_UNAVAILABLE"));
     }
 
     @TestConfiguration(proxyBeanMethods = false)

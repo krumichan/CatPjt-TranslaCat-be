@@ -51,8 +51,8 @@ class LanguageLearningLevelTestFacadeTest {
         var b = mock(LevelTestBaselineBridge.class);
         var f = new LanguageLearningLevelTestFacade(g, b);
         var request = new LevelAnswerRequestDto("A", List.of(), null, "key");
-        when(g.submit(123L, 1L, 1L, request)).thenReturn(
-                new LevelAnswerResultResponseDto(1L, 1L, 2, true, 100, null, false, null));
+        when(g.submit(123L, 1L, 1L, request))
+                .thenReturn(new LevelAnswerResultResponseDto(1L, 1L, 2, true, 100, null, false, null));
         f.submit(123L, 1L, 1L, request);
         verifyNoInteractions(b);
     }
@@ -62,11 +62,11 @@ class LanguageLearningLevelTestFacadeTest {
         // 준비: LL 상태 조회가 예약된 영어를 적용하며 이전 일본어 ACTIVE 상태를 사용할 수 없게 한다.
         var gateway = mock(LevelTestGateway.class);
         var baseline = mock(LevelTestBaselineBridge.class);
-        var promoted = new boolean[] { false };
+        var promoted = new boolean[] {false};
         when(gateway.status(123L)).thenAnswer(call -> {
             promoted[0] = true;
-            return new LevelStatusResponseDto(LearningProfileState.LEVEL_TEST_REQUIRED, false, false,
-                    null, null, null, null);
+            return new LevelStatusResponseDto(
+                    LearningProfileState.LEVEL_TEST_REQUIRED, false, false, null, null, null, null);
         });
         when(baseline.synchronize(123L)).thenAnswer(call -> promoted[0] ? null : LearningProfileState.ACTIVE);
 
@@ -87,11 +87,12 @@ class LanguageLearningLevelTestFacadeTest {
         var growth = mock(GrowthReadGateway.class);
         var baseline = new LevelTestBaselineBridge(growth);
         var facade = new LanguageLearningLevelTestFacade(gateway, baseline);
-        var result = new LevelTestResultResponseDto(1L, LevelTestSessionType.INITIAL, 80, "ADVANCED", null,
-                "MY_LEVEL", LocalDateTime.parse("2026-10-16T01:00:00"));
+        var result = new LevelTestResultResponseDto(1L, LevelTestSessionType.INITIAL, 80, "ADVANCED", null, "MY_LEVEL",
+                LocalDateTime.parse("2026-10-16T01:00:00"));
         when(gateway.result(123L, 1L)).thenReturn(result);
-        when(gateway.status(123L)).thenReturn(new LevelStatusResponseDto(LearningProfileState.LEVEL_TEST_REQUIRED,
-                false, false, null, null, null, null));
+        when(gateway.status(123L))
+                .thenReturn(new LevelStatusResponseDto(
+                        LearningProfileState.LEVEL_TEST_REQUIRED, false, false, null, null, null, null));
         when(growth.snapshot(123L)).thenReturn(new GrowthSnapshot(123, null, List.of(), Map.of()));
 
         // 실행
@@ -115,9 +116,10 @@ class LanguageLearningLevelTestFacadeTest {
         var retry = new LevelAnswerResultResponseDto(1L, 20L, 20, true, 80, null, true, null);
         var audio = new LevelAudioAnswerResultResponseDto(1L, 20L, true, 80, null, true, null, null);
         when(gateway.retry(123L, 1L, 20L)).thenReturn(retry);
-        when(gateway.submitAudio(eq(123L), eq(1L), eq(20L), any(byte[].class), eq("audio/wav"), eq(1000), eq("audio-key")))
+        when(gateway.submitAudio(
+                     eq(123L), eq(1L), eq(20L), any(byte[].class), eq("audio/wav"), eq(1000), eq("audio-key")))
                 .thenReturn(audio);
-        var upload = new MockMultipartFile("audio", "synthetic.wav", "audio/wav", new byte[] { 1, 2 });
+        var upload = new MockMultipartFile("audio", "synthetic.wav", "audio/wav", new byte[] {1, 2});
 
         // 실행
         assertSame(retry, facade.retryEvaluation(123L, 1L, 20L));
@@ -136,8 +138,9 @@ class LanguageLearningLevelTestFacadeTest {
         when(gateway.result(123L, 1L)).thenThrow(failure);
 
         // 실행 / 검증
-        assertSame(failure, assertThrows(IllegalStateException.class,
-                () -> new LanguageLearningLevelTestFacade(gateway, baseline).getResult(123L, 1L)));
+        assertSame(failure,
+                assertThrows(IllegalStateException.class,
+                        () -> new LanguageLearningLevelTestFacade(gateway, baseline).getResult(123L, 1L)));
         verifyNoInteractions(baseline);
     }
 }

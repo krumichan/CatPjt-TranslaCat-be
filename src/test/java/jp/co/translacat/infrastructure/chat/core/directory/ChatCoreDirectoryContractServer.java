@@ -14,7 +14,8 @@ public final class ChatCoreDirectoryContractServer {
             throw new IllegalStateException("Explicit local Core contract test is required.");
         }
         byte[] key = Base64.getDecoder().decode(System.getenv("CHAT_CORE_CONTRACT_KEY"));
-        if (key.length != 64) throw new IllegalArgumentException("Invalid synthetic test key.");
+        if (key.length != 64)
+            throw new IllegalArgumentException("Invalid synthetic test key.");
         var context = ChatCoreDirectoryStorageHttpTest.createServer(key);
         ChatCoreDirectoryStorageHttpTest.seed(context);
 

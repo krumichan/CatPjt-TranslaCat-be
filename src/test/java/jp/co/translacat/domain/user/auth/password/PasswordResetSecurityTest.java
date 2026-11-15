@@ -31,11 +31,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = PasswordResetController.class, properties = {
-        "cors.allowed-origin=http://localhost:3000",
-        "jwt.token.secret-key=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
-        "jwt.token.expired.access=300000", "jwt.token.expired.refresh=604800000"
-})
+@WebMvcTest(controllers = PasswordResetController.class,
+        properties = {"cors.allowed-origin=http://localhost:3000",
+                "jwt.token.secret-key=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=", "jwt.token.expired.access=300000",
+                "jwt.token.expired.refresh=604800000"})
 @Import({SecurityConfig.class, JwtFilter.class, JWTService.class, ApiLoggingFilter.class, AuthExceptionAdvice.class})
 @ContextConfiguration(classes = PasswordResetController.class)
 class PasswordResetSecurityTest {
@@ -46,7 +45,7 @@ class PasswordResetSecurityTest {
     @Test
     void onlyExactPostEndpointsAreAnonymous() throws Exception {
         // 실행 및 검증: GET이나 임의 하위 경로는 익명 허용에 포함하지 않는다.
-        for (String path : new String[]{"challenges", "verify", "complete"}) {
+        for (String path : new String[] {"challenges", "verify", "complete"}) {
             mvc.perform(get("/api/v1/auth/password-reset/" + path)).andExpect(status().isUnauthorized());
         }
         mvc.perform(post("/api/v1/auth/password-reset/unknown").contentType("application/json").content("{}"))
@@ -70,16 +69,23 @@ class PasswordResetSecurityTest {
         logger.addAppender(captured);
         try {
             // 실행: 공개 요청에서도 비밀 응답의 캐시와 로그 경계를 유지한다.
-            mvc.perform(post("/api/v1/auth/password-reset/challenges").contentType("application/json")
-                            .content("{\"email\":\"" + email + "\"}"))
-                    .andExpect(status().isOk()).andExpect(header().string("Cache-Control", containsString("no-store")))
+            mvc.perform(post("/api/v1/auth/password-reset/challenges")
+                                .contentType("application/json")
+                                .content("{\"email\":\"" + email + "\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Cache-Control", containsString("no-store")))
                     .andExpect(jsonPath("$.body.challengeId").value(id));
-            mvc.perform(post("/api/v1/auth/password-reset/verify").contentType("application/json")
-                            .content("{\"challengeId\":\"" + id + "\",\"code\":\"" + code + "\"}"))
-                    .andExpect(status().isOk()).andExpect(jsonPath("$.body.verificationToken").value(proof));
-            mvc.perform(post("/api/v1/auth/password-reset/complete").contentType("application/json")
-                            .content("{\"email\":\"" + email + "\",\"verificationToken\":\"" + proof + "\",\"password\":\"" + password + "\"}"))
-                    .andExpect(status().isOk()).andExpect(jsonPath("$.body.success").value(true));
+            mvc.perform(post("/api/v1/auth/password-reset/verify")
+                                .contentType("application/json")
+                                .content("{\"challengeId\":\"" + id + "\",\"code\":\"" + code + "\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.body.verificationToken").value(proof));
+            mvc.perform(post("/api/v1/auth/password-reset/complete")
+                                .contentType("application/json")
+                                .content("{\"email\":\"" + email + "\",\"verificationToken\":\"" + proof
+                                        + "\",\"password\":\"" + password + "\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.body.success").value(true));
 
             // 검증
             verify(reset).complete(email, proof, password);

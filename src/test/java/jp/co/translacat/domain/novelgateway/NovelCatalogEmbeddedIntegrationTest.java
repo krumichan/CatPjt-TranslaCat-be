@@ -31,8 +31,9 @@ class NovelCatalogEmbeddedIntegrationTest {
         // 준비: 파서만, 저장소만 검사하지 않고 실제 내장 연결 전체를 구성한다.
         var mapper = new ObjectMapper();
         var ds = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
-        new ResourceDatabasePopulator(new ClassPathResource("novel-embedded-h2.sql"),
-                new ClassPathResource("novel-catalog-h2.sql")).execute(ds);
+        new ResourceDatabasePopulator(
+                new ClassPathResource("novel-embedded-h2.sql"), new ClassPathResource("novel-catalog-h2.sql"))
+                .execute(ds);
         var jdbc = new JdbcTemplate(ds);
         var transactions = new DataSourceTransactionManager(ds);
         var store = new CatalogStore(jdbc, mapper, transactions);
@@ -57,7 +58,8 @@ class NovelCatalogEmbeddedIntegrationTest {
                 """, 25);
 
         try (var scheduler = new FairAiScheduler(2, 32)) {
-            var commands = new CatalogCommandService(store, novels, ai, NovelExecutionSettings.baseline(), scheduler, mapper);
+            var commands =
+                    new CatalogCommandService(store, novels, ai, NovelExecutionSettings.baseline(), scheduler, mapper);
             var catalog = new CatalogFacade(commands, new CatalogQueryService(store, ruby));
             var embedded = new NovelEmbeddedService(mock(NovelFacade.class), catalog, mapper);
 

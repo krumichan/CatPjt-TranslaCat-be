@@ -23,7 +23,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 class VoiceSourceReadingTest {
-
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static SudachiFuriganaProcessor realSudachi;
 
@@ -45,8 +44,7 @@ class VoiceSourceReadingTest {
 
         // 검증: 읽기 없는 원문 조각까지 이어 붙이면 입력이 정확히 복원된다.
         assertThat(tokens).isNotEmpty();
-        assertThat(tokens.stream().map(ReadingToken::surface).reduce("", String::concat))
-                .isEqualTo(source);
+        assertThat(tokens.stream().map(ReadingToken::surface).reduce("", String::concat)).isEqualTo(source);
         assertThat(tokens).anySatisfy(token -> {
             assertThat(token.surface()).isEqualTo("東京");
             assertThat(token.reading()).isEqualTo("とうきょう");
@@ -84,8 +82,7 @@ class VoiceSourceReadingTest {
         var service = new VoiceSourceReadingService(sudachi, MAPPER);
         when(sudachi.tokenizeWithReadings("日本語"))
                 .thenThrow(new IllegalStateException("synthetic dictionary failure"));
-        when(sudachi.tokenizeWithReadings("東京 大阪"))
-                .thenReturn(List.of(new ReadingToken("東京", "とうきょう")));
+        when(sudachi.tokenizeWithReadings("東京 大阪")).thenReturn(List.of(new ReadingToken("東京", "とうきょう")));
 
         // 실행 및 검증: 빈 토큰은 FE가 원문을 그대로 표시하는 신호다.
         assertThat(service.forLanguage("日本語", "ja")).isEmpty();
@@ -121,8 +118,8 @@ class VoiceSourceReadingTest {
     void manualJapaneseAndSameLanguageTranslationStillGetReadings() {
         // 준비: 수동 일본어 입력과 일본어 목표 언어를 가진 세션이다.
         var service = new VoiceSourceReadingService(realSudachi, MAPPER);
-        var context = new VoiceStreamContext(1L, "session", VoiceChannel.REMOTE, "connection",
-                VoiceMode.MEDIA, VoiceSourceLanguageMode.MANUAL, "ja", "ja", "ja", "{}", 0);
+        var context = new VoiceStreamContext(1L, "session", VoiceChannel.REMOTE, "connection", VoiceMode.MEDIA,
+                VoiceSourceLanguageMode.MANUAL, "ja", "ja", "ja", "{}", 0);
         ObjectNode event = MAPPER.createObjectNode();
         event.put("sourceText", "東京です");
         event.put("detectedLanguage", "ja");
@@ -155,12 +152,9 @@ class VoiceSourceReadingTest {
                 + "{\"surface\":\" 大阪\",\"reading\":null}]";
 
         // 실행 및 검증: 원문 일치만 재사용하고 불일치·손상 데이터는 빈 목록으로 처리한다.
-        assertThat(service.preserveStoredWhenGenerationFails("[]", stored, "東京 大阪"))
-                .isEqualTo(stored);
-        assertThat(service.preserveStoredWhenGenerationFails("[]", stored, "東京 京都"))
-                .isEqualTo("[]");
-        assertThat(service.preserveStoredWhenGenerationFails("[]", "invalid", "東京 大阪"))
-                .isEqualTo("[]");
+        assertThat(service.preserveStoredWhenGenerationFails("[]", stored, "東京 大阪")).isEqualTo(stored);
+        assertThat(service.preserveStoredWhenGenerationFails("[]", stored, "東京 京都")).isEqualTo("[]");
+        assertThat(service.preserveStoredWhenGenerationFails("[]", "invalid", "東京 大阪")).isEqualTo("[]");
     }
 
     @Test
@@ -169,17 +163,23 @@ class VoiceSourceReadingTest {
         var pool = Executors.newFixedThreadPool(4);
         try {
             List<String> sources = List.of("東京に行く", "大阪で食べる", "日本語😀 学ぶ", "京都\n東京");
-            List<CompletableFuture<String>> requests = java.util.stream.IntStream.range(0, 24)
-                    .mapToObj(index -> CompletableFuture.supplyAsync(() -> {
-                        if (index % 3 == 0) {
-                            return realSudachi.convertToRuby("食べる東京");
-                        }
-                        String source = sources.get(index % sources.size());
-                        return realSudachi.tokenizeWithReadings(source).stream()
-                                .map(ReadingToken::surface)
-                                .reduce("", String::concat);
-                    }, pool))
-                    .toList();
+            List<CompletableFuture<String>> requests =
+                    java.util.stream.IntStream.range(0, 24)
+                            .mapToObj(index
+                                    -> CompletableFuture.supplyAsync(
+                                            ()
+                                                    -> {
+                                                if (index % 3 == 0) {
+                                                    return realSudachi.convertToRuby("食べる東京");
+                                                }
+                                                String source = sources.get(index % sources.size());
+                                                return realSudachi.tokenizeWithReadings(source)
+                                                        .stream()
+                                                        .map(ReadingToken::surface)
+                                                        .reduce("", String::concat);
+                                            },
+                                            pool))
+                            .toList();
 
             // 실행
             List<String> results = requests.stream().map(CompletableFuture::join).toList();
@@ -198,8 +198,7 @@ class VoiceSourceReadingTest {
     }
 
     private VoiceStreamContext context(String manualLanguage, String lockedLanguage) {
-        return new VoiceStreamContext(1L, "session", VoiceChannel.REMOTE, "connection",
-                VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO, manualLanguage, lockedLanguage,
-                "ko", "{}", 0);
+        return new VoiceStreamContext(1L, "session", VoiceChannel.REMOTE, "connection", VoiceMode.MEDIA,
+                VoiceSourceLanguageMode.AUTO, manualLanguage, lockedLanguage, "ko", "{}", 0);
     }
 }

@@ -27,8 +27,9 @@ class ReceiptConversionServiceTest {
     @ParameterizedTest
     @CsvSource({"JPY,0,1851", "USD,2,1851.39", "KWD,3,1851.391"})
     void roundsTargetPrecisionAfterExactMultiplication(String code, int decimals, String expected) {
-        when(rates.getRate("EUR", code, date)).thenReturn(
-                ExchangeRate.create("EUR", code, new BigDecimal("150.031666666666666666"), date, date, "FAKE"));
+        when(rates.getRate("EUR", code, date))
+                .thenReturn(
+                        ExchangeRate.create("EUR", code, new BigDecimal("150.031666666666666666"), date, date, "FAKE"));
         var result = service.convert(new BigDecimal("12.34"), "EUR", date, target(code, decimals));
         assertThat(result.convertedAmount()).isEqualByComparingTo(expected);
         assertThat(result.convertedAmount().scale()).isEqualTo(decimals);
@@ -42,8 +43,8 @@ class ReceiptConversionServiceTest {
 
     @Test
     void recordsHistoricalFallbackSeparately() {
-        when(rates.getRate("USD", "JPY", date)).thenReturn(
-                ExchangeRate.create("USD", "JPY", new BigDecimal("150"), date, date.minusDays(1), "FAKE"));
+        when(rates.getRate("USD", "JPY", date))
+                .thenReturn(ExchangeRate.create("USD", "JPY", new BigDecimal("150"), date, date.minusDays(1), "FAKE"));
         var result = service.convert(new BigDecimal("10"), "USD", date, target("JPY", 0));
         assertThat(result.requestedRateDate()).isEqualTo(date);
         assertThat(result.effectiveRateDate()).isEqualTo(date.minusDays(1));
@@ -53,8 +54,8 @@ class ReceiptConversionServiceTest {
 
     @Test
     void sameCurrencyStillRoundsToCurrencyMinorUnits() {
-        when(rates.getRate("KWD", "KWD", date)).thenReturn(
-                ExchangeRate.create("KWD", "KWD", BigDecimal.ONE, date, date, "IDENTITY"));
+        when(rates.getRate("KWD", "KWD", date))
+                .thenReturn(ExchangeRate.create("KWD", "KWD", BigDecimal.ONE, date, date, "IDENTITY"));
         var result = service.convert(new BigDecimal("10.125"), "KWD", date, target("KWD", 3));
         assertThat(result.convertedAmount()).isEqualByComparingTo("10.125");
         assertThat(result.conversionStatus()).isEqualTo("NOT_REQUIRED");
@@ -79,27 +80,27 @@ class ReceiptConversionServiceTest {
 
     @Test
     void missingCurrencyAndInvalidAmountNeedReview() {
-        assertThat(service.convert(BigDecimal.TEN, null, date, target("JPY", 0)).conversionStatus()).isEqualTo(
-                "NEEDS_REVIEW");
-        assertThat(service.convert(new BigDecimal("-1"), "USD", date, target("JPY", 0)).conversionStatus()).isEqualTo(
-                "NEEDS_REVIEW");
-        assertThat(service.convert(new BigDecimal("0.000000001"), "USD", date, target("JPY", 0))
-                .conversionStatus()).isEqualTo("NEEDS_REVIEW");
+        assertThat(service.convert(BigDecimal.TEN, null, date, target("JPY", 0)).conversionStatus())
+                .isEqualTo("NEEDS_REVIEW");
+        assertThat(service.convert(new BigDecimal("-1"), "USD", date, target("JPY", 0)).conversionStatus())
+                .isEqualTo("NEEDS_REVIEW");
+        assertThat(service.convert(new BigDecimal("0.000000001"), "USD", date, target("JPY", 0)).conversionStatus())
+                .isEqualTo("NEEDS_REVIEW");
         verifyNoInteractions(rates);
     }
 
     @Test
     void roundedZeroCannotBeRegistered() {
-        when(rates.getRate("USD", "JPY", date)).thenReturn(
-                ExchangeRate.create("USD", "JPY", BigDecimal.ONE, date, date, "FAKE"));
+        when(rates.getRate("USD", "JPY", date))
+                .thenReturn(ExchangeRate.create("USD", "JPY", BigDecimal.ONE, date, date, "FAKE"));
         assertThat(service.convert(new BigDecimal("0.1"), "USD", date, target("JPY", 0)).registrable()).isFalse();
     }
 
     @Test
     void quoteCannotBeReusedForAnotherAccountBook() {
-        when(rates.getRate("USD", "JPY", date)).thenReturn(ExchangeRate.create(
-                "USD", "JPY", new BigDecimal("150"), date, date, "FAKE",
-                Instant.parse("2026-09-12T01:02:03Z")));
+        when(rates.getRate("USD", "JPY", date))
+                .thenReturn(ExchangeRate.create("USD", "JPY", new BigDecimal("150"), date, date, "FAKE",
+                        Instant.parse("2026-09-12T01:02:03Z")));
         var first = service.convert(BigDecimal.TEN, "USD", date, target("JPY", 0), 10L);
         var second = service.convert(BigDecimal.TEN, "USD", date, target("JPY", 0), 11L);
         assertThat(first.conversionQuoteId()).isNotEqualTo(second.conversionQuoteId());
@@ -107,11 +108,11 @@ class ReceiptConversionServiceTest {
 
     @Test
     void refreshedProviderObservationInvalidatesEarlierQuote() {
-        when(rates.getRate("USD", "JPY", date)).thenReturn(
-                ExchangeRate.create("USD", "JPY", new BigDecimal("150"), date, date, "FAKE",
-                        Instant.parse("2026-09-12T01:02:03Z")),
-                ExchangeRate.create("USD", "JPY", new BigDecimal("150"), date, date, "FAKE",
-                        Instant.parse("2026-09-12T01:03:03Z")));
+        when(rates.getRate("USD", "JPY", date))
+                .thenReturn(ExchangeRate.create("USD", "JPY", new BigDecimal("150"), date, date, "FAKE",
+                                    Instant.parse("2026-09-12T01:02:03Z")),
+                        ExchangeRate.create("USD", "JPY", new BigDecimal("150"), date, date, "FAKE",
+                                Instant.parse("2026-09-12T01:03:03Z")));
         var first = service.convert(BigDecimal.TEN, "USD", date, target("JPY", 0), 10L);
         var refreshed = service.convert(BigDecimal.TEN, "USD", date, target("JPY", 0), 10L);
         assertThat(first.conversionQuoteId()).isNotEqualTo(refreshed.conversionQuoteId());

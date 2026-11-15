@@ -49,7 +49,8 @@ class PushInstallationHttpTest {
     private static final String PROOF = "a".repeat(64);
     private static final String TOKEN = "ExpoPushToken[SYNTHETIC_NEVER_REFLECT]";
     private static final String BASE = "/api/v1/users/me/push-installations/";
-    private static final String KEY = Base64.getEncoder().encodeToString("synthetic-push-http-key-that-is-not-a-real-secret-2026".getBytes(StandardCharsets.UTF_8));
+    private static final String KEY = Base64.getEncoder().encodeToString(
+            "synthetic-push-http-key-that-is-not-a-real-secret-2026".getBytes(StandardCharsets.UTF_8));
     private MockMvc mvc;
     private PushInstallationService service;
     private AuthSessionRepository sessions;
@@ -60,7 +61,8 @@ class PushInstallationHttpTest {
     private Level oldLevel;
     private ListAppender<ILoggingEvent> logs;
 
-    @BeforeEach void prepare() {
+    @BeforeEach
+    void prepare() {
         // 준비: 실제 서명 검증과 합성 repository를 쓰며 실제 계정/키/서버 설정은 로드하지 않는다.
         service = mock(PushInstallationService.class);
         sessions = mock(AuthSessionRepository.class);
@@ -69,40 +71,60 @@ class PushInstallationHttpTest {
         user = User.createLocalUser("synthetic@example.invalid", "unused", "synthetic", Role.USER, "synthetic-public");
         user.setId(11L);
         var principal = new UserPrincipal(user);
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
         access = jwt.generateAccessToken(11L, user.getEmail(), SID);
-        when(service.put(any(), anyString(), any())).thenReturn(new Registered(ID, "55555555-5555-4555-8555-555555555555", 1, 1));
+        when(service.put(any(), anyString(), any()))
+                .thenReturn(new Registered(ID, "55555555-5555-4555-8555-555555555555", 1, 1));
         mvc = MockMvcBuilders.standaloneSetup(new PushInstallationController(service, jwt), new ValidationProbe())
-                .setControllerAdvice(new PushInstallationAdvice())
-                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
-                .addFilters(new ApiLoggingFilter()).build();
+                      .setControllerAdvice(new PushInstallationAdvice())
+                      .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                      .addFilters(new ApiLoggingFilter())
+                      .build();
         logger = (Logger) LoggerFactory.getLogger(ApiLoggingFilter.class);
-        oldLevel = logger.getLevel(); logger.setLevel(Level.INFO);
-        logs = new ListAppender<>(); logs.start(); logger.addAppender(logs);
+        oldLevel = logger.getLevel();
+        logger.setLevel(Level.INFO);
+        logs = new ListAppender<>();
+        logs.start();
+        logger.addAppender(logs);
     }
 
-    @AfterEach void cleanup() {
-        logger.detachAppender(logs); logger.setLevel(oldLevel); logs.stop(); SecurityContextHolder.clearContext();
+    @AfterEach
+    void cleanup() {
+        logger.detachAppender(logs);
+        logger.setLevel(oldLevel);
+        logs.stop();
+        SecurityContextHolder.clearContext();
     }
 
-    @Test void public_response_contains_only_binding_metadata_and_delete_uses_validated_actor() throws Exception {
+    @Test
+    void public_response_contains_only_binding_metadata_and_delete_uses_validated_actor() throws Exception {
         // 실행
-        var result = mvc.perform(put(BASE + ID).header("Authorization", "Bearer " + access)
-                .contentType("application/json").content(json())).andExpect(status().isOk())
-                .andExpect(header().string("Cache-Control", "no-store"))
-                .andExpect(jsonPath("$.body.installationId").value(ID)).andReturn();
-        mvc.perform(delete(BASE + ID).header("Authorization", "Bearer " + access).contentType("application/json")
-                .content("{\"installationProof\":\"" + PROOF + "\",\"generation\":2}"))
-                .andExpect(status().isNoContent()).andExpect(content().string(""));
+        var result = mvc.perform(put(BASE + ID)
+                                         .header("Authorization", "Bearer " + access)
+                                         .contentType("application/json")
+                                         .content(json()))
+                             .andExpect(status().isOk())
+                             .andExpect(header().string("Cache-Control", "no-store"))
+                             .andExpect(jsonPath("$.body.installationId").value(ID))
+                             .andReturn();
+        mvc.perform(delete(BASE + ID)
+                            .header("Authorization", "Bearer " + access)
+                            .contentType("application/json")
+                            .content("{\"installationProof\":\"" + PROOF + "\",\"generation\":2}"))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
 
         // 검증
-        assertThat(result.getResponse().getContentAsString()).doesNotContain(TOKEN, PROOF, SID, "expoPushToken", "installationProof");
+        assertThat(result.getResponse().getContentAsString())
+                .doesNotContain(TOKEN, PROOF, SID, "expoPushToken", "installationProof");
         verify(service).put(eq(new Actor(11, SID)), eq(ID), any(Put.class));
         verify(service).delete(eq(new Actor(11, SID)), eq(ID), eq(new Delete(PROOF, 2)));
         assertRedacted();
     }
 
-    @Test void refresh_legacy_missing_mismatched_or_revoked_access_cannot_register() throws Exception {
+    @Test
+    void refresh_legacy_missing_mismatched_or_revoked_access_cannot_register() throws Exception {
         // 준비
         String refresh = jwt.generateRefreshToken(11L, user.getEmail(), SID);
         String legacy = jwt.generateAccessToken(11L, user.getEmail());
@@ -112,11 +134,17 @@ class PushInstallationHttpTest {
 
         // 실행 / 검증
         for (String token : java.util.List.of(refresh, legacy, unknown, different, "malformed")) {
-            mvc.perform(put(BASE + ID).header("Authorization", "Bearer " + token).contentType("application/json").content(json()))
-                    .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.body.errorCode").value("PUSH_AUTH_REQUIRED"));
+            mvc.perform(put(BASE + ID)
+                                .header("Authorization", "Bearer " + token)
+                                .contentType("application/json")
+                                .content(json()))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.body.errorCode").value("PUSH_AUTH_REQUIRED"));
         }
-        mvc.perform(put(BASE + ID).contentType("application/json").content(json())).andExpect(status().isUnauthorized());
-        verifyNoInteractions(service); assertRedacted();
+        mvc.perform(put(BASE + ID).contentType("application/json").content(json()))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(service);
+        assertRedacted();
     }
 
     @ParameterizedTest
@@ -133,22 +161,36 @@ class PushInstallationHttpTest {
         };
 
         // 실행 / 검증
-        var result = mvc.perform(put(BASE + ID).header("Authorization", "Bearer " + access).contentType("application/json").content(body))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.body.errorCode").value("PUSH_INVALID_INPUT")).andReturn();
-        assertThat(result.getResponse().getContentAsString()).doesNotContain(TOKEN, PROOF, "JsonParseException", "rejectedValue");
-        verifyNoInteractions(service); assertRedacted();
+        var result = mvc.perform(put(BASE + ID)
+                                         .header("Authorization", "Bearer " + access)
+                                         .contentType("application/json")
+                                         .content(body))
+                             .andExpect(status().isBadRequest())
+                             .andExpect(jsonPath("$.body.errorCode").value("PUSH_INVALID_INPUT"))
+                             .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .doesNotContain(TOKEN, PROOF, "JsonParseException", "rejectedValue");
+        verifyNoInteractions(service);
+        assertRedacted();
     }
 
-    @Test void unexpected_service_failure_and_validation_exception_are_fixed_and_secret_safe() throws Exception {
+    @Test
+    void unexpected_service_failure_and_validation_exception_are_fixed_and_secret_safe() throws Exception {
         // 준비
         when(service.put(any(), anyString(), any())).thenThrow(new IllegalStateException(TOKEN + PROOF));
 
         // 실행 / 검증
-        var result = mvc.perform(put(BASE + ID).header("Authorization", "Bearer " + access).contentType("application/json").content(json()))
-                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.body.errorCode").value("PUSH_REGISTRY_UNAVAILABLE")).andReturn();
+        var result = mvc.perform(put(BASE + ID)
+                                         .header("Authorization", "Bearer " + access)
+                                         .contentType("application/json")
+                                         .content(json()))
+                             .andExpect(status().isServiceUnavailable())
+                             .andExpect(jsonPath("$.body.errorCode").value("PUSH_REGISTRY_UNAVAILABLE"))
+                             .andReturn();
         assertThat(result.getResponse().getContentAsString()).doesNotContain(TOKEN, PROOF, "IllegalStateException");
         mvc.perform(post(BASE + "validation-probe").contentType("application/json").content(json()))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.body.errorCode").value("PUSH_INVALID_INPUT"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.body.errorCode").value("PUSH_INVALID_INPUT"));
         assertRedacted();
     }
 
@@ -157,27 +199,32 @@ class PushInstallationHttpTest {
     void decoded_servlet_path_is_redacted_even_when_raw_uri_percent_encodes_prefix(String rawPrefix) throws Exception {
         // 준비: container가 제공하는 rawURI와 decoded servletPath를 별도로 표현한다.
         var request = new MockHttpServletRequest("PUT", rawPrefix + ID);
-        request.setServletPath(BASE + ID); request.setContentType("application/json"); request.setContent(json().getBytes(StandardCharsets.UTF_8));
+        request.setServletPath(BASE + ID);
+        request.setContentType("application/json");
+        request.setContent(json().getBytes(StandardCharsets.UTF_8));
         var response = new MockHttpServletResponse();
 
         // 실행: 오류 경로의 응답 원문도 로깅하지 않는다.
-        new ApiLoggingFilter().doFilter(request, response, (ignored, output) -> output.getWriter().write(TOKEN + PROOF));
+        new ApiLoggingFilter().doFilter(
+                request, response, (ignored, output) -> output.getWriter().write(TOKEN + PROOF));
 
         // 검증
         assertRedacted();
-        assertThat(logs.list.stream().map(ILoggingEvent::getFormattedMessage).toList()).allMatch(value -> !value.contains(ID));
+        assertThat(logs.list.stream().map(ILoggingEvent::getFormattedMessage).toList())
+                .allMatch(value -> !value.contains(ID));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"push-targets/query", "push-installations/invalidate"})
-    void internal_push_raw_and_decoded_paths_never_log_request_response_or_uri_markers(String operation) throws Exception {
+    void internal_push_raw_and_decoded_paths_never_log_request_response_or_uri_markers(String operation)
+            throws Exception {
         // 준비: 두 내부 endpoint의 raw/decoded 경로를 각각 검사한다. 실제 token과 remote 호출은 사용하지 않는다.
         String requestMarker = "SYNTHETIC_REQUEST_MARKER_NEVER_LOG";
         String responseMarker = "SYNTHETIC_RESPONSE_MARKER_NEVER_LOG";
         String queryMarker = "SYNTHETIC_URI_MARKER_NEVER_LOG";
         String decodedPath = "/internal/v1/chat/" + operation;
         for (String rawPath : java.util.List.of(decodedPath, "/%69nternal/v1/chat/" + operation,
-                "/internal/v1/chat/" + operation.replace("push-", "%70ush-"))) {
+                     "/internal/v1/chat/" + operation.replace("push-", "%70ush-"))) {
             logs.list.clear();
             var request = new MockHttpServletRequest("POST", rawPath);
             request.setServletPath(decodedPath);
@@ -187,12 +234,15 @@ class PushInstallationHttpTest {
             var response = new MockHttpServletResponse();
 
             // 실행: query의 target token과 invalidate 오류 응답 모두 민감하므로 본문을 기록하지 않는다.
-            new ApiLoggingFilter().doFilter(request, response, (ignored, output) ->
-                    output.getWriter().write("{\"targets\":[{\"expoPushToken\":\"" + TOKEN + "\"}],\"marker\":\"" + responseMarker + "\"}"));
+            new ApiLoggingFilter().doFilter(request, response,
+                    (ignored, output)
+                            -> output.getWriter().write("{\"targets\":[{\"expoPushToken\":\"" + TOKEN
+                                    + "\"}],\"marker\":\"" + responseMarker + "\"}"));
 
             // 검증: 인코딩된 첫 prefix도 동일한 상수 URI와 라벨로만 기록한다.
             String text = String.join("\n", logs.list.stream().map(ILoggingEvent::getFormattedMessage).toList());
-            assertThat(text).contains("PUSH_INTERNAL_REDACTED", "/internal/v1/chat/push/[REDACTED]")
+            assertThat(text)
+                    .contains("PUSH_INTERNAL_REDACTED", "/internal/v1/chat/push/[REDACTED]")
                     .doesNotContain(requestMarker, responseMarker, queryMarker, TOKEN, PROOF, rawPath, decodedPath);
         }
     }
@@ -203,17 +253,20 @@ class PushInstallationHttpTest {
     }
 
     private static String json() throws Exception {
-        return new ObjectMapper().writeValueAsString(Map.of("provider", "expo", "expoPushToken", TOKEN, "platform", "android",
-                "appEnvironment", "development", "projectId", PROJECT, "installationProof", PROOF, "generation", 1));
+        return new ObjectMapper().writeValueAsString(
+                Map.of("provider", "expo", "expoPushToken", TOKEN, "platform", "android", "appEnvironment",
+                        "development", "projectId", PROJECT, "installationProof", PROOF, "generation", 1));
     }
 
-    @RestController static class ValidationProbe {
+    @RestController
+    static class ValidationProbe {
         @PostMapping("/api/v1/users/me/push-installations/validation-probe")
         void invalid() throws Exception {
             var body = new Put("expo", TOKEN, "android", "development", PROJECT, PROOF, 1);
             var errors = new BeanPropertyBindingResult(body, "push");
             errors.addError(new FieldError("push", "expoPushToken", TOKEN, false, null, null, PROOF));
-            var method = PushInstallationController.class.getMethod("put", UserPrincipal.class, String.class, jakarta.servlet.http.HttpServletRequest.class);
+            var method = PushInstallationController.class.getMethod(
+                    "put", UserPrincipal.class, String.class, jakarta.servlet.http.HttpServletRequest.class);
             throw new MethodArgumentNotValidException(new MethodParameter(method, 0), errors);
         }
     }

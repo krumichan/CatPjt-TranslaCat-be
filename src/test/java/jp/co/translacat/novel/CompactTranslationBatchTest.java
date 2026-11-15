@@ -27,13 +27,14 @@ class CompactTranslationBatchTest {
         mutableInput.clear();
 
         // 실행
-        var output = json.valueToTree(Map.of("items", List.of(
-                Map.of("id", "s1", "text", "두 번째 고양이"), Map.of("id", "s0", "text", "첫 번째 고양이"))));
+        var output = json.valueToTree(Map.of("items",
+                List.of(Map.of("id", "s1", "text", "두 번째 고양이"), Map.of("id", "s0", "text", "첫 번째 고양이"))));
         var restored = batch.restore(output);
 
         // 검증: 요청 순서/텍스트로 추측하지 않고 해당 호출의 불변 대응만 사용한다.
         assertThat(batch.wireSegments()).extracting(SourceEpisode.Segment::id).containsExactly("s0", "s1");
-        assertThat(restored).containsExactlyInAnyOrderEntriesOf(Map.of(source.get(0).id(), "첫 번째 고양이", source.get(1).id(), "두 번째 고양이"));
+        assertThat(restored).containsExactlyInAnyOrderEntriesOf(
+                Map.of(source.get(0).id(), "첫 번째 고양이", source.get(1).id(), "두 번째 고양이"));
         assertThat(source).extracting(SourceEpisode.Segment::id).doesNotHaveDuplicates();
         assertThatThrownBy(() -> batch.wireSegments().clear()).isInstanceOf(UnsupportedOperationException.class);
         assertThatThrownBy(() -> restored.clear()).isInstanceOf(UnsupportedOperationException.class);
@@ -44,8 +45,7 @@ class CompactTranslationBatchTest {
         // 준비
         List<SourceEpisode.Segment> source = segments("猫。犬。", "1");
         CompactTranslationBatch batch = CompactTranslationBatch.of(source);
-        List<Object> invalid = List.of(
-                List.of(Map.of("id", "s0", "text", "하나")),
+        List<Object> invalid = List.of(List.of(Map.of("id", "s0", "text", "하나")),
                 List.of(Map.of("id", "s0", "text", "하나"), Map.of("id", "s0", "text", "둘")),
                 List.of(Map.of("id", "s0", "text", "하나"), Map.of("id", "s2", "text", "둘")),
                 List.of(Map.of("id", "s0", "text", "하나"), Map.of("id", source.get(1).id(), "text", "둘")),
@@ -67,7 +67,8 @@ class CompactTranslationBatchTest {
         List<SourceEpisode.Segment> second = segments("猫。犬。", "2");
         CompactTranslationBatch a = CompactTranslationBatch.of(first);
         CompactTranslationBatch b = CompactTranslationBatch.of(second);
-        var output = json.valueToTree(Map.of("items", List.of(Map.of("id", "s0", "text", "고양이"), Map.of("id", "s1", "text", "개"))));
+        var output = json.valueToTree(
+                Map.of("items", List.of(Map.of("id", "s0", "text", "고양이"), Map.of("id", "s1", "text", "개"))));
         var executor = Executors.newFixedThreadPool(4);
 
         try {
@@ -77,8 +78,9 @@ class CompactTranslationBatchTest {
                 boolean even = i % 2 == 0;
                 requests.add(executor.submit(() -> {
                     var restored = (even ? a : b).restore(output);
-                    assertThat(restored.keySet()).containsExactlyInAnyOrderElementsOf(
-                            (even ? first : second).stream().map(SourceEpisode.Segment::id).toList());
+                    assertThat(restored.keySet())
+                            .containsExactlyInAnyOrderElementsOf(
+                                    (even ? first : second).stream().map(SourceEpisode.Segment::id).toList());
                 }));
             }
             for (var request : requests) {
@@ -90,6 +92,8 @@ class CompactTranslationBatchTest {
     }
 
     private List<SourceEpisode.Segment> segments(String text, String episode) {
-        return new SentenceSegmenter().segment(new EpisodeKey("syosyetu", "n123aa", episode), "題", List.of(text), null, null).segments();
+        return new SentenceSegmenter()
+                .segment(new EpisodeKey("syosyetu", "n123aa", episode), "題", List.of(text), null, null)
+                .segments();
     }
 }

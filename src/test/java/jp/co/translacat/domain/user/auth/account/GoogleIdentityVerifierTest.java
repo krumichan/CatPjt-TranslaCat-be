@@ -61,11 +61,12 @@ class GoogleIdentityVerifierTest {
         when(library.verify("private-token")).thenThrow(new IOException("sensitive upstream detail"));
 
         // 실행 및 검증
-        assertThatThrownBy(() -> verifier.verify("private-token")).isInstanceOfSatisfying(AuthException.class, failure -> {
-            assertThat(failure.getErrorCode()).isEqualTo("GOOGLE_AUTH_INVALID");
-            assertThat(failure.getMessage()).doesNotContain("private-token", "sensitive upstream detail");
-            assertThat(failure.getCause()).isNull();
-        });
+        assertThatThrownBy(() -> verifier.verify("private-token"))
+                .isInstanceOfSatisfying(AuthException.class, failure -> {
+                    assertThat(failure.getErrorCode()).isEqualTo("GOOGLE_AUTH_INVALID");
+                    assertThat(failure.getMessage()).doesNotContain("private-token", "sensitive upstream detail");
+                    assertThat(failure.getCause()).isNull();
+                });
     }
 
     @Test
@@ -90,7 +91,8 @@ class GoogleIdentityVerifierTest {
     }
 
     private void assertRejected(String token) {
-        assertThatThrownBy(() -> verifier.verify(token)).isInstanceOfSatisfying(AuthException.class,
-                failure -> assertThat(failure.getErrorCode()).isEqualTo("GOOGLE_AUTH_INVALID"));
+        assertThatThrownBy(() -> verifier.verify(token))
+                .isInstanceOfSatisfying(AuthException.class,
+                        failure -> assertThat(failure.getErrorCode()).isEqualTo("GOOGLE_AUTH_INVALID"));
     }
 }

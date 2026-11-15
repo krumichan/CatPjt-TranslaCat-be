@@ -27,21 +27,15 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserBlockApiServiceTest {
+    @Mock private UserBlockRepository userBlockRepository;
 
-    @Mock
-    private UserBlockRepository userBlockRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private FriendService friendService;
 
-    @Mock
-    private FriendService friendService;
+    @Mock private UserProfileQueryService userProfileQueryService;
 
-    @Mock
-    private UserProfileQueryService userProfileQueryService;
-
-    @InjectMocks
-    private UserBlockService userBlockService;
+    @InjectMocks private UserBlockService userBlockService;
 
     @Test
     @DisplayName("publicId 기반 사용자 차단 API 서비스 테스트")
@@ -118,9 +112,7 @@ class UserBlockApiServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> userBlockService.blockUser(1L, request))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("BLOCKED_PUBLIC_ID_REQUIRED")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("BLOCKED_PUBLIC_ID_REQUIRED"));
     }
 
     @Test
@@ -134,33 +126,15 @@ class UserBlockApiServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> userBlockService.blockUser(1L, request))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_NOT_FOUND")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_NOT_FOUND"));
     }
 
     private UserSummaryProfileResponseDto createSummary(User user) {
-        return new UserSummaryProfileResponseDto(
-                user.getId(),
-                user.getPublicId(),
-                user.getUsername(),
-                null
-        );
+        return new UserSummaryProfileResponseDto(user.getId(), user.getPublicId(), user.getUsername(), null);
     }
 
-    private User createUser(
-            Long id,
-            String email,
-            String username,
-            String publicId
-    ) {
-        User user = User.createLocalUser(
-                email,
-                "password",
-                username,
-                Role.USER,
-                publicId
-        );
+    private User createUser(Long id, String email, String username, String publicId) {
+        User user = User.createLocalUser(email, "password", username, Role.USER, publicId);
         user.setId(id);
         return user;
     }

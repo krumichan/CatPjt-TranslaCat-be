@@ -18,7 +18,9 @@ class NovelReaderFacadeTest {
     private final NovelReaderAddress address = new NovelReaderAddress("syosyetu", "n1234ab", "1");
 
     @AfterEach
-    void clear() { SecurityContextHolder.clearContext(); }
+    void clear() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void onlyVerifiedAdministratorIdentityReachesService() {
@@ -40,9 +42,9 @@ class NovelReaderFacadeTest {
     void anonymousAndForgedPrincipalNeverReachInternalService() {
         // 준비 및 실행: 헤더/문자열 기반 이름만으로 내부 주체를 만들지 않는다.
         assertThatThrownBy(() -> facade.reader(address)).hasMessage("NOVEL_NOT_FOUND");
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("12", null,
-                        java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("12", null,
+                java.util.List.of(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
 
         // 검증
         assertThatThrownBy(() -> facade.reader(address)).hasMessage("NOVEL_NOT_FOUND");

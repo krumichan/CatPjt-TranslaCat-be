@@ -120,15 +120,15 @@ class ChatGatewayHttpTest {
         properties.put("chat.gateway.secret-base64", Base64.getEncoder().encodeToString(KEY));
         properties.put("chat.gateway.timeout-seconds", "1");
         properties.put("spring.config.location", "optional:classpath:/chat-gateway-isolated-test.properties");
-        properties.put("spring.config.additional-location",
-                "optional:classpath:/chat-gateway-isolated-test.properties");
+        properties.put(
+                "spring.config.additional-location", "optional:classpath:/chat-gateway-isolated-test.properties");
         properties.put("spring.config.import", "optional:classpath:/chat-gateway-isolated-test.properties");
         properties.put("spring.profiles.active", "chat-contract-test");
         context = (ServletWebServerApplicationContext) new SpringApplicationBuilder(TestApplication.class)
-                .run(properties.entrySet()
-                        .stream()
-                        .map(entry -> "--" + entry.getKey() + "=" + entry.getValue())
-                        .toArray(String[]::new));
+                          .run(properties.entrySet()
+                                          .stream()
+                                          .map(entry -> "--" + entry.getKey() + "=" + entry.getValue())
+                                          .toArray(String[] ::new));
         users = context.getBean(UserRepository.class);
         jwt = context.getBean(JWTService.class);
         origin = "http://127.0.0.1:" + context.getWebServer().getPort();
@@ -148,17 +148,17 @@ class ChatGatewayHttpTest {
 
     @AfterAll
     static void stopServers() {
-        if (context != null) context.close();
-        if (upstream != null) upstream.stop(0);
-        if (upstreamExecutor != null) upstreamExecutor.shutdownNow();
+        if (context != null)
+            context.close();
+        if (upstream != null)
+            upstream.stop(0);
+        if (upstreamExecutor != null)
+            upstreamExecutor.shutdownNow();
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "/api/v1/chat/rooms/1/read?after=9007199254740993",
-            "/api/v1/users/me/chat-language-settings",
-            "/api/v1/admin/chat/ai/profiles"
-    })
+    @ValueSource(strings = {"/api/v1/chat/rooms/1/read?after=9007199254740993",
+                         "/api/v1/users/me/chat-language-settings", "/api/v1/admin/chat/ai/profiles"})
     void preservesPublicBytesAndInjectsSignedCurrentSubject(String path) throws Exception {
         // 준비
         if (path.contains("/admin/"))
@@ -184,31 +184,31 @@ class ChatGatewayHttpTest {
         assertThat(received.header("X-Role")).isNull();
         assertThat(received.header("Forwarded")).isNull();
         assertThat(received.header("Cookie")).isNull();
-        var claims = Jwts.parser().verifyWith(Keys.hmacShaKeyFor(KEY)).build()
-                .parseSignedClaims(received.header("X-Chat-Service-Authorization").substring(7));
+        var claims = Jwts.parser()
+                             .verifyWith(Keys.hmacShaKeyFor(KEY))
+                             .build()
+                             .parseSignedClaims(received.header("X-Chat-Service-Authorization").substring(7));
         assertThat(claims.getHeader().getAlgorithm()).isEqualTo("HS256");
         assertThat(claims.getPayload().getSubject()).isEqualTo("73");
         assertThat(claims.getPayload().get("tokenUse")).isEqualTo("chat-ingress");
         assertThat(claims.getPayload().get("environment")).isEqualTo("Development");
-        assertThat(claims.getPayload().get("scopes")).isEqualTo(
-                List.of(path.contains("/admin/") ? "chat:admin" : "chat:http"));
-        assertThat(
-                claims.getPayload().getExpiration().getTime() - claims.getPayload().getIssuedAt().getTime()).isEqualTo(
-                60000);
+        assertThat(claims.getPayload().get("scopes"))
+                .isEqualTo(List.of(path.contains("/admin/") ? "chat:admin" : "chat:http"));
+        assertThat(claims.getPayload().getExpiration().getTime() - claims.getPayload().getIssuedAt().getTime())
+                .isEqualTo(60000);
     }
 
     @Test
     void forwardsMultipartBeforeServletParsingWithoutReencoding() throws Exception {
         // 준비
         byte[] body =
-                "--synthetic\r\nContent-Disposition: form-data; name=\"file\"; filename=\"sample.png\"\r\nContent-Type: image/png\r\n\r\nsynthetic-bytes\r\n--synthetic--\r\n".getBytes(
-                        StandardCharsets.UTF_8);
+                "--synthetic\r\nContent-Disposition: form-data; name=\"file\"; filename=\"sample.png\"\r\nContent-Type: image/png\r\n\r\nsynthetic-bytes\r\n--synthetic--\r\n"
+                        .getBytes(StandardCharsets.UTF_8);
 
         // 실행
         var response =
                 send("/api/v1/chat/rooms/1/profile/image", jwt.generateAccessToken(73L, "gateway@example.invalid"),
-                        body,
-                        "multipart/form-data; boundary=synthetic", null);
+                        body, "multipart/form-data; boundary=synthetic", null);
 
         // 검증
         assertThat(response.statusCode()).isEqualTo(200);
@@ -222,9 +222,12 @@ class ChatGatewayHttpTest {
     void deniesBeforeUpstreamWhenUserOrServerCredentialIsInvalid(String change) throws Exception {
         // 준비
         String token = jwt.generateAccessToken(change.equals("wrong-id") ? 74L : 73L, "gateway@example.invalid");
-        if (change.equals("missing")) token = null;
-        if (change.equals("malformed")) token = "invalid-token";
-        if (change.equals("unknown-account")) when(users.findByEmail(anyString())).thenReturn(Optional.empty());
+        if (change.equals("missing"))
+            token = null;
+        if (change.equals("malformed"))
+            token = "invalid-token";
+        if (change.equals("unknown-account"))
+            when(users.findByEmail(anyString())).thenReturn(Optional.empty());
         String path = change.equals("not-admin") ? "/api/v1/admin/chat/ai/profiles" : "/api/v1/chat/rooms";
 
         // 실행
@@ -240,9 +243,8 @@ class ChatGatewayHttpTest {
     @ValueSource(strings = {"redirect", "slow", "error", "stall"})
     void containsUpstreamFailuresAndPreservesBusinessError(String scenario) throws Exception {
         // 실행
-        var response =
-                send("/api/v1/chat/" + scenario, jwt.generateAccessToken(73L, "gateway@example.invalid"), new byte[0],
-                        "application/json", null);
+        var response = send("/api/v1/chat/" + scenario, jwt.generateAccessToken(73L, "gateway@example.invalid"),
+                new byte[0], "application/json", null);
 
         // 검증
         assertThat(response.statusCode()).isEqualTo(switch (scenario) {
@@ -259,33 +261,41 @@ class ChatGatewayHttpTest {
         assertThat(response.headers().firstValue("Location")).isEmpty();
     }
 
-    private static HttpResponse<String> send(String path, String token, byte[] body, String contentType,
-                                             String internal) throws Exception {
-        var request = HttpRequest.newBuilder(URI.create(origin + path)).timeout(Duration.ofSeconds(5))
-                .header("Content-Type", contentType).header("X-User-Id", "999").header("X-Role", "ROLE_ADMIN")
-                .header("Forwarded", "host=evil.invalid").header("Cookie", "synthetic=secret")
-                .POST(HttpRequest.BodyPublishers.ofByteArray(body));
-        if (token != null) request.header("Authorization", "Bearer " + token);
-        if (internal != null) request.header("X-Chat-Service-Authorization", internal);
+    private static HttpResponse<String> send(
+            String path, String token, byte[] body, String contentType, String internal) throws Exception {
+        var request = HttpRequest.newBuilder(URI.create(origin + path))
+                              .timeout(Duration.ofSeconds(5))
+                              .header("Content-Type", contentType)
+                              .header("X-User-Id", "999")
+                              .header("X-Role", "ROLE_ADMIN")
+                              .header("Forwarded", "host=evil.invalid")
+                              .header("Cookie", "synthetic=secret")
+                              .POST(HttpRequest.BodyPublishers.ofByteArray(body));
+        if (token != null)
+            request.header("Authorization", "Bearer " + token);
+        if (internal != null)
+            request.header("X-Chat-Service-Authorization", internal);
         return CLIENT.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }
 
     private record Received(String method, String path, Map<String, List<String>> headers, byte[] body) {
         String header(String name) {
-            return headers.entrySet().stream().filter(entry -> entry.getKey().equalsIgnoreCase(name))
-                    .map(entry -> entry.getValue().getFirst()).findFirst().orElse(null);
+            return headers.entrySet()
+                    .stream()
+                    .filter(entry -> entry.getKey().equalsIgnoreCase(name))
+                    .map(entry -> entry.getValue().getFirst())
+                    .findFirst()
+                    .orElse(null);
         }
     }
 
     @TestConfiguration(proxyBeanMethods = false)
-    @EnableAutoConfiguration(exclude = {
-            DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
-            UserDetailsServiceAutoConfiguration.class
-    }, excludeName = "org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration")
-    @Import({
-            ChatGatewayConfiguration.class, ChatGatewaySecurity.class, SecurityConfig.class,
-            JwtFilter.class, JWTService.class, MyUserDetailsService.class, ApiLoggingFilter.class
-    })
+    @EnableAutoConfiguration(exclude = {DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
+                                     UserDetailsServiceAutoConfiguration.class},
+            excludeName =
+                    "org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration")
+    @Import({ChatGatewayConfiguration.class, ChatGatewaySecurity.class, SecurityConfig.class, JwtFilter.class,
+            JWTService.class, MyUserDetailsService.class, ApiLoggingFilter.class})
     static class TestApplication {
         @Bean
         UserRepository userRepository() {

@@ -12,11 +12,12 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class HistoryLanguageMetadataTest {
-    private final ObjectMapper json = new ObjectMapper().findAndRegisterModules()
-            .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
-            .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES);
+    private final ObjectMapper json = new ObjectMapper()
+                                              .findAndRegisterModules()
+                                              .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
+                                              .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES);
 
-    record Report(List<LearningHistoryItemResponseDto> history, LevelTestHistoryItemResponseDto summary) { }
+    record Report(List<LearningHistoryItemResponseDto> history, LevelTestHistoryItemResponseDto summary) {}
 
     @Test
     void nestedReportAndLevelSummaryOnlyBackfillTheNewMetadata() throws Exception {

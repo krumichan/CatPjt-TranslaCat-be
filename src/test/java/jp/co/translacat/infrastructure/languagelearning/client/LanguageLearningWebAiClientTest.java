@@ -34,8 +34,8 @@ class LanguageLearningWebAiClientTest {
     private LanguageLearningWebAiClient client() {
         var properties = new LanguageLearningClientProperties();
         properties.getInternalJwt().setSecretBase64(Base64.getEncoder().encodeToString(KEY));
-        return new LanguageLearningWebAiClient(builder.build(),
-                new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC()), json);
+        return new LanguageLearningWebAiClient(
+                builder.build(), new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC()), json);
     }
 
     @Test
@@ -72,8 +72,8 @@ class LanguageLearningWebAiClientTest {
                     assertThat(claims.get("scopes")).isEqualTo(List.of("web-ai:external"));
                     assertThat(claims).doesNotContainKeys("roles", "userId");
                 })
-                .andRespond(withSuccess("{\"id\":\"run-1\",\"prompt\":\"문제를 생성하세요\"}",
-                        MediaType.APPLICATION_JSON));
+                .andRespond(
+                        withSuccess("{\"id\":\"run-1\",\"prompt\":\"문제를 생성하세요\"}", MediaType.APPLICATION_JSON));
 
         // 실행
         var run = client.externalPrompt(CAPABILITY, body);
@@ -109,8 +109,9 @@ class LanguageLearningWebAiClientTest {
     void capabilityRejectionKeepsUnauthorizedAndDoesNotRetry() throws Exception {
         // 준비
         server.expect(requestTo(ROOT + "/external/results"))
-                .andRespond(withStatus(HttpStatus.UNAUTHORIZED).contentType(MediaType.APPLICATION_JSON)
-                        .body("{\"code\":\"WEB_AI_TOKEN_REVOKED\",\"message\":\"연결이 해제되었습니다.\"}"));
+                .andRespond(withStatus(HttpStatus.UNAUTHORIZED)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body("{\"code\":\"WEB_AI_TOKEN_REVOKED\",\"message\":\"연결이 해제되었습니다.\"}"));
 
         // 실행
         var failure = assertThrows(LanguageLearningServiceException.class,
@@ -126,7 +127,8 @@ class LanguageLearningWebAiClientTest {
     void deleteAcceptsEmptyNoContent() {
         // 준비
         server.expect(requestTo(ROOT + "/plans/plan-1/connection"))
-                .andExpect(method(HttpMethod.DELETE)).andRespond(withNoContent());
+                .andExpect(method(HttpMethod.DELETE))
+                .andRespond(withNoContent());
 
         // 실행
         client.revoke(123L, "plan-1");
@@ -138,10 +140,8 @@ class LanguageLearningWebAiClientTest {
     @Test
     void malformedSuccessAndRedirectAreContractFailures() {
         // 준비
-        server.expect(requestTo(ROOT + "/plans"))
-                .andRespond(withSuccess("{\"plans\":{}}", MediaType.APPLICATION_JSON));
-        server.expect(requestTo(ROOT + "/results/result-1"))
-                .andRespond(withStatus(HttpStatus.TEMPORARY_REDIRECT));
+        server.expect(requestTo(ROOT + "/plans")).andRespond(withSuccess("{\"plans\":{}}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(ROOT + "/results/result-1")).andRespond(withStatus(HttpStatus.TEMPORARY_REDIRECT));
 
         // 실행
         var malformed = assertThrows(LanguageLearningServiceException.class, () -> client.plans(123L));
@@ -164,7 +164,10 @@ class LanguageLearningWebAiClientTest {
     }
 
     private Claims claims(String authorization) {
-        return Jwts.parser().verifyWith(Keys.hmacShaKeyFor(KEY)).build()
-                .parseSignedClaims(authorization.substring(7)).getPayload();
+        return Jwts.parser()
+                .verifyWith(Keys.hmacShaKeyFor(KEY))
+                .build()
+                .parseSignedClaims(authorization.substring(7))
+                .getPayload();
     }
 }

@@ -19,16 +19,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class BoardStorageTest {
-
     @Test
     void signedPartUrlBindsTheExactContentLength() {
         // 준비: URL 서명만 실행하므로 R2 자격증명이나 네트워크가 필요 없다.
         try (var signer = S3Presigner.builder()
-                .region(Region.of("auto"))
-                .endpointOverride(URI.create("https://example.invalid"))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")))
-                .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
-                .build()) {
+                        .region(Region.of("auto"))
+                        .endpointOverride(URI.create("https://example.invalid"))
+                        .credentialsProvider(
+                                StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")))
+                        .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
+                        .build()) {
             BoardStorage storage = storage(signer, "private-board");
 
             // 실행
@@ -51,11 +51,9 @@ class BoardStorageTest {
     }
 
     private static BoardStorage storage(S3Presigner signer, String bucket) {
-        @SuppressWarnings("unchecked")
-        ObjectProvider<S3Presigner> presigners = mock(ObjectProvider.class);
+        @SuppressWarnings("unchecked") ObjectProvider<S3Presigner> presigners = mock(ObjectProvider.class);
         when(presigners.getIfAvailable()).thenReturn(signer);
-        @SuppressWarnings("unchecked")
-        ObjectProvider<S3Client> clients = mock(ObjectProvider.class);
+        @SuppressWarnings("unchecked") ObjectProvider<S3Client> clients = mock(ObjectProvider.class);
         BoardStorage storage = new BoardStorage(clients, presigners);
         ReflectionTestUtils.setField(storage, "bucket", bucket);
         ReflectionTestUtils.setField(storage, "publicBucket", "public-profile");

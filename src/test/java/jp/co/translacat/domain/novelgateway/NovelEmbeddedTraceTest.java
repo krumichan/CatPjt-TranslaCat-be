@@ -21,8 +21,8 @@ import static org.mockito.Mockito.*;
 
 class NovelEmbeddedTraceTest {
     private final CatalogFacade catalog = mock(CatalogFacade.class);
-    private final NovelEmbeddedService service = new NovelEmbeddedService(
-            mock(NovelFacade.class), catalog, new ObjectMapper());
+    private final NovelEmbeddedService service =
+            new NovelEmbeddedService(mock(NovelFacade.class), catalog, new ObjectMapper());
     private static final String TRACE = "9285ab95-7ce4-44dc-aa4e-d79682267251";
 
     @AfterEach
@@ -54,7 +54,8 @@ class NovelEmbeddedTraceTest {
     void invalidTraceNeverReachesEmbeddedCommand(String kind) {
         // 준비: 잘못된 값과 여러 header 값 모두 유료 작업 진입 전에 거절한다.
         var request = bind(kind.equals("malformed") ? "not-a-uuid" : TRACE);
-        if (kind.equals("duplicate")) request.addHeader(NovelGatewayTrace.HEADER, TRACE);
+        if (kind.equals("duplicate"))
+            request.addHeader(NovelGatewayTrace.HEADER, TRACE);
 
         // 실행 / 검증
         assertThatThrownBy(() -> service.catalogStatus(73, "syosetu", "catalog-id"))

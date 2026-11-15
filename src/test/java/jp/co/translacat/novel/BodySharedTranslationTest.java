@@ -53,7 +53,8 @@ class BodySharedTranslationTest {
 
     @BeforeEach
     void prepare() {
-        var dataSource = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
+        var dataSource =
+                new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
         new ResourceDatabasePopulator(new ClassPathResource("novel-embedded-h2.sql")).execute(dataSource);
         jdbc = new JdbcTemplate(dataSource);
         manager = new DataSourceTransactionManager(dataSource);
@@ -76,10 +77,13 @@ class BodySharedTranslationTest {
     void anotherAccountReadsCommittedTranslationThroughItsOwnJobWithoutAnotherProviderCall() throws Exception {
         // 준비: 첫 계정이 완료한 결과와 실행 진단은 해당 계정의 작업에만 보관한다.
         var started = first.commands().start(key, FIRST, source.revision(), "first-complete", false);
-        var completed = await(first, FIRST, started.jobId(), snapshot -> snapshot.durableComplete() && snapshot.execution().containsKey("jobElapsedMs"));
+        var completed = await(first, FIRST, started.jobId(),
+                snapshot -> snapshot.durableComplete() && snapshot.execution().containsKey("jobElapsedMs"));
         var firstJob = store.byId(key, started.jobId(), FIRST);
         jdbc.update("UPDATE novel_translation_job SET diagnostics_json=? WHERE cache_key=?",
-                json.writeValueAsString(Map.of("traceId", "private-first-trace", "callId", "private-first-call", "ownerToken", "private-token")), firstJob.cacheKey());
+                json.writeValueAsString(Map.of("traceId", "private-first-trace", "callId", "private-first-call",
+                        "ownerToken", "private-token")),
+                firstJob.cacheKey());
 
         // 실행: 다른 계정은 start 없이 DB 조회 경로에서 완료본을 가져온다.
         var reused = second.query().reader(key, SECOND);
@@ -93,7 +97,8 @@ class BodySharedTranslationTest {
         assertThat(store.byId(key, reused.jobId(), SECOND).actorId()).isEqualTo(SECOND);
         assertThat(store.byId(key, reused.jobId(), SECOND).providerCalls()).isZero();
         assertThat(ai.translationCalls).hasValue(1);
-        assertThat(json.writeValueAsString(reused)).doesNotContain("private-first-trace", "private-first-call", "private-token");
+        assertThat(json.writeValueAsString(reused))
+                .doesNotContain("private-first-trace", "private-first-call", "private-token");
     }
 
     @Test
@@ -168,7 +173,8 @@ class BodySharedTranslationTest {
         var completed = await(first, FIRST, failed.id(), ReaderSnapshot::durableComplete);
 
         // 검증: 자동 상태 조회로 완료를 받되 자신의 과거 과금·최초 실패·진단은 그대로 보존한다.
-        assertThat(texts(completed)).isEqualTo(texts(await(second, SECOND, producer.jobId(), ReaderSnapshot::durableComplete)));
+        assertThat(texts(completed))
+                .isEqualTo(texts(await(second, SECOND, producer.jobId(), ReaderSnapshot::durableComplete)));
         var preserved = store.byId(key, failed.id(), FIRST);
         assertThat(preserved.cacheKey()).isEqualTo(firstCache);
         assertThat(preserved.actorId()).isEqualTo(FIRST);
@@ -218,7 +224,9 @@ class BodySharedTranslationTest {
         var prefix = await(second, SECOND, follower.jobId(), snapshot -> snapshot.completedSegments() == 1);
 
         // 실행: 아직 생성 중인 공유 문장의 별도 복구는 유료 실행 전에 차단한다.
-        assertThatThrownBy(() -> second.commands().repair(key, SECOND, follower.jobId(), source.revision(), "active-follower-repair", id(1)))
+        assertThatThrownBy(()
+                                   -> second.commands().repair(key, SECOND, follower.jobId(), source.revision(),
+                                           "active-follower-repair", id(1)))
                 .isInstanceOfSatisfying(NovelProblem.class, problem -> assertThat(problem.status()).isEqualTo(409))
                 .hasMessage("REPAIR_SHARED_IN_PROGRESS");
         assertThat(ai.translationCalls).hasValue(1);
@@ -228,8 +236,10 @@ class BodySharedTranslationTest {
 
         // 검증: 거절은 기존 구독을 취소하지 않으며 원래 producer의 최종 완료가 전달된다.
         assertThat(prefix.durableComplete()).isFalse();
-        assertThat(completed.segments().getFirst().translatedText()).isEqualTo(prefix.segments().getFirst().translatedText());
-        assertThat(texts(completed)).isEqualTo(texts(await(first, FIRST, producer.jobId(), ReaderSnapshot::durableComplete)));
+        assertThat(completed.segments().getFirst().translatedText())
+                .isEqualTo(prefix.segments().getFirst().translatedText());
+        assertThat(texts(completed))
+                .isEqualTo(texts(await(first, FIRST, producer.jobId(), ReaderSnapshot::durableComplete)));
         assertThat(ai.translationCalls).hasValue(1);
         assertThat(ai.repairCalls).hasValue(0);
     }
@@ -245,7 +255,9 @@ class BodySharedTranslationTest {
         assertThat(reused.durableComplete()).isTrue();
         assertNotFound(() -> second.query().status(key, SECOND, original.jobId()));
         assertNotFound(() -> second.commands().cancel(key, SECOND, original.jobId()));
-        assertNotFound(() -> second.commands().repair(key, SECOND, original.jobId(), source.revision(), "foreign-repair", id(1)));
+        assertNotFound(()
+                               -> second.commands().repair(
+                                       key, SECOND, original.jobId(), source.revision(), "foreign-repair", id(1)));
         assertThat(first.query().status(key, FIRST, original.jobId()).durableComplete()).isTrue();
         assertThat(ai.translationCalls).hasValue(1);
         assertThat(ai.repairCalls).hasValue(0);
@@ -256,8 +268,10 @@ class BodySharedTranslationTest {
         // 준비: 현재 모델과 정책의 한국어 번역 하나를 완료한다.
         var original = first.commands().start(key, FIRST, source.revision(), "isolated-original", false);
         await(first, FIRST, original.jobId(), ReaderSnapshot::durableComplete);
-        var anotherModel = client(new NovelStore(jdbc, manager, json), new CountingAi("different-model"), NovelExecutionSettings.baseline());
-        var changedPolicy = new NovelExecutionSettings(0, 2, "LEGACY", "CURRENT", "ARRAY_V2", "LEGACY_V1", "MINIMUM_LETTER_DIGIT_V2", "NONE");
+        var anotherModel = client(new NovelStore(jdbc, manager, json), new CountingAi("different-model"),
+                NovelExecutionSettings.baseline());
+        var changedPolicy = new NovelExecutionSettings(
+                0, 2, "LEGACY", "CURRENT", "ARRAY_V2", "LEGACY_V1", "MINIMUM_LETTER_DIGIT_V2", "NONE");
         var anotherPolicy = client(new NovelStore(jdbc, manager, json), ai, changedPolicy);
 
         // 실행·검증: 언어·모델·검증 정책이 다르면 동일 원문 결과를 빌려오지 않는다.
@@ -287,7 +301,8 @@ class BodySharedTranslationTest {
 
         // 실행: 동일 내용 용어집의 다른 계정은 DB 결과를 얻고, 한 용어를 바꾸면 새 identity가 된다.
         var reused = second.query().reader(key, SECOND);
-        second.commands().glossary(key, SECOND, store.glossary(key, SECOND).version(), Map.of("猫", "야옹이", "鳥", "새"));
+        second.commands().glossary(
+                key, SECOND, store.glossary(key, SECOND).version(), Map.of("猫", "야옹이", "鳥", "새"));
         var changed = second.query().reader(key, SECOND);
 
         // 검증: 용어 내용이 다른 결과가 섞이거나 완료본이 덮이지 않는다.
@@ -302,7 +317,8 @@ class BodySharedTranslationTest {
     void restartLazilyImportsLegacyCompleteJobWithoutChangingOriginalRecordOrCallingProvider() throws Exception {
         // 준비: 공유 기능 도입 전과 같이 기존 actor cache key로 저장된 성공 행을 직접 만든다.
         var original = legacy(FIRST, "legacy-complete", values("보존 번역 "), Map.of(), true);
-        String resultBefore = jdbc.queryForObject("SELECT result_json FROM novel_translation_job WHERE cache_key=?", String.class, original.cacheKey());
+        String resultBefore = jdbc.queryForObject(
+                "SELECT result_json FROM novel_translation_job WHERE cache_key=?", String.class, original.cacheKey());
         var restarted = client(new NovelStore(jdbc, manager, json), ai, NovelExecutionSettings.baseline());
 
         // 실행: 새 서비스 객체의 첫 조회가 다른 계정의 완료 결과를 발견해 재사용한다.
@@ -313,7 +329,9 @@ class BodySharedTranslationTest {
         assertThat(reused.jobId()).isNotEqualTo(original.id());
         assertThat(texts(reused)).containsExactlyElementsOf(new ArrayList<>(values("보존 번역 ").values()));
         assertThat(store.byId(key, original.id(), FIRST).actorId()).isEqualTo(FIRST);
-        assertThat(jdbc.queryForObject("SELECT result_json FROM novel_translation_job WHERE cache_key=?", String.class, original.cacheKey())).isEqualTo(resultBefore);
+        assertThat(jdbc.queryForObject("SELECT result_json FROM novel_translation_job WHERE cache_key=?", String.class,
+                           original.cacheKey()))
+                .isEqualTo(resultBefore);
         assertThat(ai.translationCalls).hasValue(0);
     }
 
@@ -344,7 +362,9 @@ class BodySharedTranslationTest {
         // 실행: 첫 복구가 provider에서 대기하는 동안 다른 계정의 겹치는 요청은 과금 전에 거절한다.
         first.commands().repair(key, FIRST, firstJob.id(), source.revision(), "repair-owner", id(1));
         assertThat(ai.repairEntered.await(5, TimeUnit.SECONDS)).isTrue();
-        assertThatThrownBy(() -> second.commands().repair(key, SECOND, secondJob.id(), source.revision(), "repair-follower", id(1)))
+        assertThatThrownBy(()
+                                   -> second.commands().repair(
+                                           key, SECOND, secondJob.id(), source.revision(), "repair-follower", id(1)))
                 .isInstanceOfSatisfying(NovelProblem.class, problem -> assertThat(problem.status()).isEqualTo(409))
                 .hasMessage("REPAIR_SHARED_IN_PROGRESS");
         ai.repairRelease.countDown();
@@ -363,8 +383,10 @@ class BodySharedTranslationTest {
     @Test
     void sharedCompletionNeverOverwritesAnExistingDifferentAcceptedTranslation() throws Exception {
         // 준비: 동일 원문·정책이지만 과거 두 실행의 정상 prefix가 서로 다르다.
-        var firstJob = legacy(FIRST, "conflict-first", Map.of(id(0), "고양이", id(2), "새"), Map.of(id(1), "TAIL_INTERRUPTED"), false);
-        var secondJob = legacy(SECOND, "conflict-second", Map.of(id(0), "이미 저장된 다른 표현", id(2), "새"), Map.of(id(1), "TAIL_INTERRUPTED"), false);
+        var firstJob = legacy(FIRST, "conflict-first", Map.of(id(0), "고양이", id(2), "새"),
+                Map.of(id(1), "TAIL_INTERRUPTED"), false);
+        var secondJob = legacy(SECOND, "conflict-second", Map.of(id(0), "이미 저장된 다른 표현", id(2), "새"),
+                Map.of(id(1), "TAIL_INTERRUPTED"), false);
 
         // 실행: 첫 계정만 실패 문장을 복구하고 다른 계정에서 공유 결과 동기화를 요청한다.
         first.commands().repair(key, FIRST, firstJob.id(), source.revision(), "conflict-repair", id(1));
@@ -379,13 +401,15 @@ class BodySharedTranslationTest {
     }
 
     private Client client(NovelStore repository, CountingAi provider, NovelExecutionSettings settings) {
-        var query = new NovelQueryService(repository, ignored -> { throw new AssertionError("Unexpected source fetch"); }, provider, 600, settings, null);
+        var query = new NovelQueryService(repository,
+                ignored -> { throw new AssertionError("Unexpected source fetch"); }, provider, 600, settings, null);
         var commands = new NovelCommandService(repository, query, provider, 10_000);
         openedCommands.add(commands);
         return new Client(repository, query, commands);
     }
 
-    private NovelRepository.Job legacy(long actor, String request, Map<String, String> results, Map<String, String> errors, boolean verified) {
+    private NovelRepository.Job legacy(
+            long actor, String request, Map<String, String> results, Map<String, String> errors, boolean verified) {
         String cache = first.query().cacheKey(key, source, actor, store.glossary(key, actor).version());
         store.create(key, source, actor, cache, request);
         var owner = store.claim(cache, false, 60_000).orElseThrow();
@@ -394,15 +418,18 @@ class BodySharedTranslationTest {
         return store.byCache(cache).orElseThrow();
     }
 
-    private ReaderSnapshot await(Client client, long actor, String job, Predicate<ReaderSnapshot> expected) throws InterruptedException {
+    private ReaderSnapshot await(Client client, long actor, String job, Predicate<ReaderSnapshot> expected)
+            throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         ReaderSnapshot latest = null;
         while (System.nanoTime() < deadline) {
             latest = client.query().status(key, actor, job);
-            if (expected.test(latest)) return latest;
+            if (expected.test(latest))
+                return latest;
             Thread.sleep(10);
         }
-        throw new AssertionError("Expected shared translation state not reached: " + (latest == null ? "missing" : latest.state() + "/" + latest.completedSegments()));
+        throw new AssertionError("Expected shared translation state not reached: "
+                + (latest == null ? "missing" : latest.state() + "/" + latest.completedSegments()));
     }
 
     private void assertNotFound(Runnable operation) {
@@ -421,7 +448,9 @@ class BodySharedTranslationTest {
         return values;
     }
 
-    private String id(int order) { return source.segments().get(order).id(); }
+    private String id(int order) {
+        return source.segments().get(order).id();
+    }
 
     private record Client(NovelStore repository, NovelQueryService query, NovelCommandService commands) {}
 
@@ -437,18 +466,28 @@ class BodySharedTranslationTest {
         volatile boolean block;
         volatile boolean blockRepair;
 
-        CountingAi(String model) { this.model = model; }
-        public String model() { return model; }
-        public String speechModel() { return "synthetic-speech"; }
-        public boolean progressiveAEnabled() { return progressive; }
+        CountingAi(String model) {
+            this.model = model;
+        }
+        public String model() {
+            return model;
+        }
+        public String speechModel() {
+            return "synthetic-speech";
+        }
+        public boolean progressiveAEnabled() {
+            return progressive;
+        }
 
-        public NovelPorts.Translation translate(String trace, List<SourceEpisode.Segment> items, List<String> context, long left) {
+        public NovelPorts.Translation translate(
+                String trace, List<SourceEpisode.Segment> items, List<String> context, long left) {
             throw new AssertionError("The target-aware translation contract must be used");
         }
 
         public NovelPorts.Translation translate(String trace, String call, List<SourceEpisode.Segment> items,
                 List<String> context, Map<String, String> glossary, long left, TranslationOptions.ResponseShape shape,
-                TranslationOptions.ValidationPolicy validation, TranslationOptions.AnnotationPolicy annotation, String target) {
+                TranslationOptions.ValidationPolicy validation, TranslationOptions.AnnotationPolicy annotation,
+                String target) {
             translationCalls.incrementAndGet();
             return result(items, target.equals("en") ? "English " : "한국어 ");
         }
@@ -456,7 +495,8 @@ class BodySharedTranslationTest {
         public NovelPorts.Translation translateProgressive(String trace, String call, List<SourceEpisode.Segment> items,
                 List<String> context, Map<String, String> glossary, long left, TranslationOptions.ResponseShape shape,
                 TranslationOptions.ValidationPolicy validation, TranslationOptions.AnnotationPolicy annotation,
-                BiConsumer<SourceEpisode.Segment, String> onSentence, BiConsumer<SourceEpisode.Segment, String> onFailure, String target) {
+                BiConsumer<SourceEpisode.Segment, String> onSentence,
+                BiConsumer<SourceEpisode.Segment, String> onFailure, String target) {
             translationCalls.incrementAndGet();
             var translated = result(items, target.equals("en") ? "English " : "한국어 ");
             onSentence.accept(items.getFirst(), translated.items().get(items.getFirst().id()));
@@ -483,9 +523,11 @@ class BodySharedTranslationTest {
         }
 
         private void waitIfBlocked(boolean blocked, CountDownLatch latch) {
-            if (!blocked) return;
+            if (!blocked)
+                return;
             try {
-                if (!latch.await(5, TimeUnit.SECONDS)) throw new AssertionError("Controlled provider was not released");
+                if (!latch.await(5, TimeUnit.SECONDS))
+                    throw new AssertionError("Controlled provider was not released");
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
                 throw new NovelProblem("JOB_CANCELLED", 409);

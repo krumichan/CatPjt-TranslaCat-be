@@ -26,10 +26,9 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class VoiceSourceReadingFlowTest {
-
     private final ObjectMapper mapper = new ObjectMapper();
-    private final VoiceStreamContext context = new VoiceStreamContext(1L, "session", VoiceChannel.REMOTE,
-            "connection", VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO, null, "ja", "ko", "{}", 0);
+    private final VoiceStreamContext context = new VoiceStreamContext(1L, "session", VoiceChannel.REMOTE, "connection",
+            VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO, null, "ja", "ko", "{}", 0);
 
     @Test
     void finalAndCompletedEventsReplaceAiReadingsBeforeRelayAndPersistence() throws Exception {
@@ -42,11 +41,10 @@ class VoiceSourceReadingFlowTest {
         when(segment.getId()).thenReturn(7L);
         when(segment.getSourceReadingTokens()).thenReturn(local.toString());
         when(finals.persistCompleted(eq(context), any(), eq(1L), eq(0L))).thenReturn(segment);
-        var processor = new VoiceAiEventProcessor(mapper, finals,
-                mock(VoiceStreamCommandService.class), mock(VoiceUsageQueryService.class), sourceReadings);
-        var relay = new VoiceRelayConnection(context, mock(WebSocketSession.class), policy(), error -> {
-            throw new AssertionError(error);
-        });
+        var processor = new VoiceAiEventProcessor(mapper, finals, mock(VoiceStreamCommandService.class),
+                mock(VoiceUsageQueryService.class), sourceReadings);
+        var relay = new VoiceRelayConnection(
+                context, mock(WebSocketSession.class), policy(), error -> { throw new AssertionError(error); });
         ObjectNode transcript = event("TRANSCRIPT_FINAL", "transcript-1");
         ObjectNode completed = event("VOICE_PIPELINE_COMPLETED", "completed-1");
         completed.put("targetLanguage", "ko");
@@ -108,12 +106,12 @@ class VoiceSourceReadingFlowTest {
         when(readings.forLanguage("東京", "ja")).thenReturn(mapper.createArrayNode());
         when(readings.preserveStoredWhenGenerationFails("[]", localReadings().toString(), "東京"))
                 .thenReturn(localReadings().toString());
-        var service = new VoiceTranslationRetryCommandService(segments,
-                mock(VoiceResponseMapper.class), mapper, readings);
+        var service =
+                new VoiceTranslationRetryCommandService(segments, mock(VoiceResponseMapper.class), mapper, readings);
         AiVoiceTranslationRetryResponse response = mock(AiVoiceTranslationRetryResponse.class);
         when(response.translatedText()).thenReturn("도쿄");
-        when(response.sourceReadingTokens()).thenReturn(mapper.createArrayNode().addObject()
-                .put("surface", "wrong").put("reading", "wrong"));
+        when(response.sourceReadingTokens())
+                .thenReturn(mapper.createArrayNode().addObject().put("surface", "wrong").put("reading", "wrong"));
 
         // 실행
         service.apply(1L, "session", 7L, new VoiceTranslationRetryContext("東京", "ja", "ko"), response);
@@ -134,8 +132,8 @@ class VoiceSourceReadingFlowTest {
         event.put("detectedLanguage", "ja");
         event.put("languageConfidence", 0.95);
         event.put("lockedLanguage", "ja");
-        event.set("sourceReadingTokens", mapper.createArrayNode().addObject()
-                .put("surface", "wrong").put("reading", "wrong"));
+        event.set("sourceReadingTokens",
+                mapper.createArrayNode().addObject().put("surface", "wrong").put("reading", "wrong"));
         return event;
     }
 
@@ -146,7 +144,7 @@ class VoiceSourceReadingFlowTest {
     }
 
     private VoicePolicyProperties policy() {
-        return new VoicePolicyProperties(3_600_000, 7_200_000, 6_400, 3_000, 100, 30,
-                3_000, 10, 3, 25_000, 90, 300, 250, 10_000, 0.8, 0.85, 3);
+        return new VoicePolicyProperties(
+                3_600_000, 7_200_000, 6_400, 3_000, 100, 30, 3_000, 10, 3, 25_000, 90, 300, 250, 10_000, 0.8, 0.85, 3);
     }
 }

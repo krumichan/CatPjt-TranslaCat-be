@@ -17,13 +17,12 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class LocalAuthMigrationTest {
-
     @Test
     void tidbCompatibleSqlIsRepeatableAndMatchesJpaMappings() throws Exception {
         // 준비: 인증 확장 전 구조에 현행 공통 계정 상태 컬럼을 갖추고 기존 Google 회원을 격리 H2에 만든다.
         String url = "jdbc:h2:mem:local-auth-migration;MODE=MySQL;NON_KEYWORDS=USER;DB_CLOSE_DELAY=-1";
         try (var connection = DriverManager.getConnection(url, "sa", "");
-             var statement = connection.createStatement()) {
+                var statement = connection.createStatement()) {
             statement.execute("""
                     create table `user` (
                         id bigint auto_increment primary key,
@@ -57,8 +56,7 @@ class LocalAuthMigrationTest {
             ScriptUtils.executeSqlScript(connection, migration);
 
             // 실행: 비밀번호 복구의 후속 migration은 기존 인증 구조 위에 한 번 적용한다.
-            ScriptUtils.executeSqlScript(connection,
-                    new FileSystemResource("scripts/sql/20261024_password_reset.sql"));
+            ScriptUtils.executeSqlScript(connection, new FileSystemResource("scripts/sql/20261024_password_reset.sql"));
 
             // 검증: 기존 계정과 quota를 보존하고 신규 컬럼·고유 index를 한 번만 만든다.
             try (var result = statement.executeQuery("select count(*) from `user`")) {
@@ -97,24 +95,22 @@ class LocalAuthMigrationTest {
         }
 
         // 검증: migration 결과의 컬럼과 타입이 인증 JPA entity 계약을 만족한다.
-        var registry = new StandardServiceRegistryBuilder().applySettings(Map.of(
-                "hibernate.connection.driver_class", "org.h2.Driver",
-                "hibernate.connection.url", url,
-                "hibernate.connection.username", "sa",
-                "hibernate.connection.password", "",
-                "hibernate.hbm2ddl.auto", "validate",
-                "hibernate.physical_naming_strategy",
-                "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"
-        )).build();
+        var registry = new StandardServiceRegistryBuilder()
+                               .applySettings(Map.of("hibernate.connection.driver_class", "org.h2.Driver",
+                                       "hibernate.connection.url", url, "hibernate.connection.username", "sa",
+                                       "hibernate.connection.password", "", "hibernate.hbm2ddl.auto", "validate",
+                                       "hibernate.physical_naming_strategy",
+                                       "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"))
+                               .build();
 
         try {
             var metadata = new MetadataSources(registry)
-                    .addAnnotatedClass(User.class)
-                    .addAnnotatedClass(EmailVerificationChallenge.class)
-                    .addAnnotatedClass(EmailVerificationQuota.class)
-                    .addAnnotatedClass(GoogleAuthIntent.class)
-                    .addAnnotatedClass(ReauthenticationGrant.class)
-                    .buildMetadata();
+                                   .addAnnotatedClass(User.class)
+                                   .addAnnotatedClass(EmailVerificationChallenge.class)
+                                   .addAnnotatedClass(EmailVerificationQuota.class)
+                                   .addAnnotatedClass(GoogleAuthIntent.class)
+                                   .addAnnotatedClass(ReauthenticationGrant.class)
+                                   .buildMetadata();
             try (var factory = metadata.buildSessionFactory()) {
                 assertThat(factory.isOpen()).isTrue();
             }

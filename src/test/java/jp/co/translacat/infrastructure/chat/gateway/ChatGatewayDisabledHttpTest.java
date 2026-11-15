@@ -55,14 +55,19 @@ class ChatGatewayDisabledHttpTest {
         }
 
         try (var context = (ServletWebServerApplicationContext) new SpringApplicationBuilder(TestApplication.class)
-                .properties(properties).run(); var client = HttpClient.newHttpClient()) {
+                        .properties(properties)
+                        .run();
+                var client = HttpClient.newHttpClient()) {
             String origin = "http://127.0.0.1:" + context.getWebServer().getPort();
 
             // 실행 / 검증: flag 없이 활성화된 모든 HTTP 경로는 무효 사용자 JWT를 거부한다.
-            for (String path : List.of("/api/v1/chat", "/api/v1/chat/rooms",
-                    "/api/v1/admin/chat/ai/settings", "/api/v1/users/me/chat-language-settings")) {
-                var request = HttpRequest.newBuilder(URI.create(origin + path)).timeout(Duration.ofSeconds(3))
-                        .header("Authorization", "Bearer invalid-user-token").GET().build();
+            for (String path : List.of("/api/v1/chat", "/api/v1/chat/rooms", "/api/v1/admin/chat/ai/settings",
+                         "/api/v1/users/me/chat-language-settings")) {
+                var request = HttpRequest.newBuilder(URI.create(origin + path))
+                                      .timeout(Duration.ofSeconds(3))
+                                      .header("Authorization", "Bearer invalid-user-token")
+                                      .GET()
+                                      .build();
                 var response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
                 assertThat(response.statusCode()).as(path).isEqualTo(401);
@@ -70,13 +75,17 @@ class ChatGatewayDisabledHttpTest {
             }
 
             // 실행 / 검증: 활성 WS에서도 브라우저가 서버 전용 인증 헤더를 위조하면 거부한다.
-            Throwable failure = catchThrowable(() -> client.newWebSocketBuilder()
-                    .connectTimeout(Duration.ofSeconds(3)).subprotocols("v12.stomp")
-                    .header(ChatGatewayWebSocketHandler.SERVICE_HEADER, "synthetic-invalid")
-                    .buildAsync(URI.create(origin.replace("http:", "ws:") + "/ws/chat"), new WebSocket.Listener() {
-                    })
-                    .get(5, TimeUnit.SECONDS));
-            assertThat(failure).isInstanceOf(ExecutionException.class)
+            Throwable failure = catchThrowable(
+                    ()
+                            -> client.newWebSocketBuilder()
+                                    .connectTimeout(Duration.ofSeconds(3))
+                                    .subprotocols("v12.stomp")
+                                    .header(ChatGatewayWebSocketHandler.SERVICE_HEADER, "synthetic-invalid")
+                                    .buildAsync(URI.create(origin.replace("http:", "ws:") + "/ws/chat"),
+                                            new WebSocket.Listener() {})
+                                    .get(5, TimeUnit.SECONDS));
+            assertThat(failure)
+                    .isInstanceOf(ExecutionException.class)
                     .hasCauseInstanceOf(WebSocketHandshakeException.class);
             assertThat(((WebSocketHandshakeException) failure.getCause()).getResponse().statusCode()).isEqualTo(403);
             assertThat(context.containsBean("chatGatewayTarget")).isTrue();
@@ -86,14 +95,13 @@ class ChatGatewayDisabledHttpTest {
     }
 
     @TestConfiguration(proxyBeanMethods = false)
-    @EnableAutoConfiguration(exclude = {
-            DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
-            UserDetailsServiceAutoConfiguration.class
-    }, excludeName = "org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration")
-    @Import({
-            ChatGatewaySecurity.class, ChatGatewayWebSocketConfiguration.class, ChatGatewayConfiguration.class, SecurityConfig.class,
-            JwtFilter.class, JWTService.class, MyUserDetailsService.class, ApiLoggingFilter.class
-    })
+    @EnableAutoConfiguration(exclude = {DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
+                                     UserDetailsServiceAutoConfiguration.class},
+            excludeName =
+                    "org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration")
+    @Import({ChatGatewaySecurity.class, ChatGatewayWebSocketConfiguration.class, ChatGatewayConfiguration.class,
+            SecurityConfig.class, JwtFilter.class, JWTService.class, MyUserDetailsService.class,
+            ApiLoggingFilter.class})
     static class TestApplication {
         @Bean
         UserRepository userRepository() {

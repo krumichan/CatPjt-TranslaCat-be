@@ -45,8 +45,10 @@ class NovelTranslationBoundaryTest {
         var executor = new TranslationExecutor(List.of(server, legacy));
 
         // 실행 및 검증
-        assertThatThrownBy(() -> executor.execute(List.of(TranslationUnit.of("雨。"),
-                TranslationUnit.of("夜。")), AiRuleType.NOVEL, TranslationType.AI_SERVER)).isSameAs(failure);
+        assertThatThrownBy(()
+                                   -> executor.execute(List.of(TranslationUnit.of("雨。"), TranslationUnit.of("夜。")),
+                                           AiRuleType.NOVEL, TranslationType.AI_SERVER))
+                .isSameAs(failure);
         verify(legacy, never()).executeTranslation(anyList(), any(), any());
     }
 
@@ -75,9 +77,17 @@ class NovelTranslationBoundaryTest {
 
     private static final class StubProvider extends AbstractTranslationExecutor {
         private final List<String> response;
-        StubProvider(List<String> response) { this.response = response; }
-        protected List<String> doTranslate(List<String> texts, AiRuleType rule) { return response; }
-        protected String getProviderName() { return "test"; }
-        public TranslationType getSupportedType() { return TranslationType.AI_SERVER; }
+        StubProvider(List<String> response) {
+            this.response = response;
+        }
+        protected List<String> doTranslate(List<String> texts, AiRuleType rule) {
+            return response;
+        }
+        protected String getProviderName() {
+            return "test";
+        }
+        public TranslationType getSupportedType() {
+            return TranslationType.AI_SERVER;
+        }
     }
 }

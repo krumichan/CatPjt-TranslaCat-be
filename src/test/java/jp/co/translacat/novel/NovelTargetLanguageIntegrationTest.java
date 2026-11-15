@@ -46,7 +46,8 @@ class NovelTargetLanguageIntegrationTest {
 
     @BeforeEach
     void prepare() {
-        var dataSource = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
+        var dataSource =
+                new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
         new ResourceDatabasePopulator(new ClassPathResource("novel-embedded-h2.sql")).execute(dataSource);
         jdbc = new JdbcTemplate(dataSource);
         manager = new DataSourceTransactionManager(dataSource);
@@ -68,8 +69,8 @@ class NovelTargetLanguageIntegrationTest {
         // 준비: 한국어 cache identity는 기존 문자열과 동일하고, 영어 빈 조회는 모델을 호출하지 않는다.
         String glossary = store.glossary(key, ACTOR).version();
         String legacyCache = SentenceSegmenter.hash(String.join("|", key.value(), source.revision(),
-                source.segmentationVersion(), "ko", "novel-ko-v1", "segment-items-v2-compact", glossary,
-                ai.model(), Long.toString(ACTOR), query.resolve(source).options().fingerprint()));
+                source.segmentationVersion(), "ko", "novel-ko-v1", "segment-items-v2-compact", glossary, ai.model(),
+                Long.toString(ACTOR), query.resolve(source).options().fingerprint()));
         assertThat(query.cacheKey(key, source, ACTOR, glossary)).isEqualTo(legacyCache);
         assertThat(query.reader(key, ACTOR, "en").state()).isEqualTo("SOURCE_READY");
         assertThat(ai.calls).isEmpty();
@@ -117,7 +118,8 @@ class NovelTargetLanguageIntegrationTest {
     void englishGlossaryChangeDoesNotInvalidateKoreanPolicyOrOverwriteItsTerms() throws Exception {
         // 준비: 같은 작품·사용자의 용어집을 언어별로 저장한다.
         var koreanTerms = commands.glossary(key, ACTOR, store.glossary(key, ACTOR).version(), Map.of("猫", "고양이"));
-        var englishTerms = commands.glossary(key, ACTOR, store.glossary(key, ACTOR, "en").version(), Map.of("猫", "Cat"), "en");
+        var englishTerms =
+                commands.glossary(key, ACTOR, store.glossary(key, ACTOR, "en").version(), Map.of("猫", "Cat"), "en");
         var korean = commands.start(key, ACTOR, source.revision(), "glossary-ko", false);
         await(korean.jobId(), ReaderSnapshot::durableComplete);
         var english = commands.start(key, ACTOR, source.revision(), "glossary-en", false, "en");
@@ -133,10 +135,15 @@ class NovelTargetLanguageIntegrationTest {
         assertTranslated(query.status(key, ACTOR, korean.jobId()), "ko", "한국어-");
         assertThatThrownBy(() -> query.status(key, ACTOR, english.jobId())).hasMessage("TRANSLATION_POLICY_CHANGED");
         assertThat(query.reader(key, ACTOR, "en").completedSegments()).isZero();
-        assertThat(store.byId(key, english.jobId(), ACTOR).results()).containsExactlyInAnyOrderEntriesOf(values("English-"));
-        assertThat(ai.calls).filteredOn(call -> call.target().equals("ko")).singleElement()
+        assertThat(store.byId(key, english.jobId(), ACTOR).results())
+                .containsExactlyInAnyOrderEntriesOf(values("English-"));
+        assertThat(ai.calls)
+                .filteredOn(call -> call.target().equals("ko"))
+                .singleElement()
                 .satisfies(call -> assertThat(call.glossary()).containsExactlyEntriesOf(Map.of("猫", "고양이")));
-        assertThat(ai.calls).filteredOn(call -> call.target().equals("en")).singleElement()
+        assertThat(ai.calls)
+                .filteredOn(call -> call.target().equals("en"))
+                .singleElement()
                 .satisfies(call -> assertThat(call.glossary()).containsExactlyEntriesOf(Map.of("猫", "Cat")));
     }
 
@@ -176,7 +183,8 @@ class NovelTargetLanguageIntegrationTest {
         store.merge(koreanOwner, values("한국어-"), Map.of(), 0, 0);
         store.finish(koreanOwner, source);
         var englishOwner = owner("en", "repair-en");
-        store.merge(englishOwner, Map.of(id(0), "English-0", id(2), "English-2"), Map.of(id(1), "TAIL_INTERRUPTED"), 0, 0);
+        store.merge(
+                englishOwner, Map.of(id(0), "English-0", id(2), "English-2"), Map.of(id(1), "TAIL_INTERRUPTED"), 0, 0);
         store.finish(englishOwner, source, false);
 
         // 실행: 저장된 영어 작업의 target과 이웃 번역으로 실패 문장만 복구한다.
@@ -192,8 +200,9 @@ class NovelTargetLanguageIntegrationTest {
             assertThat(call.kind()).isEqualTo("repair");
             assertThat(call.target()).isEqualTo("en");
             assertThat(call.ids()).containsExactly(id(1));
-            assertThat(call.references()).hasSize(2).allSatisfy(reference ->
-                    assertThat(reference.get("translation")).startsWith("English-"));
+            assertThat(call.references())
+                    .hasSize(2)
+                    .allSatisfy(reference -> assertThat(reference.get("translation")).startsWith("English-"));
         });
         assertTranslated(query.status(key, ACTOR, koreanOwner.id()), "ko", "한국어-");
         assertThatThrownBy(() -> commands.repair(key, ACTOR, koreanOwner.id(), source.revision(), "repair-one", id(1)))
@@ -228,11 +237,13 @@ class NovelTargetLanguageIntegrationTest {
     }
 
     private NovelQueryService query(NovelStore repository) {
-        return new NovelQueryService(repository, ignored -> { throw new AssertionError("No new source fetch"); }, ai, 600);
+        return new NovelQueryService(
+                repository, ignored -> { throw new AssertionError("No new source fetch"); }, ai, 600);
     }
 
     private NovelRepository.Job owner(String target, String requestKey) {
-        String cache = query.cacheKey(key, source, ACTOR, store.glossary(key, ACTOR, target).version(), query.resolve(source), target);
+        String cache = query.cacheKey(
+                key, source, ACTOR, store.glossary(key, ACTOR, target).version(), query.resolve(source), target);
         store.create(key, source, ACTOR, cache, requestKey, target);
         return store.claim(cache, false, 60_000).orElseThrow();
     }
@@ -253,8 +264,10 @@ class NovelTargetLanguageIntegrationTest {
         assertThat(snapshot.segments()).hasSize(source.segments().size()).allSatisfy(segment -> {
             assertThat(segment.translatedText()).isEqualTo(prefix + segment.order());
             assertThat(segment.rawJa()).isEqualTo(source.segments().get(segment.order()).rawJa());
-            if (target.equals("ko")) assertThat(segment.ko()).isEqualTo(segment.translatedText());
-            else assertThat(segment.ko()).isNull();
+            if (target.equals("ko"))
+                assertThat(segment.ko()).isEqualTo(segment.translatedText());
+            else
+                assertThat(segment.ko()).isNull();
         });
     }
 
@@ -263,52 +276,67 @@ class NovelTargetLanguageIntegrationTest {
         ReaderSnapshot latest = null;
         while (System.nanoTime() < deadline) {
             latest = query.status(key, ACTOR, jobId);
-            if (completed.test(latest)) return latest;
+            if (completed.test(latest))
+                return latest;
             Thread.sleep(10);
         }
-        throw new AssertionError("Novel target did not reach expected state: " + (latest == null ? "missing" : latest.state()));
+        throw new AssertionError(
+                "Novel target did not reach expected state: " + (latest == null ? "missing" : latest.state()));
     }
 
     private record Call(String kind, String target, List<String> ids, Map<String, String> glossary,
-                        List<Map<String, String>> references) {}
+            List<Map<String, String>> references) {}
 
     private static class TargetAi implements NovelPorts.Ai {
         private final List<Call> calls = new CopyOnWriteArrayList<>();
         private volatile boolean progressive;
 
-        public String model() { return "synthetic"; }
-        public String speechModel() { return "synthetic-speech"; }
-        public boolean progressiveAEnabled() { return progressive; }
+        public String model() {
+            return "synthetic";
+        }
+        public String speechModel() {
+            return "synthetic-speech";
+        }
+        public boolean progressiveAEnabled() {
+            return progressive;
+        }
 
-        public NovelPorts.Translation translate(String trace, List<SourceEpisode.Segment> items, List<String> context, long left) {
+        public NovelPorts.Translation translate(
+                String trace, List<SourceEpisode.Segment> items, List<String> context, long left) {
             throw new AssertionError("Use the explicit source target overload");
         }
 
         public NovelPorts.Translation translate(String trace, String callId, List<SourceEpisode.Segment> items,
                 List<String> context, Map<String, String> glossary, long left, TranslationOptions.ResponseShape shape,
-                TranslationOptions.ValidationPolicy validation, TranslationOptions.AnnotationPolicy annotation, String target) {
-            return translated("translate", target, items, glossary, List.of(), target.equals("en") ? "English-" : "한국어-");
+                TranslationOptions.ValidationPolicy validation, TranslationOptions.AnnotationPolicy annotation,
+                String target) {
+            return translated(
+                    "translate", target, items, glossary, List.of(), target.equals("en") ? "English-" : "한국어-");
         }
 
         public NovelPorts.Translation repair(String trace, String callId, List<SourceEpisode.Segment> items,
                 List<String> context, Map<String, String> glossary, List<Map<String, String>> references, long left,
                 TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
                 TranslationOptions.AnnotationPolicy annotation, String target) {
-            return translated("repair", target, items, glossary, references, target.equals("en") ? "English-repaired-" : "한국어-복구-");
+            return translated("repair", target, items, glossary, references,
+                    target.equals("en") ? "English-repaired-" : "한국어-복구-");
         }
 
-        public NovelPorts.Translation translateProgressive(String trace, String callId, List<SourceEpisode.Segment> items,
-                List<String> context, Map<String, String> glossary, long left, TranslationOptions.ResponseShape shape,
-                TranslationOptions.ValidationPolicy validation, TranslationOptions.AnnotationPolicy annotation,
-                BiConsumer<SourceEpisode.Segment, String> onSentence, BiConsumer<SourceEpisode.Segment, String> onFailure, String target) {
-            calls.add(new Call("stream", target, items.stream().map(SourceEpisode.Segment::id).toList(), Map.copyOf(glossary), List.of()));
+        public NovelPorts.Translation translateProgressive(String trace, String callId,
+                List<SourceEpisode.Segment> items, List<String> context, Map<String, String> glossary, long left,
+                TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy validation,
+                TranslationOptions.AnnotationPolicy annotation, BiConsumer<SourceEpisode.Segment, String> onSentence,
+                BiConsumer<SourceEpisode.Segment, String> onFailure, String target) {
+            calls.add(new Call("stream", target, items.stream().map(SourceEpisode.Segment::id).toList(),
+                    Map.copyOf(glossary), List.of()));
             onSentence.accept(items.getFirst(), "English-stream-" + items.getFirst().order());
             throw new NovelProblem("PROGRESSIVE_PROVIDER_INCOMPLETE", 502);
         }
 
         private NovelPorts.Translation translated(String kind, String target, List<SourceEpisode.Segment> items,
                 Map<String, String> glossary, List<Map<String, String>> references, String prefix) {
-            calls.add(new Call(kind, target, items.stream().map(SourceEpisode.Segment::id).toList(), Map.copyOf(glossary), List.copyOf(references)));
+            calls.add(new Call(kind, target, items.stream().map(SourceEpisode.Segment::id).toList(),
+                    Map.copyOf(glossary), List.copyOf(references)));
             var translated = new LinkedHashMap<String, String>();
             items.forEach(item -> translated.put(item.id(), prefix + item.order()));
             return new NovelPorts.Translation(Map.copyOf(translated), "synthetic", model(), 1, 1);

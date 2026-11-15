@@ -16,21 +16,22 @@ class LanguageLearningCommonOwnershipTest {
         // 준비: 실제 호출이 LL로 옮겨진 업무 소유자만 검사하고 외부 계약 DTO는 유지한다.
         Path source = Path.of("src/main/java/jp/co/translacat");
         Pattern retired = Pattern.compile("\\b("
-                + String.join("|", List.of(
-                "GenerationFingerprintCommandService", "GenerationDiversityContextService",
-                "LanguageComplexityPolicy", "LanguageLearningGenerationFingerprintRepository",
-                "LanguageLearningGenerationFingerprint", "LearningProfileSignalService", "KeywordNormalizer",
-                "KeywordSelectionFacade", "KeywordCandidateQueryService", "KeywordSelectionCommandService",
-                "KeywordSelectionPolicy", "KeywordSelectionWeightPolicy", "SelectedKeywordCandidate",
-                "LearningProfileAiContextService",
-                "DashboardBaseQueryService", "DashboardInsightQueryService", "DashboardProjectionPolicy",
-                "LearningStreakQueryService", "SourceSkillTrendQueryService", "SpeakingDashboardQueryService",
-                "RecentLearningProfileInsightQueryService", "UnifiedLearningProfileQueryService",
-                "LearningProfileAggregationWeightPolicy",
-                "AiDailyWritingGenerationRequestDto", "AiDailyWritingGenerationResponseDto",
-                "AiPracticeGenerationRequestDto", "AiPracticeGenerationResponseDto",
-                "AiWritingEvaluationRequestDto", "AiWritingEvaluationResponseDto",
-                "DiversityContext", "LanguageComplexityContext", "AdminSettingsSnapshot", "UserSettingsSnapshot"))
+                + String.join("|",
+                        List.of("GenerationFingerprintCommandService", "GenerationDiversityContextService",
+                                "LanguageComplexityPolicy", "LanguageLearningGenerationFingerprintRepository",
+                                "LanguageLearningGenerationFingerprint", "LearningProfileSignalService",
+                                "KeywordNormalizer", "KeywordSelectionFacade", "KeywordCandidateQueryService",
+                                "KeywordSelectionCommandService", "KeywordSelectionPolicy",
+                                "KeywordSelectionWeightPolicy", "SelectedKeywordCandidate",
+                                "LearningProfileAiContextService", "DashboardBaseQueryService",
+                                "DashboardInsightQueryService", "DashboardProjectionPolicy",
+                                "LearningStreakQueryService", "SourceSkillTrendQueryService",
+                                "SpeakingDashboardQueryService", "RecentLearningProfileInsightQueryService",
+                                "UnifiedLearningProfileQueryService", "LearningProfileAggregationWeightPolicy",
+                                "AiDailyWritingGenerationRequestDto", "AiDailyWritingGenerationResponseDto",
+                                "AiPracticeGenerationRequestDto", "AiPracticeGenerationResponseDto",
+                                "AiWritingEvaluationRequestDto", "AiWritingEvaluationResponseDto", "DiversityContext",
+                                "LanguageComplexityContext", "AdminSettingsSnapshot", "UserSettingsSnapshot"))
                 + ")\\b");
 
         // 실행 및 검증: 기존 Core 저장 경로를 다시 참조하는 코드가 없어야 한다.

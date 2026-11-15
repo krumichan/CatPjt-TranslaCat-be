@@ -25,8 +25,8 @@ class WritingPlanActivityClientTest {
         var server = MockRestServiceServer.bindTo(builder).build();
         var properties = new LanguageLearningClientProperties();
         properties.getInternalJwt().setSecretBase64(Base64.getEncoder().encodeToString(new byte[32]));
-        var client = new LanguageLearningWritingClient(builder.build(),
-                new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC()), json);
+        var client = new LanguageLearningWritingClient(
+                builder.build(), new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC()), json);
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/writing/curated/plans/-7/delete"))
                 .andExpect(header("Authorization", org.hamcrest.Matchers.startsWith("Bearer ")))
                 .andExpect(content().json("{\"planRevision\":2}", true))
@@ -35,7 +35,9 @@ class WritingPlanActivityClientTest {
                 .andRespond(withSuccess("{\"dailySetId\":-7,\"deleted\":true}", MediaType.APPLICATION_JSON));
 
         // 실행 / 검증: 다른 계획 삭제 확인은 성공으로 중계하지 않는다.
-        assertTrue(client.writingPlanDelete(123L, -7L, json.readTree("{\"planRevision\":2}")).path("deleted").booleanValue());
+        assertTrue(client.writingPlanDelete(123L, -7L, json.readTree("{\"planRevision\":2}"))
+                        .path("deleted")
+                        .booleanValue());
         assertThrows(LanguageLearningServiceException.class,
                 () -> client.writingPlanDelete(123L, -8L, json.readTree("{\"planRevision\":2}")));
         server.verify();

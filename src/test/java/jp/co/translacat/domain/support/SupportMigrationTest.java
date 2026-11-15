@@ -15,13 +15,12 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SupportMigrationTest {
-
     @Test
     void additiveSqlPreservesUsersAndMatchesJpaMappings() throws Exception {
         // 준비: 격리 H2의 사용자 기준에는 고객센터와 무관한 현행 공통 계정 상태 컬럼도 포함한다.
         String url = "jdbc:h2:mem:support-migration;MODE=MySQL;NON_KEYWORDS=USER;DB_CLOSE_DELAY=-1";
         try (var connection = DriverManager.getConnection(url, "sa", "");
-             var statement = connection.createStatement()) {
+                var statement = connection.createStatement()) {
             statement.execute("""
                     create table `user` (
                         id bigint auto_increment primary key,
@@ -71,8 +70,7 @@ class SupportMigrationTest {
             ScriptUtils.executeSqlScript(connection, urgentMigration);
 
             // 실행: 공통 User의 비밀번호 복구 컬럼도 실제 후속 SQL로 한 번 추가한다.
-            ScriptUtils.executeSqlScript(connection,
-                    new FileSystemResource("scripts/sql/20261024_password_reset.sql"));
+            ScriptUtils.executeSqlScript(connection, new FileSystemResource("scripts/sql/20261024_password_reset.sql"));
 
             // 검증: 기존 계정/공지와 새 숨김 이력이 모두 유지된다.
             try (var result = statement.executeQuery("select count(*) from `user`")) {
@@ -99,26 +97,24 @@ class SupportMigrationTest {
         }
 
         // 검증: 배포 SQL의 컬럼/타입을 실제 고객센터 JPA 매핑과 대조한다.
-        var registry = new StandardServiceRegistryBuilder().applySettings(Map.of(
-                "hibernate.connection.driver_class", "org.h2.Driver",
-                "hibernate.connection.url", url,
-                "hibernate.connection.username", "sa",
-                "hibernate.connection.password", "",
-                "hibernate.hbm2ddl.auto", "validate",
-                "hibernate.physical_naming_strategy",
-                "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"
-        )).build();
+        var registry = new StandardServiceRegistryBuilder()
+                               .applySettings(Map.of("hibernate.connection.driver_class", "org.h2.Driver",
+                                       "hibernate.connection.url", url, "hibernate.connection.username", "sa",
+                                       "hibernate.connection.password", "", "hibernate.hbm2ddl.auto", "validate",
+                                       "hibernate.physical_naming_strategy",
+                                       "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"))
+                               .build();
 
         try {
             var metadata = new MetadataSources(registry)
-                    .addAnnotatedClass(User.class)
-                    .addAnnotatedClass(SupportInquiry.class)
-                    .addAnnotatedClass(SupportReply.class)
-                    .addAnnotatedClass(SupportNotice.class)
-                    .addAnnotatedClass(SupportNoticeDismissal.class)
-                    .addAnnotatedClass(SupportMessage.class)
-                    .addAnnotatedClass(SupportNotification.class)
-                    .buildMetadata();
+                                   .addAnnotatedClass(User.class)
+                                   .addAnnotatedClass(SupportInquiry.class)
+                                   .addAnnotatedClass(SupportReply.class)
+                                   .addAnnotatedClass(SupportNotice.class)
+                                   .addAnnotatedClass(SupportNoticeDismissal.class)
+                                   .addAnnotatedClass(SupportMessage.class)
+                                   .addAnnotatedClass(SupportNotification.class)
+                                   .buildMetadata();
             try (var factory = metadata.buildSessionFactory()) {
                 assertThat(factory.isOpen()).isTrue();
 

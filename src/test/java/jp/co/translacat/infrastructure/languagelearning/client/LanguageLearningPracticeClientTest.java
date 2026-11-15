@@ -38,7 +38,8 @@ class LanguageLearningPracticeClientTest {
     @Test
     void todayForwardsOnlyModeAndKeepsPendingContract() {
         // 준비: 날짜·밴드·키워드·문항 계획은 LL이 준비한다.
-        server.expect(requestTo(
+        server
+                .expect(requestTo(
                         "http://ll.test/internal/v1/language-learning/practice/today?domain=READING&mode=COMPREHENSION"))
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(header("Authorization", org.hamcrest.Matchers.startsWith("Bearer ")))
@@ -65,8 +66,9 @@ class LanguageLearningPracticeClientTest {
         // 준비
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/practice/questions/-12/answers"))
                 .andExpect(content().json("{\"answer\":[\"A\"]}", true))
-                .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
-                        .body("{\"code\":\"LANGUAGE_LEARNING_ANSWER_NOT_ALLOWED\",\"message\":\"답변 불가\"}"));
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body("{\"code\":\"LANGUAGE_LEARNING_ANSWER_NOT_ALLOWED\",\"message\":\"답변 불가\"}"));
 
         // 실행
         var error = assertThrows(LanguageLearningServiceException.class,

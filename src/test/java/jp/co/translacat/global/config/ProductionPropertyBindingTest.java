@@ -44,7 +44,8 @@ class ProductionPropertyBindingTest {
         values.put("TRANSLACAT_MAIL_APP_PASSWORD", "synthetic-app-password");
         values.put("TRANSLACAT_EMAIL_CODE_SECRET", "synthetic-code-secret-with-at-least-32-bytes");
         var base = new PropertiesPropertySourceLoader()
-                .load("base-mail-check", new ClassPathResource("application.properties")).getFirst();
+                           .load("base-mail-check", new ClassPathResource("application.properties"))
+                           .getFirst();
 
         // 실행
         var environment = environment(values);
@@ -76,7 +77,8 @@ class ProductionPropertyBindingTest {
         var novelValues = values();
         novelValues.remove("NOVEL_AI_SERVER_API_KEY");
         assertThatThrownBy(() -> environment(novelValues).getRequiredProperty("novel.ai.api-key"))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("NOVEL_AI_SERVER_API_KEY");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("NOVEL_AI_SERVER_API_KEY");
     }
 
     @Test
@@ -98,8 +100,12 @@ class ProductionPropertyBindingTest {
         assertThat(environment.getProperty("language-learning.growth.enabled")).isNull();
         assertThat(ll.getUrl()).isEqualTo("https://ll.fixture.invalid:8443");
         assertThat(ll.getInternalJwt().getTtlSeconds()).isEqualTo(120);
-        var llClaims = Jwts.parser().verifyWith(Keys.hmacShaKeyFor(key(1))).requireIssuer("translacat-be")
-                .requireAudience("translacat-ll").build().parseSignedClaims(llJwt.issueUserToken(73L));
+        var llClaims = Jwts.parser()
+                               .verifyWith(Keys.hmacShaKeyFor(key(1)))
+                               .requireIssuer("translacat-be")
+                               .requireAudience("translacat-ll")
+                               .build()
+                               .parseSignedClaims(llJwt.issueUserToken(73L));
         assertThat(llClaims.getHeader().getAlgorithm()).isEqualTo("HS256");
         assertThat(llClaims.getPayload().get("service")).isEqualTo("translacat-be");
         assertThat(llClaims.getPayload().get("tokenUse")).isEqualTo("ll-internal");
@@ -110,8 +116,12 @@ class ProductionPropertyBindingTest {
         assertThat(new ChatGatewayTarget(chat).webSocketUri().toString())
                 .isEqualTo("wss://chat.fixture.invalid:8443/ws/chat");
         String ingressToken = ingress.issue(73L, "chat:http");
-        var chatClaims = Jwts.parser().verifyWith(Keys.hmacShaKeyFor(key(2))).requireIssuer("translacat-be")
-                .requireAudience("translacat-chat").build().parseSignedClaims(ingressToken);
+        var chatClaims = Jwts.parser()
+                                 .verifyWith(Keys.hmacShaKeyFor(key(2)))
+                                 .requireIssuer("translacat-be")
+                                 .requireAudience("translacat-chat")
+                                 .build()
+                                 .parseSignedClaims(ingressToken);
         assertThat(chatClaims.getHeader().getAlgorithm()).isEqualTo("HS256");
         assertThat(chatClaims.getPayload().get("tokenUse")).isEqualTo("chat-ingress");
         assertThat(chatClaims.getPayload().get("environment")).isEqualTo("Production");
@@ -133,24 +143,28 @@ class ProductionPropertyBindingTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"DB_URL", "DB_USERNAME", "DB_PASSWORD", "GOOGLE_CLIENT_ID", "FRONTEND_URL",
-            "GEMINI_API_KEY", "GOOGLE_PROXY_URL", "AI_SERVER_URL", "AI_SERVER_API_KEY", "JWT_SECRET_KEY",
-            "CLOUDFLARE_R2_BUCKET", "CLOUDFLARE_R2_ACCESS_KEY_ID", "CLOUDFLARE_R2_SECRET_ACCESS_KEY",
-            "CLOUDFLARE_R2_ENDPOINT", "CLOUDFLARE_R2_REGION", "CLOUDFLARE_R2_PUBLIC_BASE_URL",
-            "LL_INTERNAL_SERVER_URL", "LL_INTERNAL_JWT_SECRET_BASE64", "CHAT_GATEWAY_SECRET_BASE64",
-            "CHAT_CORE_IDENTITY_SECRET_BASE64"})
+    @ValueSource(
+            strings = {"DB_URL", "DB_USERNAME", "DB_PASSWORD", "GOOGLE_CLIENT_ID", "FRONTEND_URL", "GEMINI_API_KEY",
+                    "GOOGLE_PROXY_URL", "AI_SERVER_URL", "AI_SERVER_API_KEY", "JWT_SECRET_KEY", "CLOUDFLARE_R2_BUCKET",
+                    "CLOUDFLARE_R2_ACCESS_KEY_ID", "CLOUDFLARE_R2_SECRET_ACCESS_KEY", "CLOUDFLARE_R2_ENDPOINT",
+                    "CLOUDFLARE_R2_REGION", "CLOUDFLARE_R2_PUBLIC_BASE_URL", "LL_INTERNAL_SERVER_URL",
+                    "LL_INTERNAL_JWT_SECRET_BASE64", "CHAT_GATEWAY_SECRET_BASE64", "CHAT_CORE_IDENTITY_SECRET_BASE64"})
     void requiredProductionPlaceholderDoesNotSilentlyResolveFromHost(String missing) throws Exception {
         // 준비: 합성 값 하나만 제거하며 실제 호스트 비밀을 fallback으로 사용하지 않는다.
         var values = values();
         values.remove(missing);
         var environment = environment(values);
-        var sources = new PropertiesPropertySourceLoader().load("prod-check", new ClassPathResource("application-prod.properties"));
+        var sources = new PropertiesPropertySourceLoader().load(
+                "prod-check", new ClassPathResource("application-prod.properties"));
 
         // 실행 / 검증: Spring의 실제 placeholder 해석이 누락을 실패로 처리한다.
         var names = ((org.springframework.core.env.EnumerablePropertySource<?>) sources.getFirst()).getPropertyNames();
         assertThatThrownBy(() -> {
-            for (String name : names) environment.getRequiredProperty(name);
-        }).isInstanceOf(IllegalArgumentException.class).hasMessageContaining(missing);
+            for (String name : names)
+                environment.getRequiredProperty(name);
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(missing);
     }
 
     @ParameterizedTest
@@ -187,7 +201,8 @@ class ProductionPropertyBindingTest {
 
         // 실행 / 검증: 클라이언트 생성 시점에 거부하므로 외부 통신이 발생하지 않는다.
         assertThatThrownBy(() -> new ChatGatewayTarget(chat)).isInstanceOf(IllegalStateException.class);
-        assertThatThrownBy(() -> new LanguageLearningClientConfiguration().languageLearningRestClient(RestClient.builder(), ll))
+        assertThatThrownBy(
+                () -> new LanguageLearningClientConfiguration().languageLearningRestClient(RestClient.builder(), ll))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -207,8 +222,9 @@ class ProductionPropertyBindingTest {
     private static Map<String, Object> values() {
         var values = new LinkedHashMap<String, Object>();
         for (String key : List.of("DB_USERNAME", "DB_PASSWORD", "GOOGLE_CLIENT_ID", "GEMINI_API_KEY",
-                "GOOGLE_PROXY_URL", "AI_SERVER_API_KEY", "CLOUDFLARE_R2_BUCKET", "CLOUDFLARE_R2_ACCESS_KEY_ID",
-                "CLOUDFLARE_R2_SECRET_ACCESS_KEY")) values.put(key, "synthetic-only");
+                     "GOOGLE_PROXY_URL", "AI_SERVER_API_KEY", "CLOUDFLARE_R2_BUCKET", "CLOUDFLARE_R2_ACCESS_KEY_ID",
+                     "CLOUDFLARE_R2_SECRET_ACCESS_KEY"))
+            values.put(key, "synthetic-only");
         values.put("DB_URL", "jdbc:log4jdbc:mysql://db.fixture.invalid:4000/translacat");
         values.put("FRONTEND_URL", "https://fe.fixture.invalid");
         values.put("AI_SERVER_URL", "https://ai.fixture.invalid:8443");
@@ -234,10 +250,19 @@ class ProductionPropertyBindingTest {
 
     private static String identityToken(String environment, byte[] key) {
         var now = java.time.Instant.now();
-        return Jwts.builder().issuer("translacat-chat").audience().add("translacat-be").and()
-                .subject("73").claim("service", "translacat-chat").claim("tokenUse", "chat-identity")
-                .claim("environment", environment).claim("scopes", List.of("chat:identity:read"))
-                .issuedAt(Date.from(now)).expiration(Date.from(now.plusSeconds(60)))
-                .signWith(Keys.hmacShaKeyFor(key), Jwts.SIG.HS256).compact();
+        return Jwts.builder()
+                .issuer("translacat-chat")
+                .audience()
+                .add("translacat-be")
+                .and()
+                .subject("73")
+                .claim("service", "translacat-chat")
+                .claim("tokenUse", "chat-identity")
+                .claim("environment", environment)
+                .claim("scopes", List.of("chat:identity:read"))
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(60)))
+                .signWith(Keys.hmacShaKeyFor(key), Jwts.SIG.HS256)
+                .compact();
     }
 }

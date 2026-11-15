@@ -22,23 +22,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ChatGatewayPolicyTest {
     @ParameterizedTest
-    @ValueSource(strings = {
-            "http://upstream.invalid",
-            "http://127.0.0.2",
-            "https://user:secret@upstream.invalid",
-            "https://upstream.invalid/path",
-            "https://upstream.invalid?q=1",
-            "https://upstream.invalid#x",
-            "file:///tmp",
-            "//upstream.invalid"
-    })
+    @ValueSource(strings = {"http://upstream.invalid", "http://127.0.0.2", "https://user:secret@upstream.invalid",
+                         "https://upstream.invalid/path", "https://upstream.invalid?q=1", "https://upstream.invalid#x",
+                         "file:///tmp", "//upstream.invalid"})
     void untrustedOrNonOriginTargetIsRejected(String url) {
         // 준비
         var options = options();
         options.setBaseUrl(url);
 
         // 실행 / 검증
-        assertThatThrownBy(() -> new ChatGatewayTarget(options)).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> new ChatGatewayTarget(options))
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageNotContaining("secret");
     }
 
@@ -56,8 +50,8 @@ class ChatGatewayPolicyTest {
                 .isEqualTo("https://chat.internal.invalid/api/v1/chat/rooms?next=https://evil.invalid");
         assertThat(target.webSocketUri().toString()).isEqualTo("wss://chat.internal.invalid/ws/chat");
         assertThatThrownBy(() -> target.httpUri("//evil.invalid", null)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> target.httpUri("/api/v1/auth/login", null)).isInstanceOf(
-                IllegalArgumentException.class);
+        assertThatThrownBy(() -> target.httpUri("/api/v1/auth/login", null))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @ParameterizedTest
@@ -68,8 +62,8 @@ class ChatGatewayPolicyTest {
         options.setSecretBase64(Base64.getEncoder().encodeToString(new byte[keySize]));
 
         // 실행 / 검증
-        assertThatThrownBy(() -> new ChatGatewayTokenIssuer(options, Clock.systemUTC())).isInstanceOf(
-                IllegalStateException.class);
+        assertThatThrownBy(() -> new ChatGatewayTokenIssuer(options, Clock.systemUTC()))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @ParameterizedTest
@@ -79,15 +73,19 @@ class ChatGatewayPolicyTest {
         Set<String> components = scan(enabled);
 
         // 실행 / 검증: 실제 class metadata를 검색한다. JPA repository factory/DB startup 검증으로 보고하지 않는다.
-        assertThat(components).noneMatch(name -> name.startsWith("jp.co.translacat.domain.chat.")
-                || name.startsWith("jp.co.translacat.batch.chat.")
-                || name.startsWith("jp.co.translacat.infrastructure.redis.")
-                || name.startsWith("jp.co.translacat.infrastructure.chat.ai.")
-                || name.startsWith("jp.co.translacat.infrastructure.chat.translation."));
+        assertThat(components)
+                .noneMatch(name
+                        -> name.startsWith("jp.co.translacat.domain.chat.")
+                                || name.startsWith("jp.co.translacat.batch.chat.")
+                                || name.startsWith("jp.co.translacat.infrastructure.redis.")
+                                || name.startsWith("jp.co.translacat.infrastructure.chat.ai.")
+                                || name.startsWith("jp.co.translacat.infrastructure.chat.translation."));
         assertThat(components).doesNotContain("jp.co.translacat.global.config.WebSocketConfig");
-        assertThat(components).contains("jp.co.translacat.infrastructure.chat.core.ChatCoreIdentityController",
-                "jp.co.translacat.global.security.MyUserDetailsService");
-        assertThat(components).contains("jp.co.translacat.infrastructure.chat.gateway.ChatGatewayConfiguration",
+        assertThat(components)
+                .contains("jp.co.translacat.infrastructure.chat.core.ChatCoreIdentityController",
+                        "jp.co.translacat.global.security.MyUserDetailsService");
+        assertThat(components)
+                .contains("jp.co.translacat.infrastructure.chat.gateway.ChatGatewayConfiguration",
                         "jp.co.translacat.infrastructure.chat.gateway.ChatGatewaySecurity")
                 .doesNotContain("jp.co.translacat.infrastructure.chat.gateway.ChatGatewayDisabledSecurity");
     }
@@ -111,8 +109,8 @@ class ChatGatewayPolicyTest {
         environment.getPropertySources().remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
         environment.getPropertySources().remove(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME);
         if (!enabled.equals("missing")) {
-            environment.getPropertySources()
-                    .addFirst(new MapPropertySource("synthetic", Map.of("chat.gateway.enabled", enabled)));
+            environment.getPropertySources().addFirst(
+                    new MapPropertySource("synthetic", Map.of("chat.gateway.enabled", enabled)));
         }
         var scanner = new ClassPathScanningCandidateComponentProvider(false, environment);
         scanner.addIncludeFilter(new AnnotationTypeFilter(Component.class));

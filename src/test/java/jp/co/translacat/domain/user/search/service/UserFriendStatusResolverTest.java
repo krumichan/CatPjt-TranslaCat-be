@@ -20,57 +20,34 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserFriendStatusResolverTest {
+    @Mock private UserBlockService userBlockService;
 
-    @Mock
-    private UserBlockService userBlockService;
+    @Mock private FriendService friendService;
 
-    @Mock
-    private FriendService friendService;
+    @Mock private FriendRequestRepository friendRequestRepository;
 
-    @Mock
-    private FriendRequestRepository friendRequestRepository;
+    @Mock private User targetUser;
 
-    @Mock
-    private User targetUser;
-
-    @Mock
-    private FriendRequest friendRequest;
+    @Mock private FriendRequest friendRequest;
 
     @Test
     void resolveReturnsSelf() {
         when(targetUser.getId()).thenReturn(1L);
 
-        UserSearchFriendStatus result =
-                UserFriendStatusResolver.resolve(
-                        1L,
-                        targetUser,
-                        userBlockService,
-                        friendService,
-                        friendRequestRepository
-                );
+        UserSearchFriendStatus result = UserFriendStatusResolver.resolve(
+                1L, targetUser, userBlockService, friendService, friendRequestRepository);
 
         assertThat(result).isEqualTo(UserSearchFriendStatus.SELF);
-        verifyNoInteractions(
-                userBlockService,
-                friendService,
-                friendRequestRepository
-        );
+        verifyNoInteractions(userBlockService, friendService, friendRequestRepository);
     }
 
     @Test
     void resolveReturnsBlockedBeforeFriendCheck() {
         when(targetUser.getId()).thenReturn(2L);
-        when(userBlockService.isBlockedBetween(1L, 2L))
-                .thenReturn(true);
+        when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(true);
 
-        UserSearchFriendStatus result =
-                UserFriendStatusResolver.resolve(
-                        1L,
-                        targetUser,
-                        userBlockService,
-                        friendService,
-                        friendRequestRepository
-                );
+        UserSearchFriendStatus result = UserFriendStatusResolver.resolve(
+                1L, targetUser, userBlockService, friendService, friendRequestRepository);
 
         assertThat(result).isEqualTo(UserSearchFriendStatus.BLOCKED);
         verifyNoInteractions(friendService, friendRequestRepository);
@@ -79,19 +56,11 @@ class UserFriendStatusResolverTest {
     @Test
     void resolveReturnsFriend() {
         when(targetUser.getId()).thenReturn(2L);
-        when(userBlockService.isBlockedBetween(1L, 2L))
-                .thenReturn(false);
-        when(friendService.areFriends(1L, 2L))
-                .thenReturn(true);
+        when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(false);
+        when(friendService.areFriends(1L, 2L)).thenReturn(true);
 
-        UserSearchFriendStatus result =
-                UserFriendStatusResolver.resolve(
-                        1L,
-                        targetUser,
-                        userBlockService,
-                        friendService,
-                        friendRequestRepository
-                );
+        UserSearchFriendStatus result = UserFriendStatusResolver.resolve(
+                1L, targetUser, userBlockService, friendService, friendRequestRepository);
 
         assertThat(result).isEqualTo(UserSearchFriendStatus.FRIEND);
         verifyNoInteractions(friendRequestRepository);
@@ -100,79 +69,44 @@ class UserFriendStatusResolverTest {
     @Test
     void resolveReturnsRequestSent() {
         when(targetUser.getId()).thenReturn(2L);
-        when(userBlockService.isBlockedBetween(1L, 2L))
-                .thenReturn(false);
-        when(friendService.areFriends(1L, 2L))
-                .thenReturn(false);
-        when(friendRequestRepository.findBetweenUsersByStatus(
-                1L,
-                2L,
-                FriendRequestStatus.PENDING
-        )).thenReturn(Optional.of(friendRequest));
+        when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(false);
+        when(friendService.areFriends(1L, 2L)).thenReturn(false);
+        when(friendRequestRepository.findBetweenUsersByStatus(1L, 2L, FriendRequestStatus.PENDING))
+                .thenReturn(Optional.of(friendRequest));
         when(friendRequest.isRequestedBy(1L)).thenReturn(true);
 
-        UserSearchFriendStatus result =
-                UserFriendStatusResolver.resolve(
-                        1L,
-                        targetUser,
-                        userBlockService,
-                        friendService,
-                        friendRequestRepository
-                );
+        UserSearchFriendStatus result = UserFriendStatusResolver.resolve(
+                1L, targetUser, userBlockService, friendService, friendRequestRepository);
 
-        assertThat(result)
-                .isEqualTo(UserSearchFriendStatus.REQUEST_SENT);
+        assertThat(result).isEqualTo(UserSearchFriendStatus.REQUEST_SENT);
     }
 
     @Test
     void resolveReturnsRequestReceived() {
         when(targetUser.getId()).thenReturn(2L);
-        when(userBlockService.isBlockedBetween(1L, 2L))
-                .thenReturn(false);
-        when(friendService.areFriends(1L, 2L))
-                .thenReturn(false);
-        when(friendRequestRepository.findBetweenUsersByStatus(
-                1L,
-                2L,
-                FriendRequestStatus.PENDING
-        )).thenReturn(Optional.of(friendRequest));
+        when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(false);
+        when(friendService.areFriends(1L, 2L)).thenReturn(false);
+        when(friendRequestRepository.findBetweenUsersByStatus(1L, 2L, FriendRequestStatus.PENDING))
+                .thenReturn(Optional.of(friendRequest));
         when(friendRequest.isRequestedBy(1L)).thenReturn(false);
         when(friendRequest.isReceivedBy(1L)).thenReturn(true);
 
-        UserSearchFriendStatus result =
-                UserFriendStatusResolver.resolve(
-                        1L,
-                        targetUser,
-                        userBlockService,
-                        friendService,
-                        friendRequestRepository
-                );
+        UserSearchFriendStatus result = UserFriendStatusResolver.resolve(
+                1L, targetUser, userBlockService, friendService, friendRequestRepository);
 
-        assertThat(result)
-                .isEqualTo(UserSearchFriendStatus.REQUEST_RECEIVED);
+        assertThat(result).isEqualTo(UserSearchFriendStatus.REQUEST_RECEIVED);
     }
 
     @Test
     void resolveReturnsNone() {
         when(targetUser.getId()).thenReturn(2L);
-        when(userBlockService.isBlockedBetween(1L, 2L))
-                .thenReturn(false);
-        when(friendService.areFriends(1L, 2L))
-                .thenReturn(false);
-        when(friendRequestRepository.findBetweenUsersByStatus(
-                1L,
-                2L,
-                FriendRequestStatus.PENDING
-        )).thenReturn(Optional.empty());
+        when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(false);
+        when(friendService.areFriends(1L, 2L)).thenReturn(false);
+        when(friendRequestRepository.findBetweenUsersByStatus(1L, 2L, FriendRequestStatus.PENDING))
+                .thenReturn(Optional.empty());
 
-        UserSearchFriendStatus result =
-                UserFriendStatusResolver.resolve(
-                        1L,
-                        targetUser,
-                        userBlockService,
-                        friendService,
-                        friendRequestRepository
-                );
+        UserSearchFriendStatus result = UserFriendStatusResolver.resolve(
+                1L, targetUser, userBlockService, friendService, friendRequestRepository);
 
         assertThat(result).isEqualTo(UserSearchFriendStatus.NONE);
     }

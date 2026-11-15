@@ -27,8 +27,7 @@ class NovelEmbeddedAvailabilityTest {
         var key = new EpisodeKey("syosyetu", "n123ab", "1");
         var source = new SentenceSegmenter().segment(key, "題", List.of("猫が歩いた。"), null, null);
         when(query.reader(key, 73L)).thenReturn(ReaderSnapshot.of(key, source, null));
-        var embedded = new NovelEmbeddedService(new NovelFacade(query, commands, audio), catalog,
-                new ObjectMapper());
+        var embedded = new NovelEmbeddedService(new NovelFacade(query, commands, audio), catalog, new ObjectMapper());
 
         // 실행: 활성화 속성이나 독립 NOVEL 주소 없이 내장 reader에 접근한다.
         var response = embedded.reader(73L, new NovelReaderAddress("syosyetu", "n123ab", "1"));

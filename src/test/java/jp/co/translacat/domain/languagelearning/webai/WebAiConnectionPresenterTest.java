@@ -20,12 +20,12 @@ class WebAiConnectionPresenterTest {
         var presented = new WebAiConnectionPresenter("https://api.example.test/").present(connection);
 
         // 검증
-        assertThat(presented.path("promptUrl").asText()).isEqualTo(
-                "https://api.example.test/api/v1/language-learning/web-ai/external/prompt");
-        assertThat(presented.path("bootstrapPrompt").asText()).contains(
-                "https://api.example.test/api/v1/language-learning/web-ai/external/prompt",
-                "https://api.example.test/api/v1/language-learning/web-ai/external/results",
-                "tcwa_synthetic_capability_1234567890");
+        assertThat(presented.path("promptUrl").asText())
+                .isEqualTo("https://api.example.test/api/v1/language-learning/web-ai/external/prompt");
+        assertThat(presented.path("bootstrapPrompt").asText())
+                .contains("https://api.example.test/api/v1/language-learning/web-ai/external/prompt",
+                        "https://api.example.test/api/v1/language-learning/web-ai/external/results",
+                        "tcwa_synthetic_capability_1234567890");
         assertThat(connection.has("bootstrapPrompt")).isFalse();
     }
 
@@ -54,15 +54,17 @@ class WebAiConnectionPresenterTest {
         var presented = new WebAiConnectionPresenter("https://api.example.test").present(connection);
 
         // 검증: 실제 일정만 안내하고 플랫폼이 보고하지 않은 태스크 생성 성공은 주장하지 않는다.
-        assertThat(presented.path("bootstrapPrompt").asText()).contains(
-                "\"recurrence\":\"WEEKLY\"", "\"time\":\"18:00\"", "\"timezone\":\"Asia/Tokyo\"",
-                "\"weekdays\":[1,3,5]", "0=Sunday", "only after the platform reports success", "scheduling is unavailable")
+        assertThat(presented.path("bootstrapPrompt").asText())
+                .contains("\"recurrence\":\"WEEKLY\"", "\"time\":\"18:00\"", "\"timezone\":\"Asia/Tokyo\"",
+                        "\"weekdays\":[1,3,5]", "0=Sunday", "only after the platform reports success",
+                        "scheduling is unavailable")
                 .doesNotContain("private-learning-focus");
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"http://api.example.test", "https://user:secret@api.example.test", "https://api.example.test/path",
-            "https://api.example.test?token=bad", "javascript:alert(1)", "//api.example.test"})
+    @ValueSource(strings = {"http://api.example.test", "https://user:secret@api.example.test",
+                         "https://api.example.test/path", "https://api.example.test?token=bad", "javascript:alert(1)",
+                         "//api.example.test"})
     void unsafeConfiguredOriginsAreRejected(String origin) {
         // 준비 / 실행 / 검증
         assertThrows(IllegalStateException.class, () -> new WebAiConnectionPresenter(origin));

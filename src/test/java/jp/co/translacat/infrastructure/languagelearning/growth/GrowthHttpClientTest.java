@@ -38,22 +38,24 @@ class GrowthHttpClientTest {
         server = MockRestServiceServer.bindTo(builder).build();
         var properties = new LanguageLearningClientProperties();
         properties.getInternalJwt().setSecretBase64(Base64.getEncoder().encodeToString(new byte[32]));
-        client = new GrowthHttpClient(builder.build(),
-                new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC()), mapper);
+        client = new GrowthHttpClient(
+                builder.build(), new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC()), mapper);
     }
 
     @Test
     void currentSnapshotUsesUserTokenAndOnlyRequestedKeys() {
         // 준비: 내부 조회 계약에서 이관 source·sequence·preview를 제거한다.
-        server.expect(requestTo(URL)).andExpect(method(HttpMethod.POST))
+        server.expect(requestTo(URL))
+                .andExpect(method(HttpMethod.POST))
                 .andExpect(content().json("{\"masteryKeys\":[\"topic:travel\"]}", true))
                 .andExpect(request -> {
                     String token = Objects.requireNonNull(request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION))
-                            .substring(7);
+                                           .substring(7);
                     var claims = mapper.readTree(Base64.getUrlDecoder().decode(token.split("\\.")[1]));
                     assertEquals("123", claims.path("sub").asText());
                     assertEquals("ll-internal", claims.path("tokenUse").asText());
-                }).andRespond(withSuccess(snapshot(123), MediaType.APPLICATION_JSON));
+                })
+                .andRespond(withSuccess(snapshot(123), MediaType.APPLICATION_JSON));
 
         // 실행
         var result = client.snapshot(123, List.of("topic:travel"));
@@ -93,8 +95,10 @@ class GrowthHttpClientTest {
     @Test
     void unavailableCurrentReadDoesNotUseLocalProfileFallback() {
         // 준비
-        server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
-                .body("{\"code\":\"LEVEL_TEST_REQUIRED\"}").contentType(MediaType.APPLICATION_JSON));
+        server.expect(requestTo(URL))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                                .body("{\"code\":\"LEVEL_TEST_REQUIRED\"}")
+                                .contentType(MediaType.APPLICATION_JSON));
 
         // 실행
         var failure = assertThrows(LanguageLearningServiceException.class, () -> client.snapshot(123, null));
@@ -110,7 +114,8 @@ class GrowthHttpClientTest {
         // 준비
         var from = LocalDate.parse("2026-09-01");
         var to = LocalDate.parse("2026-09-27");
-        server.expect(requestTo(
+        server
+                .expect(requestTo(
                         "http://localhost:8081/internal/v1/language-learning/growth/activities?source=WRITING&from=2026-09-01&to=2026-09-27&afterId=12"))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess(

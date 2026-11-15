@@ -10,14 +10,14 @@ class ReceiptCategorySuggestionPolicyTest {
     @Test
     void canonicalizesExistingAndDefaultNamesWithoutInventingDuplicates() {
         assertThat(ReceiptCategorySuggestionPolicy.resolve(
-                "food", "matched items", List.of("Food"), List.of("식비", "기타")))
+                           "food", "matched items", List.of("Food"), List.of("식비", "기타")))
                 .satisfies(result -> {
                     assertThat(result.name()).isEqualTo("Food");
                     assertThat(result.source()).isEqualTo("EXISTING");
                     assertThat(result.warnings()).isEmpty();
                 });
         assertThat(ReceiptCategorySuggestionPolicy.resolve(
-                "식비", "prepared food", List.of("Food"), List.of("식비", "기타")))
+                           "식비", "prepared food", List.of("Food"), List.of("식비", "기타")))
                 .satisfies(result -> {
                     assertThat(result.name()).isEqualTo("식비");
                     assertThat(result.source()).isEqualTo("DEFAULT");
@@ -27,15 +27,14 @@ class ReceiptCategorySuggestionPolicyTest {
     @Test
     void preservesSafeNewSuggestionButFallsBackForMissingOrUnsafeNames() {
         assertThat(ReceiptCategorySuggestionPolicy.resolve(
-                "반려동물", "pet supplies", List.of("Food"), List.of("식비", "기타")))
+                           "반려동물", "pet supplies", List.of("Food"), List.of("식비", "기타")))
                 .satisfies(result -> {
                     assertThat(result.name()).isEqualTo("반려동물");
                     assertThat(result.source()).isEqualTo("NEW");
                     assertThat(result.warnings()).containsExactly("CATEGORY_NEW_SUGGESTION");
                 });
-        for (String unsafe : new String[]{null, "   ", "bad\nname", "---"}) {
-            assertThat(ReceiptCategorySuggestionPolicy.resolve(
-                    unsafe, null, List.of("Food"), List.of("식비", "기타")))
+        for (String unsafe : new String[] {null, "   ", "bad\nname", "---"}) {
+            assertThat(ReceiptCategorySuggestionPolicy.resolve(unsafe, null, List.of("Food"), List.of("식비", "기타")))
                     .satisfies(result -> {
                         assertThat(result.name()).isEqualTo("기타");
                         assertThat(result.source()).isEqualTo("FALLBACK");

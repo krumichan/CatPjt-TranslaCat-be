@@ -15,7 +15,8 @@ class NovelReaderRequestLimitFilterTest {
         var response = new MockHttpServletResponse();
 
         // 실행
-        new NovelReaderRequestLimitFilter().doFilter(request, response, (req, res) -> fail("Must not reach controller"));
+        new NovelReaderRequestLimitFilter().doFilter(
+                request, response, (req, res) -> fail("Must not reach controller"));
 
         // 검증
         assertThat(response.getStatus()).isEqualTo(413);

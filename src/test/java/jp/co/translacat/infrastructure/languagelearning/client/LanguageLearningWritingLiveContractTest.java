@@ -62,11 +62,11 @@ class LanguageLearningWritingLiveContractTest {
         // 실행: BE 클라이언트의 실제 POST와 GET을 LL 생성·모델 검증 경로에 보낸다.
         var created = writing.create(userId, DailyWritingType.FREE);
         assertEquals(DailySetStatus.GENERATING, created.status());
-        var ready = waitFor(Duration.ofSeconds(30), () -> writing.get(userId, created.dailySetId()),
-                value -> value.status() == DailySetStatus.READY);
+        var ready = waitFor(Duration.ofSeconds(30),
+                () -> writing.get(userId, created.dailySetId()), value -> value.status() == DailySetStatus.READY);
         var duplicate = writing.create(userId, DailyWritingType.FREE);
-        var foreign = assertThrows(LanguageLearningServiceException.class,
-                () -> writing.get(userId + 1, created.dailySetId()));
+        var foreign = assertThrows(
+                LanguageLearningServiceException.class, () -> writing.get(userId + 1, created.dailySetId()));
 
         // 검증: 동일 snapshot은 한 세트이고 소유권과 실제 문항 DTO가 유지된다.
         assertEquals(created.dailySetId(), duplicate.dailySetId());
@@ -80,11 +80,13 @@ class LanguageLearningWritingLiveContractTest {
         // 실행: 새 LL 문항에 BE의 revision 보호 답변을 제출한다.
         var submitted = writing.submit(userId, itemId,
                 new AnswerSubmitRequestDto("Synthetic answer", ready.items().getFirst().contentRevision()));
-        var completed = waitFor(Duration.ofSeconds(30), () -> writing.get(userId, created.dailySetId()),
-                value -> value.status() == DailySetStatus.COMPLETED);
+        var completed = waitFor(Duration.ofSeconds(30),
+                () -> writing.get(userId, created.dailySetId()), value -> value.status() == DailySetStatus.COMPLETED);
         var duplicateAnswer = assertThrows(LanguageLearningServiceException.class,
-                () -> writing.submit(userId, itemId,
-                        new AnswerSubmitRequestDto("Synthetic answer", ready.items().getFirst().contentRevision())));
+                ()
+                        -> writing.submit(userId, itemId,
+                                new AnswerSubmitRequestDto(
+                                        "Synthetic answer", ready.items().getFirst().contentRevision())));
 
         // 검증: 평가 응답과 이력은 기존 BE DTO로 파싱되고 중복 답변은 거부된다.
         assertEquals(EvaluationStatus.PENDING, submitted.evaluationStatus());
@@ -94,17 +96,17 @@ class LanguageLearningWritingLiveContractTest {
         assertEquals("LANGUAGE_LEARNING_ANSWER_NOT_ALLOWED", duplicateAnswer.getErrorCode());
 
         // 실행: 실제 외부 화면이 사용하는 공통 Overview 조회로 평가 집계를 확인한다.
-        var dashboard = overview.get(userId, "/dashboard", Map.of("from", day, "to", day, "source", "WRITING"),
-                DashboardResponseDto.class);
-        var history = overview.list(userId, "/history", Map.of("source", "WRITING", "period", "all"),
-                LearningHistoryItemResponseDto.class);
+        var dashboard = overview.get(
+                userId, "/dashboard", Map.of("from", day, "to", day, "source", "WRITING"), DashboardResponseDto.class);
+        var history = overview.list(
+                userId, "/history", Map.of("source", "WRITING", "period", "all"), LearningHistoryItemResponseDto.class);
 
         // 검증: coverage는 평가 건수가 아닌 측정된 다섯 지표 수이며 표본·완료 건수는 각각 1이다.
         var performance = dashboard.activityPerformance().writing();
         var evaluation = completed.items().getFirst().attempts().getFirst().evaluation();
-        var expectedMetrics = Map.of("MEANING", evaluation.meaning(), "GRAMMAR", evaluation.grammar(),
-                "VOCABULARY", evaluation.vocabulary(), "NATURALNESS", evaluation.naturalness(),
-                "EXPRESSION", evaluation.expression());
+        var expectedMetrics = Map.of("MEANING", evaluation.meaning(), "GRAMMAR", evaluation.grammar(), "VOCABULARY",
+                evaluation.vocabulary(), "NATURALNESS", evaluation.naturalness(), "EXPRESSION",
+                evaluation.expression());
         assertEquals(1.0, performance.today().completed());
         assertEquals(5, performance.coverage().evaluated());
         assertEquals(5, performance.coverage().total());
@@ -136,12 +138,11 @@ class LanguageLearningWritingLiveContractTest {
         String configuredPort = System.getenv("LL_TEST_MYSQL_PORT");
         int testPort = configuredPort == null ? 33316 : Integer.parseInt(configuredPort);
         assertTrue(testPort > 0 && testPort <= 65535);
-        assertTrue(jdbcUrl.matches("jdbc:mysql://127\\.0\\.0\\.1:" + testPort
-                + "/translacat_ll_it_live_[0-9a-f]{8}"));
+        assertTrue(jdbcUrl.matches("jdbc:mysql://127\\.0\\.0\\.1:" + testPort + "/translacat_ll_it_live_[0-9a-f]{8}"));
         assertNotNull(username);
         assertNotNull(password);
         try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
-             var statement = connection.prepareStatement("""
+                var statement = connection.prepareStatement("""
                      INSERT INTO language_learning_profile
                      (user_id,profile_version,state,base_level_score,evaluation_count,confidence,trend,additional_signals_json,
                       created_at,updated_at,created_by,updated_by)
@@ -154,11 +155,12 @@ class LanguageLearningWritingLiveContractTest {
     }
 
     private static <T> T waitFor(Duration timeout, java.util.function.Supplier<T> query,
-                                 java.util.function.Predicate<T> ready) throws InterruptedException {
+            java.util.function.Predicate<T> ready) throws InterruptedException {
         long deadline = System.nanoTime() + timeout.toNanos();
         while (System.nanoTime() < deadline) {
             T value = query.get();
-            if (ready.test(value)) return value;
+            if (ready.test(value))
+                return value;
             Thread.sleep(100);
         }
         fail("로컬 LL Writing 처리가 기한 안에 완료되지 않았습니다.");

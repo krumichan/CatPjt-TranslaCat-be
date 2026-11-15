@@ -26,18 +26,16 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:chart-transactions;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER",
-        "spring.jpa.show-sql=false"
-})
+@DataJpaTest(
+        properties =
+                {"spring.datasource.url=jdbc:h2:mem:chart-transactions;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER",
+                        "spring.jpa.show-sql=false"})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @Import(QueryDslConfig.class)
 class AccountBookChartTransactionFilterTest {
-    @Autowired
-    EntityManager entities;
-    @Autowired
-    AccountBookTransactionRepository repository;
+    @Autowired EntityManager entities;
+    @Autowired AccountBookTransactionRepository repository;
 
     final ObjectMapper mapper = new ObjectMapper();
     final LocalDate october = LocalDate.of(2026, 10, 15);
@@ -47,8 +45,8 @@ class AccountBookChartTransactionFilterTest {
     @BeforeEach
     void fixture() {
         // 준비: 테스트 전용 소유자와 서로 다른 두 가계부를 만든다.
-        var owner = User.createLocalUser("chart-" + UUID.randomUUID() + "@test.local", "password", "chart",
-                Role.USER, UUID.randomUUID().toString().substring(0, 10));
+        var owner = User.createLocalUser("chart-" + UUID.randomUUID() + "@test.local", "password", "chart", Role.USER,
+                UUID.randomUUID().toString().substring(0, 10));
         entities.persist(owner);
         var currency = Currency.create("JPY", "Japanese Yen", "Y", 0, false);
         entities.persist(currency);
@@ -74,8 +72,8 @@ class AccountBookChartTransactionFilterTest {
 
         // 실행
         var page = repository.findAllWithPage(book.getId(), request);
-        var chart = repository.aggregateExpenseAmountsByCategory(book.getId(), october.withDayOfMonth(1),
-                october.plusMonths(1).withDayOfMonth(1));
+        var chart = repository.aggregateExpenseAmountsByCategory(
+                book.getId(), october.withDayOfMonth(1), october.plusMonths(1).withDayOfMonth(1));
         var unfiltered = repository.findAllWithPage(book.getId(), request("{\"year\":2026,\"month\":10}"));
 
         // 검증: 페이지 크기와 무관하게 선택한 그룹의 전체 건수가 유지된다.
@@ -84,14 +82,13 @@ class AccountBookChartTransactionFilterTest {
             assertThat(item.category()).isEqualTo("생활");
             assertThat(item.type()).isEqualTo(AccountBookTransactionType.EXPENSE);
         });
-        assertThat(chart).filteredOn(item -> "생활".equals(item.groupKey())).singleElement()
-                .satisfies(item -> {
-                    assertThat(item.transactionCount()).isEqualTo(page.getTotalElements());
-                    assertThat(item.amount()).isEqualByComparingTo("300");
-                });
+        assertThat(chart).filteredOn(item -> "생활".equals(item.groupKey())).singleElement().satisfies(item -> {
+            assertThat(item.transactionCount()).isEqualTo(page.getTotalElements());
+            assertThat(item.amount()).isEqualByComparingTo("300");
+        });
         assertThat(unfiltered.getTotalElements()).isEqualTo(4);
-        assertThat(unfiltered.getContent()).anySatisfy(item ->
-                assertThat(item.type()).isEqualTo(AccountBookTransactionType.INCOME));
+        assertThat(unfiltered.getContent())
+                .anySatisfy(item -> assertThat(item.type()).isEqualTo(AccountBookTransactionType.INCOME));
     }
 
     @Test
@@ -112,9 +109,11 @@ class AccountBookChartTransactionFilterTest {
         var literalPage = repository.findAllWithPage(book.getId(), literal);
 
         // 검증
-        assertThat(combinedPage.getContent()).extracting(item -> item.category())
+        assertThat(combinedPage.getContent())
+                .extracting(item -> item.category())
                 .containsExactlyInAnyOrder("생활", "식비");
-        assertThat(literalPage.getContent()).singleElement()
+        assertThat(literalPage.getContent())
+                .singleElement()
                 .satisfies(item -> assertThat(item.category()).isEqualTo("기타"));
     }
 
@@ -135,18 +134,18 @@ class AccountBookChartTransactionFilterTest {
 
         // 실행
         var page = repository.findAllWithPage(book.getId(), request);
-        var chart = repository.aggregateExpenseAmountsByStore(book.getId(), october.withDayOfMonth(1),
-                october.plusMonths(1).withDayOfMonth(1));
+        var chart = repository.aggregateExpenseAmountsByStore(
+                book.getId(), october.withDayOfMonth(1), october.plusMonths(1).withDayOfMonth(1));
 
         // 검증: 표시명 대신 차트의 정규화 키를 사용하며 금액과 건수가 일치한다.
         assertThat(page.getTotalElements()).isEqualTo(3);
-        assertThat(page.getContent()).extracting(item -> item.category())
+        assertThat(page.getContent())
+                .extracting(item -> item.category())
                 .containsExactlyInAnyOrder("생활", "식비", "쇼핑");
-        assertThat(chart).filteredOn(item -> "amazon".equals(item.groupKey())).singleElement()
-                .satisfies(item -> {
-                    assertThat(item.transactionCount()).isEqualTo(page.getTotalElements());
-                    assertThat(item.amount()).isEqualByComparingTo("600");
-                });
+        assertThat(chart).filteredOn(item -> "amazon".equals(item.groupKey())).singleElement().satisfies(item -> {
+            assertThat(item.transactionCount()).isEqualTo(page.getTotalElements());
+            assertThat(item.amount()).isEqualByComparingTo("600");
+        });
     }
 
     @Test
@@ -180,8 +179,7 @@ class AccountBookChartTransactionFilterTest {
         assertThat(selectedPage.getTotalElements()).isEqualTo(2);
         assertThat(missingPage.getContent()).isEmpty();
         assertThat(unnamedStorePage.getContent()).isEmpty();
-        assertThat(blankPage.getContent()).singleElement()
-                .satisfies(item -> assertThat(item.category()).isEmpty());
+        assertThat(blankPage.getContent()).singleElement().satisfies(item -> assertThat(item.category()).isEmpty());
     }
 
     @Test
@@ -196,7 +194,8 @@ class AccountBookChartTransactionFilterTest {
             var violations = factory.getValidator().validate(request);
 
             // 검증
-            assertThat(violations).extracting(item -> item.getPropertyPath().toString())
+            assertThat(violations)
+                    .extracting(item -> item.getPropertyPath().toString())
                     .containsExactlyInAnyOrder("chartFilter.type", "chartFilter.keys");
         }
     }
@@ -223,9 +222,11 @@ class AccountBookChartTransactionFilterTest {
         var excludingNullPage = repository.findAllWithPage(book.getId(), excludingNull);
 
         // 검증: 상위 키의 수만 전달하며 남은 그룹의 거래만 반환한다.
-        assertThat(remainingPage.getContent()).extracting(item -> item.category())
+        assertThat(remainingPage.getContent())
+                .extracting(item -> item.category())
                 .containsExactlyInAnyOrder("기타", "");
-        assertThat(excludingNullPage.getContent()).extracting(item -> item.category())
+        assertThat(excludingNullPage.getContent())
+                .extracting(item -> item.category())
                 .containsExactlyInAnyOrder("기타", "");
     }
 
@@ -245,14 +246,15 @@ class AccountBookChartTransactionFilterTest {
         var page = repository.findAllWithPage(book.getId(), request);
 
         // 검증
-        assertThat(page.getContent()).singleElement()
+        assertThat(page.getContent())
+                .singleElement()
                 .satisfies(item -> assertThat(item.storeName()).isEqualTo("Elsewhere"));
     }
 
     private AccountBookTransaction add(AccountBook targetBook, String category, String store, long amount,
-                                       LocalDate date, AccountBookTransactionType type) {
-        var transaction = AccountBookTransaction.create(targetBook, type, BigDecimal.valueOf(amount),
-                "Transaction", store, category, date, null);
+            LocalDate date, AccountBookTransactionType type) {
+        var transaction = AccountBookTransaction.create(
+                targetBook, type, BigDecimal.valueOf(amount), "Transaction", store, category, date, null);
         entities.persist(transaction);
         return transaction;
     }

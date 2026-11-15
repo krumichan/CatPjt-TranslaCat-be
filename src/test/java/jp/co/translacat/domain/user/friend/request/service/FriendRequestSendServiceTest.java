@@ -28,24 +28,17 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class FriendRequestSendServiceTest {
+    @Mock private FriendRequestRepository friendRequestRepository;
 
-    @Mock
-    private FriendRequestRepository friendRequestRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserProfileQueryService userProfileQueryService;
 
-    @Mock
-    private UserProfileQueryService userProfileQueryService;
+    @Mock private FriendService friendService;
 
-    @Mock
-    private FriendService friendService;
+    @Mock private UserBlockService userBlockService;
 
-    @Mock
-    private UserBlockService userBlockService;
-
-    @InjectMocks
-    private FriendRequestService friendRequestService;
+    @InjectMocks private FriendRequestService friendRequestService;
 
     @Test
     @DisplayName("친구 요청 전송 성공")
@@ -63,15 +56,12 @@ class FriendRequestSendServiceTest {
         when(userBlockService.isBlockedBetween(1L, 2L)).thenReturn(false);
         when(friendRequestRepository.existsPendingBetweenUsers(1L, 2L)).thenReturn(false);
         when(friendService.areFriends(1L, 2L)).thenReturn(false);
-        when(friendRequestRepository.save(any(FriendRequest.class))).thenAnswer(
-                invocation -> invocation.getArgument(0));
+        when(friendRequestRepository.save(any(FriendRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         when(userProfileQueryService.getSummaryByUser(receiverUser)).thenReturn(receiverProfile);
 
         // when
-        FriendRequestResponseDto response = friendRequestService.sendFriendRequest(
-                requesterUserId,
-                request
-        );
+        FriendRequestResponseDto response = friendRequestService.sendFriendRequest(requesterUserId, request);
 
         // then
         assertThat(response.requesterUserId()).isEqualTo(1L);
@@ -99,9 +89,7 @@ class FriendRequestSendServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.sendFriendRequest(requesterUserId, request))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_NOT_FOUND")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_NOT_FOUND"));
 
         verify(friendRequestRepository, never()).save(any(FriendRequest.class));
     }
@@ -120,9 +108,8 @@ class FriendRequestSendServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.sendFriendRequest(requesterUserId, request))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_SELF_NOT_ALLOWED")
-                );
+                .satisfies(
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_SELF_NOT_ALLOWED"));
 
         verify(friendRequestRepository, never()).save(any(FriendRequest.class));
     }
@@ -143,9 +130,7 @@ class FriendRequestSendServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.sendFriendRequest(requesterUserId, request))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("USER_BLOCKED_BETWEEN")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("USER_BLOCKED_BETWEEN"));
 
         verify(friendRequestRepository, never()).save(any(FriendRequest.class));
     }
@@ -167,9 +152,8 @@ class FriendRequestSendServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.sendFriendRequest(requesterUserId, request))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PENDING")
-                );
+                .satisfies(
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_REQUEST_ALREADY_PENDING"));
 
         verify(friendRequestRepository, never()).save(any(FriendRequest.class));
     }
@@ -192,35 +176,17 @@ class FriendRequestSendServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendRequestService.sendFriendRequest(requesterUserId, request))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("FRIEND_ALREADY_EXISTS")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("FRIEND_ALREADY_EXISTS"));
 
         verify(friendRequestRepository, never()).save(any(FriendRequest.class));
     }
 
     private UserSummaryProfileResponseDto createSummary(User user) {
-        return new UserSummaryProfileResponseDto(
-                user.getId(),
-                user.getPublicId(),
-                user.getUsername(),
-                null
-        );
+        return new UserSummaryProfileResponseDto(user.getId(), user.getPublicId(), user.getUsername(), null);
     }
 
-    private User createUser(
-            Long id,
-            String email,
-            String username,
-            String publicId
-    ) {
-        User user = User.createLocalUser(
-                email,
-                "password",
-                username,
-                Role.USER,
-                publicId
-        );
+    private User createUser(Long id, String email, String username, String publicId) {
+        User user = User.createLocalUser(email, "password", username, Role.USER, publicId);
         user.setId(id);
         return user;
     }

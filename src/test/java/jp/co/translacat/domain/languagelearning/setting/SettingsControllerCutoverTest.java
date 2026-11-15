@@ -65,9 +65,8 @@ class SettingsControllerCutoverTest {
     void nonAdminCannotInvokeAdminReadEvenThroughTheSpringProxy() {
         try (var context = new AnnotationConfigApplicationContext(ConfigurationForTest.class)) {
             var principal = principal();
-            SecurityContextHolder.getContext()
-                    .setAuthentication(new UsernamePasswordAuthenticationToken(principal, "",
-                            List.of(new SimpleGrantedAuthority("ROLE_USER"))));
+            SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                    principal, "", List.of(new SimpleGrantedAuthority("ROLE_USER"))));
             assertThrows(AccessDeniedException.class,
                     () -> context.getBean(AdminLanguageLearningSettingController.class).get(principal));
             verifyNoInteractions(context.getBean(AdminSettingsGateway.class));
@@ -82,9 +81,8 @@ class SettingsControllerCutoverTest {
             var principal = principal();
             var gateway = context.getBean(AdminSettingsGateway.class);
             when(gateway.getSettings(987L)).thenReturn(SettingsSnapshotFixtures.adminDto());
-            SecurityContextHolder.getContext()
-                    .setAuthentication(new UsernamePasswordAuthenticationToken(principal, "",
-                            List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+            SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                    principal, "", List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
             var response = context.getBean(AdminLanguageLearningSettingController.class).get(principal);
             assertEquals(200, response.getResultCode());
             assertEquals(5, response.getBody().defaultDailySentenceCount());

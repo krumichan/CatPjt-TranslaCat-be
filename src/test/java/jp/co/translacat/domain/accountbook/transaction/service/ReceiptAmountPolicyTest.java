@@ -15,10 +15,10 @@ class ReceiptAmountPolicyTest {
 
     @Test
     void papasuPointsAndRepeatedCardDetailProduce5020() {
-        var result = ReceiptAmountPolicy.decide(new BigDecimal("7089"), List.of(
-                payment("LOYALTY_POINTS", "2069", null),
-                payment("CREDIT_CARD", "5020", "card-1"),
-                payment("CREDIT_CARD", "5020", "card-1")), null, BigDecimal.ZERO);
+        var result = ReceiptAmountPolicy.decide(new BigDecimal("7089"),
+                List.of(payment("LOYALTY_POINTS", "2069", null), payment("CREDIT_CARD", "5020", "card-1"),
+                        payment("CREDIT_CARD", "5020", "card-1")),
+                null, BigDecimal.ZERO);
         assertThat(result.status()).isEqualTo("READY");
         assertThat(result.bookAmount()).isEqualByComparingTo("5020");
         assertThat(result.warnings()).contains("DUPLICATE_PAYMENT_DETAIL_COLLAPSED");
@@ -27,18 +27,16 @@ class ReceiptAmountPolicyTest {
 
     @Test
     void mismatchedAllocationCannotBecomeARegistrationAmount() {
-        var result = ReceiptAmountPolicy.decide(new BigDecimal("7089"), List.of(
-                payment("LOYALTY_POINTS", "1000", null),
-                payment("CREDIT_CARD", "5020", null)), null, null);
+        var result = ReceiptAmountPolicy.decide(new BigDecimal("7089"),
+                List.of(payment("LOYALTY_POINTS", "1000", null), payment("CREDIT_CARD", "5020", null)), null, null);
         assertThat(result.status()).isEqualTo("NEEDS_REVIEW");
         assertThat(result.bookAmount()).isNull();
     }
 
     @Test
     void grossCardHeadingPlusPointsDerivesNetSettlement() {
-        var result = ReceiptAmountPolicy.decide(new BigDecimal("7089"), List.of(
-                payment("CREDIT_CARD", "7089", null),
-                payment("LOYALTY_POINTS", "2069", null)), null, null);
+        var result = ReceiptAmountPolicy.decide(new BigDecimal("7089"),
+                List.of(payment("CREDIT_CARD", "7089", null), payment("LOYALTY_POINTS", "2069", null)), null, null);
         assertThat(result.status()).isEqualTo("READY");
         assertThat(result.bookAmount()).isEqualByComparingTo("5020");
         assertThat(result.warnings()).contains("GROSS_PAYMENT_LINE_REPLACED_BY_NET_SETTLEMENT");
@@ -46,16 +44,15 @@ class ReceiptAmountPolicyTest {
 
     @Test
     void fullPointRedemptionIsExplicitlyExcluded() {
-        var result = ReceiptAmountPolicy.decide(new BigDecimal("1000"), List.of(
-                payment("LOYALTY_POINTS", "1000", null)), null, null);
+        var result = ReceiptAmountPolicy.decide(
+                new BigDecimal("1000"), List.of(payment("LOYALTY_POINTS", "1000", null)), null, null);
         assertThat(result.status()).isEqualTo("EXCLUDED");
         assertThat(result.bookAmount()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test
     void cashTenderedAndChangeOverrideTheTenderedCashObservation() {
-        var result = ReceiptAmountPolicy.decide(new BigDecimal("9.00"), List.of(
-                        payment("CASH", "10.00", null)),
+        var result = ReceiptAmountPolicy.decide(new BigDecimal("9.00"), List.of(payment("CASH", "10.00", null)),
                 new BigDecimal("10.00"), new BigDecimal("1.00"));
         assertThat(result.status()).isEqualTo("READY");
         assertThat(result.bookAmount()).isEqualByComparingTo("9.00");
@@ -81,8 +78,8 @@ class ReceiptAmountPolicyTest {
     @Test
     void confirmedCardCorrectionCanBeRecalculatedNormally() {
         // 준비 / 실행: 원본 확인 후 정정한 실제 카드 결제 금액을 사용한다.
-        var result = ReceiptAmountPolicy.decide(new BigDecimal("1188"),
-                List.of(payment("CREDIT_CARD", "1188", null)), null, null);
+        var result = ReceiptAmountPolicy.decide(
+                new BigDecimal("1188"), List.of(payment("CREDIT_CARD", "1188", null)), null, null);
 
         // 검증: 과거 오분류와 무관하게 현재의 올바른 지급액을 환산할 수 있다.
         assertThat(result.status()).isEqualTo("READY");

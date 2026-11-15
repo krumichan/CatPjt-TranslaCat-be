@@ -36,8 +36,8 @@ class LanguageLearningListeningClientTest {
     @Test
     void pendingTaskKeepsExternalEnumAndNullEvaluation() {
         // 준비: LL 저장 상태와 외부 READY enum을 구분한 실제 DTO 형식이다.
-        server.expect(
-                        requestTo("http://ll.test/internal/v1/language-learning/listening/attempts/-7/responses/DICTATION"))
+        server.expect(requestTo(
+                              "http://ll.test/internal/v1/language-learning/listening/attempts/-7/responses/DICTATION"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", org.hamcrest.Matchers.startsWith("Bearer ")))
                 .andExpect(content().json("{\"answer\":\"synthetic\"}", true))
@@ -63,8 +63,9 @@ class LanguageLearningListeningClientTest {
     void businessConflictIsForwardedWithoutAnotherCall() {
         // 준비
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/listening/sessions"))
-                .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
-                        .body("{\"code\":\"LISTENING_ACTIVE_SESSION_EXISTS\",\"message\":\"이미 진행 중인 Listening Session이 있습니다.\"}"));
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body("{\"code\":\"LISTENING_ACTIVE_SESSION_EXISTS\",\"message\":\"이미 진행 중인 Listening Session이 있습니다.\"}"));
 
         // 실행
         var failure = assertThrows(LanguageLearningServiceException.class,

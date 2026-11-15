@@ -21,8 +21,11 @@ class LearningProfileLanguagePromotionTest {
         var growth = mock(GrowthReadGateway.class);
         var vocabulary = mock(VocabularyMasteryQueryService.class);
         var settings = mock(UserSettingsGateway.class);
-        var active = new boolean[] { false };
-        when(settings.get(123L)).thenAnswer(call -> { active[0] = true; return null; });
+        var active = new boolean[] {false};
+        when(settings.get(123L)).thenAnswer(call -> {
+            active[0] = true;
+            return null;
+        });
         var profile = mock(GrowthProfileSnapshot.class);
         when(profile.state()).thenReturn(LearningProfileState.ACTIVE);
         when(growth.snapshot(123L)).thenAnswer(call -> {

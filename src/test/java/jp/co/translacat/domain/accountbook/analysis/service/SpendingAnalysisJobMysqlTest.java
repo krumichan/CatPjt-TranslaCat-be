@@ -29,14 +29,14 @@ class SpendingAnalysisJobMysqlTest {
     void uniqueActiveSlotSurvivesConcurrentRequestsAndCancellationUntilWorkerFinishes() throws Exception {
         // 준비: 이 테스트 전용 MySQL 스키마에 실제 마이그레이션을 적용한다.
         String port = System.getenv("ANALYSIS_JOB_TEST_MYSQL_PORT");
-        var source = new DriverManagerDataSource("jdbc:mysql://127.0.0.1:" + port
-                + "/analysis_jobs_test?allowPublicKeyRetrieval=true&sslMode=DISABLED",
+        var source = new DriverManagerDataSource(
+                "jdbc:mysql://127.0.0.1:" + port + "/analysis_jobs_test?allowPublicKeyRetrieval=true&sslMode=DISABLED",
                 "analysis_test", "analysis-test-only");
         var jdbc = new JdbcTemplate(source);
         jdbc.execute("CREATE TABLE account_book (id BIGINT PRIMARY KEY)");
         jdbc.update("INSERT INTO account_book VALUES (1), (2)");
-        var migration = new ResourceDatabasePopulator(new FileSystemResource(
-                "scripts/sql/20261110_account_book_spending_analysis_jobs.sql"));
+        var migration = new ResourceDatabasePopulator(
+                new FileSystemResource("scripts/sql/20261110_account_book_spending_analysis_jobs.sql"));
         migration.execute(source);
         migration.execute(source);
         var store = new SpendingAnalysisJobStore(jdbc, JsonMapper.builder().findAndAddModules().build());
@@ -90,9 +90,10 @@ class SpendingAnalysisJobMysqlTest {
     }
 
     private Job raceInsert(SpendingAnalysisJobStore store, Request request, SpendingAnalysisPeriods.Range range,
-                           long requester, CountDownLatch ready, CountDownLatch go) throws InterruptedException {
+            long requester, CountDownLatch ready, CountDownLatch go) throws InterruptedException {
         ready.countDown();
-        if (!go.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Concurrent test did not start");
+        if (!go.await(10, TimeUnit.SECONDS))
+            throw new IllegalStateException("Concurrent test did not start");
         try {
             return store.insert(1, requester, request, range, null);
         } catch (DuplicateKeyException duplicate) {

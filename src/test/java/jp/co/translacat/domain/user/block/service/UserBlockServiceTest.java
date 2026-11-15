@@ -23,18 +23,13 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserBlockServiceTest {
+    @Mock private UserBlockRepository userBlockRepository;
 
-    @Mock
-    private UserBlockRepository userBlockRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private FriendService friendService;
 
-    @Mock
-    private FriendService friendService;
-
-    @InjectMocks
-    private UserBlockService userBlockService;
+    @InjectMocks private UserBlockService userBlockService;
 
     @Test
     @DisplayName("사용자 차단 생성 테스트")
@@ -98,9 +93,7 @@ class UserBlockServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> userBlockService.blockUser(1L, 2L))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("USER_BLOCK_ALREADY_EXISTS")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("USER_BLOCK_ALREADY_EXISTS"));
 
         verify(userBlockRepository, never()).save(any(UserBlock.class));
     }
@@ -183,9 +176,7 @@ class UserBlockServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> userBlockService.unblockUser(1L, 2L))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("USER_BLOCK_NOT_FOUND")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("USER_BLOCK_NOT_FOUND"));
     }
 
     @Test
@@ -207,19 +198,8 @@ class UserBlockServiceTest {
         assertThat(userBlocks.get(0).getBlockedUser().getId()).isEqualTo(2L);
     }
 
-    private User createUser(
-            Long id,
-            String email,
-            String username,
-            String publicId
-    ) {
-        User user = User.createLocalUser(
-                email,
-                "password",
-                username,
-                Role.USER,
-                publicId
-        );
+    private User createUser(Long id, String email, String username, String publicId) {
+        User user = User.createLocalUser(email, "password", username, Role.USER, publicId);
         user.setId(id);
         return user;
     }

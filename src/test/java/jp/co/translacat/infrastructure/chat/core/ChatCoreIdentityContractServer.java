@@ -21,13 +21,13 @@ public final class ChatCoreIdentityContractServer {
             throw new IllegalStateException("Explicit local identity contract test is required.");
         }
         byte[] key = Base64.getDecoder().decode(System.getenv("CHAT_IDENTITY_CONTRACT_KEY"));
-        if (key.length != 64) throw new IllegalArgumentException("Invalid synthetic test key.");
+        if (key.length != 64)
+            throw new IllegalArgumentException("Invalid synthetic test key.");
         Path manifest = Path.of(System.getenv("CHAT_IDENTITY_CONTRACT_MANIFEST"));
         var context = ChatCoreIdentityHttpTest.createServer(key);
         var users = context.getBean(UserRepository.class);
-        User user =
-                User.createLocalUser("synthetic@example.invalid", "unused-synthetic-password", "synthetic", Role.ADMIN,
-                        "synthetic-public-id");
+        User user = User.createLocalUser("synthetic@example.invalid", "unused-synthetic-password", "synthetic",
+                Role.ADMIN, "synthetic-public-id");
         user.setId(73L);
         when(users.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
 

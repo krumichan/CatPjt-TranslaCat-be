@@ -53,8 +53,7 @@ class AuthAttemptLimiterTest {
         }
 
         // 실행 및 검증
-        assertThatThrownBy(() -> limiter.acquire("LOGIN", "  PERSON@example.com  "))
-                .isInstanceOf(AuthException.class);
+        assertThatThrownBy(() -> limiter.acquire("LOGIN", "  PERSON@example.com  ")).isInstanceOf(AuthException.class);
         limiter.acquire("google-link", "person@example.com");
         limiter.acquire("google-link", "42");
     }
@@ -73,8 +72,8 @@ class AuthAttemptLimiterTest {
 
         // 검증: 고정 구간 초기화로 열 건을 더 허용하지 않는다.
         assertThatThrownBy(() -> limiter.acquire("login", "person@example.com"))
-                .isInstanceOfSatisfying(AuthException.class, error ->
-                        assertThat(error.getRetryAfterSeconds()).isEqualTo(60));
+                .isInstanceOfSatisfying(
+                        AuthException.class, error -> assertThat(error.getRetryAfterSeconds()).isEqualTo(60));
         clock.now.set(START.plusSeconds(960));
         limiter.acquire("login", "person@example.com");
     }
@@ -126,8 +125,8 @@ class AuthAttemptLimiterTest {
 
         // 실행 및 검증: 새 이메일이 기존의 실패 기록을 밀어내지 못한다.
         assertThatThrownBy(() -> limiter.acquire("login", "third@example.com"))
-                .isInstanceOfSatisfying(AuthException.class, error ->
-                        assertThat(error.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
+                .isInstanceOfSatisfying(AuthException.class,
+                        error -> assertThat(error.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
         assertThatThrownBy(() -> limiter.acquire("login", "first@example.com")).isInstanceOf(AuthException.class);
 
         // 실행 및 검증: 보관 기간이 지난 키를 청소하면 다시 예약할 수 있다.
@@ -158,8 +157,8 @@ class AuthAttemptLimiterTest {
 
         // 실행 및 검증
         assertThatThrownBy(() -> limiter.acquire("login", "person@example.com"))
-                .isInstanceOfSatisfying(AuthException.class, error ->
-                        assertThat(error.getRetryAfterSeconds()).isEqualTo(1));
+                .isInstanceOfSatisfying(
+                        AuthException.class, error -> assertThat(error.getRetryAfterSeconds()).isEqualTo(1));
     }
 
     @Test
@@ -173,8 +172,7 @@ class AuthAttemptLimiterTest {
 
         // 실행 및 검증: 시계가 복구되어도 방금 예약한 열 건이 사라지지 않는다.
         clock.now.set(START);
-        assertThatThrownBy(() -> limiter.acquire("login", "person@example.com"))
-                .isInstanceOf(AuthException.class);
+        assertThatThrownBy(() -> limiter.acquire("login", "person@example.com")).isInstanceOf(AuthException.class);
     }
 
     private static class MutableClock extends Clock {

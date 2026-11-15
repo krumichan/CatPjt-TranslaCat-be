@@ -57,7 +57,8 @@ class LanguageLearningWritingClientTest {
     @Test
     void readConvertsLlResponseToExistingBeDto() {
         // 준비: 실제 LL 응답의 세트·문항·답변 필드를 포함한다.
-        server.expect(requestTo(
+        server
+                .expect(requestTo(
                         "http://ll.test/internal/v1/language-learning/writing/daily/history/2026-09-26?writingType=FREE"))
                 .andExpect(header("Authorization", org.hamcrest.Matchers.startsWith("Bearer ")))
                 .andRespond(withSuccess("""
@@ -85,8 +86,9 @@ class LanguageLearningWritingClientTest {
         // 준비: LL이 답변 중복을 거부한다.
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/writing/daily/items/11/answers"))
                 .andExpect(content().json("{\"answer\":\"합성 답변\",\"contentRevision\":\"rev-1\"}"))
-                .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
-                        .body("{\"code\":\"LANGUAGE_LEARNING_ANSWER_NOT_ALLOWED\",\"message\":\"답변 불가\"}"));
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body("{\"code\":\"LANGUAGE_LEARNING_ANSWER_NOT_ALLOWED\",\"message\":\"답변 불가\"}"));
 
         // 실행: 외부 BE 호출을 LL에 한 번 전달한다.
         var failure = assertThrows(LanguageLearningServiceException.class,

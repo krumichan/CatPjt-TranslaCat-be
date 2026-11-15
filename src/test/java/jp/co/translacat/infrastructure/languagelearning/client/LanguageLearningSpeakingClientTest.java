@@ -29,8 +29,8 @@ class LanguageLearningSpeakingClientTest {
     private LanguageLearningSpeakingClient client() {
         var properties = new LanguageLearningClientProperties();
         properties.getInternalJwt().setSecretBase64(Base64.getEncoder().encodeToString(new byte[32]));
-        return new LanguageLearningSpeakingClient(builder.build(),
-                new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC()), mapper);
+        return new LanguageLearningSpeakingClient(
+                builder.build(), new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC()), mapper);
     }
 
     @Test
@@ -43,8 +43,8 @@ class LanguageLearningSpeakingClientTest {
 
         // 실행
         var absent = client.optional(101L, "/sessions/active", Reply.class);
-        var failed = assertThrows(LanguageLearningServiceException.class,
-                () -> client.get(101L, "/sessions/-1", Reply.class));
+        var failed = assertThrows(
+                LanguageLearningServiceException.class, () -> client.get(101L, "/sessions/-1", Reply.class));
 
         // 검증
         assertNull(absent);
@@ -56,9 +56,11 @@ class LanguageLearningSpeakingClientTest {
     void preservesOriginalSpeakingFailureWithoutBusinessFallback() {
         // 준비
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/speaking/sessions/-1/complete"))
-                .andExpect(method(HttpMethod.POST)).andExpect(content().json("{\"skipEvaluation\":true}", true))
-                .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
-                        .body("{\"code\":\"SPEAKING_EVALUATION_SKIP_NOT_ALLOWED\",\"message\":\"평가 생략 불가\"}"));
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("{\"skipEvaluation\":true}", true))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body("{\"code\":\"SPEAKING_EVALUATION_SKIP_NOT_ALLOWED\",\"message\":\"평가 생략 불가\"}"));
 
         // 실행
         var failed = assertThrows(LanguageLearningServiceException.class,
@@ -74,12 +76,14 @@ class LanguageLearningSpeakingClientTest {
     void adminPatchBindsTheAuthenticatedActorAndAdminRole() {
         // 준비
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/speaking/admin/topics/-2"))
-                .andExpect(method(HttpMethod.PATCH)).andExpect(request -> {
+                .andExpect(method(HttpMethod.PATCH))
+                .andExpect(request -> {
                     String token = request.getHeaders().getFirst("Authorization").substring(7);
                     var payload = mapper.readTree(Base64.getUrlDecoder().decode(token.split("\\.")[1]));
                     assertEquals("303", payload.path("sub").asText());
                     assertEquals("ADMIN", payload.path("roles").get(0).asText());
-                }).andRespond(withSuccess("{\"id\":-2,\"status\":\"ACTIVE\"}", MediaType.APPLICATION_JSON));
+                })
+                .andRespond(withSuccess("{\"id\":-2,\"status\":\"ACTIVE\"}", MediaType.APPLICATION_JSON));
 
         // 실행
         var result = client.adminPatch(303L, "/admin/topics/-2", Map.of("title", "Synthetic title"), Reply.class);
@@ -98,10 +102,10 @@ class LanguageLearningSpeakingClientTest {
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
         // 실행
-        var jsonFailure = assertThrows(LanguageLearningServiceException.class,
-                () -> client.get(101L, "/sessions/-1", Reply.class));
-        var audioFailure = assertThrows(LanguageLearningServiceException.class,
-                () -> client.audio(101L, "/sessions/-1/audio/opening"));
+        var jsonFailure = assertThrows(
+                LanguageLearningServiceException.class, () -> client.get(101L, "/sessions/-1", Reply.class));
+        var audioFailure = assertThrows(
+                LanguageLearningServiceException.class, () -> client.audio(101L, "/sessions/-1/audio/opening"));
 
         // 검증
         assertEquals("LL_SPEAKING_CONTRACT_ERROR", jsonFailure.getErrorCode());
@@ -159,6 +163,5 @@ class LanguageLearningSpeakingClientTest {
         server.verify();
     }
 
-    private record Reply(long id, String status) {
-    }
+    private record Reply(long id, String status) {}
 }

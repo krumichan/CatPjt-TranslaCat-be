@@ -29,45 +29,29 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class LanguageLearningSettingsClientTest {
-
     private MockRestServiceServer server;
     private LanguageLearningSettingsClient client;
 
     @BeforeEach
     void setUp() {
         byte[] key = new byte[32];
-        LanguageLearningClientProperties properties =
-                new LanguageLearningClientProperties();
+        LanguageLearningClientProperties properties = new LanguageLearningClientProperties();
         properties.setUrl("http://ll.test");
-        properties.getInternalJwt().setSecretBase64(
-                Encoders.BASE64.encode(key)
-        );
+        properties.getInternalJwt().setSecretBase64(Encoders.BASE64.encode(key));
 
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
         RestClient restClient = builder.baseUrl("http://ll.test").build();
-        LanguageLearningInternalJwtProvider jwtProvider =
-                new LanguageLearningInternalJwtProvider(
-                        properties,
-                        Clock.fixed(
-                                Instant.parse("2026-09-24T07:00:00Z"),
-                                ZoneOffset.UTC
-                        )
-                );
+        LanguageLearningInternalJwtProvider jwtProvider = new LanguageLearningInternalJwtProvider(
+                properties, Clock.fixed(Instant.parse("2026-09-24T07:00:00Z"), ZoneOffset.UTC));
         client = new LanguageLearningSettingsClient(
-                restClient,
-                jwtProvider,
-                new com.fasterxml.jackson.databind.ObjectMapper()
-                        .findAndRegisterModules()
-        );
+                restClient, jwtProvider, new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules());
     }
 
     @Test
     void getUserSettingsUsesInternalBearerTokenAndMapsBody() {
         // 준비: 설명 언어와 다음 학습일에 적용할 설명 언어를 구분해 전달한다.
-        server.expect(requestTo(
-                        "http://ll.test/internal/v1/language-learning/settings"
-                ))
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/settings"))
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(header("Authorization", org.hamcrest.Matchers.startsWith("Bearer ")))
                 .andRespond(withSuccess(userResponseJson(), MediaType.APPLICATION_JSON));
@@ -89,29 +73,16 @@ class LanguageLearningSettingsClientTest {
     @Test
     void patchSerializesExistingExternalRequestContract() {
         // 준비: 설명 언어가 없는 기존 요청도 기존 필드와 함께 전달된다.
-        server.expect(requestTo(
-                        "http://ll.test/internal/v1/language-learning/settings"
-                ))
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/settings"))
                 .andExpect(method(HttpMethod.PATCH))
                 .andExpect(jsonPath("$.dailySentenceCount").value(7))
                 .andExpect(jsonPath("$.defaultListeningTaskTypes[0]").value("DICTATION"))
                 .andRespond(withSuccess(userResponseJson(), MediaType.APPLICATION_JSON));
 
         // 실행
-        client.updateUserSettings(
-                123L,
+        client.updateUserSettings(123L,
                 new UserSettingUpdateRequestDto(
-                        null,
-                        null,
-                        null,
-                        7,
-                        null,
-                        null,
-                        null,
-                        null,
-                        List.of(ListeningTaskType.DICTATION)
-                )
-        );
+                        null, null, null, 7, null, null, null, null, List.of(ListeningTaskType.DICTATION)));
 
         // 검증
         server.verify();
@@ -126,9 +97,7 @@ class LanguageLearningSettingsClientTest {
                 .andExpect(jsonPath("$.originLanguage").doesNotExist())
                 .andExpect(jsonPath("$.learningLanguage").doesNotExist())
                 .andRespond(withSuccess(userResponseJson(), MediaType.APPLICATION_JSON));
-        var request = new UserSettingUpdateRequestDto(
-                null, null, "en", null, null, null, null, null, null, null
-        );
+        var request = new UserSettingUpdateRequestDto(null, null, "en", null, null, null, null, null, null, null);
 
         // 실행
         var response = client.updateUserSettings(123L, request);
@@ -144,8 +113,8 @@ class LanguageLearningSettingsClientTest {
     void patchPreservesAllSupportedLearningPairsAcrossTheLlBoundary(String origin, String learning) {
         // 준비: UI 언어와 분리된 원문·학습 언어 조합을 LL 요청과 응답에 사용한다.
         var responseBody = userResponseJson()
-                .replace("\"originLanguage\":\"ko\"", "\"originLanguage\":\"" + origin + "\"")
-                .replace("\"learningLanguage\":\"ja\"", "\"learningLanguage\":\"" + learning + "\"");
+                                   .replace("\"originLanguage\":\"ko\"", "\"originLanguage\":\"" + origin + "\"")
+                                   .replace("\"learningLanguage\":\"ja\"", "\"learningLanguage\":\"" + learning + "\"");
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/settings"))
                 .andExpect(method(HttpMethod.PATCH))
                 .andExpect(header("Authorization", org.hamcrest.Matchers.startsWith("Bearer ")))
@@ -153,9 +122,7 @@ class LanguageLearningSettingsClientTest {
                 .andExpect(jsonPath("$.learningLanguage").value(learning))
                 .andExpect(jsonPath("$.feedbackLanguage").value("ko"))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
-        var request = new UserSettingUpdateRequestDto(
-                origin, learning, "ko", null, null, null, null, null, null, null
-        );
+        var request = new UserSettingUpdateRequestDto(origin, learning, "ko", null, null, null, null, null, null, null);
 
         // 실행
         var response = client.updateUserSettings(123L, request);
@@ -187,8 +154,8 @@ class LanguageLearningSettingsClientTest {
     void olderLlResponseUsesOriginLanguageForMissingFeedbackFields() {
         // 준비: LL 순차 배포 중 이전 계약의 응답을 받는다.
         var legacyResponse = userResponseJson()
-                .replace("\"feedbackLanguage\":\"en\",", "")
-                .replace("\"pendingFeedbackLanguage\":\"ko\",", "");
+                                     .replace("\"feedbackLanguage\":\"en\",", "")
+                                     .replace("\"pendingFeedbackLanguage\":\"ko\",", "");
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/settings"))
                 .andRespond(withSuccess(legacyResponse, MediaType.APPLICATION_JSON));
 
@@ -203,19 +170,13 @@ class LanguageLearningSettingsClientTest {
 
     @Test
     void ktorErrorContractIsPreserved() {
-        server.expect(requestTo(
-                        "http://ll.test/internal/v1/language-learning/settings"
-                ))
-                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body("""
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/settings"))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON).body("""
                                 {"code":"SETTING_NOT_CONFIGURED","message":"설정값을 확인해 주세요."}
                                 """));
 
-        LanguageLearningServiceException error = assertThrows(
-                LanguageLearningServiceException.class,
-                () -> client.getUserSettings(123L)
-        );
+        LanguageLearningServiceException error =
+                assertThrows(LanguageLearningServiceException.class, () -> client.getUserSettings(123L));
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         assertEquals("SETTING_NOT_CONFIGURED", error.getErrorCode());
@@ -226,8 +187,8 @@ class LanguageLearningSettingsClientTest {
     @Test
     void missingRequiredNumericFieldIsNotSilentlyDefaulted() {
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/settings"))
-                .andRespond(withSuccess(userResponseJson().replace("\"dailySentenceCount\":5,", ""),
-                        MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(
+                        userResponseJson().replace("\"dailySentenceCount\":5,", ""), MediaType.APPLICATION_JSON));
         assertThrows(LanguageLearningServiceException.class, () -> client.getUserSettings(123L));
         server.verify();
     }
@@ -235,14 +196,15 @@ class LanguageLearningSettingsClientTest {
     @Test
     void serviceReadUsesItsOwnPathAndTokenPurpose() {
         // 준비: 현재 외부 Listening 정책 조회가 서비스 인증 경로를 계속 사용한다.
-        server.expect(
-                        requestTo("http://ll.test/internal/v1/service/language-learning/settings/listening-policy"))
+        server.expect(requestTo("http://ll.test/internal/v1/service/language-learning/settings/listening-policy"))
                 .andExpect(request -> {
                     String token = request.getHeaders().getFirst("Authorization").substring(7);
                     var claims = io.jsonwebtoken.Jwts.parser()
-                            .clock(() -> java.util.Date.from(Instant.parse("2026-09-24T07:00:00Z")))
-                            .verifyWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(new byte[32]))
-                            .build().parseSignedClaims(token).getPayload();
+                                         .clock(() -> java.util.Date.from(Instant.parse("2026-09-24T07:00:00Z")))
+                                         .verifyWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(new byte[32]))
+                                         .build()
+                                         .parseSignedClaims(token)
+                                         .getPayload();
                     assertEquals("ll-settings-service", claims.get("tokenUse"));
                     org.junit.jupiter.api.Assertions.assertNull(claims.get("roles"));
                 })
@@ -268,8 +230,8 @@ class LanguageLearningSettingsClientTest {
     void serverFailureIsNotAutomaticallyRetried() {
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/settings"))
                 .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body("{\"code\":\"SETTINGS_POLICY_UNAVAILABLE\",\"message\":\"not ready\"}"));
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body("{\"code\":\"SETTINGS_POLICY_UNAVAILABLE\",\"message\":\"not ready\"}"));
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE,
                 assertThrows(LanguageLearningServiceException.class, () -> client.getUserSettings(123L)).getStatus());
         server.verify();

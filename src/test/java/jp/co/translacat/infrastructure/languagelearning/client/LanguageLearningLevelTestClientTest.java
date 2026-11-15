@@ -25,8 +25,9 @@ class LanguageLearningLevelTestClientTest {
     private LanguageLearningLevelTestClient client() {
         var p = new LanguageLearningClientProperties();
         p.getInternalJwt().setSecretBase64(java.util.Base64.getEncoder().encodeToString(new byte[32]));
-        return new LanguageLearningLevelTestClient(builder.build(), new LanguageLearningInternalJwtProvider(p,
-                Clock.fixed(Instant.parse("2026-09-25T01:00:00Z"), ZoneOffset.UTC)),
+        return new LanguageLearningLevelTestClient(builder.build(),
+                new LanguageLearningInternalJwtProvider(
+                        p, Clock.fixed(Instant.parse("2026-09-25T01:00:00Z"), ZoneOffset.UTC)),
                 new ObjectMapper().findAndRegisterModules());
     }
 
@@ -53,12 +54,16 @@ class LanguageLearningLevelTestClientTest {
     @Test
     void failedWriteIsNotAutomaticallyRepeated() {
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/level-test/sessions"))
-                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE).contentType(MediaType.APPLICATION_JSON)
-                        .body("{\"code\":\"AI_SERVER_UNAVAILABLE\",\"message\":\"unavailable\"}"));
-        assertThrows(LanguageLearningServiceException.class, () -> client().start(123L,
-                new jp.co.translacat.domain.languagelearning.level.dto.request.LevelTestStartRequestDto(
-                        jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionType.INITIAL,
-                        "idempotency")));
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body("{\"code\":\"AI_SERVER_UNAVAILABLE\",\"message\":\"unavailable\"}"));
+        assertThrows(LanguageLearningServiceException.class,
+                ()
+                        -> client().start(123L,
+                                new jp.co.translacat.domain.languagelearning.level.dto.request.LevelTestStartRequestDto(
+                                        jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionType
+                                                .INITIAL,
+                                        "idempotency")));
         server.verify();
     }
 

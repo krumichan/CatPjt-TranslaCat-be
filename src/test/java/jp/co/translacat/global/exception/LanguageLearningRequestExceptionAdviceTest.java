@@ -37,13 +37,14 @@ class LanguageLearningRequestExceptionAdviceTest {
         var mvc = mvc(facade);
 
         // 실행
-        var result = mvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"text\":\"synthetic-private-input\",\"type\":\"WORD\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.resultCode").value(400))
-                .andExpect(jsonPath("$.body.errorCode").value("LANGUAGE_LEARNING_REQUEST_INVALID"))
-                .andExpect(jsonPath("$.body.path").value(PATH))
-                .andReturn();
+        var result = mvc.perform(post(PATH)
+                                         .contentType(MediaType.APPLICATION_JSON)
+                                         .content("{\"text\":\"synthetic-private-input\",\"type\":\"WORD\"}"))
+                             .andExpect(status().isBadRequest())
+                             .andExpect(jsonPath("$.resultCode").value(400))
+                             .andExpect(jsonPath("$.body.errorCode").value("LANGUAGE_LEARNING_REQUEST_INVALID"))
+                             .andExpect(jsonPath("$.body.path").value(PATH))
+                             .andReturn();
 
         // 검증: 제출 원문·Jackson 타입·예외 내용은 응답에 노출하지 않는다.
         assertThat(result.getResponse().getContentAsString())
@@ -58,11 +59,12 @@ class LanguageLearningRequestExceptionAdviceTest {
         var mvc = mvc(facade);
 
         // 실행
-        var result = mvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"text\":\"synthetic-private-input\","))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.body.errorCode").value("LANGUAGE_LEARNING_REQUEST_INVALID"))
-                .andReturn();
+        var result = mvc.perform(post(PATH)
+                                         .contentType(MediaType.APPLICATION_JSON)
+                                         .content("{\"text\":\"synthetic-private-input\","))
+                             .andExpect(status().isBadRequest())
+                             .andExpect(jsonPath("$.body.errorCode").value("LANGUAGE_LEARNING_REQUEST_INVALID"))
+                             .andReturn();
 
         // 검증
         assertThat(result.getResponse().getContentAsString()).doesNotContain("synthetic-private-input");
@@ -76,8 +78,9 @@ class LanguageLearningRequestExceptionAdviceTest {
         var mvc = mvc(facade);
 
         // 실행
-        mvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"text\":\"Synthetic\",\"type\":\"VOCABULARY\"}"))
+        mvc.perform(post(PATH)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"text\":\"Synthetic\",\"type\":\"VOCABULARY\"}"))
                 .andExpect(status().isOk());
 
         // 검증: 기존 Controller의 사용자 식별자와 생성 흐름을 유지한다.
@@ -90,8 +93,7 @@ class LanguageLearningRequestExceptionAdviceTest {
         var mvc = mvc(mock(LanguageLearningKeywordFacade.class));
 
         // 실행 및 검증
-        mvc.perform(post("/synthetic-unrelated").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"type\":\"WORD\"}"))
+        mvc.perform(post("/synthetic-unrelated").contentType(MediaType.APPLICATION_JSON).content("{\"type\":\"WORD\"}"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.body.errorCode").value(""));
     }
@@ -100,8 +102,8 @@ class LanguageLearningRequestExceptionAdviceTest {
         var user = mock(User.class);
         when(user.getId()).thenReturn(900L);
         var principal = new UserPrincipal(user);
-        return MockMvcBuilders.standaloneSetup(
-                        new AdminLanguageLearningKeywordController(facade), new UnrelatedController())
+        return MockMvcBuilders
+                .standaloneSetup(new AdminLanguageLearningKeywordController(facade), new UnrelatedController())
                 .setControllerAdvice(new ApiExceptionAdvice(), new LanguageLearningRequestExceptionAdvice())
                 .setCustomArgumentResolvers(new HandlerMethodArgumentResolver() {
                     @Override
@@ -111,7 +113,7 @@ class LanguageLearningRequestExceptionAdviceTest {
 
                     @Override
                     public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer container,
-                                                  NativeWebRequest request, WebDataBinderFactory factory) {
+                            NativeWebRequest request, WebDataBinderFactory factory) {
                         return principal;
                     }
                 })

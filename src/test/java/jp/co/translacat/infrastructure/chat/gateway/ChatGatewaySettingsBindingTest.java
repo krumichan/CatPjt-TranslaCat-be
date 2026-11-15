@@ -18,18 +18,15 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ChatGatewaySettingsBindingTest {
-    @TempDir
-    Path directory;
+    @TempDir Path directory;
 
     @Test
     void canonicalRelaxedEnvironmentKeysBindBothDirections() {
         // 준비: 실제 process 환경이나 운영 키를 읽지 않고 Spring의 실제 환경변수 property source를 사용한다.
         String synthetic = Base64.getEncoder().encodeToString(new byte[64]);
-        var environment = environment(
-                Map.of("CHAT_GATEWAY_BASEURL", "https://chat.internal.invalid",
-                        "CHAT_GATEWAY_ENVIRONMENT", "Production", "CHAT_GATEWAY_SECRETBASE64", synthetic,
-                        "CHAT_CORE_IDENTITY_ENVIRONMENT", "Production",
-                        "CHAT_CORE_IDENTITY_SECRETBASE64", synthetic));
+        var environment = environment(Map.of("CHAT_GATEWAY_BASEURL", "https://chat.internal.invalid",
+                "CHAT_GATEWAY_ENVIRONMENT", "Production", "CHAT_GATEWAY_SECRETBASE64", synthetic,
+                "CHAT_CORE_IDENTITY_ENVIRONMENT", "Production", "CHAT_CORE_IDENTITY_SECRETBASE64", synthetic));
 
         // 실행
         var gateway = Binder.get(environment).bind("chat.gateway", ChatGatewayProperties.class).get();
@@ -52,10 +49,10 @@ class ChatGatewaySettingsBindingTest {
                 chat.gateway.environment=${CHAT_RUNTIME_ENVIRONMENT:Development}
                 chat.core.identity.environment=${CHAT_RUNTIME_ENVIRONMENT:Development}
                 """);
-        var environment = environment(
-                Map.of("CHAT_GATEWAY_BASE_URL", "https://chat.internal.invalid",
-                        "CHAT_RUNTIME_ENVIRONMENT", "Production"));
-        new PropertiesPropertySourceLoader().load("external", new FileSystemResource(path))
+        var environment = environment(Map.of(
+                "CHAT_GATEWAY_BASE_URL", "https://chat.internal.invalid", "CHAT_RUNTIME_ENVIRONMENT", "Production"));
+        new PropertiesPropertySourceLoader()
+                .load("external", new FileSystemResource(path))
                 .forEach(source -> environment.getPropertySources().addLast(source));
 
         // 실행
@@ -74,11 +71,9 @@ class ChatGatewaySettingsBindingTest {
     void languageLearningEnvironmentKeyBindsOnlyItsOwnConsumer() {
         // 준비: LL 키는 별도 계약이며 CHAT 방향키나 사용자 JWT로 복사하지 않는다.
         String synthetic = Base64.getEncoder().encodeToString(new byte[48]);
-        var environment = environment(Map.of(
-                "LANGUAGELEARNING_URL", "http://127.0.0.1:18766",
-                "LANGUAGELEARNING_INTERNALJWT_SECRETBASE64", synthetic,
-                "LANGUAGELEARNING_INTERNALJWT_ISSUER", "translacat-be",
-                "LANGUAGELEARNING_INTERNALJWT_AUDIENCE", "translacat-ll"));
+        var environment = environment(Map.of("LANGUAGELEARNING_URL", "http://127.0.0.1:18766",
+                "LANGUAGELEARNING_INTERNALJWT_SECRETBASE64", synthetic, "LANGUAGELEARNING_INTERNALJWT_ISSUER",
+                "translacat-be", "LANGUAGELEARNING_INTERNALJWT_AUDIENCE", "translacat-ll"));
 
         // 실행: 단순 대문자 치환을 가정하지 않고 Spring 실제 relaxed binding으로 확인한다.
         var learning = Binder.get(environment).bind("language-learning", LanguageLearningClientProperties.class).get();
@@ -98,10 +93,8 @@ class ChatGatewaySettingsBindingTest {
         var result = new StandardEnvironment();
         result.getPropertySources().remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
         result.getPropertySources().remove(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME);
-        result.getPropertySources()
-                .addFirst(
-                        new SystemEnvironmentPropertySource(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME,
-                                values));
+        result.getPropertySources().addFirst(new SystemEnvironmentPropertySource(
+                StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME, values));
         return result;
     }
 }

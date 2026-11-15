@@ -16,14 +16,11 @@ class AccountBookTransactionQueryServiceTest {
         var access = mock(AccountBookAccessService.class);
         var repository = mock(AccountBookTransactionRepository.class);
         var service = new AccountBookTransactionQueryService(access, repository);
-        when(repository.findStoreSuggestions(1L, AccountBookTransactionType.INCOME, "salary"))
-                .thenReturn(List.of());
+        when(repository.findStoreSuggestions(1L, AccountBookTransactionType.INCOME, "salary")).thenReturn(List.of());
 
-        assertThat(service.getStoreSuggestions(
-                1L, AccountBookTransactionType.INCOME, "salary", 2L)).isEmpty();
+        assertThat(service.getStoreSuggestions(1L, AccountBookTransactionType.INCOME, "salary", 2L)).isEmpty();
 
         verify(access).validateAccessible(1L, 2L);
-        verify(repository).findStoreSuggestions(
-                1L, AccountBookTransactionType.INCOME, "salary");
+        verify(repository).findStoreSuggestions(1L, AccountBookTransactionType.INCOME, "salary");
     }
 }

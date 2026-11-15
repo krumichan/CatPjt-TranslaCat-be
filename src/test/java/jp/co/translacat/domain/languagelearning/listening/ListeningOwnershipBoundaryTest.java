@@ -16,12 +16,11 @@ class ListeningOwnershipBoundaryTest {
         // 준비: 외부 Controller와 DTO는 유지하고 업무 소유자만 LL로 이행한다.
         Path source = Path.of("src/main/java/jp/co/translacat");
         Path feature = source.resolve("domain/languagelearning/listening");
-        List<String> retired = List.of(
-                "ListeningGenerationService", "ListeningGenerationWorker", "ListeningEvaluationWorker",
-                "ListeningDailySetRepository", "ListeningSessionRepository", "ListeningItemRepository",
-                "ListeningTaskEvaluationRepository", "ListeningTaskResponseRepository",
-                "AiServerListeningClient", "ListeningAiClient", "AiListeningContract",
-                "ListeningAudioStoragePort", "ListeningDurationPolicy");
+        List<String> retired = List.of("ListeningGenerationService", "ListeningGenerationWorker",
+                "ListeningEvaluationWorker", "ListeningDailySetRepository", "ListeningSessionRepository",
+                "ListeningItemRepository", "ListeningTaskEvaluationRepository", "ListeningTaskResponseRepository",
+                "AiServerListeningClient", "ListeningAiClient", "AiListeningContract", "ListeningAudioStoragePort",
+                "ListeningDurationPolicy");
         Pattern references = Pattern.compile("\\b(" + String.join("|", retired) + ")\\b");
 
         // 실행 및 검증: 실행 가능한 Java 소스에 제거한 저장·작업자·AI 업무 경로가 남지 않는다.
@@ -31,7 +30,7 @@ class ListeningOwnershipBoundaryTest {
             }
         }
         for (String facade : List.of("daily/facade/ListeningDailySetFacade.java",
-                "session/facade/ListeningSessionFacade.java", "dashboard/facade/ListeningDashboardFacade.java")) {
+                     "session/facade/ListeningSessionFacade.java", "dashboard/facade/ListeningDashboardFacade.java")) {
             assertTrue(Files.readString(feature.resolve(facade)).contains("ListeningGateway"), facade);
         }
         assertTrue(Files.exists(feature.resolve("controller/ListeningSessionController.java")));

@@ -18,18 +18,16 @@ import java.nio.charset.StandardCharsets;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ApiLoggingFilterTest {
-
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {
-            "/api/v1/language-learning/web-ai/plans/plan-1/connection",
-            "/api/v1/language-learning/web-ai/external/results"
-    })
+    @org.junit.jupiter.params.provider.
+    ValueSource(strings = {"/api/v1/language-learning/web-ai/plans/plan-1/connection",
+                        "/api/v1/language-learning/web-ai/external/results"})
     void webAiTokensAndOriginalFeedbackAreNeverLoggedOrBuffered(String path) throws Exception {
         // 준비
         var request = new MockHttpServletRequest("POST", path);
         request.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        request.setContent("{\"originalFeedbackMarkdown\":\"synthetic-feedback-secret\"}"
-                .getBytes(StandardCharsets.UTF_8));
+        request.setContent(
+                "{\"originalFeedbackMarkdown\":\"synthetic-feedback-secret\"}".getBytes(StandardCharsets.UTF_8));
         var response = new MockHttpServletResponse();
         Logger logger = (Logger) LoggerFactory.getLogger(ApiLoggingFilter.class);
         Level previousLevel = logger.getLevel();
@@ -52,9 +50,11 @@ class ApiLoggingFilterTest {
         }
 
         // 검증
-        String logs = appender.list.stream().map(ILoggingEvent::getFormattedMessage)
-                .collect(java.util.stream.Collectors.joining("\n"));
-        assertThat(logs).contains("WEB_AI_REDACTED")
+        String logs = appender.list.stream()
+                              .map(ILoggingEvent::getFormattedMessage)
+                              .collect(java.util.stream.Collectors.joining("\n"));
+        assertThat(logs)
+                .contains("WEB_AI_REDACTED")
                 .doesNotContain("synthetic-feedback-secret", "synthetic-capability-secret");
         assertThat(response.getContentAsString()).contains("synthetic-capability-secret");
     }
@@ -87,8 +87,9 @@ class ApiLoggingFilterTest {
         }
 
         // 검증
-        String logs = appender.list.stream().map(ILoggingEvent::getFormattedMessage)
-                .collect(java.util.stream.Collectors.joining("\n"));
+        String logs = appender.list.stream()
+                              .map(ILoggingEvent::getFormattedMessage)
+                              .collect(java.util.stream.Collectors.joining("\n"));
         assertThat(logs).contains("NOVEL_REDACTED").doesNotContain("source-secret", "audio-secret");
         assertThat(response.getContentAsString()).contains("audio-secret");
     }
@@ -96,8 +97,7 @@ class ApiLoggingFilterTest {
     @Test
     void writingAnswerAndEvaluationBodiesAreNeverLogged() throws Exception {
         // 준비: Writing 답변 요청과 평가 응답에 구별 가능한 합성 원문을 넣는다.
-        var request = new MockHttpServletRequest("POST",
-                "/api/v1/language-learning/writing/daily/items/1/answers");
+        var request = new MockHttpServletRequest("POST", "/api/v1/language-learning/writing/daily/items/1/answers");
         request.setContentType(MediaType.APPLICATION_JSON_VALUE);
         request.setContent("{\"answer\":\"synthetic-private-answer\"}".getBytes(StandardCharsets.UTF_8));
         var response = new MockHttpServletResponse();
@@ -107,14 +107,9 @@ class ApiLoggingFilterTest {
         appender.start();
         logger.addAppender(appender);
         logger.setLevel(Level.INFO);
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(
-                        User.withUsername("synthetic-writer@example.test")
-                                .password("unused").authorities("ROLE_USER").build(),
-                        null,
-                        java.util.List.of()
-                )
-        );
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                User.withUsername("synthetic-writer@example.test").password("unused").authorities("ROLE_USER").build(),
+                null, java.util.List.of()));
 
         // 실행: 실제 필터의 요청·응답 로그 분기를 지난다.
         try {
@@ -131,8 +126,8 @@ class ApiLoggingFilterTest {
 
         // 검증: API 응답은 유지하고 서버 로그에는 본문을 남기지 않는다.
         String logged = appender.list.stream()
-                .map(ILoggingEvent::getFormattedMessage)
-                .reduce("", (left, right) -> left + "\n" + right);
+                                .map(ILoggingEvent::getFormattedMessage)
+                                .reduce("", (left, right) -> left + "\n" + right);
         assertThat(logged).contains("WRITING_REDACTED");
         assertThat(logged).doesNotContain(
                 "synthetic-private-answer", "synthetic-private-origin", "synthetic-writer@example.test");
@@ -143,8 +138,8 @@ class ApiLoggingFilterTest {
     void authRequestAndResponseBodiesAreNeverLogged() throws Exception {
         var request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
         request.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        request.setContent("{\"email\":\"user@example.com\",\"password\":\"plain-secret\"}"
-                .getBytes(StandardCharsets.UTF_8));
+        request.setContent(
+                "{\"email\":\"user@example.com\",\"password\":\"plain-secret\"}".getBytes(StandardCharsets.UTF_8));
         var response = new MockHttpServletResponse();
         Logger logger = (Logger) LoggerFactory.getLogger(ApiLoggingFilter.class);
         Level previousLevel = logger.getLevel();
@@ -165,8 +160,8 @@ class ApiLoggingFilterTest {
         }
 
         String logged = appender.list.stream()
-                .map(ILoggingEvent::getFormattedMessage)
-                .reduce("", (left, right) -> left + "\n" + right);
+                                .map(ILoggingEvent::getFormattedMessage)
+                                .reduce("", (left, right) -> left + "\n" + right);
         assertThat(logged).contains("AUTH_REDACTED");
         assertThat(logged).doesNotContain("plain-secret", "token-secret", "user@example.com");
         assertThat(response.getContentAsString()).contains("token-secret");

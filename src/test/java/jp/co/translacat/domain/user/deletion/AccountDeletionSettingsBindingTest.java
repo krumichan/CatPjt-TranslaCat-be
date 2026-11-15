@@ -19,8 +19,7 @@ class AccountDeletionSettingsBindingTest {
     @CsvSource({"false,false", "true,true", "false,true", "true,false"})
     void publicDeploymentFlagNamesBindIndependently(boolean enabled, boolean workerEnabled) throws IOException {
         // 준비: 실제 OS 환경·비밀 파일 없이 Docker가 받는 공개 두 이름을 그대로 사용한다.
-        var environment = isolatedEnvironment(Map.of(
-                "ACCOUNT_DELETION_ENABLED", Boolean.toString(enabled),
+        var environment = isolatedEnvironment(Map.of("ACCOUNT_DELETION_ENABLED", Boolean.toString(enabled),
                 "ACCOUNT_DELETION_WORKER_ENABLED", Boolean.toString(workerEnabled)));
 
         // 실행: 실제 common properties의 명시 placeholder와 Spring Binder를 함께 적용한다.
@@ -51,7 +50,8 @@ class AccountDeletionSettingsBindingTest {
         environment.getPropertySources().remove(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME);
         environment.getPropertySources().addFirst(new SystemEnvironmentPropertySource(
                 StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME, values));
-        new PropertiesPropertySourceLoader().load("public-application-properties", new ClassPathResource("application.properties"))
+        new PropertiesPropertySourceLoader()
+                .load("public-application-properties", new ClassPathResource("application.properties"))
                 .forEach(source -> environment.getPropertySources().addLast(source));
         return environment;
     }

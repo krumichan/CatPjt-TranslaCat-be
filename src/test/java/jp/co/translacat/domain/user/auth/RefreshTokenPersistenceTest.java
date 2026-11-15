@@ -31,7 +31,7 @@ class RefreshTokenPersistenceTest {
         assertThat(signedToken.length()).isGreaterThan(255).isLessThanOrEqualTo(8192);
 
         try (var context = new AnnotationConfigApplicationContext(Database.class);
-             var entityManager = context.getBean(EntityManagerFactory.class).createEntityManager()) {
+                var entityManager = context.getBean(EntityManagerFactory.class).createEntityManager()) {
             RefreshToken row = new RefreshToken();
             row.setUserId(1L);
             row.setToken(signedToken);
@@ -64,9 +64,9 @@ class RefreshTokenPersistenceTest {
             factory.setDataSource(dataSource);
             factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
             factory.setManagedTypes(PersistenceManagedTypes.of(RefreshToken.class.getName()));
-            factory.setJpaPropertyMap(Map.of(
-                    "hibernate.hbm2ddl.auto", "create-drop",
-                    "hibernate.physical_naming_strategy", "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"));
+            factory.setJpaPropertyMap(
+                    Map.of("hibernate.hbm2ddl.auto", "create-drop", "hibernate.physical_naming_strategy",
+                            "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"));
             return factory;
         }
     }

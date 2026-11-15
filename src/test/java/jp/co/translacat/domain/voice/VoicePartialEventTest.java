@@ -31,18 +31,18 @@ import static org.mockito.Mockito.*;
 
 class VoicePartialEventTest {
     private final ObjectMapper mapper = new ObjectMapper();
-    private final VoiceStreamContext context = new VoiceStreamContext(1L, "preview", VoiceChannel.REMOTE,
-            "connection", VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO, null, null, "ko", "{}", 7);
-    private final VoicePolicyProperties policy = new VoicePolicyProperties(3600000, 7200000, 6400, 3000,
-            100, 30, 3000, 10, 3, 25000, 90, 300, 250, 10000, 0.8, 0.85, 3);
+    private final VoiceStreamContext context = new VoiceStreamContext(1L, "preview", VoiceChannel.REMOTE, "connection",
+            VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO, null, null, "ko", "{}", 7);
+    private final VoicePolicyProperties policy = new VoicePolicyProperties(
+            3600000, 7200000, 6400, 3000, 100, 30, 3000, 10, 3, 25000, 90, 300, 250, 10000, 0.8, 0.85, 3);
     private final VoiceFinalResultCommandService finals = mock(VoiceFinalResultCommandService.class);
     private final VoiceStreamCommandService streams = mock(VoiceStreamCommandService.class);
     private final VoiceUsageQueryService usage = mock(VoiceUsageQueryService.class);
-    private final VoiceAiEventProcessor processor = new VoiceAiEventProcessor(mapper, finals, streams, usage,
-            mock(VoiceSourceReadingService.class));
+    private final VoiceAiEventProcessor processor =
+            new VoiceAiEventProcessor(mapper, finals, streams, usage, mock(VoiceSourceReadingService.class));
     private final WebSocketSession socket = mock(WebSocketSession.class);
-    private final VoiceRelayConnection relay = new VoiceRelayConnection(context, socket, policy,
-            error -> { throw new AssertionError(error); });
+    private final VoiceRelayConnection relay =
+            new VoiceRelayConnection(context, socket, policy, error -> { throw new AssertionError(error); });
 
     @Test
     void sourceOnlyPreviewKeepsExistingContractWithoutPersistence() throws Exception {
@@ -95,7 +95,8 @@ class VoicePartialEventTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"null", "0", "-1", "1.5", "1.0", "\"2\"", "true", "9007199254740992", "9223372036854775808"})
+    @ValueSource(
+            strings = {"null", "0", "-1", "1.5", "1.0", "\"2\"", "true", "9007199254740992", "9223372036854775808"})
     void malformedRevisionIsRejectedWithoutPersistence(String revision) throws Exception {
         // 준비
         ObjectNode event = partial(1);
@@ -148,10 +149,10 @@ class VoicePartialEventTest {
     @ValueSource(longs = {-1L, 9_007_199_254_740_991L, Long.MAX_VALUE})
     void invalidStoredOffsetCannotOverflowOrReuseAnIdentity(long offset) {
         // 준비
-        var invalidContext = new VoiceStreamContext(1L, "preview", VoiceChannel.REMOTE,
-                "connection", VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO, null, null, "ko", "{}", offset);
-        var invalidRelay = new VoiceRelayConnection(invalidContext, socket, policy,
-                error -> { throw new AssertionError(error); });
+        var invalidContext = new VoiceStreamContext(1L, "preview", VoiceChannel.REMOTE, "connection", VoiceMode.MEDIA,
+                VoiceSourceLanguageMode.AUTO, null, null, "ko", "{}", offset);
+        var invalidRelay =
+                new VoiceRelayConnection(invalidContext, socket, policy, error -> { throw new AssertionError(error); });
 
         // 실행 및 검증
         assertThatThrownBy(() -> invalidRelay.globalSequence(1))
@@ -218,8 +219,8 @@ class VoicePartialEventTest {
         var ai = mock(VoiceAiStreamClient.Connection.class);
         when(ai.sendText(any())).thenReturn(CompletableFuture.completedFuture(null));
         relay.attachAi(ai);
-        var handler = new VoicePublicWebSocketHandler(streams, mock(VoiceAiStreamClient.class), processor,
-                new VoiceConnectionRegistry(), policy, mapper);
+        var handler = new VoicePublicWebSocketHandler(
+                streams, mock(VoiceAiStreamClient.class), processor, new VoiceConnectionRegistry(), policy, mapper);
         ReflectionTestUtils.setField(handler, "connections", Map.of("connection", relay));
         var drained = relay.closeGracefully("SESSION_COMPLETE");
 
@@ -246,8 +247,12 @@ class VoicePartialEventTest {
     }
 
     private ObjectNode event(String type) {
-        return mapper.createObjectNode().put("type", type).put("eventId", type + "-event")
-                .put("sessionId", "preview").put("channel", "REMOTE").put("utteranceSequence", 1);
+        return mapper.createObjectNode()
+                .put("type", type)
+                .put("eventId", type + "-event")
+                .put("sessionId", "preview")
+                .put("channel", "REMOTE")
+                .put("utteranceSequence", 1);
     }
 
     private void assertInvalid(ObjectNode event) {

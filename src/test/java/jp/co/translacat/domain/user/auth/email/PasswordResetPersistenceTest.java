@@ -51,10 +51,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DataJpaTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:password-reset;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER",
-        "spring.jpa.show-sql=false"
-})
+@DataJpaTest(
+        properties = {"spring.datasource.url=jdbc:h2:mem:password-reset;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER",
+                "spring.jpa.show-sql=false"})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @Import({QueryDslConfig.class, PasswordResetPersistenceTest.Config.class})
@@ -66,29 +65,48 @@ class PasswordResetPersistenceTest {
 
     @TestConfiguration
     static class Config {
-        @Bean Sender resetSender() { return new Sender(); }
-        @Bean PasswordEncoder resetPasswords() { return new BCryptPasswordEncoder(4); }
-        @Bean AuthAttemptLimiter resetAttempts() { return new AuthAttemptLimiter(); }
-        @Bean EmailVerificationService resetVerification(EmailVerificationChallengeRepository challenges,
-                EmailVerificationQuotaRepository quotas, UserRepository users, Sender sender, PlatformTransactionManager manager) {
+        @Bean
+        Sender resetSender() {
+            return new Sender();
+        }
+        @Bean
+        PasswordEncoder resetPasswords() {
+            return new BCryptPasswordEncoder(4);
+        }
+        @Bean
+        AuthAttemptLimiter resetAttempts() {
+            return new AuthAttemptLimiter();
+        }
+        @Bean
+        EmailVerificationService resetVerification(EmailVerificationChallengeRepository challenges,
+                EmailVerificationQuotaRepository quotas, UserRepository users, Sender sender,
+                PlatformTransactionManager manager) {
             return new EmailVerificationService(challenges, quotas, users, sender, manager,
                     "synthetic-password-reset-hmac-secret-32-bytes", 400, Clock.systemUTC(), new SecureRandom());
         }
-        @Bean JWTService resetJwt(AuthSessionRepository sessions, UserRepository users) {
-            return new JWTService(Base64.getEncoder().encodeToString("synthetic-password-reset-signing-key-32-bytes".getBytes(StandardCharsets.UTF_8)),
+        @Bean
+        JWTService resetJwt(AuthSessionRepository sessions, UserRepository users) {
+            return new JWTService(
+                    Base64.getEncoder().encodeToString(
+                            "synthetic-password-reset-signing-key-32-bytes".getBytes(StandardCharsets.UTF_8)),
                     300000, 604800000, sessions, users);
         }
-        @Bean AuthSessionService resetSessions(AuthSessionRepository sessions, UserRepository users, JWTService jwt) {
+        @Bean
+        AuthSessionService resetSessions(AuthSessionRepository sessions, UserRepository users, JWTService jwt) {
             return new AuthSessionService(sessions, users, jwt);
         }
-        @Bean PasswordResetService resetService(UserRepository users, EmailVerificationService verification,
-                PasswordEncoder passwords, AuthSessionRepository sessions, RefreshTokenRepository legacy, AuthAttemptLimiter attempts) {
+        @Bean
+        PasswordResetService resetService(UserRepository users, EmailVerificationService verification,
+                PasswordEncoder passwords, AuthSessionRepository sessions, RefreshTokenRepository legacy,
+                AuthAttemptLimiter attempts) {
             return new PasswordResetService(users, verification, passwords, sessions, legacy, attempts);
         }
-        @Bean MobileAuthService resetMobile(MobileAuthRequestRepository requests, AuthSessionService sessions,
+        @Bean
+        MobileAuthService resetMobile(MobileAuthRequestRepository requests, AuthSessionService sessions,
                 UserRepository users, AuthAttemptLimiter attempts) {
-            return new MobileAuthService(requests, new MobileAuthRedirects("translacat-dev://auth/callback", new MockEnvironment()),
-                    sessions, users, attempts);
+            return new MobileAuthService(requests,
+                    new MobileAuthRedirects("translacat-dev://auth/callback", new MockEnvironment()), sessions, users,
+                    attempts);
         }
     }
 
@@ -149,7 +167,9 @@ class PasswordResetPersistenceTest {
         assertThatThrownBy(() -> jwt.getAccessId(oldSession.getAccessToken())).isInstanceOf(JwtException.class);
         assertThatThrownBy(() -> jwt.getAccessId(oldAccess)).isInstanceOf(JwtException.class);
         assertThatThrownBy(() -> jwt.getRefreshId(oldRefresh)).isInstanceOf(JwtException.class);
-        assertThatThrownBy(() -> tokens.refresh(oldSession.getRefreshToken(), user.getId(), jwt.getSessionId(oldSession.getAccessToken())))
+        assertThatThrownBy(()
+                                   -> tokens.refresh(oldSession.getRefreshToken(), user.getId(),
+                                           jwt.getSessionId(oldSession.getAccessToken())))
                 .isInstanceOf(AuthException.class);
         assertThat(jwt.getAccessId(otherAccess)).isEqualTo(other.getId());
         assertThatThrownBy(() -> reset.complete(EMAIL, proof, OLD)).isInstanceOf(AuthException.class);
@@ -183,14 +203,17 @@ class PasswordResetPersistenceTest {
         // 준비
         String absent = "absent@example.invalid";
         String googleEmail = "google@example.invalid";
-        User google = users.saveAndFlush(User.createSocialUser(googleEmail, "Google tester", SocialType.GOOGLE,
-                "synthetic-subject", Role.USER, "reset-google"));
+        User google = users.saveAndFlush(User.createSocialUser(
+                googleEmail, "Google tester", SocialType.GOOGLE, "synthetic-subject", Role.USER, "reset-google"));
 
         // 실행: 실제 계정 여부와 무관하게 코드와 증명의 형태가 같다.
         var absentChallenge = verification.sendPasswordReset(absent);
         var googleChallenge = verification.sendPasswordReset(googleEmail);
-        String absentProof = verification.verifyPasswordReset(absentChallenge.challengeId(), sender.codes.get(absent)).verificationToken();
-        String googleProof = verification.verifyPasswordReset(googleChallenge.challengeId(), sender.codes.get(googleEmail)).verificationToken();
+        String absentProof = verification.verifyPasswordReset(absentChallenge.challengeId(), sender.codes.get(absent))
+                                     .verificationToken();
+        String googleProof =
+                verification.verifyPasswordReset(googleChallenge.challengeId(), sender.codes.get(googleEmail))
+                        .verificationToken();
         User createdLater = local(absent, "later");
 
         // 검증: 코드 발송 후 새로 만들어진 계정이나 Google 전용 계정으로 증명을 옮기지 않는다.
@@ -212,13 +235,19 @@ class PasswordResetPersistenceTest {
         var challenge = verification.sendPasswordReset(EMAIL);
 
         // 실행 및 검증: 다른 verify 경로는 코드를 소비하지 않는다.
-        assertThatThrownBy(() -> verification.verify(challenge.challengeId(), sender.codes.get(EMAIL))).isInstanceOf(AuthException.class);
-        String proof = verification.verifyPasswordReset(challenge.challengeId(), sender.codes.get(EMAIL)).verificationToken();
+        assertThatThrownBy(() -> verification.verify(challenge.challengeId(), sender.codes.get(EMAIL)))
+                .isInstanceOf(AuthException.class);
+        String proof =
+                verification.verifyPasswordReset(challenge.challengeId(), sender.codes.get(EMAIL)).verificationToken();
         assertThatThrownBy(() -> reset.complete("other@example.invalid", proof, NEW)).isInstanceOf(AuthException.class);
         var registration = verification.sendRegistration("signup@example.invalid");
-        assertThatThrownBy(() -> verification.verifyPasswordReset(registration.challengeId(), sender.codes.get("signup@example.invalid")))
+        assertThatThrownBy(()
+                                   -> verification.verifyPasswordReset(
+                                           registration.challengeId(), sender.codes.get("signup@example.invalid")))
                 .isInstanceOf(AuthException.class);
-        String registrationProof = verification.verify(registration.challengeId(), sender.codes.get("signup@example.invalid")).verificationToken();
+        String registrationProof =
+                verification.verify(registration.challengeId(), sender.codes.get("signup@example.invalid"))
+                        .verificationToken();
         assertThatThrownBy(() -> reset.complete(EMAIL, registrationProof, NEW)).isInstanceOf(AuthException.class);
         reset.complete(EMAIL, proof, NEW);
     }
@@ -234,7 +263,8 @@ class PasswordResetPersistenceTest {
         reset.complete(EMAIL, proof, NEW);
 
         // 검증: 잠금 후 최신 해시를 다시 비교하며 새 세션을 남기지 않는다.
-        assertThatThrownBy(() -> tokens.createAfterPasswordAuthentication(oldUser, authenticatedHash)).isInstanceOf(AuthException.class);
+        assertThatThrownBy(() -> tokens.createAfterPasswordAuthentication(oldUser, authenticatedHash))
+                .isInstanceOf(AuthException.class);
         assertThat(sessions.count()).isZero();
     }
 
@@ -245,7 +275,7 @@ class PasswordResetPersistenceTest {
         String invalidProof = "z".repeat(43);
 
         // 실행 및 검증: 잘못된 증명으로 계정 유무를 조회하지 못한다.
-        for (String email : new String[]{EMAIL, "unknown@example.invalid"}) {
+        for (String email : new String[] {EMAIL, "unknown@example.invalid"}) {
             assertThatThrownBy(() -> reset.complete(email, invalidProof, NEW))
                     .isInstanceOfSatisfying(AuthException.class, error -> {
                         assertThat(error.getStatus()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
@@ -277,7 +307,8 @@ class PasswordResetPersistenceTest {
     }
 
     private User local(String email, String publicId) {
-        return users.saveAndFlush(User.createLocalUser(email, passwords.encode(OLD), "Reset tester", Role.USER, publicId));
+        return users.saveAndFlush(
+                User.createLocalUser(email, passwords.encode(OLD), "Reset tester", Role.USER, publicId));
     }
 
     private String resetProof(String email) {
@@ -286,13 +317,19 @@ class PasswordResetPersistenceTest {
     }
 
     private String sha256(String value) throws Exception {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(MessageDigest.getInstance("SHA-256")
-                .digest(value.getBytes(StandardCharsets.US_ASCII)));
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(
+                MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.US_ASCII)));
     }
 
     static class Sender implements AuthEmailSender {
         final Map<String, String> codes = new ConcurrentHashMap<>();
-        @Override public boolean isConfigured() { return true; }
-        @Override public void sendVerificationCode(String email, String code, int validityMinutes) { codes.put(email, code); }
+        @Override
+        public boolean isConfigured() {
+            return true;
+        }
+        @Override
+        public void sendVerificationCode(String email, String code, int validityMinutes) {
+            codes.put(email, code);
+        }
     }
 }

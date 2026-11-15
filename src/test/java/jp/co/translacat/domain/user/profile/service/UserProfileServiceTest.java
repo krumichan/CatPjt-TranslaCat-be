@@ -25,47 +25,32 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserProfileServiceTest {
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserProfileRepository userProfileRepository;
 
-    @Mock
-    private UserProfileRepository userProfileRepository;
+    @Mock private UserProfileImageUrlResolver imageUrlResolver;
 
-    @Mock
-    private UserProfileImageUrlResolver imageUrlResolver;
-
-    @InjectMocks
-    private UserProfileService userProfileService;
+    @InjectMocks private UserProfileService userProfileService;
 
     @Test
     @DisplayName("사용자별 UserProfile 1개만 생성되는지 테스트")
     void getExistingUserProfileWithoutCreatingNewProfile() {
         Long userId = 1L;
 
-        User user = createUser(
-                userId,
-                "test@example.com",
-                "testUser",
-                "TCAT-00000001"
-        );
+        User user = createUser(userId, "test@example.com", "testUser", "TCAT-00000001");
 
-        UserProfile existingProfile =
-                UserProfile.createDefault(user);
+        UserProfile existingProfile = UserProfile.createDefault(user);
 
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(user));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
-        when(userProfileRepository.findByUserAndDeletedFalse(user))
-                .thenReturn(Optional.of(existingProfile));
+        when(userProfileRepository.findByUserAndDeletedFalse(user)).thenReturn(Optional.of(existingProfile));
 
-        UserProfile profile =
-                userProfileService.getOrCreateByUserId(userId);
+        UserProfile profile = userProfileService.getOrCreateByUserId(userId);
 
         assertThat(profile).isEqualTo(existingProfile);
 
-        verify(userProfileRepository, never())
-                .save(any(UserProfile.class));
+        verify(userProfileRepository, never()).save(any(UserProfile.class));
     }
 
     @Test
@@ -73,30 +58,20 @@ class UserProfileServiceTest {
     void createDefaultProfileWhenUserProfileDoesNotExist() {
         Long userId = 1L;
 
-        User user = createUser(
-                userId,
-                "test@example.com",
-                "testUser",
-                "TCAT-00000001"
-        );
+        User user = createUser(userId, "test@example.com", "testUser", "TCAT-00000001");
 
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(user));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
-        when(userProfileRepository.findByUserAndDeletedFalse(user))
-                .thenReturn(Optional.empty());
+        when(userProfileRepository.findByUserAndDeletedFalse(user)).thenReturn(Optional.empty());
 
-        when(userProfileRepository.save(any(UserProfile.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userProfileRepository.save(any(UserProfile.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        UserProfile profile =
-                userProfileService.getOrCreateByUserId(userId);
+        UserProfile profile = userProfileService.getOrCreateByUserId(userId);
 
         assertThat(profile.getUser()).isEqualTo(user);
         assertThat(profile.getNickname()).isEqualTo("testUser");
 
-        verify(userProfileRepository)
-                .save(any(UserProfile.class));
+        verify(userProfileRepository).save(any(UserProfile.class));
     }
 
     @Test
@@ -104,28 +79,18 @@ class UserProfileServiceTest {
     void getMyProfileWithPublicId() {
         Long userId = 1L;
 
-        User user = createUser(
-                userId,
-                "test@example.com",
-                "testUser",
-                "TCAT-00000001"
-        );
+        User user = createUser(userId, "test@example.com", "testUser", "TCAT-00000001");
 
-        UserProfile existingProfile =
-                UserProfile.createDefault(user);
+        UserProfile existingProfile = UserProfile.createDefault(user);
 
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(user));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
-        when(userProfileRepository.findByUserAndDeletedFalse(user))
-                .thenReturn(Optional.of(existingProfile));
+        when(userProfileRepository.findByUserAndDeletedFalse(user)).thenReturn(Optional.of(existingProfile));
 
-        UserProfileResponseDto response =
-                userProfileService.getMyProfile(userId);
+        UserProfileResponseDto response = userProfileService.getMyProfile(userId);
 
         assertThat(response.userId()).isEqualTo(userId);
-        assertThat(response.publicId())
-                .isEqualTo("TCAT-00000001");
+        assertThat(response.publicId()).isEqualTo("TCAT-00000001");
         assertThat(response.nickname()).isEqualTo("testUser");
         assertThat(response.profileImageUrl()).isNull();
         assertThat(response.profileBackgroundImageUrl()).isNull();
@@ -136,39 +101,23 @@ class UserProfileServiceTest {
     void updateMyProfile() {
         Long userId = 1L;
 
-        User user = createUser(
-                userId,
-                "test@example.com",
-                "testUser",
-                "TCAT-00000001"
-        );
+        User user = createUser(userId, "test@example.com", "testUser", "TCAT-00000001");
 
-        UserProfile existingProfile =
-                UserProfile.createDefault(user);
+        UserProfile existingProfile = UserProfile.createDefault(user);
 
         UserProfileUpdateRequestDto request =
-                new UserProfileUpdateRequestDto(
-                        "updatedNickname",
-                        "안녕하세요. TranslaCat을 사용하고 있습니다."
-                );
+                new UserProfileUpdateRequestDto("updatedNickname", "안녕하세요. TranslaCat을 사용하고 있습니다.");
 
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(user));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
-        when(userProfileRepository.findByUserAndDeletedFalse(user))
-                .thenReturn(Optional.of(existingProfile));
+        when(userProfileRepository.findByUserAndDeletedFalse(user)).thenReturn(Optional.of(existingProfile));
 
-        UserProfileResponseDto response =
-                userProfileService.updateMyProfile(userId, request);
+        UserProfileResponseDto response = userProfileService.updateMyProfile(userId, request);
 
-        assertThat(response.nickname())
-                .isEqualTo("updatedNickname");
+        assertThat(response.nickname()).isEqualTo("updatedNickname");
         assertThat(response.profileImageUrl()).isNull();
         assertThat(response.profileBackgroundImageUrl()).isNull();
-        assertThat(response.bio())
-                .isEqualTo(
-                        "안녕하세요. TranslaCat을 사용하고 있습니다."
-                );
+        assertThat(response.bio()).isEqualTo("안녕하세요. TranslaCat을 사용하고 있습니다.");
     }
 
     @Test
@@ -176,32 +125,15 @@ class UserProfileServiceTest {
     void failWhenUserDoesNotExist() {
         Long userId = 999L;
 
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.empty());
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         assertThatExceptionOfType(BusinessException.class)
-                .isThrownBy(
-                        () -> userProfileService.getMyProfile(userId)
-                )
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode())
-                                .isEqualTo("USER_NOT_FOUND")
-                );
+                .isThrownBy(() -> userProfileService.getMyProfile(userId))
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("USER_NOT_FOUND"));
     }
 
-    private User createUser(
-            Long id,
-            String email,
-            String username,
-            String publicId
-    ) {
-        User user = User.createLocalUser(
-                email,
-                "password",
-                username,
-                Role.USER,
-                publicId
-        );
+    private User createUser(Long id, String email, String username, String publicId) {
+        User user = User.createLocalUser(email, "password", username, Role.USER, publicId);
 
         user.setId(id);
         return user;

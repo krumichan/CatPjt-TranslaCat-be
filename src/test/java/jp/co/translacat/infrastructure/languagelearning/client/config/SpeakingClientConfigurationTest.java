@@ -45,11 +45,11 @@ class SpeakingClientConfigurationTest {
             properties.getSpeaking().setReadTimeoutMs(2000);
             var jwt = new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC());
             var mapper = new ObjectMapper();
-            var general = new LanguageLearningClientConfiguration()
-                    .languageLearningRestClient(RestClient.builder(), properties);
+            var general = new LanguageLearningClientConfiguration().languageLearningRestClient(
+                    RestClient.builder(), properties);
             var previous = new LanguageLearningSpeakingClient(general, jwt, mapper);
-            var dedicated = new SpeakingClientConfiguration()
-                    .languageLearningSpeakingClient(RestClient.builder(), properties, jwt, mapper);
+            var dedicated = new SpeakingClientConfiguration().languageLearningSpeakingClient(
+                    RestClient.builder(), properties, jwt, mapper);
 
             // 실행: 이전 공유 client는 연결 오류로 끝나지만 전용 client는 같은 지연 응답을 받는다.
             var failure = assertThrows(LanguageLearningServiceException.class,
@@ -76,10 +76,12 @@ class SpeakingClientConfigurationTest {
         // 실행·검증: 기본 음성 기한과 일반 조회 기한을 분리하고 무제한 대기는 거부한다.
         assertEquals(360000, properties.getSpeaking().getReadTimeoutMs());
         assertEquals(5000, properties.getRemote().getReadTimeoutMs());
-        for (int timeout : new int[]{0, 600001}) {
+        for (int timeout : new int[] {0, 600001}) {
             properties.getSpeaking().setReadTimeoutMs(timeout);
-            assertThrows(IllegalStateException.class, () -> configuration.languageLearningSpeakingClient(
-                    RestClient.builder(), properties, jwt, new ObjectMapper()));
+            assertThrows(IllegalStateException.class,
+                    ()
+                            -> configuration.languageLearningSpeakingClient(
+                                    RestClient.builder(), properties, jwt, new ObjectMapper()));
         }
     }
 
@@ -90,6 +92,5 @@ class SpeakingClientConfigurationTest {
         return properties;
     }
 
-    private record Reply(long id, String status) {
-    }
+    private record Reply(long id, String status) {}
 }

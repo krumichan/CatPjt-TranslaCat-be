@@ -29,7 +29,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class FriendControllerTest {
-
     private FriendService friendService;
     private FriendController friendController;
     private MockMvc mockMvc;
@@ -39,10 +38,9 @@ class FriendControllerTest {
         friendService = mock(FriendService.class);
         friendController = new FriendController(friendService);
 
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(friendController)
-                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
-                .build();
+        mockMvc = MockMvcBuilders.standaloneSetup(friendController)
+                          .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                          .build();
     }
 
     @AfterEach
@@ -57,16 +55,9 @@ class FriendControllerTest {
         Long loginUserId = 1L;
         setAuthentication(loginUserId);
 
-        FriendResponseDto response = new FriendResponseDto(
-                100L,
-                new UserSummaryProfileResponseDto(
-                        2L,
-                        "TCAT-00000002",
-                        "friendUser",
-                        null
-                ),
-                LocalDateTime.of(2026, 6, 28, 10, 0)
-        );
+        FriendResponseDto response =
+                new FriendResponseDto(100L, new UserSummaryProfileResponseDto(2L, "TCAT-00000002", "friendUser", null),
+                        LocalDateTime.of(2026, 6, 28, 10, 0));
 
         when(friendService.getFriends(loginUserId)).thenReturn(List.of(response));
 
@@ -105,9 +96,7 @@ class FriendControllerTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendController.getFriends(null))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED"));
 
         verify(friendService, never()).getFriends(anyLong());
     }
@@ -118,31 +107,19 @@ class FriendControllerTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> friendController.deleteFriend(null, 2L))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED"));
 
         verify(friendService, never()).deleteFriend(anyLong(), anyLong());
     }
 
     private void setAuthentication(Long userId) {
-        User user = User.createLocalUser(
-                "test@example.com",
-                "password",
-                "testUser",
-                Role.USER,
-                "TCAT-00000001"
-        );
+        User user = User.createLocalUser("test@example.com", "password", "testUser", Role.USER, "TCAT-00000001");
         user.setId(userId);
 
         UserPrincipal userPrincipal = new UserPrincipal(user);
 
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(
-                        userPrincipal,
-                        null,
-                        userPrincipal.getAuthorities()
-                );
+                new UsernamePasswordAuthenticationToken(userPrincipal, null, userPrincipal.getAuthorities());
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }

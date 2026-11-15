@@ -35,7 +35,8 @@ class AccountDeletionRemoteClientsTest {
             requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             String body = response.get();
             if (exchange.getRequestURI().getPath().endsWith("/capabilities")) {
-                body = "{\"version\":\"" + (exchange.getRequestURI().getPath().contains("/chat/") ? "chat" : "ll") + "-account-deletion-v1\",\"ready\":true}";
+                body = "{\"version\":\"" + (exchange.getRequestURI().getPath().contains("/chat/") ? "chat" : "ll")
+                        + "-account-deletion-v1\",\"ready\":true}";
             }
             byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
@@ -55,13 +56,17 @@ class AccountDeletionRemoteClientsTest {
         client = new AccountDeletionRemoteClients(chat, ll);
     }
 
-    @AfterEach void stop() { server.stop(0); }
+    @AfterEach
+    void stop() {
+        server.stop(0);
+    }
 
     @Test
     void capabilitiesAreReadOnlyAndDeletionUsesSeparateServiceTokenWithoutPublicUserRoles() {
         // 준비
         var operation = operation();
-        response.set("{\"operationId\":\"" + operation.operationId() + "\",\"userId\":42,\"status\":\"COMPLETED\",\"completedAtUtc\":\"2026-10-23T01:00:00Z\"}");
+        response.set("{\"operationId\":\"" + operation.operationId()
+                + "\",\"userId\":42,\"status\":\"COMPLETED\",\"completedAtUtc\":\"2026-10-23T01:00:00Z\"}");
 
         // 실행
         client.requireReady(42);
@@ -69,26 +74,35 @@ class AccountDeletionRemoteClientsTest {
         assertThat(client.delete("CHAT", operation)).isTrue();
 
         // 검증: 공개 JWT와 다른 목적/단일 scope이며 증명·원문 receipt는 본문에 없다.
-        var claims = Jwts.parser().verifyWith(Keys.hmacShaKeyFor(key)).build().parseSignedClaims(authorization.get().substring(7)).getPayload();
+        var claims = Jwts.parser()
+                             .verifyWith(Keys.hmacShaKeyFor(key))
+                             .build()
+                             .parseSignedClaims(authorization.get().substring(7))
+                             .getPayload();
         assertThat(claims.getSubject()).isEqualTo("42");
         assertThat(claims.get("tokenUse")).isEqualTo("chat-account-delete");
         assertThat(claims.get("scopes")).isEqualTo(java.util.List.of("chat:account-delete"));
         assertThat(claims).doesNotContainKey("roles");
         assertThat(claims.getExpiration().getTime() - claims.getIssuedAt().getTime()).isLessThanOrEqualTo(120000);
-        assertThat(requestBody.get()).contains("requestedAtUtc", "auditIdentity").doesNotContain("receiptSecret", "password");
+        assertThat(requestBody.get())
+                .contains("requestedAtUtc", "auditIdentity")
+                .doesNotContain("receiptSecret", "password");
     }
 
     @Test
     void pendingCleanupIsNotCompletedAndForeignUserOrMalformedResponseIsRejected() {
         // 준비
         var operation = operation();
-        response.set("{\"operationId\":\"" + operation.operationId() + "\",\"userId\":42,\"status\":\"PENDING\",\"pendingObjects\":2}");
+        response.set("{\"operationId\":\"" + operation.operationId()
+                + "\",\"userId\":42,\"status\":\"PENDING\",\"pendingObjects\":2}");
 
         // 실행
         assertThat(client.delete("LL", operation)).isFalse();
-        response.set("{\"operationId\":\"" + operation.operationId() + "\",\"userId\":43,\"status\":\"COMPLETED\",\"pendingObjects\":0}");
+        response.set("{\"operationId\":\"" + operation.operationId()
+                + "\",\"userId\":43,\"status\":\"COMPLETED\",\"pendingObjects\":0}");
         assertThatThrownBy(() -> client.delete("LL", operation)).isInstanceOf(RuntimeException.class);
-        response.set("{\"operationId\":\"" + operation.operationId() + "\",\"userId\":42,\"status\":\"COMPLETED\",\"pendingObjects\":1}");
+        response.set("{\"operationId\":\"" + operation.operationId()
+                + "\",\"userId\":42,\"status\":\"COMPLETED\",\"pendingObjects\":1}");
 
         // 검증
         assertThatThrownBy(() -> client.delete("LL", operation)).isInstanceOf(RuntimeException.class);
@@ -109,6 +123,7 @@ class AccountDeletionRemoteClientsTest {
     }
 
     private AccountDeletionStore.Operation operation() {
-        return new AccountDeletionStore.Operation(UUID.randomUUID().toString(), 42, "hash", "PENDING", Instant.now(), null, null, "synthetic@example.com");
+        return new AccountDeletionStore.Operation(UUID.randomUUID().toString(), 42, "hash", "PENDING", Instant.now(),
+                null, null, "synthetic@example.com");
     }
 }

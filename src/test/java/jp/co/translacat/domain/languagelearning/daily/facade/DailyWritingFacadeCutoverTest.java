@@ -52,13 +52,14 @@ class DailyWritingFacadeCutoverTest {
     @Test
     void remoteFailureDoesNotCreateCoreSet() {
         // 준비: LL 조회가 연결 오류를 반환한다.
-        var failure = new LanguageLearningServiceException(HttpStatus.BAD_GATEWAY,
-                "LL_WRITING_UNAVAILABLE", "합성 연결 오류");
+        var failure = new LanguageLearningServiceException(
+                HttpStatus.BAD_GATEWAY, "LL_WRITING_UNAVAILABLE", "합성 연결 오류");
         when(gateway.create(123L, DailyWritingType.FREE)).thenThrow(failure);
 
         // 실행·검증: 오류를 그대로 전달하고 다른 생성 경로를 호출하지 않는다.
-        assertSame(failure, assertThrows(LanguageLearningServiceException.class,
-                () -> facade.getOrGenerateToday(123L, DailyWritingType.FREE)));
+        assertSame(failure,
+                assertThrows(LanguageLearningServiceException.class,
+                        () -> facade.getOrGenerateToday(123L, DailyWritingType.FREE)));
         verify(gateway).create(123L, DailyWritingType.FREE);
         verifyNoMoreInteractions(gateway);
     }

@@ -55,8 +55,8 @@ class LanguageLearningTransportTest {
             var config = new LanguageLearningClientConfiguration();
             var client = new LanguageLearningSettingsClient(config.languageLearningRestClient(RestClient.builder(), p),
                     new LanguageLearningInternalJwtProvider(p, Clock.systemUTC()), mapper);
-            var result = client.updateUserSettings(123L,
-                    new UserSettingUpdateRequestDto(null, null, null, 7, null, null, null, null, null));
+            var result = client.updateUserSettings(
+                    123L, new UserSettingUpdateRequestDto(null, null, null, 7, null, null, null, null, null));
             assertEquals("PATCH", method.get());
             assertTrue(bearer.get().startsWith("Bearer "));
             assertEquals(7, mapper.readTree(body.get()).get("dailySentenceCount").asInt());
@@ -96,12 +96,8 @@ class LanguageLearningTransportTest {
     @Test
     void credentialsAndUnexpectedBasePathsAreRejected() {
         var p = properties(8081);
-        for (String value : new String[]{
-                "http://user:pass@localhost:8081",
-                "http://localhost:8081/api",
-                "http://localhost:8081?key=secret",
-                "http://example.test:8081"
-        }) {
+        for (String value : new String[] {"http://user:pass@localhost:8081", "http://localhost:8081/api",
+                     "http://localhost:8081?key=secret", "http://example.test:8081"}) {
             p.setUrl(value);
             assertThrows(IllegalStateException.class, () -> LanguageLearningClientConfiguration.validate(p));
         }

@@ -25,17 +25,20 @@ class WritingPlanClientTest {
         var server = MockRestServiceServer.bindTo(builder).build();
         var properties = new LanguageLearningClientProperties();
         properties.getInternalJwt().setSecretBase64(Base64.getEncoder().encodeToString(new byte[32]));
-        var client = new LanguageLearningWritingClient(builder.build(),
-                new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC()), json);
+        var client = new LanguageLearningWritingClient(
+                builder.build(), new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC()), json);
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/writing/curated/plans"))
                 .andExpect(header("Authorization", org.hamcrest.Matchers.startsWith("Bearer ")))
                 .andExpect(content().json("{\"writingType\":\"FREE\",\"targetItemCount\":2.5}", true))
-                .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
-                        .body("{\"code\":\"WRITING_REQUEST_INVALID\",\"message\":\"invalid\"}"));
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body("{\"code\":\"WRITING_REQUEST_INVALID\",\"message\":\"invalid\"}"));
 
         // 실행 / 검증: 응답을 성공으로 바꾸지 않고 요청1회를 그대로 종료한다.
-        var failure = assertThrows(LanguageLearningServiceException.class, () -> client.writingPlanStart(123L,
-                json.readTree("{\"writingType\":\"FREE\",\"targetItemCount\":2.5}")));
+        var failure = assertThrows(LanguageLearningServiceException.class,
+                ()
+                        -> client.writingPlanStart(
+                                123L, json.readTree("{\"writingType\":\"FREE\",\"targetItemCount\":2.5}")));
         assertNotNull(failure);
         server.verify();
     }

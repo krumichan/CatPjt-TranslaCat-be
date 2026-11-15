@@ -10,7 +10,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 class UserBlockTest {
-
     @Test
     @DisplayName("사용자 차단 관계 생성 테스트")
     void createUserBlock() {
@@ -38,9 +37,7 @@ class UserBlockTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> UserBlock.create(user, user))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("USER_BLOCK_SELF_NOT_ALLOWED")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("USER_BLOCK_SELF_NOT_ALLOWED"));
     }
 
     @Test
@@ -97,19 +94,8 @@ class UserBlockTest {
         return UserBlock.create(blocker, blocked);
     }
 
-    private User createUser(
-            Long id,
-            String email,
-            String username,
-            String publicId
-    ) {
-        User user = User.createLocalUser(
-                email,
-                "password",
-                username,
-                Role.USER,
-                publicId
-        );
+    private User createUser(Long id, String email, String username, String publicId) {
+        User user = User.createLocalUser(email, "password", username, Role.USER, publicId);
         user.setId(id);
         return user;
     }

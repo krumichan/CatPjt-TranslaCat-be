@@ -19,15 +19,16 @@ class SettingsCutoverArchitectureTest {
     void legacySettingsImplementationsAndMappingsAreGone() throws Exception {
         var forbidden = List.of("LanguageLearningUserSettingQueryService", "LanguageLearningAdminSettingQueryService",
                 "ListeningPolicySettingQueryService", "LanguageLearningUserSettingRepository",
-                "LanguageLearningAdminSettingRepository",
-                "LanguageLearningUserSettingCommandService", "LanguageLearningAdminSettingCommandService",
-                "LanguageLearningAdminSettingAuditRepository", "ListeningPolicySettingRepository");
+                "LanguageLearningAdminSettingRepository", "LanguageLearningUserSettingCommandService",
+                "LanguageLearningAdminSettingCommandService", "LanguageLearningAdminSettingAuditRepository",
+                "ListeningPolicySettingRepository");
         try (var paths = Files.walk(root)) {
             for (Path path : paths.filter(p -> p.toString().endsWith(".java")).toList()) {
                 String text = Files.readString(path);
-                for (String name : forbidden) assertFalse(text.contains(name), path + " still uses " + name);
+                for (String name : forbidden)
+                    assertFalse(text.contains(name), path + " still uses " + name);
                 for (String table : List.of("language_learning_user_setting", "language_learning_admin_setting",
-                        "language_learning_admin_setting_audit", "language_learning_listening_policy_setting")) {
+                             "language_learning_admin_setting_audit", "language_learning_listening_policy_setting")) {
                     assertFalse(text.contains("@Table(name = \"" + table + "\""), path.toString());
                 }
             }
@@ -41,7 +42,8 @@ class SettingsCutoverArchitectureTest {
         // Git은 빈 디렉터리를 보존하지 않으므로 실제 소스 루트에서 대상 모델만 검사한다.
         try (var paths = Files.walk(root)) {
             for (Path path : paths.filter(p -> p.toString().endsWith(".java"))
-                    .filter(p -> folders.stream().anyMatch(p::startsWith)).toList()) {
+                            .filter(p -> folders.stream().anyMatch(p::startsWith))
+                            .toList()) {
                 var text = Files.readString(path);
                 assertFalse(text.contains("import jakarta.persistence."));
                 assertFalse(text.contains("import org.springframework."));
@@ -54,7 +56,7 @@ class SettingsCutoverArchitectureTest {
     void externalSettingsPathsAndAdminAuthorizationRemainUnchanged() throws Exception {
         var controllers = root.resolve("domain/languagelearning/setting/controller");
         assertTrue(Files.readString(controllers.resolve("LanguageLearningSettingController.java"))
-                .contains("/api/v1/language-learning/settings"));
+                        .contains("/api/v1/language-learning/settings"));
         var admin = Files.readString(controllers.resolve("AdminLanguageLearningSettingController.java"));
         assertTrue(admin.contains("/api/v1/admin/language-learning/settings"));
         assertTrue(admin.contains("@PreAuthorize(\"hasRole('ADMIN')\")"));

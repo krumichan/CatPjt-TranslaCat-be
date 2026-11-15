@@ -13,13 +13,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 class BoardPolicyTest {
-
     private final BoardRepository repository = mock(BoardRepository.class);
     private final BoardAccess access = mock(BoardAccess.class);
     private final BoardAttachments attachments = mock(BoardAttachments.class);
     private final BoardTranslation translation = mock(BoardTranslation.class);
-    private final BoardService service = new BoardService(repository, access, attachments,
-            translation, mock(JdbcTemplate.class));
+    private final BoardService service =
+            new BoardService(repository, access, attachments, translation, mock(JdbcTemplate.class));
 
     @Test
     void memberAndAnonymousFileLimitsAreDecimalMb() {
@@ -27,7 +26,8 @@ class BoardPolicyTest {
         for (Board board : List.of(Board.MEMBER, Board.ANONYMOUS)) {
             assertThat(BoardAttachments.partBytes(board, 30_000_000)).isPositive();
             assertThatThrownBy(() -> BoardAttachments.partBytes(board, 30_000_001))
-                    .isInstanceOf(BoardException.class).hasMessage("BOARD_INVALID_INPUT");
+                    .isInstanceOf(BoardException.class)
+                    .hasMessage("BOARD_INVALID_INPUT");
         }
     }
 
@@ -43,8 +43,7 @@ class BoardPolicyTest {
         // 검증
         assertThat(count).isLessThanOrEqualTo(10_000);
         assertThat(perPart).isBetween(5L << 20, (5L << 30) - (5L << 20));
-        assertThatThrownBy(() -> BoardAttachments.partBytes(Board.ADMIN, bytes + 1))
-                .isInstanceOf(BoardException.class);
+        assertThatThrownBy(() -> BoardAttachments.partBytes(Board.ADMIN, bytes + 1)).isInstanceOf(BoardException.class);
     }
 
     @Test
@@ -82,8 +81,9 @@ class BoardPolicyTest {
         doThrow(BoardException.locked()).when(access).requireUnlocked(reader, parent);
 
         // 실행 및 검증
-        assertThatThrownBy(() -> service.unlock(Board.ANONYMOUS, reader, post.id(), reply.id(),
-                new Unlock("personal password"))).hasMessage("BOARD_LOCKED");
+        assertThatThrownBy(
+                () -> service.unlock(Board.ANONYMOUS, reader, post.id(), reply.id(), new Unlock("personal password")))
+                .hasMessage("BOARD_LOCKED");
         verify(access, never()).unlock(any(), any(), any());
     }
 
@@ -107,7 +107,7 @@ class BoardPolicyTest {
     }
 
     private static BoardRepository.EntryRow row(UUID root, UUID parent, String secret) {
-        return new BoardRepository.EntryRow(UUID.randomUUID(), root, parent, 7, "author",
-                "private title", "sensitive content", secret, 1, Instant.EPOCH, Instant.EPOCH);
+        return new BoardRepository.EntryRow(UUID.randomUUID(), root, parent, 7, "author", "private title",
+                "sensitive content", secret, 1, Instant.EPOCH, Instant.EPOCH);
     }
 }

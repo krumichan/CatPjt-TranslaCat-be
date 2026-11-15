@@ -33,7 +33,12 @@ class JwtKeyCanonicalizationTest {
         assertThat(Decoders.BASE64.decode(noncanonical.substring(1))).isNotEqualTo(consumed);
         assertThat(canonicalService.getId(oldToken)).isEqualTo(73L);
         assertThat(oldService.getId(newToken)).isEqualTo(73L);
-        assertThat(Jwts.parser().verifyWith(Keys.hmacShaKeyFor(Base64.getDecoder().decode(canonical)))
-                .build().parseSignedClaims(oldToken).getHeader().getAlgorithm()).isEqualTo("HS256");
+        assertThat(Jwts.parser()
+                           .verifyWith(Keys.hmacShaKeyFor(Base64.getDecoder().decode(canonical)))
+                           .build()
+                           .parseSignedClaims(oldToken)
+                           .getHeader()
+                           .getAlgorithm())
+                .isEqualTo("HS256");
     }
 }

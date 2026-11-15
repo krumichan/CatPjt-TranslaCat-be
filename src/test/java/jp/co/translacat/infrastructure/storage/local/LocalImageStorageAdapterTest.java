@@ -12,24 +12,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class LocalImageStorageAdapterTest {
-
-    @TempDir
-    Path tempDir;
+    @TempDir Path tempDir;
 
     @Test
     void 저장하고_삭제할_수_있다() throws Exception {
         StorageProperties properties = properties();
-        LocalImageStorageAdapter adapter =
-                new LocalImageStorageAdapter(properties);
+        LocalImageStorageAdapter adapter = new LocalImageStorageAdapter(properties);
 
-        String objectKey =
-                "user-profile/1/profile/test.png";
+        String objectKey = "user-profile/1/profile/test.png";
 
-        adapter.store(new ImageStorageUpload(
-                objectKey,
-                "image/png",
-                new byte[]{1, 2, 3}
-        ));
+        adapter.store(new ImageStorageUpload(objectKey, "image/png", new byte[] {1, 2, 3}));
 
         Path stored = tempDir.resolve(objectKey);
         assertThat(Files.exists(stored)).isTrue();
@@ -41,20 +33,15 @@ class LocalImageStorageAdapterTest {
     @Test
     void root_밖으로_벗어나는_경로를_거부한다() {
         StorageProperties properties = properties();
-        LocalImageStorageAdapter adapter =
-                new LocalImageStorageAdapter(properties);
+        LocalImageStorageAdapter adapter = new LocalImageStorageAdapter(properties);
 
-        assertThatThrownBy(() ->
-                adapter.resolveSafePath("../escape.png")
-        ).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> adapter.resolveSafePath("../escape.png")).isInstanceOf(RuntimeException.class);
     }
 
     private StorageProperties properties() {
         StorageProperties properties = new StorageProperties();
         properties.getLocal().setRootPath(tempDir.toString());
-        properties.getLocal().setPublicBaseUrl(
-                "http://localhost:8080/api/v1/public/storage"
-        );
+        properties.getLocal().setPublicBaseUrl("http://localhost:8080/api/v1/public/storage");
         return properties;
     }
 }

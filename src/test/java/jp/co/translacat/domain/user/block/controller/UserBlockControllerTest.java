@@ -31,7 +31,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class UserBlockControllerTest {
-
     private UserBlockService userBlockService;
     private UserBlockController userBlockController;
     private MockMvc mockMvc;
@@ -43,10 +42,9 @@ class UserBlockControllerTest {
         userBlockController = new UserBlockController(userBlockService);
         objectMapper = new ObjectMapper();
 
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(userBlockController)
-                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
-                .build();
+        mockMvc = MockMvcBuilders.standaloneSetup(userBlockController)
+                          .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                          .build();
     }
 
     @AfterEach
@@ -68,8 +66,8 @@ class UserBlockControllerTest {
 
         // when & then
         mockMvc.perform(post("/api/v1/blocks")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value(200))
                 .andExpect(jsonPath("$.body.blockedUser.userId").value(2L))
@@ -123,9 +121,7 @@ class UserBlockControllerTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> userBlockController.blockUser(null, request))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED"));
 
         verify(userBlockService, never()).blockUser(anyLong(), any(UserBlockRequestDto.class));
     }
@@ -136,9 +132,7 @@ class UserBlockControllerTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> userBlockController.getBlockedUsers(null))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED"));
 
         verify(userBlockService, never()).getBlockedUsers(anyLong());
     }
@@ -149,44 +143,25 @@ class UserBlockControllerTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> userBlockController.unblockUser(null, 2L))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED"));
 
         verify(userBlockService, never()).unblockUser(anyLong(), anyLong());
     }
 
     private UserBlockResponseDto createResponse() {
-        return new UserBlockResponseDto(
-                100L,
-                new UserSummaryProfileResponseDto(
-                        2L,
-                        "TCAT-00000002",
-                        "blockedUser",
-                        null
-                ),
-                LocalDateTime.of(2026, 6, 28, 10, 0)
-        );
+        return new UserBlockResponseDto(100L,
+                new UserSummaryProfileResponseDto(2L, "TCAT-00000002", "blockedUser", null),
+                LocalDateTime.of(2026, 6, 28, 10, 0));
     }
 
     private void setAuthentication(Long userId) {
-        User user = User.createLocalUser(
-                "test@example.com",
-                "password",
-                "testUser",
-                Role.USER,
-                "TCAT-00000001"
-        );
+        User user = User.createLocalUser("test@example.com", "password", "testUser", Role.USER, "TCAT-00000001");
         user.setId(userId);
 
         UserPrincipal userPrincipal = new UserPrincipal(user);
 
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(
-                        userPrincipal,
-                        null,
-                        userPrincipal.getAuthorities()
-                );
+                new UsernamePasswordAuthenticationToken(userPrincipal, null, userPrincipal.getAuthorities());
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }

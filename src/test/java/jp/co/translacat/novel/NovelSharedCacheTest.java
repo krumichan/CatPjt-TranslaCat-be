@@ -38,7 +38,8 @@ class NovelSharedCacheTest {
 
     @BeforeEach
     void prepare() {
-        var dataSource = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
+        var dataSource =
+                new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
         new ResourceDatabasePopulator(new ClassPathResource("novel-embedded-h2.sql")).execute(dataSource);
         jdbc = new JdbcTemplate(dataSource);
         manager = new DataSourceTransactionManager(dataSource);
@@ -100,7 +101,8 @@ class NovelSharedCacheTest {
             assertThat(attempts.stream().filter(Optional::isPresent)).hasSize(1);
             var winner = attempts.stream().flatMap(Optional::stream).findFirst().orElseThrow();
             assertThat(store.reserveCall(winner)).isTrue();
-            assertThat(jdbc.queryForObject("SELECT SUM(provider_calls) FROM novel_translation_job", Integer.class)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT SUM(provider_calls) FROM novel_translation_job", Integer.class))
+                    .isEqualTo(1);
         }
     }
 
@@ -213,7 +215,8 @@ class NovelSharedCacheTest {
         store.finish(legacyOwner, source, false);
         var owner = owner(11, "refusal-first", "refusal");
         store.reserveCall(owner);
-        store.merge(owner, Map.of(), Map.of(id(0), "PROVIDER_REFUSAL", id(1), "PROVIDER_REFUSAL", id(2), "PROVIDER_REFUSAL"), 1, 0);
+        store.merge(owner, Map.of(),
+                Map.of(id(0), "PROVIDER_REFUSAL", id(1), "PROVIDER_REFUSAL", id(2), "PROVIDER_REFUSAL"), 1, 0);
         store.finish(owner, source, false);
 
         // 실행: 다른 계정도 같은 입력을 명시적으로 다시 시작하려고 한다.
@@ -221,7 +224,9 @@ class NovelSharedCacheTest {
 
         // 검증: 거절 이유를 자기 작업에 표시하고 추가 유료 claim을 막는다.
         assertThat(follower.state()).isEqualTo("FAILED");
-        assertThat(follower.errors()).hasSize(3).allSatisfy((id, error) -> assertThat(error).isEqualTo("PROVIDER_REFUSAL"));
+        assertThat(follower.errors())
+                .hasSize(3)
+                .allSatisfy((id, error) -> assertThat(error).isEqualTo("PROVIDER_REFUSAL"));
         assertThat(follower.providerCalls()).isZero();
         assertThatThrownBy(() -> store.claim(follower.cacheKey(), true, 60_000)).hasMessage("PROVIDER_REFUSAL");
         var prior = shared.attach("refusal", store.byCache(legacy.cacheKey()).orElseThrow(), source);
@@ -229,7 +234,8 @@ class NovelSharedCacheTest {
         assertThat(prior.results()).containsEntry(id(0), "기존 정상 번역");
         assertThatThrownBy(() -> store.claimRepair(prior, source, List.of(id(1)), "refusal-repair", "trace", 60_000))
                 .hasMessage("PROVIDER_REFUSAL");
-        assertThat(jdbc.queryForObject("SELECT SUM(provider_calls) FROM novel_translation_job", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT SUM(provider_calls) FROM novel_translation_job", Integer.class))
+                .isEqualTo(1);
     }
 
     @Test
@@ -255,7 +261,8 @@ class NovelSharedCacheTest {
         assertThat(completed.outputTokens()).isEqualTo(6);
         assertThat(store.initialAttemptState(completed)).isEqualTo("PARTIAL");
         assertThat(jdbc.queryForObject("SELECT errors_json FROM novel_initial_attempt WHERE cache_key=?", String.class,
-                prior.cacheKey())).contains("TAIL_INTERRUPTED");
+                           prior.cacheKey()))
+                .contains("TAIL_INTERRUPTED");
     }
 
     @Test
@@ -330,7 +337,8 @@ class NovelSharedCacheTest {
         assertThat(conflicted.state()).isEqualTo("PARTIAL");
         assertThat(conflicted.leaseUntil()).isZero();
         assertThat(conflicted.results()).containsExactlyEntriesOf(Map.of(id(0), "보존할 기존 정상 번역"));
-        assertThat(conflicted.errors()).containsEntry(id(1), "SHARED_TRANSLATION_CONFLICT")
+        assertThat(conflicted.errors())
+                .containsEntry(id(1), "SHARED_TRANSLATION_CONFLICT")
                 .containsEntry(id(2), "SHARED_TRANSLATION_CONFLICT");
         assertThat(conflicted.providerCalls()).isEqualTo(1);
         assertThat(shared.sync(conflicted, source).eventSequence()).isEqualTo(conflicted.eventSequence());
@@ -347,7 +355,8 @@ class NovelSharedCacheTest {
         // 실행: 새 계정의 일반 시작은 정상 prefix를 재사용하고 실패 문장만 명시 복구한다.
         var follower = shared.attach("partial-cache", create(22, "partial-cache-follower"), source);
         assertThat(store.claim(follower.cacheKey(), false, 60_000)).isEmpty();
-        var repair = store.claimRepair(follower, source, List.of(id(0), id(1), id(2)), "partial-cache-repair", "trace", 60_000);
+        var repair = store.claimRepair(
+                follower, source, List.of(id(0), id(1), id(2)), "partial-cache-repair", "trace", 60_000);
         assertThat(store.reserveRepairCall(repair.repair())).isTrue();
         store.mergeRepair(repair.repair(), Map.of(id(1), "개"), Map.of(), 1, 1);
         store.finishRepair(repair.repair(), source);
@@ -361,7 +370,8 @@ class NovelSharedCacheTest {
         assertThat(completed.state()).isEqualTo("SUCCEEDED");
         assertThat(completed.providerCalls()).isEqualTo(1);
         assertThat(completed.results()).containsExactlyInAnyOrderEntriesOf(values());
-        assertThat(shared.completed("partial-cache")).hasValueSatisfying(job -> assertThat(job.cacheKey()).isEqualTo(completed.cacheKey()));
+        assertThat(shared.completed("partial-cache"))
+                .hasValueSatisfying(job -> assertThat(job.cacheKey()).isEqualTo(completed.cacheKey()));
     }
 
     @Test
@@ -468,12 +478,15 @@ class NovelSharedCacheTest {
         assertThat(repair.claimed()).isTrue();
         assertThatThrownBy(() -> store.claimRepair(waiting, source, List.of(id(1)), "repair-follower", "trace", 60_000))
                 .hasMessage("REPAIR_SHARED_IN_PROGRESS");
-        assertThat(store.claimRepair(owner, source, List.of(id(1)), "repair-owner-duplicate", "trace", 60_000).claimed()).isFalse();
+        assertThat(
+                store.claimRepair(owner, source, List.of(id(1)), "repair-owner-duplicate", "trace", 60_000).claimed())
+                .isFalse();
         assertThat(store.mergeRepair(repair.repair(), Map.of(id(1), "개"), Map.of(), 0, 0)).isTrue();
         store.finishRepair(repair.repair(), source);
         store.merge(owner, Map.of(id(2), "새"), Map.of(), 0, 0);
         store.finish(owner, source, false);
-        assertThat(shared.attach("repair", store.byCache(waiting.cacheKey()).orElseThrow(), source).state()).isEqualTo("SUCCEEDED");
+        assertThat(shared.attach("repair", store.byCache(waiting.cacheKey()).orElseThrow(), source).state())
+                .isEqualTo("SUCCEEDED");
     }
 
     @Test
@@ -507,7 +520,8 @@ class NovelSharedCacheTest {
         // 실행·검증: follower는 독립 복구를 만들지 않고 원래 producer의 복구만 허용한다.
         assertThatThrownBy(() -> store.claimRepair(waiting, source, List.of(id(1)), "follower-hole", "trace", 60_000))
                 .hasMessage("REPAIR_SHARED_IN_PROGRESS");
-        assertThat(store.claimRepair(owner, source, List.of(id(1)), "producer-hole", "trace", 60_000).claimed()).isTrue();
+        assertThat(store.claimRepair(owner, source, List.of(id(1)), "producer-hole", "trace", 60_000).claimed())
+                .isTrue();
         assertThat(store.byCache(waiting.cacheKey()).orElseThrow().providerCalls()).isZero();
     }
 

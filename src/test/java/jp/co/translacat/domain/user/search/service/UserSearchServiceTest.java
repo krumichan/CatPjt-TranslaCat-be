@@ -28,24 +28,17 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserSearchServiceTest {
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserProfileQueryService userProfileQueryService;
 
-    @Mock
-    private UserProfileQueryService userProfileQueryService;
+    @Mock private FriendService friendService;
 
-    @Mock
-    private FriendService friendService;
+    @Mock private FriendRequestRepository friendRequestRepository;
 
-    @Mock
-    private FriendRequestRepository friendRequestRepository;
+    @Mock private UserBlockService userBlockService;
 
-    @Mock
-    private UserBlockService userBlockService;
-
-    @InjectMocks
-    private UserSearchService userSearchService;
+    @InjectMocks private UserSearchService userSearchService;
 
     @Test
     @DisplayName("publicId 검색 성공 - 관계 없음")
@@ -59,17 +52,11 @@ class UserSearchServiceTest {
         when(userProfileQueryService.getSummaryByUser(targetUser)).thenReturn(profile);
         when(userBlockService.isBlockedBetween(loginUserId, 2L)).thenReturn(false);
         when(friendService.areFriends(loginUserId, 2L)).thenReturn(false);
-        when(friendRequestRepository.findBetweenUsersByStatus(
-                loginUserId,
-                2L,
-                FriendRequestStatus.PENDING
-        )).thenReturn(Optional.empty());
+        when(friendRequestRepository.findBetweenUsersByStatus(loginUserId, 2L, FriendRequestStatus.PENDING))
+                .thenReturn(Optional.empty());
 
         // when
-        UserSearchResponseDto response = userSearchService.searchByPublicId(
-                loginUserId,
-                "TCAT-00000002"
-        );
+        UserSearchResponseDto response = userSearchService.searchByPublicId(loginUserId, "TCAT-00000002");
 
         // then
         assertThat(response.userId()).isEqualTo(2L);
@@ -90,18 +77,15 @@ class UserSearchServiceTest {
         when(userProfileQueryService.getSummaryByUser(loginUser)).thenReturn(createSummary(loginUser));
 
         // when
-        UserSearchResponseDto response = userSearchService.searchByPublicId(
-                loginUserId,
-                "TCAT-00000001"
-        );
+        UserSearchResponseDto response = userSearchService.searchByPublicId(loginUserId, "TCAT-00000001");
 
         // then
         assertThat(response.friendStatus()).isEqualTo(UserSearchFriendStatus.SELF);
 
         verify(userBlockService, never()).isBlockedBetween(anyLong(), anyLong());
         verify(friendService, never()).areFriends(anyLong(), anyLong());
-        verify(friendRequestRepository, never()).findBetweenUsersByStatus(anyLong(), anyLong(),
-                any(FriendRequestStatus.class));
+        verify(friendRequestRepository, never())
+                .findBetweenUsersByStatus(anyLong(), anyLong(), any(FriendRequestStatus.class));
     }
 
     @Test
@@ -117,16 +101,13 @@ class UserSearchServiceTest {
         when(friendService.areFriends(loginUserId, 2L)).thenReturn(true);
 
         // when
-        UserSearchResponseDto response = userSearchService.searchByPublicId(
-                loginUserId,
-                "TCAT-00000002"
-        );
+        UserSearchResponseDto response = userSearchService.searchByPublicId(loginUserId, "TCAT-00000002");
 
         // then
         assertThat(response.friendStatus()).isEqualTo(UserSearchFriendStatus.FRIEND);
 
-        verify(friendRequestRepository, never()).findBetweenUsersByStatus(anyLong(), anyLong(),
-                any(FriendRequestStatus.class));
+        verify(friendRequestRepository, never())
+                .findBetweenUsersByStatus(anyLong(), anyLong(), any(FriendRequestStatus.class));
     }
 
     @Test
@@ -142,17 +123,11 @@ class UserSearchServiceTest {
         when(userProfileQueryService.getSummaryByUser(targetUser)).thenReturn(createSummary(targetUser));
         when(userBlockService.isBlockedBetween(loginUserId, 2L)).thenReturn(false);
         when(friendService.areFriends(loginUserId, 2L)).thenReturn(false);
-        when(friendRequestRepository.findBetweenUsersByStatus(
-                loginUserId,
-                2L,
-                FriendRequestStatus.PENDING
-        )).thenReturn(Optional.of(friendRequest));
+        when(friendRequestRepository.findBetweenUsersByStatus(loginUserId, 2L, FriendRequestStatus.PENDING))
+                .thenReturn(Optional.of(friendRequest));
 
         // when
-        UserSearchResponseDto response = userSearchService.searchByPublicId(
-                loginUserId,
-                "TCAT-00000002"
-        );
+        UserSearchResponseDto response = userSearchService.searchByPublicId(loginUserId, "TCAT-00000002");
 
         // then
         assertThat(response.friendStatus()).isEqualTo(UserSearchFriendStatus.REQUEST_SENT);
@@ -171,17 +146,11 @@ class UserSearchServiceTest {
         when(userProfileQueryService.getSummaryByUser(targetUser)).thenReturn(createSummary(targetUser));
         when(userBlockService.isBlockedBetween(loginUserId, 2L)).thenReturn(false);
         when(friendService.areFriends(loginUserId, 2L)).thenReturn(false);
-        when(friendRequestRepository.findBetweenUsersByStatus(
-                loginUserId,
-                2L,
-                FriendRequestStatus.PENDING
-        )).thenReturn(Optional.of(friendRequest));
+        when(friendRequestRepository.findBetweenUsersByStatus(loginUserId, 2L, FriendRequestStatus.PENDING))
+                .thenReturn(Optional.of(friendRequest));
 
         // when
-        UserSearchResponseDto response = userSearchService.searchByPublicId(
-                loginUserId,
-                "TCAT-00000002"
-        );
+        UserSearchResponseDto response = userSearchService.searchByPublicId(loginUserId, "TCAT-00000002");
 
         // then
         assertThat(response.friendStatus()).isEqualTo(UserSearchFriendStatus.REQUEST_RECEIVED);
@@ -199,17 +168,14 @@ class UserSearchServiceTest {
         when(userBlockService.isBlockedBetween(loginUserId, 2L)).thenReturn(true);
 
         // when
-        UserSearchResponseDto response = userSearchService.searchByPublicId(
-                loginUserId,
-                "TCAT-00000002"
-        );
+        UserSearchResponseDto response = userSearchService.searchByPublicId(loginUserId, "TCAT-00000002");
 
         // then
         assertThat(response.friendStatus()).isEqualTo(UserSearchFriendStatus.BLOCKED);
 
         verify(friendService, never()).areFriends(anyLong(), anyLong());
-        verify(friendRequestRepository, never()).findBetweenUsersByStatus(anyLong(), anyLong(),
-                any(FriendRequestStatus.class));
+        verify(friendRequestRepository, never())
+                .findBetweenUsersByStatus(anyLong(), anyLong(), any(FriendRequestStatus.class));
     }
 
     @Test
@@ -223,9 +189,7 @@ class UserSearchServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> userSearchService.searchByPublicId(loginUserId, "UNKNOWN"))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_NOT_FOUND")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_NOT_FOUND"));
     }
 
     @Test
@@ -237,9 +201,7 @@ class UserSearchServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> userSearchService.searchByPublicId(loginUserId, " "))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_REQUIRED")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("PUBLIC_ID_REQUIRED"));
     }
 
     @Test
@@ -248,33 +210,15 @@ class UserSearchServiceTest {
         // when & then
         assertThatExceptionOfType(BusinessException.class)
                 .isThrownBy(() -> userSearchService.searchByPublicId(null, "TCAT-00000002"))
-                .satisfies(exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED")
-                );
+                .satisfies(exception -> assertThat(exception.getErrorCode()).isEqualTo("UNAUTHORIZED"));
     }
 
     private UserSummaryProfileResponseDto createSummary(User user) {
-        return new UserSummaryProfileResponseDto(
-                user.getId(),
-                user.getPublicId(),
-                user.getUsername(),
-                null
-        );
+        return new UserSummaryProfileResponseDto(user.getId(), user.getPublicId(), user.getUsername(), null);
     }
 
-    private User createUser(
-            Long id,
-            String email,
-            String username,
-            String publicId
-    ) {
-        User user = User.createLocalUser(
-                email,
-                "password",
-                username,
-                Role.USER,
-                publicId
-        );
+    private User createUser(Long id, String email, String username, String publicId) {
+        User user = User.createLocalUser(email, "password", username, Role.USER, publicId);
         user.setId(id);
         return user;
     }

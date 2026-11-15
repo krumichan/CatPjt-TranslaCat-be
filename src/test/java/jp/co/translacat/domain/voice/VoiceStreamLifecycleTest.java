@@ -40,18 +40,17 @@ import static org.mockito.Mockito.*;
 
 class VoiceStreamLifecycleTest {
     private final ObjectMapper mapper = new ObjectMapper();
-    private final VoiceStreamContext context = new VoiceStreamContext(1L, "audit", VoiceChannel.REMOTE,
-            "connection", VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO, null, null, "ko", "{}", 0);
+    private final VoiceStreamContext context = new VoiceStreamContext(1L, "audit", VoiceChannel.REMOTE, "connection",
+            VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO, null, null, "ko", "{}", 0);
 
     private VoicePolicyProperties policy(int completeMs) {
-        return new VoicePolicyProperties(3600000, 7200000, 6400, 3000, 100, 30,
-                3000, 10, 3, completeMs, 90, 300, 250, 10000, 0.8, 0.85, 3);
+        return new VoicePolicyProperties(
+                3600000, 7200000, 6400, 3000, 100, 30, 3000, 10, 3, completeMs, 90, 300, 250, 10000, 0.8, 0.85, 3);
     }
 
     private VoiceRelayConnection relay(WebSocketSession publicSocket) {
-        return new VoiceRelayConnection(context, publicSocket, policy(25000), error -> {
-            throw new AssertionError(error);
-        });
+        return new VoiceRelayConnection(
+                context, publicSocket, policy(25000), error -> { throw new AssertionError(error); });
     }
 
     @Test
@@ -60,8 +59,8 @@ class VoiceStreamLifecycleTest {
         var finals = mock(VoiceFinalResultCommandService.class);
         var streams = mock(VoiceStreamCommandService.class);
         var usage = mock(VoiceUsageQueryService.class);
-        var processor = new VoiceAiEventProcessor(mapper, finals, streams, usage,
-                mock(VoiceSourceReadingService.class));
+        var processor =
+                new VoiceAiEventProcessor(mapper, finals, streams, usage, mock(VoiceSourceReadingService.class));
         var relay = relay(mock(WebSocketSession.class));
 
         // 실행
@@ -83,14 +82,15 @@ class VoiceStreamLifecycleTest {
         var finals = mock(VoiceFinalResultCommandService.class);
         var streams = mock(VoiceStreamCommandService.class);
         var usage = mock(VoiceUsageQueryService.class);
-        var processor = new VoiceAiEventProcessor(mapper, finals, streams, usage,
-                mock(VoiceSourceReadingService.class));
+        var processor =
+                new VoiceAiEventProcessor(mapper, finals, streams, usage, mock(VoiceSourceReadingService.class));
 
         // 실행 및 검증
         assertThatThrownBy(() -> processor.process(relay(mock(WebSocketSession.class)), """
             {"type":"NO_SPEECH","eventId":"silence-1","sessionId":"audit","channel":"SELF"}
-            """)).isInstanceOfSatisfying(BusinessException.class,
-                e -> assertThat(e.getErrorCode()).isEqualTo(VoiceErrorCode.AI_EVENT_SCOPE_MISMATCH));
+            """))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(VoiceErrorCode.AI_EVENT_SCOPE_MISMATCH));
         verifyNoInteractions(finals, streams, usage);
     }
 
@@ -150,13 +150,13 @@ class VoiceStreamLifecycleTest {
         registry.register("audit", "remote", remote);
         registry.register("audit", "self", self);
         when(commands.startCompleting(1L, "audit")).thenReturn(true);
-        var facade = new VoiceSessionFacade(commands, mock(VoiceSessionQueryService.class), null, null,
-                null, null, registry, policy(10));
+        var facade = new VoiceSessionFacade(
+                commands, mock(VoiceSessionQueryService.class), null, null, null, null, registry, policy(10));
 
         // 실행 및 검증: 한쪽 채널만 지연되어도 회의의 두 연결을 모두 종료한다.
         assertThatThrownBy(() -> facade.complete(1L, "audit"))
                 .isInstanceOfSatisfying(BusinessException.class,
-                    e -> assertThat(e.getErrorCode()).isEqualTo(VoiceErrorCode.COMPLETE_TIMEOUT));
+                        e -> assertThat(e.getErrorCode()).isEqualTo(VoiceErrorCode.COMPLETE_TIMEOUT));
         verify(commands).fail(1L, "audit");
         verify(commands, never()).finishCompletion(any(), any());
         verify(remote).forceClose(CloseStatus.SERVER_ERROR);
@@ -170,12 +170,13 @@ class VoiceStreamLifecycleTest {
         var commands = mock(VoiceSessionCommandService.class);
         var registry = new VoiceConnectionRegistry();
         var connection = mock(VoiceConnectionRegistry.GracefulConnection.class);
-        when(connection.closeGracefully(any())).thenReturn(CompletableFuture.failedFuture(
-                new CompletionException(new BusinessException("AI closed", VoiceErrorCode.AI_CONNECTION_CLOSED))));
+        when(connection.closeGracefully(any()))
+                .thenReturn(CompletableFuture.failedFuture(new CompletionException(
+                        new BusinessException("AI closed", VoiceErrorCode.AI_CONNECTION_CLOSED))));
         registry.register("audit", "connection", connection);
         when(commands.startCompleting(1L, "audit")).thenReturn(true);
-        var facade = new VoiceSessionFacade(commands, mock(VoiceSessionQueryService.class), null, null,
-                null, null, registry, policy(25000));
+        var facade = new VoiceSessionFacade(
+                commands, mock(VoiceSessionQueryService.class), null, null, null, null, registry, policy(25000));
 
         // 실행 및 검증
         assertThatThrownBy(() -> facade.complete(1L, "audit"))
@@ -191,8 +192,8 @@ class VoiceStreamLifecycleTest {
         var commands = mock(VoiceSessionCommandService.class);
         when(commands.startCompleting(1L, "audit")).thenReturn(true);
         when(commands.finishCompletion(1L, "audit")).thenReturn(false);
-        var facade = new VoiceSessionFacade(commands, mock(VoiceSessionQueryService.class), null, null,
-                null, null, new VoiceConnectionRegistry(), policy(25000));
+        var facade = new VoiceSessionFacade(commands, mock(VoiceSessionQueryService.class), null, null, null, null,
+                new VoiceConnectionRegistry(), policy(25000));
 
         // 실행 및 검증: 사라진 closeFuture를 완료 성공으로 취급하지 않는다.
         assertThatThrownBy(() -> facade.complete(1L, "audit"))
@@ -208,8 +209,8 @@ class VoiceStreamLifecycleTest {
         var registry = mock(VoiceConnectionRegistry.class);
         when(commands.startCompleting(1L, "audit")).thenReturn(false);
         when(commands.finishCompletion(1L, "audit")).thenReturn(true);
-        var facade = new VoiceSessionFacade(commands, mock(VoiceSessionQueryService.class), null, null,
-                null, null, registry, policy(25000));
+        var facade = new VoiceSessionFacade(
+                commands, mock(VoiceSessionQueryService.class), null, null, null, null, registry, policy(25000));
 
         // 실행
         facade.complete(1L, "audit");
@@ -227,12 +228,10 @@ class VoiceStreamLifecycleTest {
         var registry = mock(VoiceConnectionRegistry.class);
         when(commands.startCompleting(1L, "audit")).thenReturn(false);
         when(commands.finishCompletion(1L, "audit")).thenReturn(false);
-        var failedSession = new VoiceSessionResponseDto("audit", VoiceMode.MEDIA,
-                VoiceSourceLanguageMode.AUTO, "ko", true, VoiceSessionStatus.FAILED,
-                "Voice", 900, null, null, null, List.of());
+        var failedSession = new VoiceSessionResponseDto("audit", VoiceMode.MEDIA, VoiceSourceLanguageMode.AUTO, "ko",
+                true, VoiceSessionStatus.FAILED, "Voice", 900, null, null, null, List.of());
         when(queries.get(1L, "audit")).thenReturn(failedSession);
-        var facade = new VoiceSessionFacade(commands, queries, null, null,
-                null, null, registry, policy(25000));
+        var facade = new VoiceSessionFacade(commands, queries, null, null, null, null, registry, policy(25000));
 
         // 실행
         var response = facade.complete(1L, "audit");
@@ -281,9 +280,9 @@ class VoiceStreamLifecycleTest {
         var socket = mock(WebSocketSession.class);
         when(socket.isOpen()).thenReturn(true);
         var relay = relay(socket);
-        var handler = new VoicePublicWebSocketHandler(mock(VoiceStreamCommandService.class),
-                mock(VoiceAiStreamClient.class), mock(VoiceAiEventProcessor.class),
-                new VoiceConnectionRegistry(), policy(25000), mapper);
+        var handler =
+                new VoicePublicWebSocketHandler(mock(VoiceStreamCommandService.class), mock(VoiceAiStreamClient.class),
+                        mock(VoiceAiEventProcessor.class), new VoiceConnectionRegistry(), policy(25000), mapper);
         ReflectionTestUtils.setField(handler, "connections", Map.of("connection", relay));
 
         // 실행
@@ -299,8 +298,9 @@ class VoiceStreamLifecycleTest {
         assertThat(error.path("retryable").asBoolean()).isFalse();
         assertThatThrownBy(() -> relay.closeGracefully("SESSION_COMPLETE").join())
                 .hasCauseInstanceOf(BusinessException.class)
-                .satisfies(failure -> assertThat(((BusinessException) failure.getCause()).getErrorCode())
-                        .isEqualTo(VoiceErrorCode.BE_INTERNAL_ERROR));
+                .satisfies(failure
+                        -> assertThat(((BusinessException) failure.getCause()).getErrorCode())
+                                .isEqualTo(VoiceErrorCode.BE_INTERNAL_ERROR));
     }
 
     @Test
@@ -336,9 +336,9 @@ class VoiceStreamLifecycleTest {
         var socket = mock(WebSocketSession.class);
         when(socket.isOpen()).thenReturn(true);
         var relay = relay(socket);
-        var handler = new VoicePublicWebSocketHandler(mock(VoiceStreamCommandService.class),
-                mock(VoiceAiStreamClient.class), mock(VoiceAiEventProcessor.class),
-                new VoiceConnectionRegistry(), policy(25000), mapper);
+        var handler =
+                new VoicePublicWebSocketHandler(mock(VoiceStreamCommandService.class), mock(VoiceAiStreamClient.class),
+                        mock(VoiceAiEventProcessor.class), new VoiceConnectionRegistry(), policy(25000), mapper);
         ReflectionTestUtils.setField(handler, "connections", Map.of("connection", relay));
 
         // 실행
@@ -354,8 +354,9 @@ class VoiceStreamLifecycleTest {
         assertThat(json.path("error").path("retryable").asBoolean()).isTrue();
         assertThatThrownBy(() -> relay.closeGracefully("SESSION_COMPLETE").join())
                 .hasCauseInstanceOf(BusinessException.class)
-                .satisfies(error -> assertThat(((BusinessException) error.getCause()).getErrorCode())
-                        .isEqualTo(VoiceErrorCode.AI_READY_TIMEOUT));
+                .satisfies(error
+                        -> assertThat(((BusinessException) error.getCause()).getErrorCode())
+                                .isEqualTo(VoiceErrorCode.AI_READY_TIMEOUT));
     }
 
     @Test
@@ -387,8 +388,7 @@ class VoiceStreamLifecycleTest {
         var relay = relay(mock(WebSocketSession.class));
 
         // 실행 및 검증: PCM 3초를 넘기는 준비 큐와 6400-byte 초과 frame을 거절한다.
-        assertThatThrownBy(() -> relay.acceptAudio(new byte[6401]))
-                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> relay.acceptAudio(new byte[6401])).isInstanceOf(BusinessException.class);
         for (int i = 0; i < 30; i++) {
             relay.acceptAudio(new byte[3200]);
         }
@@ -405,8 +405,8 @@ class VoiceStreamLifecycleTest {
         var sessions = mock(VoiceSessionRepository.class);
         var segments = mock(VoiceSegmentRepository.class);
         when(sessions.findByIdAndUser_Id("audit", 1L)).thenReturn(Optional.of(session));
-        var commands = new VoiceSessionCommandService(mock(EntityManager.class), sessions, null, segments,
-                null, policy(25000), mapper);
+        var commands = new VoiceSessionCommandService(
+                mock(EntityManager.class), sessions, null, segments, null, policy(25000), mapper);
 
         // 실행
         commands.fail(1L, "audit");
@@ -426,10 +426,9 @@ class VoiceStreamLifecycleTest {
         var segments = mock(VoiceSegmentRepository.class);
         var pending = mock(jp.co.translacat.domain.voice.entity.VoiceSegment.class);
         when(sessions.findByIdAndUser_Id("audit", 1L)).thenReturn(Optional.of(session));
-        when(segments.findBySession_IdAndStatus("audit", VoiceSegmentStatus.TRANSLATING))
-                .thenReturn(List.of(pending));
-        var commands = new VoiceSessionCommandService(mock(EntityManager.class), sessions, null, segments,
-                null, policy(25000), mapper);
+        when(segments.findBySession_IdAndStatus("audit", VoiceSegmentStatus.TRANSLATING)).thenReturn(List.of(pending));
+        var commands = new VoiceSessionCommandService(
+                mock(EntityManager.class), sessions, null, segments, null, policy(25000), mapper);
 
         // 실행
         commands.fail(1L, "audit");
@@ -453,8 +452,8 @@ class VoiceStreamLifecycleTest {
         registry.register("audit", "self", self);
         when(commands.startCompleting(1L, "audit")).thenReturn(true);
         when(commands.finishCompletion(1L, "audit")).thenReturn(true);
-        var facade = new VoiceSessionFacade(commands, mock(VoiceSessionQueryService.class), null, null,
-                null, null, registry, policy(25000));
+        var facade = new VoiceSessionFacade(
+                commands, mock(VoiceSessionQueryService.class), null, null, null, null, registry, policy(25000));
 
         // 실행: 양 채널 drain 확인 후에만 DB 완료를 확정한다.
         when(remote.closeGracefully("SESSION_COMPLETE")).thenAnswer(invocation -> {
@@ -502,11 +501,11 @@ class VoiceStreamLifecycleTest {
         // 준비: public 소켓 쓰기가 실패하면 동일 handler로 transport 오류가 다시 들어온다.
         var socket = mock(WebSocketSession.class);
         when(socket.isOpen()).thenReturn(true);
-        var handler = new VoicePublicWebSocketHandler(mock(VoiceStreamCommandService.class),
-                mock(VoiceAiStreamClient.class), mock(VoiceAiEventProcessor.class),
-                new VoiceConnectionRegistry(), policy(25000), mapper);
-        var relay = new VoiceRelayConnection(context, socket, policy(25000), error ->
-                ReflectionTestUtils.invokeMethod(handler, "onAsyncError", "connection", error));
+        var handler =
+                new VoicePublicWebSocketHandler(mock(VoiceStreamCommandService.class), mock(VoiceAiStreamClient.class),
+                        mock(VoiceAiEventProcessor.class), new VoiceConnectionRegistry(), policy(25000), mapper);
+        var relay = new VoiceRelayConnection(context, socket, policy(25000),
+                error -> ReflectionTestUtils.invokeMethod(handler, "onAsyncError", "connection", error));
         ReflectionTestUtils.setField(handler, "connections", Map.of("connection", relay));
         doThrow(new IOException("closed transport")).when(socket).sendMessage(any());
 
@@ -529,9 +528,9 @@ class VoiceStreamLifecycleTest {
         var relay = relay(socket);
         relay.attachAi(ai);
         var closed = relay.closeGracefully("SESSION_COMPLETE");
-        var handler = new VoicePublicWebSocketHandler(mock(VoiceStreamCommandService.class),
-                mock(VoiceAiStreamClient.class), mock(VoiceAiEventProcessor.class),
-                new VoiceConnectionRegistry(), policy(25000), mapper);
+        var handler =
+                new VoicePublicWebSocketHandler(mock(VoiceStreamCommandService.class), mock(VoiceAiStreamClient.class),
+                        mock(VoiceAiEventProcessor.class), new VoiceConnectionRegistry(), policy(25000), mapper);
         ReflectionTestUtils.setField(handler, "connections", Map.of("connection", relay));
 
         // 실행
@@ -552,20 +551,17 @@ class VoiceStreamLifecycleTest {
         when(session.getStatus()).thenReturn(VoiceSessionStatus.COMPLETED);
         when(sessions.findOwnedForUpdate("audit", 1L)).thenReturn(Optional.of(session));
         var finals = new VoiceFinalResultCommandService(sessions, segments, usage,
-                mock(VoiceStreamCommandService.class), mapper,
-                mock(VoiceSourceReadingService.class));
+                mock(VoiceStreamCommandService.class), mapper, mock(VoiceSourceReadingService.class));
         var event = mapper.readTree("""
                 {"eventId":"late","sourceText":"The meeting is over",
                  "error":{"stage":"TRANSLATION","code":"VOICE_AI_TRANSLATION_TIMEOUT"}}
                 """);
 
         // 실행 및 검증: 세그먼트 조회/갱신 전에 세션 상태 검사를 끝낸다.
-        assertThatThrownBy(() -> finals.persistCompleted(context, event, 1, 0))
-                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> finals.persistCompleted(context, event, 1, 0)).isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> finals.persistTranslationFailure(context, event, 1))
                 .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> finals.updateRelayLatency(context, 1L, 0))
-                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> finals.updateRelayLatency(context, 1L, 0)).isInstanceOf(BusinessException.class);
         verifyNoInteractions(segments, usage);
     }
 
@@ -579,14 +575,13 @@ class VoiceStreamLifecycleTest {
         when(session.getStatus()).thenReturn(VoiceSessionStatus.FAILED);
         when(sessions.findOwnedForUpdate("audit", 1L)).thenReturn(Optional.of(session));
         var finals = new VoiceFinalResultCommandService(sessions, segments, usage,
-                mock(VoiceStreamCommandService.class), mapper,
-                mock(VoiceSourceReadingService.class));
+                mock(VoiceStreamCommandService.class), mapper, mock(VoiceSourceReadingService.class));
         var event = mapper.readTree("{\"eventId\":\"late\",\"sourceText\":\"The meeting is over\"}");
 
         // 실행 및 검증: 뒤늦게 도착한 마지막 문장은 저장되지 않는다.
         assertThatThrownBy(() -> finals.persistTranscriptFinal(context, event, 1))
                 .isInstanceOfSatisfying(BusinessException.class,
-                    e -> assertThat(e.getErrorCode()).isEqualTo(VoiceErrorCode.LATE_FINAL_EVENT));
+                        e -> assertThat(e.getErrorCode()).isEqualTo(VoiceErrorCode.LATE_FINAL_EVENT));
         verify(segments, never()).saveAndFlush(any());
         verifyNoInteractions(usage);
     }

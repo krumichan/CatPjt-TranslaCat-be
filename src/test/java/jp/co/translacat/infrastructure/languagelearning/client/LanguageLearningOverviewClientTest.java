@@ -32,8 +32,8 @@ class LanguageLearningOverviewClientTest {
     private LanguageLearningOverviewClient client() {
         var properties = new LanguageLearningClientProperties();
         properties.getInternalJwt().setSecretBase64(Base64.getEncoder().encodeToString(new byte[32]));
-        return new LanguageLearningOverviewClient(builder.build(),
-                new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC()), mapper);
+        return new LanguageLearningOverviewClient(
+                builder.build(), new LanguageLearningInternalJwtProvider(properties, Clock.systemUTC()), mapper);
     }
 
     @Test
@@ -48,11 +48,13 @@ class LanguageLearningOverviewClientTest {
         query.put("policyVersion", "free-session-coaching-v1");
         query.put("cursor", "101:20");
         query.put("limit", "10");
-        server.expect(requestTo("http://ll.test/internal/v1/language-learning/overview/evidence"
+        server
+                .expect(requestTo("http://ll.test/internal/v1/language-learning/overview/evidence"
                         + "?source=SPEAKING&learningLanguage=en&from=2026-09-01&to=2026-10-03"
                         + "&resultKind=SESSION_COACHING&policyVersion=free-session-coaching-v1&cursor=101:20&limit=10"))
                 .andRespond(withSuccess("{\"items\":[{\"resultKind\":\"SESSION_COACHING\",\"score\":null,"
-                        + "\"evidenceStatus\":\"SOURCE_UNAVAILABLE\"}],\"nextCursor\":null}", MediaType.APPLICATION_JSON));
+                                + "\"evidenceStatus\":\"SOURCE_UNAVAILABLE\"}],\"nextCursor\":null}",
+                        MediaType.APPLICATION_JSON));
 
         // 실행
         var result = client.get(101L, "/evidence", query, JsonNode.class);
@@ -72,13 +74,15 @@ class LanguageLearningOverviewClientTest {
         query.put("source", "LISTENING");
         query.put("period", " 3d ");
         query.put("status", null);
-        server.expect(requestTo(
+        server
+                .expect(requestTo(
                         "http://ll.test/internal/v1/language-learning/overview/history?source=LISTENING&period=%203d%20"))
                 .andExpect(request -> {
                     var token = request.getHeaders().getFirst("Authorization").substring(7);
                     var payload = mapper.readTree(Base64.getUrlDecoder().decode(token.split("\\.")[1]));
                     assertEquals("101", payload.path("sub").asText());
-                }).andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+                })
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
 
         // 실행
         var result = client.list(101L, "/history", query, LearningHistoryDetailResponseDto.class);
@@ -95,8 +99,8 @@ class LanguageLearningOverviewClientTest {
                 .andRespond(withSuccess("{\"activityId\":\"WRITING:-1\",\"source\":\"WRITING\",\"detail\":{}}",
                         MediaType.APPLICATION_JSON));
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/overview/streak"))
-                .andRespond(withSuccess("{\"current\":0,\"longest\":0,\"lastStudyDate\":null}",
-                        MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(
+                        "{\"current\":0,\"longest\":0,\"lastStudyDate\":null}", MediaType.APPLICATION_JSON));
 
         // 실행
         var detail = client.get(101L, "/history/WRITING:-1", Map.of(), LearningHistoryDetailResponseDto.class);
@@ -112,8 +116,9 @@ class LanguageLearningOverviewClientTest {
     void 업무_오류는_그대로_전달하고_누락된_성공_DTO는_실패한다() {
         // 준비
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/overview/dashboard"))
-                .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
-                        .body("{\"code\":\"DASHBOARD_SOURCE_INVALID\",\"message\":\"조회 조건 오류\"}"));
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body("{\"code\":\"DASHBOARD_SOURCE_INVALID\",\"message\":\"조회 조건 오류\"}"));
         server.expect(requestTo("http://ll.test/internal/v1/language-learning/overview/streak"))
                 .andRespond(withSuccess("{\"current\":0}", MediaType.APPLICATION_JSON));
 

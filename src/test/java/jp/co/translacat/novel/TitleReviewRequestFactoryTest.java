@@ -17,18 +17,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TitleReviewRequestFactoryTest {
     private final ObjectMapper json = new ObjectMapper();
     private final TitleReviewRequestFactory factory = new TitleReviewRequestFactory();
-    private final List<TitleCandidate> candidates = List.of(
-            new TitleCandidate("chapter-4", "青山玲子の訪問", "청산 레이코의 방문"),
-            new TitleCandidate("chapter-5", "静かな朝", "고요한 아침"));
-    private final List<TitleReference> references = List.of(
-            new TitleReference("青山玲子は歩き続けた。", "아오야마 레이코는 계속 걸었다."));
+    private final List<TitleCandidate> candidates =
+            List.of(new TitleCandidate("chapter-4", "青山玲子の訪問", "청산 레이코의 방문"),
+                    new TitleCandidate("chapter-5", "静かな朝", "고요한 아침"));
+    private final List<TitleReference> references =
+            List.of(new TitleReference("青山玲子は歩き続けた。", "아오야마 레이코는 계속 걸었다."));
 
     @Test
     void reviewReturnsOnlyAnchoredCorrectionAndLeavesTheOtherSavedTitleOutOfOutput() {
         // 준비: 이름과 단순 제목은 다른 작품에서 가져온 제어 fixture다.
         var prepared = factory.prepare(candidates, references, Map.of(), "ko");
-        var output = json.valueToTree(Map.of("corrections", List.of(Map.of("id", "chapter-4",
-                "translation", "아오야마 레이코의 방문", "sourceTerm", "青山玲子", "referenceTranslation", "아오야마 레이코"))));
+        var output = json.valueToTree(Map.of("corrections",
+                List.of(Map.of("id", "chapter-4", "translation", "아오야마 레이코의 방문", "sourceTerm", "青山玲子",
+                        "referenceTranslation", "아오야마 레이코"))));
 
         // 실행
         var corrections = factory.restore(prepared, output);
@@ -37,7 +38,8 @@ class TitleReviewRequestFactoryTest {
         assertThat(corrections).containsExactlyEntriesOf(Map.of("chapter-4", "아오야마 레이코의 방문"));
         assertThat(prepared.candidates()).isEqualTo(candidates);
         assertThat(prepared.data()).containsEntry("acceptedReferences", references);
-        assertThat(prepared.instructions()).contains("not translate the whole list", "empty corrections array is valid");
+        assertThat(prepared.instructions())
+                .contains("not translate the whole list", "empty corrections array is valid");
     }
 
     @Test
@@ -47,26 +49,31 @@ class TitleReviewRequestFactoryTest {
 
         // 실행 및 검증
         assertThat(factory.restore(prepared, json.valueToTree(Map.of("corrections", List.of())))).isEmpty();
-        assertThatThrownBy(() -> factory.prepare(List.of(candidates.getFirst(), candidates.getFirst()), references, Map.of(), "ko"))
+        assertThatThrownBy(()
+                                   -> factory.prepare(List.of(candidates.getFirst(), candidates.getFirst()), references,
+                                           Map.of(), "ko"))
                 .hasMessage("TOC_REVIEW_INPUT_INVALID");
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"foreign-id", "missing-source-anchor", "missing-reference-anchor", "no-change", "duplicate", "extra-property"})
+    @ValueSource(strings = {"foreign-id", "missing-source-anchor", "missing-reference-anchor", "no-change", "duplicate",
+                         "extra-property"})
     void malformedOrUnanchoredReviewCannotBecomeAStoredCorrection(String fault) {
         // 준비
         var prepared = factory.prepare(candidates, references, Map.of(), "ko");
-        var patch = new java.util.LinkedHashMap<String, Object>(Map.of("id", "chapter-4",
-                "translation", "아오야마 레이코의 방문", "sourceTerm", "青山玲子", "referenceTranslation", "아오야마 레이코"));
+        var patch = new java.util.LinkedHashMap<String, Object>(Map.of("id", "chapter-4", "translation",
+                "아오야마 레이코의 방문", "sourceTerm", "青山玲子", "referenceTranslation", "아오야마 레이코"));
         switch (fault) {
             case "foreign-id" -> patch.put("id", "not-requested");
             case "missing-source-anchor" -> patch.put("sourceTerm", "花村");
             case "missing-reference-anchor" -> patch.put("referenceTranslation", "누군가");
             case "no-change" -> patch.put("translation", candidates.getFirst().translation());
             case "extra-property" -> patch.put("reason", "not part of the contract");
-            default -> { }
+            default -> {
+            }
         }
-        var output = json.valueToTree(Map.of("corrections", fault.equals("duplicate") ? List.of(patch, patch) : List.of(patch)));
+        var output = json.valueToTree(
+                Map.of("corrections", fault.equals("duplicate") ? List.of(patch, patch) : List.of(patch)));
 
         // 실행 및 검증
         assertThatThrownBy(() -> factory.restore(prepared, output)).hasMessage("TOC_REVIEW_RESPONSE_INVALID");
@@ -76,8 +83,11 @@ class TitleReviewRequestFactoryTest {
     @Test
     void syosetuHundredTitlePageKeepsItsOriginalContentsContract() {
         // 준비: 기존 소설가가 되자 한 페이지는 100개이며 카쿠요무의 50개로 잘라내지 않는다.
-        var hundred = java.util.stream.IntStream.rangeClosed(1, 100).mapToObj(number ->
-                new TitleCandidate(Integer.toString(number), "静かな朝 " + number, "고요한 아침 " + number)).toList();
+        var hundred = java.util.stream.IntStream.rangeClosed(1, 100)
+                              .mapToObj(number
+                                      -> new TitleCandidate(
+                                              Integer.toString(number), "静かな朝 " + number, "고요한 아침 " + number))
+                              .toList();
         var overflow = new java.util.ArrayList<>(hundred);
         overflow.add(new TitleCandidate("101", "次の朝", "다음 아침"));
 

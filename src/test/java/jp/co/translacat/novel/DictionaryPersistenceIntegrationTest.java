@@ -33,10 +33,10 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:novel-dictionary-persistence;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER",
-        "spring.jpa.show-sql=false"
-})
+@DataJpaTest(
+        properties =
+                {"spring.datasource.url=jdbc:h2:mem:novel-dictionary-persistence;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER",
+                        "spring.jpa.show-sql=false"})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @Import({QueryDslConfig.class, DictionaryService.class, FuriganaProcessor.class, KuromojiFuriganaProcessor.class,
@@ -85,14 +85,14 @@ class DictionaryPersistenceIntegrationTest {
 
         Author author = Author.create(platform, "author", "作者", "作者", "작가");
         entities.persist(author);
-        Novel novel = Novel.create(platform, genre, author, "n-test", "猫の旅", "猫の旅", "고양이의 여행",
-                "連載", "連載", "연재", "猫が歩く。", "猫が歩く。", "고양이가 걷는다.", false);
+        Novel novel = Novel.create(platform, genre, author, "n-test", "猫の旅", "猫の旅", "고양이의 여행", "連載",
+                "連載", "연재", "猫が歩く。", "猫が歩く。", "고양이가 걷는다.", false);
         entities.persist(novel);
 
         Episode episode = Episode.create(novel, "1", "第一話", "第一話", "제1화");
         entities.persist(episode);
-        EpisodeContent content = EpisodeContent.create(episode, 1, "猫が歩く。",
-                "<ruby>猫<rt>ねこ</rt></ruby>が歩く。", "고양이가 걷는다.");
+        EpisodeContent content = EpisodeContent.create(
+                episode, 1, "猫が歩く。", "<ruby>猫<rt>ねこ</rt></ruby>が歩く。", "고양이가 걷는다.");
         entities.persist(content);
         entities.flush();
         return content.getId();

@@ -29,8 +29,7 @@ class EffectiveKeywordsQueryTest {
         // 준비: UTC 날짜와 도쿄 학습일이 다른 시간에 현재 적용 후보만 준비한다.
         var date = LocalDate.of(2026, 10, 16);
         var candidate = new KeywordCandidateSnapshot(
-                "CUSTOM:12", "요건정의", KeywordSource.CUSTOM, KeywordType.TOPIC, null, date
-        );
+                "CUSTOM:12", "요건정의", KeywordSource.CUSTOM, KeywordType.TOPIC, null, date);
         when(settings.get(123L)).thenReturn(setting);
         when(setting.timezone()).thenReturn("Asia/Tokyo");
         when(keywords.candidates(123L, date)).thenReturn(List.of(candidate));

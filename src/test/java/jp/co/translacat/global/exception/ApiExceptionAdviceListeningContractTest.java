@@ -11,15 +11,12 @@ import org.springframework.http.ResponseEntity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ApiExceptionAdviceListeningContractTest {
-
     private final ApiExceptionAdvice advice = new ApiExceptionAdvice();
 
     @Test
     void idempotencyConflictUsesStructuredListeningContractAnd409() {
         BusinessException exception = new BusinessException(
-                "same key with different payload",
-                LanguageLearningErrorCode.LISTENING_IDEMPOTENCY_CONFLICT
-        );
+                "same key with different payload", LanguageLearningErrorCode.LISTENING_IDEMPOTENCY_CONFLICT);
 
         ResponseEntity<?> entity = advice.handleBusinessException(exception);
 
@@ -30,10 +27,8 @@ class ApiExceptionAdviceListeningContractTest {
         assertThat(response.getBody()).isInstanceOf(ListeningErrorDto.class);
 
         ListeningErrorDto error = (ListeningErrorDto) response.getBody();
-        assertThat(error.code())
-                .isEqualTo(LanguageLearningErrorCode.LISTENING_IDEMPOTENCY_CONFLICT);
-        assertThat(error.messageKey())
-                .isEqualTo("languageLearning.listening.listening_idempotency_conflict");
+        assertThat(error.code()).isEqualTo(LanguageLearningErrorCode.LISTENING_IDEMPOTENCY_CONFLICT);
+        assertThat(error.messageKey()).isEqualTo("languageLearning.listening.listening_idempotency_conflict");
         assertThat(error.retryable()).isFalse();
         assertThat(error.retryAfterSeconds()).isNull();
         assertThat(error.failedStage()).isNull();
@@ -43,9 +38,7 @@ class ApiExceptionAdviceListeningContractTest {
     @Test
     void listeningValidationErrorUsesSameStructuredContractAnd400() {
         BusinessException exception = new BusinessException(
-                "invalid task combination",
-                LanguageLearningErrorCode.LISTENING_INVALID_TASK_COMBINATION
-        );
+                "invalid task combination", LanguageLearningErrorCode.LISTENING_INVALID_TASK_COMBINATION);
 
         ResponseEntity<?> entity = advice.handleBusinessException(exception);
 
@@ -53,7 +46,6 @@ class ApiExceptionAdviceListeningContractTest {
         ResponseDto<?> response = (ResponseDto<?>) entity.getBody();
         assertThat(response.getBody()).isInstanceOf(ListeningErrorDto.class);
         ListeningErrorDto error = (ListeningErrorDto) response.getBody();
-        assertThat(error.code())
-                .isEqualTo(LanguageLearningErrorCode.LISTENING_INVALID_TASK_COMBINATION);
+        assertThat(error.code()).isEqualTo(LanguageLearningErrorCode.LISTENING_INVALID_TASK_COMBINATION);
     }
 }

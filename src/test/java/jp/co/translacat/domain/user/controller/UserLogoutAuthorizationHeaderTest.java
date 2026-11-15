@@ -27,7 +27,8 @@ class UserLogoutAuthorizationHeaderTest {
     private final UserService users = new UserService(mock(UserRepository.class), refreshTokens,
             mock(UserAllowedRepository.class), jwt, mock(AuthenticationManager.class), mock(PasswordEncoder.class),
             mock(EmailVerificationService.class), mock(UserProfileRepository.class), mock(AuthAttemptLimiter.class),
-            mock(AuthSessionService.class), mock(jp.co.translacat.domain.user.deletion.AccountDeletionIdentityGate.class));
+            mock(AuthSessionService.class),
+            mock(jp.co.translacat.domain.user.deletion.AccountDeletionIdentityGate.class));
     private final UserController controller = new UserController(users, mock(OAuth2AuthenticationService.class));
 
     @Test
@@ -51,7 +52,7 @@ class UserLogoutAuthorizationHeaderTest {
         String token = jwt.generateAccessToken(9L, "logout@example.invalid");
 
         // 실행·검증: 인증 헤더 없는 직접 호출이나 compact JWT 자체를 HTTP 인증으로 받아들이지 않는다.
-        for (String header : new String[]{null, "", "Bearer ", "Bearer   ", "Basic invalid", token}) {
+        for (String header : new String[] {null, "", "Bearer ", "Bearer   ", "Basic invalid", token}) {
             var failure = assertThrows(BusinessException.class, () -> controller.logout(header));
             assertEquals("INVALID_AUTHORIZATION_HEADER", failure.getErrorCode());
         }

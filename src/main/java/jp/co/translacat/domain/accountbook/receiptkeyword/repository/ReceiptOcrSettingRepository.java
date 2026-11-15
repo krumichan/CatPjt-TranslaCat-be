@@ -7,10 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ReceiptOcrSettingRepository extends JpaRepository<ReceiptOcrSetting, Long> {
-
-    Optional<ReceiptOcrSetting> findFirstByCurrencyCodeAndEnabledTrueAndDeletedFalse(
-            String currencyCode
-    );
+    Optional<ReceiptOcrSetting> findFirstByCurrencyCodeAndEnabledTrueAndDeletedFalse(String currencyCode);
 
     Optional<ReceiptOcrSetting> findByIdAndDeletedFalse(Long id);
 

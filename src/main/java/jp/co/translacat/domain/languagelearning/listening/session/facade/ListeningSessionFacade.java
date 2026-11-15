@@ -44,47 +44,48 @@ public class ListeningSessionFacade {
     }
 
     public ListeningApiContract.TaskView upsertText(Long userId, Long attemptId, ListeningTaskType taskType,
-                                                    ListeningApiContract.ResponseUpsertRequest request) {
+            ListeningApiContract.ResponseUpsertRequest request) {
         return gateway.post(userId, "/attempts/" + attemptId + "/responses/" + taskType, request,
                 ListeningApiContract.TaskView.class);
     }
 
-    public ListeningApiContract.TaskView applyAssistance(Long userId, Long attemptId, ListeningTaskType taskType,
-                                                         List<ListeningApiContract.AssistanceUsage> usage) {
+    public ListeningApiContract.TaskView applyAssistance(
+            Long userId, Long attemptId, ListeningTaskType taskType, List<ListeningApiContract.AssistanceUsage> usage) {
         return gateway.post(userId, "/attempts/" + attemptId + "/responses/" + taskType + "/assistance",
                 usage == null ? List.of() : usage, ListeningApiContract.TaskView.class);
     }
 
     public ListeningApiContract.AttemptView useAssistance(Long userId, Long attemptId, ListeningAssistanceType type) {
-        return gateway.post(userId, "/attempts/" + attemptId + "/assistance/" + type, null,
-                ListeningApiContract.AttemptView.class);
+        return gateway.post(
+                userId, "/attempts/" + attemptId + "/assistance/" + type, null, ListeningApiContract.AttemptView.class);
     }
 
     public ListeningAudioObject userAudio(Long userId, Long responseId) {
         return gateway.audio(userId, "/responses/" + responseId + "/audio");
     }
 
-    public ListeningApiContract.AudioUploadView uploadAudio(Long userId, Long attemptId, MultipartFile audio,
-                                                            int durationMs) {
+    public ListeningApiContract.AudioUploadView uploadAudio(
+            Long userId, Long attemptId, MultipartFile audio, int durationMs) {
         // 외부 multipart의 바이트·Content-Type·신고 길이를 전달하고 유효성·저장 소유권은 LL이 판정한다.
         try {
-            return gateway.post(userId, "/attempts/" + attemptId + "/audio-upload", Map.of(
-                    "audioBase64", Base64.getEncoder().encodeToString(audio.getBytes()),
-                    "contentType", audio.getContentType() == null ? "application/octet-stream" : audio.getContentType(),
-                    "durationMs", durationMs), ListeningApiContract.AudioUploadView.class);
+            return gateway.post(userId, "/attempts/" + attemptId + "/audio-upload",
+                    Map.of("audioBase64", Base64.getEncoder().encodeToString(audio.getBytes()), "contentType",
+                            audio.getContentType() == null ? "application/octet-stream" : audio.getContentType(),
+                            "durationMs", durationMs),
+                    ListeningApiContract.AudioUploadView.class);
         } catch (IOException failure) {
             throw new BusinessException("Listening Audio를 읽을 수 없습니다.", "LISTENING_AUDIO_INVALID");
         }
     }
 
-    public ListeningApiContract.AttemptView submit(Long userId, Long attemptId,
-                                                   ListeningApiContract.SubmitRequest request) {
-        return gateway.post(userId, "/attempts/" + attemptId + "/submit", request,
-                ListeningApiContract.AttemptView.class);
+    public ListeningApiContract.AttemptView submit(
+            Long userId, Long attemptId, ListeningApiContract.SubmitRequest request) {
+        return gateway.post(
+                userId, "/attempts/" + attemptId + "/submit", request, ListeningApiContract.AttemptView.class);
     }
 
-    public ListeningApiContract.AttemptView retryEvaluation(Long userId, Long attemptId,
-                                                            ListeningApiContract.RetryRequest request) {
+    public ListeningApiContract.AttemptView retryEvaluation(
+            Long userId, Long attemptId, ListeningApiContract.RetryRequest request) {
         return gateway.post(userId, "/attempts/" + attemptId + "/retry-evaluation", request,
                 ListeningApiContract.AttemptView.class);
     }
@@ -95,24 +96,24 @@ public class ListeningSessionFacade {
     }
 
     public ListeningApiContract.RevealAnswerView revealAnswer(Long userId, Long attemptId) {
-        return gateway.post(userId, "/attempts/" + attemptId + "/answer", null,
-                ListeningApiContract.RevealAnswerView.class);
+        return gateway.post(
+                userId, "/attempts/" + attemptId + "/answer", null, ListeningApiContract.RevealAnswerView.class);
     }
 
-    public ListeningApiContract.AttemptView createPractice(Long userId, Long sessionId, Long itemId,
-                                                           ListeningApiContract.PracticeAttemptRequest request) {
+    public ListeningApiContract.AttemptView createPractice(
+            Long userId, Long sessionId, Long itemId, ListeningApiContract.PracticeAttemptRequest request) {
         return gateway.post(userId, "/sessions/" + sessionId + "/items/" + itemId + "/practice-attempts", request,
                 ListeningApiContract.AttemptView.class);
     }
 
-    public ListeningApiContract.AttemptView skip(Long userId, Long attemptId,
-                                                 ListeningApiContract.SkipRequest request) {
-        return gateway.post(userId, "/attempts/" + attemptId + "/skip", request,
-                ListeningApiContract.AttemptView.class);
+    public ListeningApiContract.AttemptView skip(
+            Long userId, Long attemptId, ListeningApiContract.SkipRequest request) {
+        return gateway.post(
+                userId, "/attempts/" + attemptId + "/skip", request, ListeningApiContract.AttemptView.class);
     }
 
-    public ListeningApiContract.EvaluationReportView report(Long userId, Long responseId,
-                                                            ListeningApiContract.EvaluationReportRequest request) {
+    public ListeningApiContract.EvaluationReportView report(
+            Long userId, Long responseId, ListeningApiContract.EvaluationReportRequest request) {
         return gateway.post(userId, "/responses/" + responseId + "/reports", request,
                 ListeningApiContract.EvaluationReportView.class);
     }
@@ -121,10 +122,10 @@ public class ListeningSessionFacade {
         gateway.post(userId, "/sessions/" + sessionId + "/items/" + itemId + "/playbacks", request, Void.class);
     }
 
-    public ListeningApiContract.SessionResultView complete(Long userId, Long sessionId,
-                                                           ListeningApiContract.SessionCompleteRequest request) {
-        return gateway.post(userId, "/sessions/" + sessionId + "/complete", request,
-                ListeningApiContract.SessionResultView.class);
+    public ListeningApiContract.SessionResultView complete(
+            Long userId, Long sessionId, ListeningApiContract.SessionCompleteRequest request) {
+        return gateway.post(
+                userId, "/sessions/" + sessionId + "/complete", request, ListeningApiContract.SessionResultView.class);
     }
 
     public ListeningApiContract.SessionResultView result(Long userId, Long sessionId) {

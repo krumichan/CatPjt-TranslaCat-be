@@ -41,31 +41,34 @@ public class MobileAuthApprovalVerifier {
             throw new AuthException(HttpStatus.SERVICE_UNAVAILABLE, "MOBILE_AUTH_NOT_CONFIGURED",
                     "앱 로그인 승인 설정이 준비되지 않았습니다.");
         }
-        if (requestId == null || !requestId.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
-                || authorization == null || !authorization.startsWith("Bearer ")
-                || timestamp == null || !timestamp.matches("[0-9]{1,12}")
-                || signature == null || !signature.matches("[0-9a-f]{64}")) {
+        if (requestId == null
+                || !requestId.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+                || authorization == null || !authorization.startsWith("Bearer ") || timestamp == null
+                || !timestamp.matches("[0-9]{1,12}") || signature == null || !signature.matches("[0-9a-f]{64}")) {
             throw invalid();
         }
         String token = authorization.substring(7);
-        if (token.isEmpty() || token.length() > 16384 || !token.matches("[A-Za-z0-9._-]+")) throw invalid();
+        if (token.isEmpty() || token.length() > 16384 || !token.matches("[A-Za-z0-9._-]+"))
+            throw invalid();
         long issuedAt = Long.parseLong(timestamp);
         long now = clock.instant().getEpochSecond();
-        if (!Long.toString(issuedAt).equals(timestamp)
-                || issuedAt < now - MAX_SKEW_SECONDS || issuedAt > now + MAX_SKEW_SECONDS) throw invalid();
+        if (!Long.toString(issuedAt).equals(timestamp) || issuedAt < now - MAX_SKEW_SECONDS
+                || issuedAt > now + MAX_SKEW_SECONDS)
+            throw invalid();
 
         // 요청·경로·메서드·Bearer hash·시각을 함께 묶는다. 승인 재사용은 DB의 일회용 행 잠금도 차단한다.
         String canonicalId = UUID.fromString(requestId).toString();
         try {
-            String bearerHash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(token.getBytes(StandardCharsets.UTF_8)));
+            String bearerHash = HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
             String message = String.join("\n", "mobile-auth-approval-v1", "POST", "/api/v1/auth/mobile/authorize",
                     canonicalId, bearerHash, timestamp);
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(key, "HmacSHA256"));
             byte[] expected = mac.doFinal(message.getBytes(StandardCharsets.UTF_8));
             byte[] received = HexFormat.of().parseHex(signature);
-            if (!MessageDigest.isEqual(expected, received)) throw invalid();
+            if (!MessageDigest.isEqual(expected, received))
+                throw invalid();
         } catch (GeneralSecurityException unavailable) {
             // crypto 예외나 입력 증명을 응답·로그에 포함하지 않는다.
             throw new IllegalStateException("Mobile approval verification is unavailable");
@@ -73,7 +76,7 @@ public class MobileAuthApprovalVerifier {
     }
 
     private AuthException invalid() {
-        return new AuthException(HttpStatus.UNAUTHORIZED, "MOBILE_AUTH_APPROVAL_INVALID",
-                "웹에서 앱 로그인을 다시 승인해 주세요.");
+        return new AuthException(
+                HttpStatus.UNAUTHORIZED, "MOBILE_AUTH_APPROVAL_INVALID", "웹에서 앱 로그인을 다시 승인해 주세요.");
     }
 }

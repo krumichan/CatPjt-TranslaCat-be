@@ -45,9 +45,7 @@ public class NovelSearchService {
     private final FuriganaProcessor furiganaProcessor;
 
     private Optional<NovelSearchStrategy> strategy(PlatformCode platformCode) {
-        return strategies.stream()
-                .filter(s -> s.getPlatformCode() == platformCode)
-                .findFirst();
+        return strategies.stream().filter(s -> s.getPlatformCode() == platformCode).findFirst();
     }
 
     @Transactional
@@ -56,8 +54,9 @@ public class NovelSearchService {
         Platform platform = platformService.getPlatformByCode(platformCode);
         PlatformUrlTemplate urlTemplate = platformService.getUrlTemplate(platform.getId(), URL_TYPE);
 
-        NovelSearchStrategy strategy = this.strategy(platformCode)
-                .orElseThrow(() -> new EntityNotFoundException("지원하지 않는 플랫폼입니다: " + platformCode));
+        NovelSearchStrategy strategy =
+                this.strategy(platformCode)
+                        .orElseThrow(() -> new EntityNotFoundException("지원하지 않는 플랫폼입니다: " + platformCode));
 
         String url = strategy.getUrl(urlTemplate.getUrlPattern(), keyword, page);
 
@@ -68,8 +67,8 @@ public class NovelSearchService {
         // 스크랩 한 데이터들 중 DB에 이미 존재하는 데이터 조회.
         // 이미 존재할 경우, 번역된 내용이 있는 것으로, Gemini 요청이 필요 없음.
         List<Novel> existingNovels = novelService.findNovels(platform.getId(), identifiers);
-        Map<String, Novel> existingNovelsMap = existingNovels.stream()
-                .collect(Collectors.toMap(Novel::getIdentifier, r -> r, (oldValue, newValue) -> oldValue));
+        Map<String, Novel> existingNovelsMap = existingNovels.stream().collect(
+                Collectors.toMap(Novel::getIdentifier, r -> r, (oldValue, newValue) -> oldValue));
 
         // 번역이 필요한 유닛들.
         List<TranslationUnit> dirtyUnits = new ArrayList<>();
@@ -91,13 +90,8 @@ public class NovelSearchService {
 
         // 변경된 조각들만 벌크로 Gemini 번역 요청.
         if (!dirtyUnits.isEmpty()) {
-
             // Gemini 요청 - 한글 번역.
-            this.translationExecutor.execute(
-                    dirtyUnits,
-                    AiRuleType.RANK,
-                    TranslationType.AI_SERVER
-            );
+            this.translationExecutor.execute(dirtyUnits, AiRuleType.RANK, TranslationType.AI_SERVER);
         }
 
         // 번역된 내용 DB 저장 또는 갱신.

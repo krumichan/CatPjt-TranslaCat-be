@@ -9,9 +9,7 @@ public enum VoiceSessionStatus {
     FAILED;
 
     public boolean isOpen() {
-        return this == CREATED
-                || this == ACTIVE
-                || this == DEGRADED;
+        return this == CREATED || this == ACTIVE || this == DEGRADED;
     }
 
     public boolean isActiveLike() {

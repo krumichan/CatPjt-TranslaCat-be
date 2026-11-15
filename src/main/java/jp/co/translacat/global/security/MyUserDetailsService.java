@@ -13,12 +13,10 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class MyUserDetailsService implements UserDetailsService {
-
     private final UserRepository userRepository;
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-
         Optional<User> maybeUser = userRepository.findByEmail(email);
         if (maybeUser.isEmpty() || !maybeUser.get().isActiveAccount()) {
             throw new UsernameNotFoundException("User Not Found.");

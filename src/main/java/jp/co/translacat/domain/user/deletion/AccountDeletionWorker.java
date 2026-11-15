@@ -19,8 +19,8 @@ public class AccountDeletionWorker {
     private final TransactionTemplate tx;
 
     public AccountDeletionWorker(AccountDeletionProperties properties, AccountDeletionStore store,
-                                 AccountDeletionRemoteClients remote, AccountDeletionPersonalData personal,
-                                 JdbcTemplate jdbc, PlatformTransactionManager manager) {
+            AccountDeletionRemoteClients remote, AccountDeletionPersonalData personal, JdbcTemplate jdbc,
+            PlatformTransactionManager manager) {
         this.properties = properties;
         this.store = store;
         this.remote = remote;
@@ -29,19 +29,25 @@ public class AccountDeletionWorker {
         this.tx = new TransactionTemplate(manager);
     }
 
-    @Scheduled(fixedDelayString = "${account.deletion.worker-delay-ms:30000}", initialDelayString = "${account.deletion.worker-initial-delay-ms:60000}")
-    public void run() {
-        if (!properties.isWorkerEnabled()) return;
-        for (String operationId : store.pending(Instant.now())) process(operationId);
+    @Scheduled(fixedDelayString = "${account.deletion.worker-delay-ms:30000}",
+            initialDelayString = "${account.deletion.worker-initial-delay-ms:60000}")
+    public void
+    run() {
+        if (!properties.isWorkerEnabled())
+            return;
+        for (String operationId : store.pending(Instant.now()))
+            process(operationId);
         store.expireReceipts(Instant.now());
     }
 
     public void process(String id) {
         var operation = store.operation(id, false).orElse(null);
-        if (operation == null || !"PENDING".equals(operation.status())) return;
+        if (operation == null || !"PENDING".equals(operation.status()))
+            return;
         for (String step : store.remaining(id)) {
             String lease = UUID.randomUUID().toString();
-            if (!Boolean.TRUE.equals(tx.execute(status -> store.claim(id, step, lease, Instant.now())))) continue;
+            if (!Boolean.TRUE.equals(tx.execute(status -> store.claim(id, step, lease, Instant.now()))))
+                continue;
             boolean completed = false;
             try {
                 // 외부 서비스/실제 객체 삭제는 DB 트랜잭션 밖이다. 실패한 같은 operation은 다시 시도한다.
@@ -60,7 +66,9 @@ public class AccountDeletionWorker {
         tx.executeWithoutResult(status -> {
             store.operation(id, true).ifPresent(current -> {
                 if (store.remaining(id).isEmpty()) {
-                    jdbc.update("update `user` set account_state='DELETED' where id=? and account_state='DELETION_PENDING'", current.userId());
+                    jdbc.update(
+                            "update `user` set account_state='DELETED' where id=? and account_state='DELETION_PENDING'",
+                            current.userId());
                     store.complete(id, Instant.now());
                 }
             });

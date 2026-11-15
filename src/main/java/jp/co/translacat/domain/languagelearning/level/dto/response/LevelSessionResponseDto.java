@@ -5,16 +5,6 @@ import jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionTyp
 
 import java.time.LocalDateTime;
 
-public record LevelSessionResponseDto(
-        Long sessionId,
-        LevelTestSessionType sessionType,
-        LevelTestSessionStatus status,
-        int totalQuestions,
-        int currentQuestionNumber,
-        int currentComplexityBand,
-        Double baseLevelScore,
-        String proficiencyBand,
-        LocalDateTime startedAt,
-        LocalDateTime completedAt
-) {
-}
+public record LevelSessionResponseDto(Long sessionId, LevelTestSessionType sessionType, LevelTestSessionStatus status,
+        int totalQuestions, int currentQuestionNumber, int currentComplexityBand, Double baseLevelScore,
+        String proficiencyBand, LocalDateTime startedAt, LocalDateTime completedAt) {}

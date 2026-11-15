@@ -22,8 +22,8 @@ public class WebAiConnectionPresenter {
     public JsonNode present(JsonNode connection) {
         if (!connection.path("token").isTextual() || !connection.path("planId").isTextual()
                 || !connection.path("token").asText().matches("[A-Za-z0-9._~-]{32,512}")) {
-            throw new LanguageLearningServiceException(HttpStatus.BAD_GATEWAY, "LL_WEB_AI_CONTRACT_ERROR",
-                    "Web AI 연결 응답 형식이 올바르지 않습니다.");
+            throw new LanguageLearningServiceException(
+                    HttpStatus.BAD_GATEWAY, "LL_WEB_AI_CONTRACT_ERROR", "Web AI 연결 응답 형식이 올바르지 않습니다.");
         }
 
         // 배포 설정만 URL의 출처로 사용한다. 비어 있으면 FE가 기존 API 주소로 절대 경로를 완성한다.
@@ -33,7 +33,8 @@ public class WebAiConnectionPresenter {
         presented.put("promptUrl", promptUrl);
         presented.put("resultUrl", resultUrl);
         String schedule = scheduleInstructions(connection.path("plan"));
-        presented.put("bootstrapPrompt", """
+        presented.put(
+                "bootstrapPrompt", """
                 You are my TranslaCat language-learning tutor.
                 %s
                 At each scheduled occurrence, first POST JSON to %s with Authorization: Bearer %s
@@ -76,12 +77,13 @@ public class WebAiConnectionPresenter {
         } catch (IllegalArgumentException invalid) {
             throw new IllegalStateException("Web AI 공개 API 주소 형식을 확인해 주세요.");
         }
-        boolean loopback = uri.getHost() != null
-                && Set.of("localhost", "127.0.0.1", "[::1]", "::1").contains(uri.getHost());
+        boolean loopback =
+                uri.getHost() != null && Set.of("localhost", "127.0.0.1", "[::1]", "::1").contains(uri.getHost());
         if (uri.getHost() == null || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null
                 || !(uri.getPath().isEmpty() || uri.getPath().equals("/"))
                 || !("https".equals(uri.getScheme()) || ("http".equals(uri.getScheme()) && loopback))) {
-            throw new IllegalStateException("Web AI 공개 API 주소는 HTTPS 원점이어야 합니다. 로컬에서는 HTTP를 허용합니다.");
+            throw new IllegalStateException(
+                    "Web AI 공개 API 주소는 HTTPS 원점이어야 합니다. 로컬에서는 HTTP를 허용합니다.");
         }
         return value.replaceAll("/+$", "");
     }

@@ -20,31 +20,24 @@ public class ExchangeRateCache {
     private final ExchangeRateRepository repository;
     private final TransactionTemplate transaction;
 
-    public ExchangeRateCache(
-            ExchangeRateRepository repository, PlatformTransactionManager manager) {
+    public ExchangeRateCache(ExchangeRateRepository repository, PlatformTransactionManager manager) {
         this.repository = repository;
         this.transaction = new TransactionTemplate(manager);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
     }
 
-    public Optional<ExchangeRate> find(
-            String source, String target, LocalDate date, String provider) {
-        return transaction.execute(
-                status ->
-                        repository
-                                .findBySourceCurrencyCodeAndTargetCurrencyCodeAndRequestedRateDateAndProvider(
-                                        source, target, date, provider));
+    public Optional<ExchangeRate> find(String source, String target, LocalDate date, String provider) {
+        return transaction.execute(status
+                -> repository.findBySourceCurrencyCodeAndTargetCurrencyCodeAndRequestedRateDateAndProvider(
+                        source, target, date, provider));
     }
 
     public ExchangeRate saveOrRefresh(ExchangeRate rate) {
         try {
             return transaction.execute(status -> {
-                var existing = repository.findForUpdate(
-                        rate.getSourceCurrencyCode(),
-                        rate.getTargetCurrencyCode(),
-                        rate.getRequestedRateDate(),
-                        rate.getProvider());
+                var existing = repository.findForUpdate(rate.getSourceCurrencyCode(), rate.getTargetCurrencyCode(),
+                        rate.getRequestedRateDate(), rate.getProvider());
                 if (existing.isPresent()) {
                     ExchangeRate stored = existing.get();
                     if (stored.getRateFetchedAt() == null
@@ -56,10 +49,7 @@ public class ExchangeRateCache {
                 return repository.saveAndFlush(rate);
             });
         } catch (DataIntegrityViolationException duplicate) {
-            return find(
-                    rate.getSourceCurrencyCode(),
-                    rate.getTargetCurrencyCode(),
-                    rate.getRequestedRateDate(),
+            return find(rate.getSourceCurrencyCode(), rate.getTargetCurrencyCode(), rate.getRequestedRateDate(),
                     rate.getProvider())
                     .orElseThrow(() -> duplicate);
         }

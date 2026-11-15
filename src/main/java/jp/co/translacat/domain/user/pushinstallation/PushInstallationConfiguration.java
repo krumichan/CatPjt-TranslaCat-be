@@ -10,5 +10,7 @@ import java.time.Clock;
 @EnableConfigurationProperties(PushInstallationProperties.class)
 public class PushInstallationConfiguration {
     @Bean("pushInstallationClock")
-    Clock pushInstallationClock() { return Clock.systemUTC(); }
+    Clock pushInstallationClock() {
+        return Clock.systemUTC();
+    }
 }

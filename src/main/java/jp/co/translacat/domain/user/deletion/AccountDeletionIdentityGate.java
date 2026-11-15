@@ -12,7 +12,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class AccountDeletionIdentityGate {
     private final JdbcTemplate jdbc;
 
-    public AccountDeletionIdentityGate(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    public AccountDeletionIdentityGate(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
 
     public void requireNewAccountAllowed(String email) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -22,9 +24,12 @@ public class AccountDeletionIdentityGate {
         // 탈퇴 접수와 같은 첫 잠금을 계정/인증 증명 행보다 먼저 잡아 check와 계정 생성을 분리하지 않는다.
         jdbc.queryForObject("select id from push_registry_lock where id=1 for update", Integer.class);
         String identity = AuthInputs.normalizeEmail(email);
-        var reserved = jdbc.queryForList("select operation_id from account_deletion_operation where status='PENDING' and lower(audit_identity)=? for update", String.class, identity);
+        var reserved = jdbc.queryForList(
+                "select operation_id from account_deletion_operation where status='PENDING' and lower(audit_identity)=? for update",
+                String.class, identity);
         if (!reserved.isEmpty()) {
-            throw new AuthException(HttpStatus.CONFLICT, "ACCOUNT_DELETION_PENDING", "이 이메일의 계정 데이터 정리가 진행 중입니다. 완료 후 다시 가입해 주세요.");
+            throw new AuthException(HttpStatus.CONFLICT, "ACCOUNT_DELETION_PENDING",
+                    "이 이메일의 계정 데이터 정리가 진행 중입니다. 완료 후 다시 가입해 주세요.");
         }
     }
 }

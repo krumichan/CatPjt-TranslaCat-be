@@ -12,8 +12,7 @@ import java.math.BigDecimal;
  */
 public final class DecimalStringSerializer extends JsonSerializer<BigDecimal> {
     @Override
-    public void serialize(BigDecimal value, JsonGenerator generator, SerializerProvider provider)
-            throws IOException {
+    public void serialize(BigDecimal value, JsonGenerator generator, SerializerProvider provider) throws IOException {
         generator.writeString(value.toPlainString());
     }
 }

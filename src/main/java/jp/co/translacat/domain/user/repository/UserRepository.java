@@ -11,7 +11,6 @@ import java.util.Optional;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
-
     Optional<User> findByEmail(String email);
 
     Optional<User> findByEmailIgnoreCase(String email);
@@ -22,6 +21,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByPublicId(String publicId);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    Optional<User> findLockedById(Long id);
+    @Lock(LockModeType.PESSIMISTIC_WRITE) Optional<User> findLockedById(Long id);
 }

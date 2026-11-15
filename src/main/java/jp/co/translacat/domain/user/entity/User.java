@@ -12,14 +12,14 @@ import java.time.Instant;
 @Entity
 @Getter
 @Setter
-@Table(name = "user", uniqueConstraints = @UniqueConstraint(
-        name = "uk_user_google_identity", columnNames = {"social_type", "social_id"}))
+@Table(name = "user",
+        uniqueConstraints =
+                @UniqueConstraint(name = "uk_user_google_identity", columnNames = {"social_type", "social_id"}))
 @NoArgsConstructor
 public class User extends BaseAuditable {
-
     @Builder(access = AccessLevel.PRIVATE)
     private User(String email, String password, String username, String socialId, SocialType socialType, Role authority,
-                 String publicId) {
+            String publicId) {
         this.email = email;
         this.password = password;
         this.username = username;
@@ -29,51 +29,32 @@ public class User extends BaseAuditable {
         this.publicId = publicId;
     }
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
-    @Column(unique = true, nullable = false)
-    private String email;
+    @Column(unique = true, nullable = false) private String email;
 
-    @Column
-    @JsonIgnore
-    private String password;
+    @Column @JsonIgnore private String password;
 
-    @Column(name = "birth_date")
-    @JsonIgnore
-    private LocalDate birthDate;
+    @Column(name = "birth_date") @JsonIgnore private LocalDate birthDate;
 
-    @Column(name = "email_verified_at")
-    @JsonIgnore
-    private Instant emailVerifiedAt;
+    @Column(name = "email_verified_at") @JsonIgnore private Instant emailVerifiedAt;
 
-    @Column(name = "password_reset_at")
-    @JsonIgnore
-    private Instant passwordResetAt;
+    @Column(name = "password_reset_at") @JsonIgnore private Instant passwordResetAt;
 
-    @Column
-    private String username;
+    @Column private String username;
 
-    @Enumerated(EnumType.STRING)
-    private SocialType socialType;
+    @Enumerated(EnumType.STRING) private SocialType socialType;
 
-    @Column
-    private String socialId;
+    @Column private String socialId;
 
-    @Enumerated(EnumType.STRING)
-    private Role authority;
+    @Enumerated(EnumType.STRING) private Role authority;
 
     @Column(name = "public_id", nullable = false, unique = true, updatable = false, length = 20)
     private String publicId;
 
-    @Column(name = "account_state", nullable = false, length = 24)
-    @JsonIgnore
-    private String accountState = "ACTIVE";
+    @Column(name = "account_state", nullable = false, length = 24) @JsonIgnore private String accountState = "ACTIVE";
 
-    @Column(name = "deletion_requested_at")
-    @JsonIgnore
-    private Instant deletionRequestedAt;
+    @Column(name = "deletion_requested_at") @JsonIgnore private Instant deletionRequestedAt;
 
     public boolean isActiveAccount() {
         return "ACTIVE".equals(accountState);
@@ -105,8 +86,8 @@ public class User extends BaseAuditable {
         this.socialId = subject;
     }
 
-    public static User createLocalUser(String email, String password, String username, Role authority,
-                                       String publicId) {
+    public static User createLocalUser(
+            String email, String password, String username, Role authority, String publicId) {
         return User.builder()
                 .email(email)
                 .password(password)
@@ -117,8 +98,8 @@ public class User extends BaseAuditable {
                 .build();
     }
 
-    public static User createSocialUser(String email, String username, SocialType socialType, String socialId,
-                                        Role authority, String publicId) {
+    public static User createSocialUser(
+            String email, String username, SocialType socialType, String socialId, Role authority, String publicId) {
         return User.builder()
                 .email(email)
                 .username(username)

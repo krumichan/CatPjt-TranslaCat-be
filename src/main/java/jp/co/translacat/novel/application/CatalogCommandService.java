@@ -19,7 +19,7 @@ public class CatalogCommandService {
     private final ObjectMapper mapper;
 
     public CatalogCommandService(CatalogStore store, NovelRepository repository, NovelPorts.Ai ai,
-                                 NovelExecutionSettings settings, FairAiScheduler scheduler, ObjectMapper mapper) {
+            NovelExecutionSettings settings, FairAiScheduler scheduler, ObjectMapper mapper) {
         this.store = store;
         this.repository = repository;
         this.ai = ai;
@@ -29,7 +29,8 @@ public class CatalogCommandService {
     }
 
     public String start(long actor, String platform, CatalogModels.Start request, String traceId) {
-        if (request == null || request.selector() == null || request.source() == null) invalid();
+        if (request == null || request.selector() == null || request.source() == null)
+            invalid();
         token(request.idempotencyKey());
         String normalized = EpisodeKey.normalizePlatform(platform);
         String selectorHash = hash(normalized + "|" + json(request.selector()));
@@ -39,9 +40,12 @@ public class CatalogCommandService {
         // 공개 작품 번역은 계정·순위·검색어와 독립적으로 공유한다. 실제 원문·언어·정책·용어집이 같아야 한다.
         for (var card : request.source().cards()) {
             // 원문 표시는 번역 용어집을 사용하지 않는다. 50개 작품의 불필요한 DB 조회도 만들지 않는다.
-            Map<String, String> glossary = request.selector().language().equals("ja") ? Map.of()
-                    : repository.glossary(new EpisodeKey(normalized, card.identifier(), "1"), actor,
-                            request.selector().language().equals("en") ? "en" : "ko").terms();
+            Map<String, String> glossary = request.selector().language().equals("ja")
+                    ? Map.of()
+                    : repository
+                              .glossary(new EpisodeKey(normalized, card.identifier(), "1"), actor,
+                                      request.selector().language().equals("en") ? "en" : "ko")
+                              .terms();
             String revision = hash(json(new TreeMap<>(card.text())));
             String key = hash(json(List.of("catalog-shared-v1", normalized, card.identifier(), revision,
                     request.selector().language(), policy, new TreeMap<>(glossary))));
@@ -49,7 +53,8 @@ public class CatalogCommandService {
         }
         String id = store.create(actor, normalized, request.idempotencyKey(), selectorHash, request.selector(),
                 request.source(), prepared, traceId);
-        for (String key : store.pending(actor, id)) enqueue(actor, key);
+        for (String key : store.pending(actor, id))
+            enqueue(actor, key);
         return id;
     }
 
@@ -72,7 +77,8 @@ public class CatalogCommandService {
         try {
             var future = scheduler.submitCatalog(Long.toString(actor), 4, deadline, queueMs::set, () -> {
                 var work = store.claim(key, CatalogExecutionBudget.LEASE_MS);
-                if (work == null) return null;
+                if (work == null)
+                    return null;
                 try {
                     translate(work, queueMs.get());
                 } catch (Exception failure) {
@@ -82,8 +88,11 @@ public class CatalogCommandService {
             });
             // 만료/취소된 queue도 정리한다. 유료 재시도는 이 observer에서 시작하지 않는다.
             Thread.startVirtualThread(() -> {
-                try { future.get(); }
-                catch (Exception failure) { store.rejectPending(key, "CATALOG_QUEUE_FAILED"); }
+                try {
+                    future.get();
+                } catch (Exception failure) {
+                    store.rejectPending(key, "CATALOG_QUEUE_FAILED");
+                }
             });
         } catch (RuntimeException failure) {
             store.rejectPending(key, "CATALOG_QUEUE_FULL");
@@ -96,15 +105,18 @@ public class CatalogCommandService {
         Map<String, String> result = new LinkedHashMap<>();
         for (String field : List.of("title", "author", "synopsis", "statusText")) {
             String raw = work.source().text().get(field);
-            if (raw.isBlank()) { result.put(field, ""); continue; }
+            if (raw.isBlank()) {
+                result.put(field, "");
+                continue;
+            }
             items.add(new SourceEpisode.Segment(field, field, items.size(), items.size(), 0, raw.length(), raw, raw));
         }
         var options = settings.options(ai);
         long started = System.nanoTime();
         var translated = ai.translate(work.traceId(), UUID.randomUUID().toString(), items,
                 items.stream().map(SourceEpisode.Segment::plainJa).toList(), work.glossary(),
-                CatalogExecutionBudget.PROVIDER_MS, options.responseShape(),
-                options.validationPolicy(), TranslationOptions.AnnotationPolicy.NONE, work.language());
+                CatalogExecutionBudget.PROVIDER_MS, options.responseShape(), options.validationPolicy(),
+                TranslationOptions.AnnotationPolicy.NONE, work.language());
         var expected = items.stream().map(SourceEpisode.Segment::id).collect(java.util.stream.Collectors.toSet());
         if (!translated.items().keySet().equals(expected)
                 || translated.items().values().stream().anyMatch(value -> value == null || value.isBlank())) {
@@ -121,20 +133,31 @@ public class CatalogCommandService {
         diagnostics.put("outputTokens", translated.outputTokens());
 
         // 저장 실패는 보유한 같은 결과로만 한 번 더 저장한다. provider 재호출은 하지 않는다.
-        try { store.ready(work, result, diagnostics); }
-        catch (org.springframework.dao.TransientDataAccessException failure) { store.ready(work, result, diagnostics); }
+        try {
+            store.ready(work, result, diagnostics);
+        } catch (org.springframework.dao.TransientDataAccessException failure) {
+            store.ready(work, result, diagnostics);
+        }
     }
 
     private String json(Object value) {
-        try { return mapper.writeValueAsString(value); }
-        catch (Exception failure) { throw new IllegalArgumentException("Catalog identity invalid", failure); }
+        try {
+            return mapper.writeValueAsString(value);
+        } catch (Exception failure) {
+            throw new IllegalArgumentException("Catalog identity invalid", failure);
+        }
     }
     public static String policyIdentity(NovelExecutionSettings settings, NovelPorts.Ai ai) {
         return "catalog-v1|" + settings.options(ai).fingerprint();
     }
-    private static String hash(String value) { return SentenceSegmenter.hash(value); }
-    private static void token(String value) {
-        if (value == null || !value.matches("[A-Za-z0-9:_-]{1,128}")) invalid();
+    private static String hash(String value) {
+        return SentenceSegmenter.hash(value);
     }
-    private static void invalid() { throw new NovelProblem("CATALOG_REQUEST_INVALID", 400); }
+    private static void token(String value) {
+        if (value == null || !value.matches("[A-Za-z0-9:_-]{1,128}"))
+            invalid();
+    }
+    private static void invalid() {
+        throw new NovelProblem("CATALOG_REQUEST_INVALID", 400);
+    }
 }

@@ -21,74 +21,37 @@ import static jp.co.translacat.domain.accountbook.transaction.entity.QAccountBoo
 @Repository
 @RequiredArgsConstructor
 public class AccountBookRepositoryImpl implements AccountBookRepositoryCustom {
-
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public List<AccountBookResponseDto> search(
-            Long userId,
-            AccountBookSearchRequestDto condition
-    ) {
-        NumberExpression<BigDecimal> incomeAmountExpression =
-                amountExpression(AccountBookTransactionType.INCOME);
+    public List<AccountBookResponseDto> search(Long userId, AccountBookSearchRequestDto condition) {
+        NumberExpression<BigDecimal> incomeAmountExpression = amountExpression(AccountBookTransactionType.INCOME);
 
-        NumberExpression<BigDecimal> expenseAmountExpression =
-                amountExpression(AccountBookTransactionType.EXPENSE);
+        NumberExpression<BigDecimal> expenseAmountExpression = amountExpression(AccountBookTransactionType.EXPENSE);
 
-        NumberExpression<BigDecimal> balanceExpression =
-                incomeAmountExpression.subtract(expenseAmountExpression);
+        NumberExpression<BigDecimal> balanceExpression = incomeAmountExpression.subtract(expenseAmountExpression);
 
-        NumberExpression<Long> transactionCountExpression =
-                accountBookTransaction.id.countDistinct();
+        NumberExpression<Long> transactionCountExpression = accountBookTransaction.id.countDistinct();
 
         return queryFactory
-                .select(
-                        Projections.constructor(
-                                AccountBookResponseDto.class,
-                                accountBook.id,
-                                accountBook.name,
-                                accountBook.description,
-                                accountBook.category,
-                                accountBook.currency.code,
-                                accountBook.currency.symbol,
-                                accountBook.currency.decimalPlaces,
-                                incomeAmountExpression,
-                                expenseAmountExpression,
-                                balanceExpression,
-                                transactionCountExpression,
-                                accountBookMember.role
-                        )
-                )
+                .select(Projections.constructor(AccountBookResponseDto.class, accountBook.id, accountBook.name,
+                        accountBook.description, accountBook.category, accountBook.currency.code,
+                        accountBook.currency.symbol, accountBook.currency.decimalPlaces, incomeAmountExpression,
+                        expenseAmountExpression, balanceExpression, transactionCountExpression, accountBookMember.role))
                 .from(accountBook)
                 .join(accountBook.currency)
                 .join(accountBookMember)
-                .on(
-                        accountBookMember.accountBook.eq(accountBook),
-                        accountBookMember.user.id.eq(userId),
-                        accountBookMember.deleted.isFalse()
-                )
+                .on(accountBookMember.accountBook.eq(accountBook), accountBookMember.user.id.eq(userId),
+                        accountBookMember.deleted.isFalse())
                 .leftJoin(accountBookTransaction)
                 .on(accountBookTransaction.accountBook.eq(accountBook))
-                .where(
-                        accountBook.deleted.isFalse(),
+                .where(accountBook.deleted.isFalse(),
                         QueryDslUtil.anyContainsIgnoreCaseIfHasText(
-                                condition.getKeyword(),
-                                accountBook.name,
-                                accountBook.description
-                        ),
-                        QueryDslUtil.eqIfNotNull(accountBook.category, condition.getCategory())
-                )
-                .groupBy(
-                        accountBook.id,
-                        accountBook.name,
-                        accountBook.description,
-                        accountBook.category,
-                        accountBook.currency.code,
-                        accountBook.currency.symbol,
-                        accountBook.currency.decimalPlaces,
-                        accountBookMember.role,
-                        accountBook.createdAt
-                )
+                                condition.getKeyword(), accountBook.name, accountBook.description),
+                        QueryDslUtil.eqIfNotNull(accountBook.category, condition.getCategory()))
+                .groupBy(accountBook.id, accountBook.name, accountBook.description, accountBook.category,
+                        accountBook.currency.code, accountBook.currency.symbol, accountBook.currency.decimalPlaces,
+                        accountBookMember.role, accountBook.createdAt)
                 .orderBy(accountBook.createdAt.desc())
                 .fetch();
     }

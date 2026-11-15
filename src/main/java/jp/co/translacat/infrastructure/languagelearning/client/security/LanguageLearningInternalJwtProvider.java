@@ -12,7 +12,6 @@ import java.util.Date;
 import java.util.List;
 
 public class LanguageLearningInternalJwtProvider {
-
     private static final long MIN_TTL_SECONDS = 15;
     private static final long MAX_TTL_SECONDS = 300;
 
@@ -68,7 +67,9 @@ public class LanguageLearningInternalJwtProvider {
         Instant now = clock.instant();
         return Jwts.builder()
                 .issuer(issuer)
-                .audience().add(audience).and()
+                .audience()
+                .add(audience)
+                .and()
                 .subject(callerService)
                 .claim("service", callerService)
                 .claim("tokenUse", "ll-web-ai-service")
@@ -91,7 +92,8 @@ public class LanguageLearningInternalJwtProvider {
     }
 
     private String issueKeywordToken(Long userId, boolean admin) {
-        if (userId == null || userId <= 0) throw new IllegalArgumentException("내부 JWT userId는 양수여야 합니다.");
+        if (userId == null || userId <= 0)
+            throw new IllegalArgumentException("내부 JWT userId는 양수여야 합니다.");
         Instant now = clock.instant();
         return Jwts.builder()
                 .issuer(issuer)

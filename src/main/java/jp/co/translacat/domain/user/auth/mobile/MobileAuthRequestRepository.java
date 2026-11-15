@@ -20,6 +20,5 @@ public interface MobileAuthRequestRepository extends JpaRepository<MobileAuthReq
             select request.id from MobileAuthRequest request
             where request.expiresAt <= :now or request.codeExpiresAt <= :now
             order by request.expiresAt, request.id
-            """)
-    List<String> findExpiredIds(@Param("now") Instant now, Pageable page);
+            """) List<String> findExpiredIds(@Param("now") Instant now, Pageable page);
 }

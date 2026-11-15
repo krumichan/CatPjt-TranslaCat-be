@@ -21,8 +21,7 @@ public class NovelEmbeddedService {
     private final CatalogFacade catalog;
     private final ObjectMapper json;
 
-    public NovelEmbeddedService(NovelFacade reader, CatalogFacade catalog,
-                                ObjectMapper json) {
+    public NovelEmbeddedService(NovelFacade reader, CatalogFacade catalog, ObjectMapper json) {
         this.reader = reader;
         this.catalog = catalog;
         this.json = json;
@@ -39,17 +38,24 @@ public class NovelEmbeddedService {
         return call(() -> reader.status(key(address), actor, jobId).observed());
     }
 
-    public JsonNode start(long actor, NovelReaderAddress address,
-                          NovelReaderCommandService.TranslationStart request) {
-        return call(() -> ("ko".equals(request.targetLanguage())
-                ? reader.start(key(address), actor, request.revision(), request.idempotencyKey(), request.retryFailed())
-                : reader.start(key(address), actor, request.revision(), request.idempotencyKey(), request.retryFailed(), request.targetLanguage())).observed());
+    public JsonNode start(long actor, NovelReaderAddress address, NovelReaderCommandService.TranslationStart request) {
+        return call(()
+                            -> ("ko".equals(request.targetLanguage())
+                                            ? reader.start(key(address), actor, request.revision(),
+                                                      request.idempotencyKey(), request.retryFailed())
+                                            : reader.start(key(address), actor, request.revision(),
+                                                      request.idempotencyKey(), request.retryFailed(),
+                                                      request.targetLanguage()))
+                                    .observed());
     }
 
-    public JsonNode repair(long actor, NovelReaderAddress address, String jobId,
-                           NovelReaderCommandService.RepairRequest request) {
-        return call(() -> reader.repair(key(address), actor, jobId, request.revision(),
-                request.idempotencyKey(), request.segmentId()).observed());
+    public JsonNode repair(
+            long actor, NovelReaderAddress address, String jobId, NovelReaderCommandService.RepairRequest request) {
+        return call(()
+                            -> reader
+                                    .repair(key(address), actor, jobId, request.revision(), request.idempotencyKey(),
+                                            request.segmentId())
+                                    .observed());
     }
 
     public JsonNode cancel(long actor, NovelReaderAddress address, String jobId) {
@@ -63,27 +69,28 @@ public class NovelEmbeddedService {
         return call(() -> reader.glossary(key(address), actor, targetLanguage));
     }
 
-    public JsonNode glossary(long actor, NovelReaderAddress address,
-                             NovelReaderCommandService.GlossaryUpdate request) {
-        return call(() -> "ko".equals(request.targetLanguage())
-                ? reader.glossary(key(address), actor, request.expectedVersion(), request.terms())
-                : reader.glossary(key(address), actor, request.expectedVersion(), request.terms(), request.targetLanguage()));
+    public JsonNode glossary(long actor, NovelReaderAddress address, NovelReaderCommandService.GlossaryUpdate request) {
+        return call(()
+                            -> "ko".equals(request.targetLanguage())
+                        ? reader.glossary(key(address), actor, request.expectedVersion(), request.terms())
+                        : reader.glossary(key(address), actor, request.expectedVersion(), request.terms(),
+                                  request.targetLanguage()));
     }
 
-    public JsonNode audio(long actor, NovelReaderAddress address,
-                          NovelReaderCommandService.AudioRequest request) {
-        return call(() -> "ko".equals(request.targetLanguage())
-                ? reader.audio(key(address), actor, request.revision(), request.segmentId(), request.language(), request.partIndex() == null ? 0 : request.partIndex())
-                : reader.audio(key(address), actor, request.revision(), request.segmentId(), request.language(), request.partIndex() == null ? 0 : request.partIndex(), request.targetLanguage()));
+    public JsonNode audio(long actor, NovelReaderAddress address, NovelReaderCommandService.AudioRequest request) {
+        return call(()
+                            -> "ko".equals(request.targetLanguage())
+                        ? reader.audio(key(address), actor, request.revision(), request.segmentId(), request.language(),
+                                  request.partIndex() == null ? 0 : request.partIndex())
+                        : reader.audio(key(address), actor, request.revision(), request.segmentId(), request.language(),
+                                  request.partIndex() == null ? 0 : request.partIndex(), request.targetLanguage()));
     }
 
-    public JsonNode catalogStart(long actor, String platform, NovelCatalogRequest request,
-                                 JsonNode source) {
+    public JsonNode catalogStart(long actor, String platform, NovelCatalogRequest request, JsonNode source) {
         return call(() -> {
             CatalogModels.Selector selector = json.convertValue(request.selector(), CatalogModels.Selector.class);
             CatalogModels.SourcePage page = json.convertValue(source, CatalogModels.SourcePage.class);
-            return catalog.start(actor, platform,
-                    new CatalogModels.Start(selector, request.idempotencyKey(), page));
+            return catalog.start(actor, platform, new CatalogModels.Start(selector, request.idempotencyKey(), page));
         });
     }
 
@@ -92,11 +99,12 @@ public class NovelEmbeddedService {
         return call(() -> catalog.snapshot(actor, NovelCatalogRequest.token(id)));
     }
 
-    public JsonNode catalogRetry(long actor, String platform, String id, String item,
-                                 NovelCatalogRequest.Retry request) {
+    public JsonNode catalogRetry(
+            long actor, String platform, String id, String item, NovelCatalogRequest.Retry request) {
         NovelCatalogRequest.platform(platform);
-        return call(() -> catalog.retry(actor, NovelCatalogRequest.token(id),
-                NovelCatalogRequest.token(item), new CatalogModels.Retry(request.idempotencyKey())));
+        return call(()
+                            -> catalog.retry(actor, NovelCatalogRequest.token(id), NovelCatalogRequest.token(item),
+                                    new CatalogModels.Retry(request.idempotencyKey())));
     }
 
     public JsonNode catalogCancel(long actor, String platform, String id) {

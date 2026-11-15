@@ -8,25 +8,20 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 @Entity
-@Table(name = "auth_reauthentication_grant", indexes = @Index(name = "ix_auth_reauth_grant_expiry", columnList = "expires_at"))
+@Table(name = "auth_reauthentication_grant",
+        indexes = @Index(name = "ix_auth_reauth_grant_expiry", columnList = "expires_at"))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ReauthenticationGrant {
-    @Id
-    @Column(name = "token_hash", length = 64)
-    private String tokenHash;
+    @Id @Column(name = "token_hash", length = 64) private String tokenHash;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @Column(name = "user_id", nullable = false) private Long userId;
 
-    @Column(nullable = false, length = 24)
-    private String purpose;
+    @Column(nullable = false, length = 24) private String purpose;
 
-    @Column(name = "expires_at", nullable = false)
-    private Instant expiresAt;
+    @Column(name = "expires_at", nullable = false) private Instant expiresAt;
 
-    @Column(name = "consumed_at")
-    private Instant consumedAt;
+    @Column(name = "consumed_at") private Instant consumedAt;
 
     static ReauthenticationGrant create(String token, Long userId, Instant expiresAt) {
         ReauthenticationGrant grant = new ReauthenticationGrant();

@@ -15,7 +15,6 @@ import java.util.Objects;
  */
 @UtilityClass
 public class SortUtil {
-
     // 기본 정렬 컬럼
     private final String DEF_SORT_COLUMN = "created_at";
 
@@ -29,16 +28,12 @@ public class SortUtil {
      * @return Sort 객체, 리스트가 비어있으면 기본 정렬 적용
      */
     public Sort getSort(List<OrderDto> list) {
-
         if (Objects.isNull(list) || list.isEmpty()) {
             return Sort.by(DEF_DIRECTION, DEF_SORT_COLUMN);
         }
 
         // Order 리스트를 Spring Data의 Sort.Order 객체 리스트로 변환
-        List<Sort.Order> orders = list
-                .stream()
-                .map(a -> new Sort.Order(a.getDirection(), a.getColumn()))
-                .toList();
+        List<Sort.Order> orders = list.stream().map(a -> new Sort.Order(a.getDirection(), a.getColumn())).toList();
 
         return Sort.by(orders);
     }

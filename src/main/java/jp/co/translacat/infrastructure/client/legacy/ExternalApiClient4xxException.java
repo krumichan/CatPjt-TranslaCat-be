@@ -9,7 +9,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
  * availability failures, so circuit breakers may explicitly ignore this exception.</p>
  */
 public class ExternalApiClient4xxException extends RuntimeException {
-
     private final WebClientResponseException responseException;
 
     public ExternalApiClient4xxException(WebClientResponseException responseException) {

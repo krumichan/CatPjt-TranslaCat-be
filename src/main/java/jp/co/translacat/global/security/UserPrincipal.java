@@ -9,11 +9,9 @@ import java.util.Collection;
 import java.util.Collections;
 
 public record UserPrincipal(User user) implements UserDetails {
-
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singleton(
-                new SimpleGrantedAuthority(user.getAuthority().value()));
+        return Collections.singleton(new SimpleGrantedAuthority(user.getAuthority().value()));
     }
 
     public Long getId() {

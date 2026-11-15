@@ -19,12 +19,10 @@ import java.util.List;
 public class SudachiFuriganaProcessor extends AbstractFuriganaProcessor {
     private Tokenizer tokenizer;
 
-    @Value("${sudachi.dictionary.path}")
-    private String dictPath;
+    @Value("${sudachi.dictionary.path}") private String dictPath;
 
     @PostConstruct
     public void init() throws IOException {
-
         File dictFile = new File(dictPath);
         if (!dictFile.exists()) {
             throw new IOException("사전 파일을 찾을 수 없습니다: " + dictFile.getAbsolutePath());
@@ -98,7 +96,8 @@ public class SudachiFuriganaProcessor extends AbstractFuriganaProcessor {
 
     @Override
     protected synchronized String analyzeWithEngine(String segment) {
-        if (segment == null || segment.isBlank()) return segment;
+        if (segment == null || segment.isBlank())
+            return segment;
 
         // Mode.A를 사용하여 세밀하게 분절 (루비 생성에 최적)
         List<Morpheme> morphemes = tokenizer.tokenize(Tokenizer.SplitMode.A, segment);
@@ -121,8 +120,7 @@ public class SudachiFuriganaProcessor extends AbstractFuriganaProcessor {
         return sb.toString();
     }
 
-    public record ReadingToken(String surface, String reading) {
-    }
+    public record ReadingToken(String surface, String reading) {}
 
     public synchronized List<ReadingToken> tokenizeWithReadings(String sourceText) {
         if (sourceText == null || sourceText.isEmpty()) {

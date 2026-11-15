@@ -16,7 +16,7 @@ public class NovelReaderController {
 
     @GetMapping("/reader")
     public ResponseEntity<ResponseDto<JsonNode>> reader(@PathVariable String platform, @PathVariable String novel,
-                                                       @PathVariable String episode, @RequestParam(required = false) String targetLanguage) {
+            @PathVariable String episode, @RequestParam(required = false) String targetLanguage) {
         var address = new NovelReaderAddress(platform, novel, episode);
         return success(targetLanguage == null ? facade.reader(address) : facade.reader(address, targetLanguage));
     }

@@ -16,7 +16,6 @@ import static jp.co.translacat.domain.board.BoardDtos.Locale;
 @Service
 @RequiredArgsConstructor
 class BoardTranslation {
-
     private final AiServerClient ai;
     private final JdbcTemplate jdbc;
 
@@ -31,23 +30,28 @@ class BoardTranslation {
         List<Result> matches = jdbc.query("""
                 SELECT title, content, state FROM board_translation
                 WHERE entry_id = ? AND revision = ? AND locale = ?
-                """, (rs, index) -> new Result(rs.getString("title"), rs.getString("content"),
-                !List.of("READY", "FAILED").contains(rs.getString("state"))),
+                """,
+                (rs, index)
+                        -> new Result(rs.getString("title"), rs.getString("content"),
+                                !List.of("READY", "FAILED").contains(rs.getString("state"))),
                 row.id().toString(), row.revision(), locale.name());
         return matches.isEmpty() ? new Result(null, null, false) : matches.getFirst();
     }
 
-    @Scheduled(fixedDelayString = "${translacat.board.translation.interval-ms:1500}",
-            initialDelayString = "1500", scheduler = "boardTranslationScheduler")
-    void translateNext() {
+    @Scheduled(fixedDelayString = "${translacat.board.translation.interval-ms:1500}", initialDelayString = "1500",
+            scheduler = "boardTranslationScheduler")
+    void
+    translateNext() {
         // 원문은 아직 유효한 버전에서 가져온다. 실행자가 사라지면 만료된 작업을 회수한다.
         List<Work> ready = jdbc.query("""
                 SELECT t.entry_id, t.revision, t.locale, t.attempts, e.title, e.content
                 FROM board_translation t JOIN board_entry e ON e.id = t.entry_id AND e.revision = t.revision
                 WHERE t.state IN ('PENDING', 'RUNNING') AND t.next_at <= UTC_TIMESTAMP(6)
                 ORDER BY t.next_at LIMIT 1
-                """, (rs, index) -> new Work(rs.getString("entry_id"), rs.getInt("revision"),
-                rs.getString("locale"), rs.getInt("attempts"), rs.getString("title"), rs.getString("content")));
+                """,
+                (rs, index)
+                        -> new Work(rs.getString("entry_id"), rs.getInt("revision"), rs.getString("locale"),
+                                rs.getInt("attempts"), rs.getString("title"), rs.getString("content")));
         if (ready.isEmpty()) {
             return;
         }
@@ -66,9 +70,8 @@ class BoardTranslation {
 
         // 글·댓글은 기존 번역 서비스에 순서가 정해진 텍스트 묶음으로 전달한다.
         try {
-            List<String> source = work.title() == null
-                    ? List.of(work.content())
-                    : List.of(work.title(), work.content());
+            List<String> source =
+                    work.title() == null ? List.of(work.content()) : List.of(work.title(), work.content());
             List<String> translated = ai.callBatchTranslation(source, "BOARD_" + work.locale());
             String title = work.title() == null ? null : translated.getFirst();
             String content = translated.getLast();
@@ -88,14 +91,12 @@ class BoardTranslation {
                     UPDATE board_translation SET state = ?, attempts = attempts + 1,
                         next_at = UTC_TIMESTAMP(6) + INTERVAL 30 SECOND, claim = NULL
                     WHERE entry_id = ? AND revision = ? AND locale = ? AND claim = ?
-                    """, work.attempts() < 2 ? "PENDING" : "FAILED",
-                    work.entry(), work.revision(), work.locale(), claim);
+                    """, work.attempts() < 2 ? "PENDING" : "FAILED", work.entry(), work.revision(), work.locale(),
+                    claim);
         }
     }
 
-    record Result(String title, String content, boolean translating) {
-    }
+    record Result(String title, String content, boolean translating) {}
 
-    private record Work(String entry, int revision, String locale, int attempts, String title, String content) {
-    }
+    private record Work(String entry, int revision, String locale, int attempts, String title, String content) {}
 }

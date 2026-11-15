@@ -11,10 +11,8 @@ import java.util.List;
 /**
  * Recalculation also works before the user has supplied a category or title.
  */
-public record ReceiptConversionRequestDto(
-        @Digits(integer = 20, fraction = 8) BigDecimal originalAmount,
-        @Size(max = 3) String originalCurrencyCode,
-        LocalDate transactionDate,
+public record ReceiptConversionRequestDto(@Digits(integer = 20, fraction = 8) BigDecimal originalAmount,
+        @Size(max = 3) String originalCurrencyCode, LocalDate transactionDate,
         @Digits(integer = 20, fraction = 8) BigDecimal purchaseTotal,
         @Size(max = 30) List<@Valid ReceiptPaymentItemDto> paymentBreakdown,
         @Digits(integer = 20, fraction = 8) BigDecimal cashTendered,

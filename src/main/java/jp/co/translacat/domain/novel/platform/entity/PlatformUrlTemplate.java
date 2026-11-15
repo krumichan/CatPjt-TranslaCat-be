@@ -7,22 +7,14 @@ import lombok.Getter;
 
 @Entity
 @Getter
-@Table(name = "platform_url_template", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"platform_id", "urlType"})
-})
+@Table(name = "platform_url_template",
+        uniqueConstraints = { @UniqueConstraint(columnNames = {"platform_id", "urlType"}) })
 public class PlatformUrlTemplate extends BaseAuditable {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "platform_id", nullable = false)
-    private Platform platform;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "platform_id", nullable = false) private Platform platform;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PlatformUrlType urlType;
+    @Enumerated(EnumType.STRING) @Column(nullable = false) private PlatformUrlType urlType;
 
-    @Column(nullable = false)
-    private String urlPattern;
+    @Column(nullable = false) private String urlPattern;
 }

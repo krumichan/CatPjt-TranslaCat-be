@@ -5,7 +5,6 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 public interface SupportNoticeDismissalRepository extends JpaRepository<SupportNoticeDismissal, Long> {
-
     boolean existsByUser_IdAndNotice_Id(Long userId, Long noticeId);
 
     @Modifying

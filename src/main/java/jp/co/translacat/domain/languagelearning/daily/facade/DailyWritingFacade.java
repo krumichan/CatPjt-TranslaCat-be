@@ -17,46 +17,32 @@ import java.time.LocalDate;
 @Service
 @RequiredArgsConstructor
 public class DailyWritingFacade {
-
     private final DailyWritingGateway gateway;
 
     public DailyWritingSetResponseDto getOrGenerateToday(Long userId, DailyWritingType writingType) {
         return gateway.create(userId, writingType);
     }
 
-    public DailyWritingSetResponseDto getHistory(
-            Long userId,
-            LocalDate learningDate,
-            DailyWritingType writingType
-    ) {
+    public DailyWritingSetResponseDto getHistory(Long userId, LocalDate learningDate, DailyWritingType writingType) {
         return gateway.findByDate(userId, learningDate, writingType)
-                .orElseThrow(() -> new BusinessException("Daily Set을 찾을 수 없습니다.",
-                        LanguageLearningErrorCode.DAILY_SET_NOT_FOUND));
+                .orElseThrow(()
+                                     -> new BusinessException("Daily Set을 찾을 수 없습니다.",
+                                             LanguageLearningErrorCode.DAILY_SET_NOT_FOUND));
     }
 
     public DailyWritingSetResponseDto retryGeneration(Long userId, Long dailySetId) {
         return gateway.retry(userId, dailySetId);
     }
 
-    public DailyWritingSetResponseDto regenerateUnanswered(
-            Long userId,
-            Long dailySetId
-    ) {
+    public DailyWritingSetResponseDto regenerateUnanswered(Long userId, Long dailySetId) {
         return gateway.regenerate(userId, dailySetId);
     }
 
-    public void resumeEvaluation(
-            Long userId,
-            Long itemId
-    ) {
+    public void resumeEvaluation(Long userId, Long itemId) {
         gateway.resume(userId, itemId);
     }
 
-    public AnswerResultResponseDto submitAnswer(
-            Long userId,
-            Long itemId,
-            AnswerSubmitRequestDto request
-    ) {
+    public AnswerResultResponseDto submitAnswer(Long userId, Long itemId, AnswerSubmitRequestDto request) {
         return gateway.submit(userId, itemId, request);
     }
 }

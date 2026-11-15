@@ -19,22 +19,14 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AccountBookMemberService {
-
     private final AccountBookAccessService accountBookAccessService;
     private final AccountBookMemberRepository accountBookMemberRepository;
     private final UserService userService;
 
-    public List<AccountBookMemberResponseDto> getMembers(
-            Long accountBookId,
-            Long userId
-    ) {
-        accountBookAccessService.getAccessibleAccountBook(
-                accountBookId,
-                userId
-        );
+    public List<AccountBookMemberResponseDto> getMembers(Long accountBookId, Long userId) {
+        accountBookAccessService.getAccessibleAccountBook(accountBookId, userId);
 
-        return accountBookMemberRepository
-                .findByAccountBook_IdAndDeletedFalseOrderByRoleAscIdAsc(accountBookId)
+        return accountBookMemberRepository.findByAccountBook_IdAndDeletedFalseOrderByRoleAscIdAsc(accountBookId)
                 .stream()
                 .map(AccountBookMemberResponseDto::from)
                 .toList();
@@ -42,12 +34,8 @@ public class AccountBookMemberService {
 
     @Transactional
     public AccountBookMemberResponseDto inviteMember(
-            Long accountBookId,
-            AccountBookMemberInviteRequestDto request,
-            Long ownerUserId
-    ) {
-        AccountBook accountBook = accountBookAccessService
-                .getOwnerAccountBook(accountBookId, ownerUserId);
+            Long accountBookId, AccountBookMemberInviteRequestDto request, Long ownerUserId) {
+        AccountBook accountBook = accountBookAccessService.getOwnerAccountBook(accountBookId, ownerUserId);
 
         User invitedUser = userService.findByPublicId(request.publicId());
 
@@ -60,10 +48,7 @@ public class AccountBookMemberService {
         }
 
         Optional<AccountBookMember> existingMember =
-                accountBookMemberRepository.findByAccountBook_IdAndUser_Id(
-                        accountBookId,
-                        invitedUser.getId()
-                );
+                accountBookMemberRepository.findByAccountBook_IdAndUser_Id(accountBookId, invitedUser.getId());
 
         if (existingMember.isPresent()) {
             AccountBookMember member = existingMember.get();
@@ -77,28 +62,17 @@ public class AccountBookMemberService {
             return AccountBookMemberResponseDto.from(member);
         }
 
-        AccountBookMember member = AccountBookMember.createMember(
-                accountBook,
-                invitedUser
-        );
+        AccountBookMember member = AccountBookMember.createMember(accountBook, invitedUser);
 
-        return AccountBookMemberResponseDto.from(
-                accountBookMemberRepository.save(member)
-        );
+        return AccountBookMemberResponseDto.from(accountBookMemberRepository.save(member));
     }
 
     @Transactional
-    public boolean leaveAccountBook(
-            Long accountBookId,
-            Long userId
-    ) {
-        AccountBookMember member = accountBookMemberRepository
-                .findByAccountBook_IdAndUser_IdAndDeletedFalse(
-                        accountBookId,
-                        userId
-                )
-                .filter(accountBookMember -> !accountBookMember.isOwner())
-                .orElseThrow(() -> new IllegalArgumentException("나갈 수 있는 멤버를 찾을 수 없습니다."));
+    public boolean leaveAccountBook(Long accountBookId, Long userId) {
+        AccountBookMember member =
+                accountBookMemberRepository.findByAccountBook_IdAndUser_IdAndDeletedFalse(accountBookId, userId)
+                        .filter(accountBookMember -> !accountBookMember.isOwner())
+                        .orElseThrow(() -> new IllegalArgumentException("나갈 수 있는 멤버를 찾을 수 없습니다."));
 
         member.delete();
 
@@ -106,21 +80,14 @@ public class AccountBookMemberService {
     }
 
     @Transactional
-    public boolean removeMember(
-            Long accountBookId,
-            Long targetUserId,
-            Long ownerUserId
-    ) {
-        accountBookAccessService.getOwnerAccountBook(
-                accountBookId,
-                ownerUserId
-        );
+    public boolean removeMember(Long accountBookId, Long targetUserId, Long ownerUserId) {
+        accountBookAccessService.getOwnerAccountBook(accountBookId, ownerUserId);
 
-        AccountBookMember member = accountBookMemberRepository
-                .findByAccountBook_IdAndUser_Id(accountBookId, targetUserId)
-                .filter(accountBookMember -> !accountBookMember.isOwner())
-                .filter(accountBookMember -> !accountBookMember.isDeleted())
-                .orElseThrow(() -> new IllegalArgumentException("멤버를 찾을 수 없습니다."));
+        AccountBookMember member =
+                accountBookMemberRepository.findByAccountBook_IdAndUser_Id(accountBookId, targetUserId)
+                        .filter(accountBookMember -> !accountBookMember.isOwner())
+                        .filter(accountBookMember -> !accountBookMember.isDeleted())
+                        .orElseThrow(() -> new IllegalArgumentException("멤버를 찾을 수 없습니다."));
 
         member.delete();
 

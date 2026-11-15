@@ -12,8 +12,8 @@ import java.util.regex.Pattern;
 public final class NovelGatewayTrace {
     public static final String HEADER = "X-Novel-Trace-Id";
     private static final String ATTRIBUTE = NovelGatewayTrace.class.getName();
-    private static final Pattern UUID_PATTERN = Pattern.compile(
-            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+    private static final Pattern UUID_PATTERN =
+            Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
 
     private final String id;
     private final boolean invalid;
@@ -60,22 +60,44 @@ public final class NovelGatewayTrace {
         }
     }
 
-    void markDispatch() { authDispatchMs = elapsedMs(); }
-    void markUpstreamHeaders(long start) { upstreamHeadersMs = since(start); }
-    void markUpstreamComplete(long start) { upstreamMs = since(start); }
+    void markDispatch() {
+        authDispatchMs = elapsedMs();
+    }
+    void markUpstreamHeaders(long start) {
+        upstreamHeadersMs = since(start);
+    }
+    void markUpstreamComplete(long start) {
+        upstreamMs = since(start);
+    }
     void markUpstreamIncomplete(long start) {
         if (upstreamMs == null) {
             upstreamMs = since(start);
         }
     }
-    void markValidation(long start) { validationMs = since(start); }
+    void markValidation(long start) {
+        validationMs = since(start);
+    }
 
-    public String id() { return id; }
-    public double elapsedMs() { return since(startedNanos); }
-    public Double authDispatchMs() { return authDispatchMs; }
-    public Double upstreamHeadersMs() { return upstreamHeadersMs; }
-    public Double upstreamMs() { return upstreamMs; }
-    public Double validationMs() { return validationMs; }
+    public String id() {
+        return id;
+    }
+    public double elapsedMs() {
+        return since(startedNanos);
+    }
+    public Double authDispatchMs() {
+        return authDispatchMs;
+    }
+    public Double upstreamHeadersMs() {
+        return upstreamHeadersMs;
+    }
+    public Double upstreamMs() {
+        return upstreamMs;
+    }
+    public Double validationMs() {
+        return validationMs;
+    }
 
-    private static double since(long start) { return (System.nanoTime() - start) / 1_000_000.0; }
+    private static double since(long start) {
+        return (System.nanoTime() - start) / 1_000_000.0;
+    }
 }

@@ -7,10 +7,5 @@ import jp.co.translacat.domain.languagelearning.speaking.turn.dto.response.Speak
 
 import java.util.List;
 
-public record SpeakingHistoryDetailResponseDto(
-        SpeakingSessionResponseDto session,
-        List<SpeakingTurnResponseDto> turns,
-        SpeakingEvaluationResponseDto evaluation,
-        SpeakingCoachingResultResponseDto coachingResult
-) {
-}
+public record SpeakingHistoryDetailResponseDto(SpeakingSessionResponseDto session, List<SpeakingTurnResponseDto> turns,
+        SpeakingEvaluationResponseDto evaluation, SpeakingCoachingResultResponseDto coachingResult) {}

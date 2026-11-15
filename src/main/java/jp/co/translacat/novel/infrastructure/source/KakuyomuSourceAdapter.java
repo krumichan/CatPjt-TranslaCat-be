@@ -24,8 +24,10 @@ public class KakuyomuSourceAdapter implements NovelPorts.Source {
     private static final int MAX_HTML_BYTES = 2_000_000;
     private final KakuyomuParser parser;
     private final SentenceSegmenter segmenter;
-    private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5))
-            .followRedirects(HttpClient.Redirect.NEVER).build();
+    private final HttpClient client = HttpClient.newBuilder()
+                                              .connectTimeout(Duration.ofSeconds(5))
+                                              .followRedirects(HttpClient.Redirect.NEVER)
+                                              .build();
 
     public KakuyomuSourceAdapter(KakuyomuParser parser, NovelExecutionSettings settings) {
         this.parser = parser;
@@ -34,7 +36,8 @@ public class KakuyomuSourceAdapter implements NovelPorts.Source {
 
     @Override
     public SourceEpisode fetch(EpisodeKey key) {
-        if (!"kakuyomu".equals(key.platform())) throw new NovelProblem("PLATFORM_NOT_SUPPORTED", 422);
+        if (!"kakuyomu".equals(key.platform()))
+            throw new NovelProblem("PLATFORM_NOT_SUPPORTED", 422);
         var uri = KakuyomuUrls.requirePublic(key.sourceUrl());
         try {
             // 주소는 서버가 구성한다. redirect·사설 IP·초과 body는 다른 플랫폼과 같은 경계에서 거부한다.
@@ -44,8 +47,11 @@ public class KakuyomuSourceAdapter implements NovelPorts.Source {
                     throw new NovelProblem("SOURCE_ADDRESS_FORBIDDEN", 422);
                 }
             }
-            var request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(12))
-                    .header("User-Agent", "TranslaCat-Novel/1.0").GET().build();
+            var request = HttpRequest.newBuilder(uri)
+                                  .timeout(Duration.ofSeconds(12))
+                                  .header("User-Agent", "TranslaCat-Novel/1.0")
+                                  .GET()
+                                  .build();
             var response = BoundedHttp.send(client, request, MAX_HTML_BYTES, 12_000);
             if (response.statusCode() != 200) {
                 throw new NovelProblem(response.statusCode() == 404 ? "SOURCE_NOT_FOUND" : "SOURCE_UNAVAILABLE",
@@ -63,8 +69,10 @@ public class KakuyomuSourceAdapter implements NovelPorts.Source {
     }
 
     public SourceEpisode parse(EpisodeKey key, String html) {
-        if (!"kakuyomu".equals(key.platform())) throw new NovelProblem("PLATFORM_NOT_SUPPORTED", 422);
-        if (html == null || html.length() > MAX_HTML_BYTES) throw new NovelProblem("SOURCE_TOO_LARGE", 413);
+        if (!"kakuyomu".equals(key.platform()))
+            throw new NovelProblem("PLATFORM_NOT_SUPPORTED", 422);
+        if (html == null || html.length() > MAX_HTML_BYTES)
+            throw new NovelProblem("SOURCE_TOO_LARGE", 413);
         return parser.parseSourceEpisode(Jsoup.parse(html, key.sourceUrl()), key, segmenter);
     }
 }

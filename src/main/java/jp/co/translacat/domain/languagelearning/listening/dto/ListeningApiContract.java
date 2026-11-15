@@ -8,392 +8,130 @@ import java.util.List;
 import java.util.Map;
 
 public final class ListeningApiContract {
-
     private ListeningApiContract() {
     }
 
-    public record DailySetCreateRequest(
-            Integer itemCount,
-            ListeningDifficulty difficulty,
-            ListeningLearningMode learningMode,
-            String idempotencyKey
-    ) {
-    }
+    public record DailySetCreateRequest(Integer itemCount, ListeningDifficulty difficulty,
+            ListeningLearningMode learningMode, String idempotencyKey) {}
 
-    public record DailySetView(
-            Long dailySetId,
-            LocalDate learningDate,
-            String originLanguage,
-            String learningLanguage,
-            ListeningLearningMode learningMode,
-            ListeningDifficulty difficulty,
-            ListeningDailySetStatus status,
-            int targetItemCount,
-            int physicalItemCount,
-            int readyItemCount,
-            int completedItemCount,
-            String failureReason,
-            List<ItemSummary> items,
-            boolean generationInProgress
-    ) {
-    }
+    public record DailySetView(Long dailySetId, LocalDate learningDate, String originLanguage, String learningLanguage,
+            ListeningLearningMode learningMode, ListeningDifficulty difficulty, ListeningDailySetStatus status,
+            int targetItemCount, int physicalItemCount, int readyItemCount, int completedItemCount,
+            String failureReason, List<ItemSummary> items, boolean generationInProgress) {}
 
-    public record ItemSummary(
-            Long itemId,
-            int itemIndex,
-            int replacementSequence,
-            ListeningItemStatus status,
-            boolean playable,
-            Integer audioDurationMs,
-            boolean ttsRetryAllowed,
-            String durationValidationStatus,
-            String durationPolicyVersion
-    ) {
-        public ItemSummary(Long itemId, int itemIndex, int replacementSequence,
-                           ListeningItemStatus status, boolean playable, Integer audioDurationMs) {
+    public record ItemSummary(Long itemId, int itemIndex, int replacementSequence, ListeningItemStatus status,
+            boolean playable, Integer audioDurationMs, boolean ttsRetryAllowed, String durationValidationStatus,
+            String durationPolicyVersion) {
+        public ItemSummary(Long itemId, int itemIndex, int replacementSequence, ListeningItemStatus status,
+                boolean playable, Integer audioDurationMs) {
             this(itemId, itemIndex, replacementSequence, status, playable, audioDurationMs,
                     status == ListeningItemStatus.NOT_EVALUABLE, "LEGACY_UNVALIDATED", null);
         }
     }
 
-    public record SessionCreateRequest(
-            Long dailySetId,
-            List<ListeningTaskType> selectedTaskTypes,
-            String idempotencyKey
-    ) {
-    }
+    public record
+            SessionCreateRequest(Long dailySetId, List<ListeningTaskType> selectedTaskTypes, String idempotencyKey) {}
 
-    public record ActiveSessionView(
-            boolean active,
-            SessionView session
-    ) {
-    }
+    public record ActiveSessionView(boolean active, SessionView session) {}
 
-    public record SessionView(
-            Long sessionId,
-            Long dailySetId,
-            ListeningSessionStatus status,
-            List<ListeningTaskType> selectedTaskTypes,
-            int completedItemCount,
-            int evaluatedItemCount,
-            long actualDurationMs,
-            LocalDateTime startedAt,
-            LocalDateTime lastActivityAt,
-            LocalDateTime resumableUntil,
-            List<AttemptView> attempts,
-            ListeningDailySetStatus dailySetStatus,
-            int targetItemCount,
-            int attachedItemCount,
-            String generationFailureMessage,
-            int pendingItemCount,
-            boolean generationInProgress
-    ) {
-    }
+    public record SessionView(Long sessionId, Long dailySetId, ListeningSessionStatus status,
+            List<ListeningTaskType> selectedTaskTypes, int completedItemCount, int evaluatedItemCount,
+            long actualDurationMs, LocalDateTime startedAt, LocalDateTime lastActivityAt, LocalDateTime resumableUntil,
+            List<AttemptView> attempts, ListeningDailySetStatus dailySetStatus, int targetItemCount,
+            int attachedItemCount, String generationFailureMessage, int pendingItemCount,
+            boolean generationInProgress) {}
 
-    public record ItemView(
-            Long sessionId,
-            Long itemId,
-            int itemIndex,
-            ListeningItemStatus status,
-            boolean playable,
-            String referenceAudioPath,
-            Integer audioDurationMs,
-            String topicHint,
-            List<String> keywordHints,
-            String question,
-            List<ChoiceOptionView> options,
-            String comprehensionFocus,
-            String correctOptionKey,
-            List<String> summaryKeyPoints,
-            String sourceText,
-            List<String> referenceMeanings,
-            AttemptView attempt
-    ) {
-    }
+    public record ItemView(Long sessionId, Long itemId, int itemIndex, ListeningItemStatus status, boolean playable,
+            String referenceAudioPath, Integer audioDurationMs, String topicHint, List<String> keywordHints,
+            String question, List<ChoiceOptionView> options, String comprehensionFocus, String correctOptionKey,
+            List<String> summaryKeyPoints, String sourceText, List<String> referenceMeanings, AttemptView attempt) {}
 
-    public record ChoiceOptionView(String key, String text) {
-    }
+    public record ChoiceOptionView(String key, String text) {}
 
-    public record DailyModeStatusView(
-            ListeningLearningMode learningMode,
-            Long dailySetId,
-            Long latestSessionId,
-            ListeningDailySetStatus status,
-            ListeningSessionStatus latestSessionStatus,
-            int completedItemCount,
-            int evaluatedItemCount,
-            int submittedItemCount,
-            int terminalItemCount,
-            int answerRevealedItemCount,
-            int physicalItemCount,
-            int readyItemCount,
-            int targetItemCount,
-            boolean completed,
-            String failureReason,
-            boolean generationInProgress
-    ) {
-    }
+    public record DailyModeStatusView(ListeningLearningMode learningMode, Long dailySetId, Long latestSessionId,
+            ListeningDailySetStatus status, ListeningSessionStatus latestSessionStatus, int completedItemCount,
+            int evaluatedItemCount, int submittedItemCount, int terminalItemCount, int answerRevealedItemCount,
+            int physicalItemCount, int readyItemCount, int targetItemCount, boolean completed, String failureReason,
+            boolean generationInProgress) {}
 
-    public record AttemptView(
-            Long attemptId,
-            Long itemId,
-            int attemptNo,
-            ListeningEvaluationPurpose evaluationPurpose,
-            ListeningAttemptStatus status,
-            boolean answerRevealed,
-            Double contentOverallScore,
-            Double listeningIndependenceScore,
-            Double overallScore,
-            PlaybackSummary playbackSummary,
-            int evaluatedTaskCount,
-            double coverage,
-            String errorCode,
-            List<TaskView> tasks,
-            int itemIndex
-    ) {
-    }
+    public record AttemptView(Long attemptId, Long itemId, int attemptNo, ListeningEvaluationPurpose evaluationPurpose,
+            ListeningAttemptStatus status, boolean answerRevealed, Double contentOverallScore,
+            Double listeningIndependenceScore, Double overallScore, PlaybackSummary playbackSummary,
+            int evaluatedTaskCount, double coverage, String errorCode, List<TaskView> tasks, int itemIndex) {}
 
-    public record PlaybackRequest(
-            Long attemptId,
-            ListeningPlaybackType playbackType,
-            String clientEventId
-    ) {
-    }
+    public record PlaybackRequest(Long attemptId, ListeningPlaybackType playbackType, String clientEventId) {}
 
-    public record PlaybackSummary(
-            int normalPlaybackCount,
-            int slowPlaybackCount,
-            String policyVersion
-    ) {
-    }
+    public record PlaybackSummary(int normalPlaybackCount, int slowPlaybackCount, String policyVersion) {}
 
-    public record TaskView(
-            Long taskResponseId,
-            ListeningTaskType taskType,
-            ListeningTaskStatus status,
-            String answerText,
-            boolean audioUploaded,
-            Integer audioDurationMs,
-            AudioAvailabilityView audioAvailability,
-            int rerecordCount,
-            ListeningAssistanceLevel assistanceLevel,
-            List<AssistanceUsage> assistanceUsage,
-            String evaluationErrorCode,
-            EvaluationView evaluation
-    ) {
-    }
+    public record TaskView(Long taskResponseId, ListeningTaskType taskType, ListeningTaskStatus status,
+            String answerText, boolean audioUploaded, Integer audioDurationMs, AudioAvailabilityView audioAvailability,
+            int rerecordCount, ListeningAssistanceLevel assistanceLevel, List<AssistanceUsage> assistanceUsage,
+            String evaluationErrorCode, EvaluationView evaluation) {}
 
-    public record AssistanceUsage(
-            ListeningAssistanceType type,
-            int count
-    ) {
-    }
+    public record AssistanceUsage(ListeningAssistanceType type, int count) {}
 
-    public record ResponseUpsertRequest(
-            String answer,
-            List<AssistanceUsage> assistanceUsage,
-            String idempotencyKey
-    ) {
-    }
+    public record ResponseUpsertRequest(String answer, List<AssistanceUsage> assistanceUsage, String idempotencyKey) {}
 
-    public record AudioUploadView(
-            Long taskResponseId,
-            int durationMs,
-            int rerecordCount,
-            LocalDateTime retentionUntil
-    ) {
-    }
+    public record
+            AudioUploadView(Long taskResponseId, int durationMs, int rerecordCount, LocalDateTime retentionUntil) {}
 
-    public record SubmitRequest(
-            String idempotencyKey,
-            long actualDurationMs
-    ) {
-    }
+    public record SubmitRequest(String idempotencyKey, long actualDurationMs) {}
 
-    public record RetryRequest(
-            ListeningTaskType taskType,
-            String idempotencyKey
-    ) {
-    }
+    public record RetryRequest(ListeningTaskType taskType, String idempotencyKey) {}
 
-    public record BulkRetryView(
-            int failedTaskCount,
-            int retriedTaskCount,
-            int exhaustedTaskCount
-    ) {
-    }
+    public record BulkRetryView(int failedTaskCount, int retriedTaskCount, int exhaustedTaskCount) {}
 
-    public record PracticeAttemptRequest(
-            String idempotencyKey,
-            List<ListeningTaskType> selectedTaskTypes
-    ) {
-    }
+    public record PracticeAttemptRequest(String idempotencyKey, List<ListeningTaskType> selectedTaskTypes) {}
 
-    public record SkipRequest(
-            String idempotencyKey,
-            long actualDurationMs
-    ) {
-    }
+    public record SkipRequest(String idempotencyKey, long actualDurationMs) {}
 
-    public record RevealAnswerView(
-            Long attemptId,
-            String sourceText,
-            List<String> referenceMeanings,
-            boolean excludedFromProgress,
-            boolean excludedFromProfile
-    ) {
-    }
+    public record RevealAnswerView(Long attemptId, String sourceText, List<String> referenceMeanings,
+            boolean excludedFromProgress, boolean excludedFromProfile) {}
 
-    public record EvaluationView(
-            Long evaluationId,
-            ListeningTaskType taskType,
-            boolean evaluable,
-            Double score,
-            Double confidence,
-            String reasonCode,
-            List<Map<String, Object>> metrics,
-            List<String> strengths,
-            List<String> improvements,
-            List<String> recommendedAnswers,
-            LocalDateTime evaluatedAt
-    ) {
-    }
+    public record EvaluationView(Long evaluationId, ListeningTaskType taskType, boolean evaluable, Double score,
+            Double confidence, String reasonCode, List<Map<String, Object>> metrics, List<String> strengths,
+            List<String> improvements, List<String> recommendedAnswers, LocalDateTime evaluatedAt) {}
 
     public record EvaluationReportRequest(
-            String reasonCode,
-            String comment,
-            boolean consentToRetainAudio,
-            String idempotencyKey
-    ) {
-    }
+            String reasonCode, String comment, boolean consentToRetainAudio, String idempotencyKey) {}
 
-    public record EvaluationReportView(
-            Long reportId,
-            Long taskResponseId,
-            String status,
-            boolean consentToRetainAudio,
-            LocalDateTime audioRetentionUntil
-    ) {
-    }
+    public record EvaluationReportView(Long reportId, Long taskResponseId, String status, boolean consentToRetainAudio,
+            LocalDateTime audioRetentionUntil) {}
 
-    public record SessionCompleteRequest(long actualDurationMs) {
-    }
+    public record SessionCompleteRequest(long actualDurationMs) {}
 
-    public record SessionResultView(
-            Long sessionId,
-            ListeningSessionStatus status,
-            int learnedItemCount,
-            int evaluatedItemCount,
-            Double averageScore,
-            double coverage,
-            List<AttemptView> attempts
-    ) {
-    }
+    public record SessionResultView(Long sessionId, ListeningSessionStatus status, int learnedItemCount,
+            int evaluatedItemCount, Double averageScore, double coverage, List<AttemptView> attempts) {}
 
-    public record DashboardView(
-            String learningLanguage,
-            LocalDate from,
-            LocalDate to,
-            List<MetricProfileView> metrics,
-            List<TaskTrendView> taskTrends,
-            List<RecommendationView> recommendations
-    ) {
-    }
+    public record DashboardView(String learningLanguage, LocalDate from, LocalDate to, List<MetricProfileView> metrics,
+            List<TaskTrendView> taskTrends, List<RecommendationView> recommendations) {}
 
-    public record MetricProfileView(
-            ListeningProfileMetric metric,
-            Double score,
-            int sampleCount,
-            String confidence,
-            ListeningWeaknessState weaknessState,
-            boolean growthActive,
-            Double growthDelta
-    ) {
-    }
+    public record MetricProfileView(ListeningProfileMetric metric, Double score, int sampleCount, String confidence,
+            ListeningWeaknessState weaknessState, boolean growthActive, Double growthDelta) {}
 
-    public record TaskTrendView(
-            ListeningTaskType taskType,
-            LocalDate date,
-            Double averageScore,
-            int sampleCount
-    ) {
-    }
+    public record TaskTrendView(ListeningTaskType taskType, LocalDate date, Double averageScore, int sampleCount) {}
 
     public record MetricTrendView(
-            ListeningTaskType taskType,
-            String metric,
-            LocalDate date,
-            Double averageScore,
-            int sampleCount
-    ) {
-    }
+            ListeningTaskType taskType, String metric, LocalDate date, Double averageScore, int sampleCount) {}
 
-    public record RecommendationView(
-            Long recommendationId,
-            ListeningProfileMetric targetMetric,
-            String recommendedActivity,
-            String recommendedTask,
-            String reason,
-            String ctaLabel,
-            int priority,
-            ListeningRecommendationStatus status,
-            LocalDateTime expiresAt
-    ) {
-    }
+    public record RecommendationView(Long recommendationId, ListeningProfileMetric targetMetric,
+            String recommendedActivity, String recommendedTask, String reason, String ctaLabel, int priority,
+            ListeningRecommendationStatus status, LocalDateTime expiresAt) {}
 
-    public record HistoryItemView(
-            Long sessionId,
-            Long attemptId,
-            Long itemId,
-            LocalDate learningDate,
-            ListeningEvaluationPurpose purpose,
-            ListeningAttemptStatus status,
-            Double score,
-            double coverage,
-            List<ListeningTaskType> taskTypes
-    ) {
-    }
+    public record HistoryItemView(Long sessionId, Long attemptId, Long itemId, LocalDate learningDate,
+            ListeningEvaluationPurpose purpose, ListeningAttemptStatus status, Double score, double coverage,
+            List<ListeningTaskType> taskTypes) {}
 
-    public record HistoryDetailView(
-            SessionView session,
-            List<HistoryAttemptDetailView> attempts
-    ) {
-    }
+    public record HistoryDetailView(SessionView session, List<HistoryAttemptDetailView> attempts) {}
 
-    public record HistoryAttemptDetailView(
-            Long itemId,
-            int itemIndex,
-            String sourceText,
-            List<String> referenceMeanings,
-            AudioAvailabilityView referenceAudio,
-            AttemptView attempt
-    ) {
-    }
+    public record HistoryAttemptDetailView(Long itemId, int itemIndex, String sourceText,
+            List<String> referenceMeanings, AudioAvailabilityView referenceAudio, AttemptView attempt) {}
 
     public record AudioAvailabilityView(
-            boolean available,
-            boolean expired,
-            LocalDateTime retentionUntil,
-            LocalDateTime deletedAt
-    ) {
-    }
+            boolean available, boolean expired, LocalDateTime retentionUntil, LocalDateTime deletedAt) {}
 
-    public record PolicyView(
-            boolean enabled,
-            int defaultItemCount,
-            int minItemCount,
-            int maxItemCount,
-            int hardItemLimit,
-            int resumeHours,
-            int referenceAudioRetentionDays,
-            int userAudioRetentionDays,
-            int reportedAudioRetentionDays,
-            int automaticRetryLimit,
-            int manualRetryLimit,
-            int practiceAttemptLimit,
-            String profilePolicyVersion,
-            String modelConfigVersion,
-            boolean referenceTtsRegenerationEnabled
-    ) {
-    }
+    public record PolicyView(boolean enabled, int defaultItemCount, int minItemCount, int maxItemCount,
+            int hardItemLimit, int resumeHours, int referenceAudioRetentionDays, int userAudioRetentionDays,
+            int reportedAudioRetentionDays, int automaticRetryLimit, int manualRetryLimit, int practiceAttemptLimit,
+            String profilePolicyVersion, String modelConfigVersion, boolean referenceTtsRegenerationEnabled) {}
 }

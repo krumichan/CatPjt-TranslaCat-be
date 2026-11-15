@@ -14,7 +14,8 @@ import org.springframework.web.bind.annotation.*;
 public class NovelCatalogController {
     private final NovelCatalogFacade facade;
     @PostMapping
-    public ResponseEntity<ResponseDto<JsonNode>> start(@PathVariable String platform, @RequestBody NovelCatalogRequest request) {
+    public ResponseEntity<ResponseDto<JsonNode>> start(
+            @PathVariable String platform, @RequestBody NovelCatalogRequest request) {
         return success(facade.start(platform, request));
     }
     @GetMapping("/{id}")

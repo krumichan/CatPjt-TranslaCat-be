@@ -13,20 +13,15 @@ import lombok.NoArgsConstructor;
 @Table(name = "support_notice")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SupportNotice extends BaseAuditable {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "author_id", nullable = false)
     private User author;
 
-    @Column(nullable = false, length = 200)
-    private String title;
+    @Column(nullable = false, length = 200) private String title;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String content;
+    @Column(nullable = false, columnDefinition = "TEXT") private String content;
 
     @Convert(converter = NoticeTypeConverter.class)
     @Column(name = "important", nullable = false)

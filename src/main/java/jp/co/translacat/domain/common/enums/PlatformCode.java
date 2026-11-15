@@ -10,7 +10,8 @@ public enum PlatformCode implements ConvertibleEnum {
 
     @JsonCreator
     public static PlatformCode fromString(String source) {
-        if (source == null) return null;
+        if (source == null)
+            return null;
         return Arrays.stream(PlatformCode.values())
                 .filter(code -> code.matches(source))
                 .findFirst()

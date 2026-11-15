@@ -12,76 +12,45 @@ import java.time.LocalDateTime;
 
 @Entity
 @Getter
-@Table(
-        name = "user_profile",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_user_profile_user_id",
-                        columnNames = "user_id"
-                )
-        }
-)
+@Table(name = "user_profile",
+        uniqueConstraints = { @UniqueConstraint(name = "uk_user_profile_user_id", columnNames = "user_id") })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserProfile extends BaseAuditable {
-
     public static final int NICKNAME_MAX_LENGTH = 30;
     public static final int IMAGE_OBJECT_KEY_MAX_LENGTH = 500;
     public static final int BIO_MAX_LENGTH = 200;
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false, updatable = false)
     private User user;
 
-    @Column(nullable = false, length = NICKNAME_MAX_LENGTH)
-    private String nickname;
+    @Column(nullable = false, length = NICKNAME_MAX_LENGTH) private String nickname;
 
-    @Column(
-            name = "profile_image_object_key",
-            length = IMAGE_OBJECT_KEY_MAX_LENGTH
-    )
+    @Column(name = "profile_image_object_key", length = IMAGE_OBJECT_KEY_MAX_LENGTH)
     private String profileImageObjectKey;
 
-    @Column(
-            name = "profile_background_image_object_key",
-            length = IMAGE_OBJECT_KEY_MAX_LENGTH
-    )
+    @Column(name = "profile_background_image_object_key", length = IMAGE_OBJECT_KEY_MAX_LENGTH)
     private String profileBackgroundImageObjectKey;
 
-    @Column(length = BIO_MAX_LENGTH)
-    private String bio;
+    @Column(length = BIO_MAX_LENGTH) private String bio;
 
-    @Column(nullable = false)
-    private boolean deleted = false;
+    @Column(nullable = false) private boolean deleted = false;
 
-    @Column(name = "deleted_at")
-    private LocalDateTime deletedAt;
+    @Column(name = "deleted_at") private LocalDateTime deletedAt;
 
-    private UserProfile(
-            User user,
-            String nickname,
-            String bio
-    ) {
+    private UserProfile(User user, String nickname, String bio) {
         this.user = user;
         this.nickname = validateNickname(nickname);
         this.bio = validateBio(bio);
     }
 
     public static UserProfile createDefault(User user) {
-        return new UserProfile(
-                user,
-                buildDefaultNickname(user),
-                null
-        );
+        return new UserProfile(user, buildDefaultNickname(user), null);
     }
 
-    public void updateText(
-            String nickname,
-            String bio
-    ) {
+    public void updateText(String nickname, String bio) {
         this.nickname = validateNickname(nickname);
         this.bio = validateBio(bio);
     }
@@ -136,19 +105,14 @@ public class UserProfile extends BaseAuditable {
 
     private static String validateNickname(String nickname) {
         if (!hasText(nickname)) {
-            throw new BusinessException(
-                    "닉네임은 필수입니다.",
-                    "USER_PROFILE_NICKNAME_REQUIRED"
-            );
+            throw new BusinessException("닉네임은 필수입니다.", "USER_PROFILE_NICKNAME_REQUIRED");
         }
 
         String trimmed = nickname.trim();
 
         if (trimmed.length() > NICKNAME_MAX_LENGTH) {
             throw new BusinessException(
-                    "닉네임은 " + NICKNAME_MAX_LENGTH + "자 이하로 입력해주세요.",
-                    "USER_PROFILE_NICKNAME_TOO_LONG"
-            );
+                    "닉네임은 " + NICKNAME_MAX_LENGTH + "자 이하로 입력해주세요.", "USER_PROFILE_NICKNAME_TOO_LONG");
         }
 
         return trimmed;
@@ -156,19 +120,14 @@ public class UserProfile extends BaseAuditable {
 
     private static String validateObjectKey(String objectKey) {
         if (!hasText(objectKey)) {
-            throw new BusinessException(
-                    "이미지 object key는 필수입니다.",
-                    "PROFILE_IMAGE_OBJECT_KEY_REQUIRED"
-            );
+            throw new BusinessException("이미지 object key는 필수입니다.", "PROFILE_IMAGE_OBJECT_KEY_REQUIRED");
         }
 
         String trimmed = objectKey.trim();
 
         if (trimmed.length() > IMAGE_OBJECT_KEY_MAX_LENGTH) {
             throw new BusinessException(
-                    "이미지 object key 길이가 허용 범위를 초과했습니다.",
-                    "PROFILE_IMAGE_OBJECT_KEY_TOO_LONG"
-            );
+                    "이미지 object key 길이가 허용 범위를 초과했습니다.", "PROFILE_IMAGE_OBJECT_KEY_TOO_LONG");
         }
 
         return trimmed;
@@ -183,9 +142,7 @@ public class UserProfile extends BaseAuditable {
 
         if (trimmed.length() > BIO_MAX_LENGTH) {
             throw new BusinessException(
-                    "자기소개는 " + BIO_MAX_LENGTH + "자 이하로 입력해주세요.",
-                    "USER_PROFILE_BIO_TOO_LONG"
-            );
+                    "자기소개는 " + BIO_MAX_LENGTH + "자 이하로 입력해주세요.", "USER_PROFILE_BIO_TOO_LONG");
         }
 
         return trimmed;

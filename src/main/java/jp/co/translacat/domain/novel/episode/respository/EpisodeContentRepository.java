@@ -7,8 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface EpisodeContentRepository
-        extends JpaRepository<EpisodeContent, Long>, EpisodeContentBatchRepository {
+public interface EpisodeContentRepository extends JpaRepository<EpisodeContent, Long>, EpisodeContentBatchRepository {
     List<EpisodeContent> findAllByEpisodeIdOrderBySequenceAsc(Long episodeId);
 
     void deleteAllByEpisodeId(Long episodeId);

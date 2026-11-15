@@ -23,12 +23,9 @@ import java.util.concurrent.TimeUnit;
  */
 @Configuration
 public class WebClientConfig {
+    @Value("${web-client.timeout.response.seconds:60}") private Long responseTimeoutSeconds;
 
-    @Value("${web-client.timeout.response.seconds:60}")
-    private Long responseTimeoutSeconds;
-
-    @Value("${web-client.timeout.connect.milli:10000}")
-    private Integer connectTimeoutMilli;
+    @Value("${web-client.timeout.connect.milli:10000}") private Integer connectTimeoutMilli;
 
     /**
      * WebClient Bean 생성
@@ -45,15 +42,16 @@ public class WebClientConfig {
      */
     @Bean
     public WebClient webClient(WebClient.Builder builder) {
-        HttpClient httpClient = HttpClient.create()
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMilli)
-                .responseTimeout(Duration.ofSeconds(responseTimeoutSeconds))
-                .doOnConnected(conn -> conn
-                        .addHandlerLast(new ReadTimeoutHandler(responseTimeoutSeconds, TimeUnit.SECONDS))
-                        .addHandlerLast(new WriteTimeoutHandler(responseTimeoutSeconds, TimeUnit.SECONDS)));
+        HttpClient httpClient =
+                HttpClient.create()
+                        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMilli)
+                        .responseTimeout(Duration.ofSeconds(responseTimeoutSeconds))
+                        .doOnConnected(conn
+                                -> conn.addHandlerLast(new ReadTimeoutHandler(responseTimeoutSeconds, TimeUnit.SECONDS))
+                                        .addHandlerLast(
+                                                new WriteTimeoutHandler(responseTimeoutSeconds, TimeUnit.SECONDS)));
 
-        return builder
-                .clientConnector(new ReactorClientHttpConnector(httpClient))
+        return builder.clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }

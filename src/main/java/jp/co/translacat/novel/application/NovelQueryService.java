@@ -18,7 +18,8 @@ public class NovelQueryService {
     private final long ttlMillis;
     private final NovelExecutionSettings settings;
     private final NovelRubyFormatter ruby;
-    private final Object[] fetchLocks = java.util.stream.IntStream.range(0, 64).mapToObj(ignored -> new Object()).toArray();
+    private final Object[] fetchLocks =
+            java.util.stream.IntStream.range(0, 64).mapToObj(ignored -> new Object()).toArray();
     private final Semaphore sourceSlots = new Semaphore(4);
 
     public NovelQueryService(NovelRepository store, NovelPorts.Source sourcePort, NovelPorts.Ai ai, long ttlSeconds) {
@@ -27,8 +28,8 @@ public class NovelQueryService {
 
     @org.springframework.beans.factory.annotation.Autowired
     public NovelQueryService(NovelRepository store, NovelPorts.Source sourcePort, NovelPorts.Ai ai,
-                             @Value("${novel.source.ttl-seconds:600}") long ttlSeconds, NovelExecutionSettings settings,
-                             NovelRubyFormatter ruby) {
+            @Value("${novel.source.ttl-seconds:600}") long ttlSeconds, NovelExecutionSettings settings,
+            NovelRubyFormatter ruby) {
         this.store = store;
         this.sourcePort = sourcePort;
         this.ai = ai;
@@ -61,7 +62,8 @@ public class NovelQueryService {
         long cacheStarted = System.nanoTime();
         NovelRepository.StoredSource existing = store.current(key).orElse(null);
         RequestTrace.duration("dbCacheMs", cacheStarted);
-        if (existing != null) requireSegmentationPolicy(existing.source());
+        if (existing != null)
+            requireSegmentationPolicy(existing.source());
         if (existing != null && System.currentTimeMillis() - existing.fetchedAt() < ttlMillis) {
             return existing.source();
         }
@@ -75,7 +77,8 @@ public class NovelQueryService {
                 RequestTrace.duration("sourceQueueMs", sourceQueueStarted);
                 // 같은 회차의 재검증도 저장 snapshot을 다시 확인한 후 수행한다.
                 existing = store.current(key).orElse(null);
-                if (existing != null) requireSegmentationPolicy(existing.source());
+                if (existing != null)
+                    requireSegmentationPolicy(existing.source());
                 if (existing != null && System.currentTimeMillis() - existing.fetchedAt() < ttlMillis) {
                     return existing.source();
                 }
@@ -113,7 +116,8 @@ public class NovelQueryService {
 
     public SourceEpisode requireCurrentRevision(EpisodeKey key, String revision) {
         long started = System.nanoTime();
-        SourceEpisode source = store.current(key).orElseThrow(() -> new NovelProblem("SOURCE_NOT_LOADED", 409)).source();
+        SourceEpisode source =
+                store.current(key).orElseThrow(() -> new NovelProblem("SOURCE_NOT_LOADED", 409)).source();
         requireSegmentationPolicy(source);
         RequestTrace.duration("dbCacheMs", started);
         if (revision == null || !source.revision().equals(revision)) {
@@ -134,24 +138,26 @@ public class NovelQueryService {
         return cacheKey(key, source, actor, glossary, resolve(source));
     }
     public String cacheKey(EpisodeKey key, SourceEpisode source, long actor, String glossary,
-                           jp.co.translacat.novel.domain.TranslationLengthPolicy.Resolution selection) {
+            jp.co.translacat.novel.domain.TranslationLengthPolicy.Resolution selection) {
         return cacheKey(key, source, actor, glossary, selection, "ko");
     }
 
     public String cacheKey(EpisodeKey key, SourceEpisode source, long actor, String glossary,
-                           jp.co.translacat.novel.domain.TranslationLengthPolicy.Resolution selection, String targetLanguage) {
+            jp.co.translacat.novel.domain.TranslationLengthPolicy.Resolution selection, String targetLanguage) {
         requireSegmentationPolicy(source);
-        if (!source.revision().equals(selection.sourceRevision())) throw new NovelProblem("SOURCE_REVISION_CHANGED", 409);
-        return new TranslationPolicy().cacheKey(key, source, actor, ai.model(), glossary, selection.options(), targetLanguage);
+        if (!source.revision().equals(selection.sourceRevision()))
+            throw new NovelProblem("SOURCE_REVISION_CHANGED", 409);
+        return new TranslationPolicy().cacheKey(
+                key, source, actor, ai.model(), glossary, selection.options(), targetLanguage);
     }
 
-    public NovelRepository.Job share(EpisodeKey key, SourceEpisode source, long actor, String glossary,
-                                    String target, NovelRepository.Job job) {
+    public NovelRepository.Job share(
+            EpisodeKey key, SourceEpisode source, long actor, String glossary, String target, NovelRepository.Job job) {
         return share(key, source, actor, glossary, target, job, false);
     }
 
-    public NovelRepository.Job share(EpisodeKey key, SourceEpisode source, long actor, String glossary,
-                                    String target, NovelRepository.Job job, boolean explicitResume) {
+    public NovelRepository.Job share(EpisodeKey key, SourceEpisode source, long actor, String glossary, String target,
+            NovelRepository.Job job, boolean explicitResume) {
         var selection = resolve(source);
         var policy = new TranslationPolicy();
         String identity = policy.sharedCacheKey(key, source, ai.model(), glossary, selection.options(), target);
@@ -160,11 +166,13 @@ public class NovelQueryService {
         NovelRepository.Job common = store.sharedCompleted(identity).orElse(null);
         if (common == null) {
             for (var candidate : store.completedCandidates(key, source.revision(), target)) {
-                String expected = policy.cacheKey(key, source, candidate.actorId(), ai.model(), glossary, selection.options(), target);
+                String expected = policy.cacheKey(
+                        key, source, candidate.actorId(), ai.model(), glossary, selection.options(), target);
                 if (candidate.cacheKey().equals(expected)) {
                     store.publishShared(identity, candidate, source);
                     common = store.sharedCompleted(identity).orElse(null);
-                    if (common != null) break;
+                    if (common != null)
+                        break;
                 }
             }
         }
@@ -190,11 +198,14 @@ public class NovelQueryService {
         return snapshot(key, source, job, glossary, job == null ? "ko" : job.targetLanguage());
     }
 
-    public ReaderSnapshot snapshot(EpisodeKey key, SourceEpisode source, NovelRepository.Job job, String glossary, String targetLanguage) {
+    public ReaderSnapshot snapshot(
+            EpisodeKey key, SourceEpisode source, NovelRepository.Job job, String glossary, String targetLanguage) {
         var repair = job == null ? null : store.latestRepair(job).orElse(null);
-        ReaderSnapshot snapshot = ReaderSnapshot.of(key, source, job, glossary, targetLanguage).withDiagnostics(job == null ? java.util.Map.of() : store.diagnostics(job))
-                .withRecovery(repair, job == null ? null : store.initialAttemptState(job), repair == null ? java.util.Map.of() : store.repairDiagnostics(repair))
-                .withAudioPolicy(NovelAudioService.POLICY_VERSION + "|" + ai.speechModel());
+        ReaderSnapshot snapshot = ReaderSnapshot.of(key, source, job, glossary, targetLanguage)
+                                          .withDiagnostics(job == null ? java.util.Map.of() : store.diagnostics(job))
+                                          .withRecovery(repair, job == null ? null : store.initialAttemptState(job),
+                                                  repair == null ? java.util.Map.of() : store.repairDiagnostics(repair))
+                                          .withAudioPolicy(NovelAudioService.POLICY_VERSION + "|" + ai.speechModel());
         return ruby == null ? snapshot : snapshot.withRuby(ruby);
     }
 }

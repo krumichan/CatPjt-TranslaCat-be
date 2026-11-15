@@ -35,15 +35,15 @@ public class DictionaryService {
     }
 
     private Map<String, String> dictionarySnapshot() {
-        return repository.findAll().stream()
+        return repository.findAll()
+                .stream()
                 // [수정] 문자열 길이가 긴 것부터 정렬 (Descending)
                 .sorted(Comparator.comparingInt((JapaneseDictionary d) -> d.getSurface().length()).reversed())
-                .collect(Collectors.toMap(
-                        JapaneseDictionary::getSurface,
-                        JapaneseDictionary::getReading,
-                        (v1, v2) -> v1, // 중복 키 발생 시 처리
+                .collect(Collectors.toMap(JapaneseDictionary::getSurface, JapaneseDictionary::getReading,
+                        (v1, v2)
+                                -> v1, // 중복 키 발생 시 처리
                         LinkedHashMap::new // 순서 보장을 위해 LinkedHashMap 사용
-                ));
+                        ));
     }
 
     @Transactional
@@ -55,8 +55,8 @@ public class DictionaryService {
         }
 
         // 기존 표면형의 발음 교정도 허용하되 같은 단어를 중복 삽입하지 않는다.
-        this.repository.findBySurface(surface).ifPresentOrElse(
-                entry -> entry.updateReading(reading),
+        this.repository.findBySurface(surface).ifPresentOrElse(entry
+                -> entry.updateReading(reading),
                 () -> this.repository.save(JapaneseDictionary.create(surface, reading)));
 
         // 신규 reader와 구형 표시 API는 원문에서 ruby를 재생성하므로 저장된 회차는 변경하지 않는다.

@@ -1,6 +1,3 @@
 package jp.co.translacat.domain.accountbook.transaction.dto;
 
-public record AccountBookStoreSuggestionResponseDto(
-        String storeName
-) {
-}
+public record AccountBookStoreSuggestionResponseDto(String storeName) {}

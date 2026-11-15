@@ -6,11 +6,8 @@ import jp.co.translacat.domain.accountbook.common.serialization.DecimalStringSer
 
 import java.math.BigDecimal;
 
-public record AccountBookMonthlyChartItemResponseDto(
-        Integer year,
-        Integer month,
+public record AccountBookMonthlyChartItemResponseDto(Integer year, Integer month,
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal incomeAmount,
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal expenseAmount,
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal balance,
-        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal expenseGoalAmount) {
-}
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal expenseGoalAmount) {}

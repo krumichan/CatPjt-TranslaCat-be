@@ -11,10 +11,7 @@ public enum VoiceMode {
         return switch (this) {
             case MIC -> Set.of(VoiceChannel.SELF);
             case MEDIA -> Set.of(VoiceChannel.REMOTE);
-            case MEETING -> Set.of(
-                    VoiceChannel.SELF,
-                    VoiceChannel.REMOTE
-            );
+            case MEETING -> Set.of(VoiceChannel.SELF, VoiceChannel.REMOTE);
         };
     }
 }

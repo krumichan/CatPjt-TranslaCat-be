@@ -17,40 +17,22 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class VoiceStaleSessionQueryService {
-
-    private static final EnumSet<VoiceSessionStatus> STALE_STATUSES =
-            EnumSet.of(
-                    VoiceSessionStatus.CREATED,
-                    VoiceSessionStatus.ACTIVE,
-                    VoiceSessionStatus.DEGRADED,
-                    VoiceSessionStatus.COMPLETING
-            );
+    private static final EnumSet<VoiceSessionStatus> STALE_STATUSES = EnumSet.of(VoiceSessionStatus.CREATED,
+            VoiceSessionStatus.ACTIVE, VoiceSessionStatus.DEGRADED, VoiceSessionStatus.COMPLETING);
     private static final int CLEANUP_BATCH_SIZE = 50;
 
     private final VoiceSessionRepository sessionRepository;
     private final VoicePolicyProperties policy;
 
     public List<StaleSession> findStale() {
-        return sessionRepository.findStale(
-                        STALE_STATUSES,
-                        LocalDateTime.now().minusMinutes(
-                                policy.getStaleSessionMinutes()
-                        ),
-                        CLEANUP_BATCH_SIZE
-                )
+        return sessionRepository
+                .findStale(STALE_STATUSES, LocalDateTime.now().minusMinutes(policy.getStaleSessionMinutes()),
+                        CLEANUP_BATCH_SIZE)
                 .stream()
-                .map(session -> new StaleSession(
-                        session.getId(),
-                        session.getUser().getId(),
-                        session.isSaveTranscript()
-                ))
+                .map(session
+                        -> new StaleSession(session.getId(), session.getUser().getId(), session.isSaveTranscript()))
                 .toList();
     }
 
-    public record StaleSession(
-            String sessionId,
-            Long userId,
-            boolean saveTranscript
-    ) {
-    }
+    public record StaleSession(String sessionId, Long userId, boolean saveTranscript) {}
 }

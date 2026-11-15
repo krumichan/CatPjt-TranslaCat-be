@@ -22,54 +22,39 @@ import java.util.concurrent.TimeoutException;
 @Component
 @RequiredArgsConstructor
 public class VoiceAiTranslationRetryClient {
-
     private final WebClient webClient;
 
-    @Value("${ai-server.url}")
-    private String aiServerUrl;
+    @Value("${ai-server.url}") private String aiServerUrl;
 
-    @Value("${ai-server.api-key}")
-    private String aiServerApiKey;
+    @Value("${ai-server.api-key}") private String aiServerApiKey;
 
-    @Value("${translacat.voice.ai-retry-timeout-ms:8000}")
-    private long retryTimeoutMs;
+    @Value("${translacat.voice.ai-retry-timeout-ms:8000}") private long retryTimeoutMs;
 
     public AiVoiceTranslationRetryResponse retry(
-            String sessionId,
-            Long segmentId,
-            VoiceTranslationRetryContext context
-    ) {
-        AiVoiceTranslationRetryRequest request =
-                new AiVoiceTranslationRetryRequest(
-                        UUID.randomUUID().toString(),
-                        sessionId,
-                        segmentId,
-                        context.sourceText(),
-                        context.sourceLanguage(),
-                        context.targetLanguage()
-                );
+            String sessionId, Long segmentId, VoiceTranslationRetryContext context) {
+        AiVoiceTranslationRetryRequest request = new AiVoiceTranslationRetryRequest(UUID.randomUUID().toString(),
+                sessionId, segmentId, context.sourceText(), context.sourceLanguage(), context.targetLanguage());
 
         try {
             // AI 번역의 총 6초 deadline 뒤 오류 응답까지 받을 수 있도록 BE는 전달 여유를 둔다.
-            AiVoiceTranslationRetryResponse response = webClient.post()
-                    .uri(
-                            normalizeBaseUrl(aiServerUrl)
-                                    + "/internal/v1/voice/translation/retry"
-                    )
-                    .header("X-API-KEY", aiServerApiKey)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(request)
-                    .retrieve()
-                    .onStatus(HttpStatusCode::isError, responseError -> responseError.bodyToMono(JsonNode.class)
-                            .map(body -> retryFailed("AI translation retry failed.", aiErrorCode(body)))
-                            .defaultIfEmpty(retryFailed("AI translation retry returned an empty error response.")))
-                    .bodyToMono(AiVoiceTranslationRetryResponse.class)
-                    .block(Duration.ofMillis(retryTimeoutMs));
+            AiVoiceTranslationRetryResponse response =
+                    webClient.post()
+                            .uri(normalizeBaseUrl(aiServerUrl) + "/internal/v1/voice/translation/retry")
+                            .header("X-API-KEY", aiServerApiKey)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(request)
+                            .retrieve()
+                            .onStatus(HttpStatusCode::isError,
+                                    responseError
+                                    -> responseError.bodyToMono(JsonNode.class)
+                                            .map(body -> retryFailed("AI translation retry failed.", aiErrorCode(body)))
+                                            .defaultIfEmpty(retryFailed(
+                                                    "AI translation retry returned an empty error response.")))
+                            .bodyToMono(AiVoiceTranslationRetryResponse.class)
+                            .block(Duration.ofMillis(retryTimeoutMs));
 
             if (response == null) {
-                throw retryFailed(
-                        "AI translation retry returned an empty response."
-                );
+                throw retryFailed("AI translation retry returned an empty response.");
             }
             return response;
         } catch (BusinessException e) {
@@ -94,9 +79,7 @@ public class VoiceAiTranslationRetryClient {
     }
 
     private String normalizeBaseUrl(String url) {
-        return url.endsWith("/")
-                ? url.substring(0, url.length() - 1)
-                : url;
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
     private BusinessException retryFailed(String message) {

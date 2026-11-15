@@ -15,7 +15,9 @@ final class NovelGatewayBodySubscriber implements HttpResponse.BodySubscriber<by
     private final ByteArrayOutputStream body = new ByteArrayOutputStream();
     private Flow.Subscription subscription;
 
-    public CompletionStage<byte[]> getBody() { return result; }
+    public CompletionStage<byte[]> getBody() {
+        return result;
+    }
     public void onSubscribe(Flow.Subscription value) {
         subscription = value;
         value.request(1);
@@ -34,6 +36,10 @@ final class NovelGatewayBodySubscriber implements HttpResponse.BodySubscriber<by
         }
         subscription.request(1);
     }
-    public void onError(Throwable error) { result.completeExceptionally(error); }
-    public void onComplete() { result.complete(body.toByteArray()); }
+    public void onError(Throwable error) {
+        result.completeExceptionally(error);
+    }
+    public void onComplete() {
+        result.complete(body.toByteArray());
+    }
 }

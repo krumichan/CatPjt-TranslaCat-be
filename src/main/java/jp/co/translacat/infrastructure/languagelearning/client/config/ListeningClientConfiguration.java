@@ -13,8 +13,8 @@ public class ListeningClientConfiguration {
     @Bean
 
     public LanguageLearningListeningClient languageLearningListeningClient(
-            @Qualifier("languageLearningRestClient") RestClient client,
-            LanguageLearningInternalJwtProvider jwt, ObjectMapper json) {
+            @Qualifier("languageLearningRestClient") RestClient client, LanguageLearningInternalJwtProvider jwt,
+            ObjectMapper json) {
         return new LanguageLearningListeningClient(client, jwt, json);
     }
 }

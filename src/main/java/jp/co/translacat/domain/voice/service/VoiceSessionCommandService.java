@@ -34,14 +34,8 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class VoiceSessionCommandService {
-
-    private static final EnumSet<VoiceSessionStatus> ACTIVE_STATUSES =
-            EnumSet.of(
-                    VoiceSessionStatus.CREATED,
-                    VoiceSessionStatus.ACTIVE,
-                    VoiceSessionStatus.DEGRADED,
-                    VoiceSessionStatus.COMPLETING
-            );
+    private static final EnumSet<VoiceSessionStatus> ACTIVE_STATUSES = EnumSet.of(VoiceSessionStatus.CREATED,
+            VoiceSessionStatus.ACTIVE, VoiceSessionStatus.DEGRADED, VoiceSessionStatus.COMPLETING);
 
     private final EntityManager entityManager;
     private final VoiceSessionRepository sessionRepository;
@@ -52,96 +46,56 @@ public class VoiceSessionCommandService {
     private final ObjectMapper objectMapper;
 
     @Transactional
-    public String create(
-            Long userId,
-            VoiceSessionCreateRequestDto request
-    ) {
+    public String create(Long userId, VoiceSessionCreateRequestDto request) {
         ValidatedCreateRequest validated = validateCreateRequest(request);
 
-        User user = entityManager.find(
-                User.class,
-                userId,
-                LockModeType.PESSIMISTIC_WRITE
-        );
+        User user = entityManager.find(User.class, userId, LockModeType.PESSIMISTIC_WRITE);
         if (user == null || !user.isActiveAccount()) {
             throw notFound();
         }
         requireVoiceRole(user);
 
-        if (!sessionRepository.findActiveByUserId(
-                userId,
-                ACTIVE_STATUSES
-        ).isEmpty()) {
+        if (!sessionRepository.findActiveByUserId(userId, ACTIVE_STATUSES).isEmpty()) {
             throw new BusinessException(
-                    "Only one active Voice session is allowed per user.",
-                    VoiceErrorCode.ACTIVE_SESSION_EXISTS
-            );
+                    "Only one active Voice session is allowed per user.", VoiceErrorCode.ACTIVE_SESSION_EXISTS);
         }
 
-        long usedToday = usageRepository.sumProcessedAudioMs(
-                userId,
-                LocalDate.now()
-        );
+        long usedToday = usageRepository.sumProcessedAudioMs(userId, LocalDate.now());
         if (usedToday >= policy.getDailyLimitMs()) {
             throw new BusinessException(
-                    "Daily Voice usage limit has been reached.",
-                    VoiceErrorCode.DAILY_LIMIT_EXCEEDED
-            );
+                    "Daily Voice usage limit has been reached.", VoiceErrorCode.DAILY_LIMIT_EXCEEDED);
         }
 
-        VoiceSession session = VoiceSession.create(
-                user,
-                validated.mode(),
-                validated.sourceLanguageMode(),
-                validated.targetLanguage(),
-                validated.saveTranscript(),
-                createPolicySnapshot()
-        );
+        VoiceSession session = VoiceSession.create(user, validated.mode(), validated.sourceLanguageMode(),
+                validated.targetLanguage(), validated.saveTranscript(), createPolicySnapshot());
         sessionRepository.save(session);
 
         List<VoiceSessionChannel> channels = validated.mode()
-                .allowedChannels()
-                .stream()
-                .sorted()
-                .map(channel -> VoiceSessionChannel.create(
-                        session,
-                        channel,
-                        validated.manualSourceLanguages().get(channel)
-                ))
-                .toList();
+                                                     .allowedChannels()
+                                                     .stream()
+                                                     .sorted()
+                                                     .map(channel
+                                                             -> VoiceSessionChannel.create(session, channel,
+                                                                     validated.manualSourceLanguages().get(channel)))
+                                                     .toList();
         channelRepository.saveAll(channels);
 
         return session.getId();
     }
 
     @Transactional
-    public void update(
-            Long userId,
-            String sessionId,
-            VoiceSessionUpdateRequestDto request
-    ) {
-        VoiceSession session = sessionRepository
-                .findOwnedForUpdate(sessionId, userId)
-                .orElseThrow(this::notFound);
+    public void update(Long userId, String sessionId, VoiceSessionUpdateRequestDto request) {
+        VoiceSession session = sessionRepository.findOwnedForUpdate(sessionId, userId).orElseThrow(this::notFound);
 
-        session.updateTitle(
-                request == null
-                        ? null
-                        : request.title()
-        );
+        session.updateTitle(request == null ? null : request.title());
     }
 
     @Transactional
-    public boolean startCompleting(
-            Long userId,
-            String sessionId
-    ) {
-        VoiceSession session = findFreshSessionForCompletion(sessionId, userId)
-                .orElseThrow(this::notFound);
+    public boolean startCompleting(Long userId, String sessionId) {
+        VoiceSession session = findFreshSessionForCompletion(sessionId, userId).orElseThrow(this::notFound);
 
         // 이미 확정된 종료를 다시 요청해도 실패 세션을 재활성화하거나 INVALID_STATE로 덮지 않는다.
-        if (session.getStatus() == VoiceSessionStatus.COMPLETED
-                || session.getStatus() == VoiceSessionStatus.FAILED) {
+        if (session.getStatus() == VoiceSessionStatus.COMPLETED || session.getStatus() == VoiceSessionStatus.FAILED) {
             return false;
         }
 
@@ -150,12 +104,8 @@ public class VoiceSessionCommandService {
     }
 
     @Transactional
-    public boolean finishCompletion(
-            Long userId,
-            String sessionId
-    ) {
-        VoiceSession session = findFreshSessionForCompletion(sessionId, userId)
-                .orElseThrow(this::notFound);
+    public boolean finishCompletion(Long userId, String sessionId) {
+        VoiceSession session = findFreshSessionForCompletion(sessionId, userId).orElseThrow(this::notFound);
 
         // 다른 종료 요청이 먼저 실패를 확정했어도 같은 정리를 반복하고 실패 상태를 보존한다.
         if (session.getStatus() == VoiceSessionStatus.FAILED) {
@@ -166,10 +116,7 @@ public class VoiceSessionCommandService {
         if (session.getStatus() != VoiceSessionStatus.COMPLETED) {
             // 브라우저가 먼저 소켓을 닫아 registry에서 사라진 실패도 DB 채널 상태로 확인한다.
             // 재연결에 성공한 채널은 ERROR가 해제되어 정상 완료할 수 있다.
-            if (channelRepository.countBySession_IdAndStatusIn(
-                    sessionId,
-                    EnumSet.of(VoiceChannelStatus.ERROR)
-            ) > 0) {
+            if (channelRepository.countBySession_IdAndStatusIn(sessionId, EnumSet.of(VoiceChannelStatus.ERROR)) > 0) {
                 session.fail();
                 cleanupFailedTranscripts(session, sessionId);
                 return false;
@@ -184,13 +131,9 @@ public class VoiceSessionCommandService {
     }
 
     @Transactional
-    public void fail(
-            Long userId,
-            String sessionId
-    ) {
+    public void fail(Long userId, String sessionId) {
         // Final 저장과 같은 세션 잠금 안에서 상태 확정과 미보관 데이터 삭제를 함께 처리한다.
-        VoiceSession session = findFreshSessionForCompletion(sessionId, userId)
-                .orElse(null);
+        VoiceSession session = findFreshSessionForCompletion(sessionId, userId).orElse(null);
         if (session == null) {
             return;
         }
@@ -200,13 +143,8 @@ public class VoiceSessionCommandService {
     }
 
     @Transactional
-    public void cleanupStale(
-            Long userId,
-            String sessionId
-    ) {
-        VoiceSession session = sessionRepository
-                .findOwnedForUpdate(sessionId, userId)
-                .orElse(null);
+    public void cleanupStale(Long userId, String sessionId) {
+        VoiceSession session = sessionRepository.findOwnedForUpdate(sessionId, userId).orElse(null);
         if (session == null || !session.getStatus().isActiveLike()) {
             return;
         }
@@ -239,19 +177,12 @@ public class VoiceSessionCommandService {
     }
 
     @Transactional
-    public void delete(
-            Long userId,
-            String sessionId
-    ) {
-        VoiceSession session = sessionRepository
-                .findOwnedForUpdate(sessionId, userId)
-                .orElseThrow(this::notFound);
+    public void delete(Long userId, String sessionId) {
+        VoiceSession session = sessionRepository.findOwnedForUpdate(sessionId, userId).orElseThrow(this::notFound);
 
         if (session.getStatus().isActiveLike()) {
             throw new BusinessException(
-                    "Active Voice session cannot be deleted.",
-                    VoiceErrorCode.ACTIVE_SESSION_DELETE_DENIED
-            );
+                    "Active Voice session cannot be deleted.", VoiceErrorCode.ACTIVE_SESSION_DELETE_DENIED);
         }
 
         segmentRepository.deleteBySession_Id(sessionId);
@@ -259,57 +190,36 @@ public class VoiceSessionCommandService {
         sessionRepository.delete(session);
     }
 
-    private ValidatedCreateRequest validateCreateRequest(
-            VoiceSessionCreateRequestDto request
-    ) {
+    private ValidatedCreateRequest validateCreateRequest(VoiceSessionCreateRequestDto request) {
         if (request == null || request.mode() == null) {
-            throw new BusinessException(
-                    "Voice mode is required.",
-                    VoiceErrorCode.REQUEST_INVALID
-            );
+            throw new BusinessException("Voice mode is required.", VoiceErrorCode.REQUEST_INVALID);
         }
 
         VoiceSourceLanguageMode sourceLanguageMode =
-                request.sourceLanguageMode() == null
-                        ? VoiceSourceLanguageMode.AUTO
-                        : request.sourceLanguageMode();
+                request.sourceLanguageMode() == null ? VoiceSourceLanguageMode.AUTO : request.sourceLanguageMode();
         String targetLanguage = normalizeLanguage(request.targetLanguage());
-        boolean saveTranscript = request.saveTranscript() == null
-                || request.saveTranscript();
+        boolean saveTranscript = request.saveTranscript() == null || request.saveTranscript();
 
-        Map<VoiceChannel, String> manualSourceLanguages =
-                new EnumMap<>(VoiceChannel.class);
+        Map<VoiceChannel, String> manualSourceLanguages = new EnumMap<>(VoiceChannel.class);
         if (request.manualSourceLanguages() != null) {
             manualSourceLanguages.putAll(request.manualSourceLanguages());
         }
 
-        if (sourceLanguageMode == VoiceSourceLanguageMode.AUTO
-                && !manualSourceLanguages.isEmpty()) {
+        if (sourceLanguageMode == VoiceSourceLanguageMode.AUTO && !manualSourceLanguages.isEmpty()) {
             throw new BusinessException(
-                    "manualSourceLanguages is only allowed in MANUAL mode.",
-                    VoiceErrorCode.SOURCE_LANGUAGE_INVALID
-            );
+                    "manualSourceLanguages is only allowed in MANUAL mode.", VoiceErrorCode.SOURCE_LANGUAGE_INVALID);
         }
 
         if (sourceLanguageMode == VoiceSourceLanguageMode.MANUAL) {
-            EnumMap<VoiceChannel, String> normalized =
-                    new EnumMap<>(VoiceChannel.class);
+            EnumMap<VoiceChannel, String> normalized = new EnumMap<>(VoiceChannel.class);
             for (VoiceChannel channel : request.mode().allowedChannels()) {
-                normalized.put(
-                        channel,
-                        normalizeLanguage(manualSourceLanguages.get(channel))
-                );
+                normalized.put(channel, normalizeLanguage(manualSourceLanguages.get(channel)));
             }
             manualSourceLanguages = normalized;
         }
 
         return new ValidatedCreateRequest(
-                request.mode(),
-                sourceLanguageMode,
-                targetLanguage,
-                saveTranscript,
-                manualSourceLanguages
-        );
+                request.mode(), sourceLanguageMode, targetLanguage, saveTranscript, manualSourceLanguages);
     }
 
     private String normalizeLanguage(String language) {
@@ -326,54 +236,31 @@ public class VoiceSessionCommandService {
 
     private String createPolicySnapshot() {
         try {
-            return objectMapper.writeValueAsString(Map.of(
-                    "maxSessionMs", policy.getMaxSessionMs(),
-                    "dailyLimitMs", policy.getDailyLimitMs(),
-                    "endpointingSilenceMs", policy.getEndpointingSilenceMs(),
-                    "minUtteranceDurationMs", policy.getMinUtteranceDurationMs(),
-                    "maxUtteranceDurationMs", policy.getMaxUtteranceDurationMs(),
-                    "languageLockConfidence", policy.getLanguageLockConfidence(),
-                    "languageSwitchConfidence", policy.getLanguageSwitchConfidence(),
-                    "languageSwitchConsecutiveCount", policy.getLanguageSwitchConsecutiveCount()
-            ));
+            return objectMapper.writeValueAsString(Map.of("maxSessionMs", policy.getMaxSessionMs(), "dailyLimitMs",
+                    policy.getDailyLimitMs(), "endpointingSilenceMs", policy.getEndpointingSilenceMs(),
+                    "minUtteranceDurationMs", policy.getMinUtteranceDurationMs(), "maxUtteranceDurationMs",
+                    policy.getMaxUtteranceDurationMs(), "languageLockConfidence", policy.getLanguageLockConfidence(),
+                    "languageSwitchConfidence", policy.getLanguageSwitchConfidence(), "languageSwitchConsecutiveCount",
+                    policy.getLanguageSwitchConsecutiveCount()));
         } catch (JsonProcessingException e) {
-            throw new BusinessException(
-                    "Failed to build Voice policy snapshot.",
-                    e
-            );
+            throw new BusinessException("Failed to build Voice policy snapshot.", e);
         }
     }
 
     private void requireVoiceRole(User user) {
-        if (user.getAuthority() != Role.USER
-                && user.getAuthority() != Role.ADMIN) {
-            throw new BusinessException(
-                    "Voice Translation is not allowed.",
-                    VoiceErrorCode.ROLE_NOT_ALLOWED
-            );
+        if (user.getAuthority() != Role.USER && user.getAuthority() != Role.ADMIN) {
+            throw new BusinessException("Voice Translation is not allowed.", VoiceErrorCode.ROLE_NOT_ALLOWED);
         }
     }
 
     private BusinessException unsupportedLanguage() {
-        return new BusinessException(
-                "Voice language must be one of ko, ja, en.",
-                VoiceErrorCode.LANGUAGE_UNSUPPORTED
-        );
+        return new BusinessException("Voice language must be one of ko, ja, en.", VoiceErrorCode.LANGUAGE_UNSUPPORTED);
     }
 
     private BusinessException notFound() {
-        return new BusinessException(
-                "Voice resource was not found.",
-                VoiceErrorCode.NOT_FOUND
-        );
+        return new BusinessException("Voice resource was not found.", VoiceErrorCode.NOT_FOUND);
     }
 
-    private record ValidatedCreateRequest(
-            VoiceMode mode,
-            VoiceSourceLanguageMode sourceLanguageMode,
-            String targetLanguage,
-            boolean saveTranscript,
-            Map<VoiceChannel, String> manualSourceLanguages
-    ) {
-    }
+    private record ValidatedCreateRequest(VoiceMode mode, VoiceSourceLanguageMode sourceLanguageMode,
+            String targetLanguage, boolean saveTranscript, Map<VoiceChannel, String> manualSourceLanguages) {}
 }

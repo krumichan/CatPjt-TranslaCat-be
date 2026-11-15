@@ -6,7 +6,6 @@ import jp.co.translacat.domain.support.enums.NoticeType;
 
 @Converter
 public class NoticeTypeConverter implements AttributeConverter<NoticeType, Boolean> {
-
     @Override
     public Boolean convertToDatabaseColumn(NoticeType noticeType) {
         // 기존 important 컬럼을 유지하여 이미 저장된 공지를 데이터 재작성 없이 사용한다.

@@ -12,7 +12,6 @@ import java.util.Collection;
 import java.util.List;
 
 public interface SupportNotificationRepository extends JpaRepository<SupportNotification, Long> {
-
     @Modifying
     @Query(value = """
             insert into support_notification
@@ -20,13 +19,9 @@ public interface SupportNotificationRepository extends JpaRepository<SupportNoti
             select u.id, 'SUPPORT_NOTICE', 'NOTICE', :noticeId, :title, :createdAt, :createdBy
             from `user` u where u.id <> :authorId
             """, nativeQuery = true)
-    int broadcastNotice(
-            @Param("noticeId") Long noticeId,
-            @Param("title") String title,
-            @Param("authorId") Long authorId,
-            @Param("createdAt") LocalDateTime createdAt,
-            @Param("createdBy") String createdBy
-    );
+    int broadcastNotice(@Param("noticeId") Long noticeId, @Param("title") String title,
+            @Param("authorId") Long authorId, @Param("createdAt") LocalDateTime createdAt,
+            @Param("createdBy") String createdBy);
 
     @Query("""
             select n from SupportNotification n
@@ -35,27 +30,22 @@ public interface SupportNotificationRepository extends JpaRepository<SupportNoti
                    or n.recipient.authority = jp.co.translacat.domain.user.enums.Role.ADMIN)
             """)
     Page<SupportNotification> search(
-            @Param("userId") Long userId, @Param("unreadOnly") boolean unreadOnly, Pageable pageable
-    );
+            @Param("userId") Long userId, @Param("unreadOnly") boolean unreadOnly, Pageable pageable);
 
     @Query("""
             select count(n) from SupportNotification n
             where n.recipient.id = :userId and n.readAt is null
               and (n.type <> jp.co.translacat.domain.support.enums.SupportNotificationType.SUPPORT_INQUIRY
                    or n.recipient.authority = jp.co.translacat.domain.user.enums.Role.ADMIN)
-            """)
-    long countByRecipient_IdAndReadAtIsNull(@Param("userId") Long userId);
+            """) long countByRecipient_IdAndReadAtIsNull(@Param("userId") Long userId);
 
     @Query("""
             select distinct n.targetId from SupportNotification n
             where n.recipient.id = :userId and n.targetType = :targetType
               and n.targetId in :targetIds and n.readAt is null
             """)
-    List<Long> findUnreadTargetIds(
-            @Param("userId") Long userId,
-            @Param("targetType") SupportTargetType targetType,
-            @Param("targetIds") Collection<Long> targetIds
-    );
+    List<Long> findUnreadTargetIds(@Param("userId") Long userId, @Param("targetType") SupportTargetType targetType,
+            @Param("targetIds") Collection<Long> targetIds);
 
     @Modifying
     @Query("""
@@ -63,36 +53,27 @@ public interface SupportNotificationRepository extends JpaRepository<SupportNoti
             where n.recipient.id = :userId and n.targetType = :targetType
               and n.targetId = :targetId and n.readAt is null
             """)
-    int markTargetRead(
-            @Param("userId") Long userId,
-            @Param("targetType") SupportTargetType targetType,
-            @Param("targetId") Long targetId,
-            @Param("readAt") LocalDateTime readAt
-    );
+    int markTargetRead(@Param("userId") Long userId, @Param("targetType") SupportTargetType targetType,
+            @Param("targetId") Long targetId, @Param("readAt") LocalDateTime readAt);
 
     @Query("""
             select count(n) > 0 from SupportNotification n
             where n.id = :id and n.recipient.id = :userId
               and (n.type <> jp.co.translacat.domain.support.enums.SupportNotificationType.SUPPORT_INQUIRY
                    or n.recipient.authority = jp.co.translacat.domain.user.enums.Role.ADMIN)
-            """)
-    boolean existsByIdAndRecipient_Id(@Param("id") Long id, @Param("userId") Long userId);
+            """) boolean existsByIdAndRecipient_Id(@Param("id") Long id, @Param("userId") Long userId);
 
     @Modifying
     @Query("""
             update SupportNotification n set n.readAt = :readAt
             where n.recipient.id = :userId and n.id = :id and n.readAt is null
             """)
-    int markRead(
-            @Param("userId") Long userId, @Param("id") Long id, @Param("readAt") LocalDateTime readAt
-    );
+    int markRead(@Param("userId") Long userId, @Param("id") Long id, @Param("readAt") LocalDateTime readAt);
 
-    @Modifying
-    @Query("""
+    @Modifying @Query("""
             update SupportNotification n set n.readAt = :readAt
             where n.recipient.id = :userId and n.readAt is null
-            """)
-    int markAllRead(@Param("userId") Long userId, @Param("readAt") LocalDateTime readAt);
+            """) int markAllRead(@Param("userId") Long userId, @Param("readAt") LocalDateTime readAt);
 
     @Modifying
     @Query("delete from SupportNotification n where n.targetType = :targetType and n.targetId = :targetId")

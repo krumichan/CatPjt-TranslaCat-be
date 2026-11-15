@@ -17,19 +17,13 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class AccountBookFixedCostBatchService {
-
     private final AccountBookFixedCostRepository accountBookFixedCostRepository;
     private final AccountBookFixedCostService accountBookFixedCostService;
 
-    public AccountBookFixedCostBatchResult generateTransactionsForMonth(
-            YearMonth targetMonth
-    ) {
+    public AccountBookFixedCostBatchResult generateTransactionsForMonth(YearMonth targetMonth) {
         LocalDate targetMonthDate = targetMonth.atDay(1);
 
-        List<Long> accountBookIds =
-                accountBookFixedCostRepository.findGenerationTargetAccountBookIds(
-                        targetMonthDate
-                );
+        List<Long> accountBookIds = accountBookFixedCostRepository.findGenerationTargetAccountBookIds(targetMonthDate);
 
         int successAccountBookCount = 0;
         int failedAccountBookCount = 0;
@@ -38,34 +32,21 @@ public class AccountBookFixedCostBatchService {
         for (Long accountBookId : accountBookIds) {
             try {
                 AccountBookFixedCostGenerateResponseDto response =
-                        accountBookFixedCostService.generateTransactionsForBatch(
-                                accountBookId,
+                        accountBookFixedCostService.generateTransactionsForBatch(accountBookId,
                                 new AccountBookFixedCostGenerateRequestDto(
-                                        targetMonth.getYear(),
-                                        targetMonth.getMonthValue()
-                                )
-                        );
+                                        targetMonth.getYear(), targetMonth.getMonthValue()));
 
                 successAccountBookCount++;
                 generatedTransactionCount += response.generatedCount();
             } catch (Exception e) {
                 failedAccountBookCount++;
 
-                log.error(
-                        "Failed to generate fixed cost transactions. accountBookId={}, targetMonth={}",
-                        accountBookId,
-                        targetMonth,
-                        e
-                );
+                log.error("Failed to generate fixed cost transactions. accountBookId={}, targetMonth={}", accountBookId,
+                        targetMonth, e);
             }
         }
 
-        return new AccountBookFixedCostBatchResult(
-                targetMonth,
-                accountBookIds.size(),
-                successAccountBookCount,
-                failedAccountBookCount,
-                generatedTransactionCount
-        );
+        return new AccountBookFixedCostBatchResult(targetMonth, accountBookIds.size(), successAccountBookCount,
+                failedAccountBookCount, generatedTransactionCount);
     }
 }

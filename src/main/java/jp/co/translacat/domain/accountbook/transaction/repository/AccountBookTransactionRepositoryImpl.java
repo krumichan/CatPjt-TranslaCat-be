@@ -34,14 +34,11 @@ import static jp.co.translacat.domain.accountbook.transaction.entity.QAccountBoo
 @Repository
 @RequiredArgsConstructor
 public class AccountBookTransactionRepositoryImpl implements AccountBookTransactionRepositoryCustom {
-
     private final JPAQueryFactory queryFactory;
 
     @Override
     public Page<AccountBookTransactionResponseDto> findAllWithPage(
-            Long accountBookId,
-            AccountBookTransactionRequestDto condition
-    ) {
+            Long accountBookId, AccountBookTransactionRequestDto condition) {
         LocalDate startDate = null;
         LocalDate endDate = null;
 
@@ -53,29 +50,14 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
 
         BooleanBuilder where = new BooleanBuilder();
 
-        where.and(QueryDslUtil.eqIfNotNull(
-                accountBookTransaction.accountBook.id,
-                accountBookId
-        ));
+        where.and(QueryDslUtil.eqIfNotNull(accountBookTransaction.accountBook.id, accountBookId));
 
-        where.and(QueryDslUtil.betweenIfNotNull(
-                accountBookTransaction.transactionDate,
-                startDate,
-                endDate
-        ));
+        where.and(QueryDslUtil.betweenIfNotNull(accountBookTransaction.transactionDate, startDate, endDate));
 
-        where.and(QueryDslUtil.eqIfNotNull(
-                accountBookTransaction.type,
-                condition.getType()
-        ));
+        where.and(QueryDslUtil.eqIfNotNull(accountBookTransaction.type, condition.getType()));
 
-        where.and(QueryDslUtil.anyContainsIgnoreCaseIfHasText(
-                condition.getKeyword(),
-                accountBookTransaction.title,
-                accountBookTransaction.category,
-                accountBookTransaction.storeName,
-                accountBookTransaction.memo
-        ));
+        where.and(QueryDslUtil.anyContainsIgnoreCaseIfHasText(condition.getKeyword(), accountBookTransaction.title,
+                accountBookTransaction.category, accountBookTransaction.storeName, accountBookTransaction.memo));
 
         // 차트와 동일한 그룹 조건을 페이지 조회와 전체 건수 계산에 함께 적용한다.
         if (condition.getChartFilter() != null) {
@@ -83,88 +65,58 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
             where.and(chartGroupPredicate(condition.getChartFilter()));
         }
 
-        List<AccountBookTransactionResponseDto> content = queryFactory
-                .select(Projections.constructor(
-                        AccountBookTransactionResponseDto.class,
-                        accountBookTransaction.id,
-                        accountBookTransaction.accountBook.id,
-                        accountBookTransaction.type,
-                        accountBookTransaction.title,
-                        accountBookTransaction.storeName,
-                        accountBookTransaction.category,
-                        accountBookTransaction.amount,
-                        accountBookTransaction.transactionDate,
-                        accountBookTransaction.memo,
-                        accountBookTransaction.createdAt,
-                        accountBookTransaction.sourceType,
-                        accountBookTransaction.sourceId,
-                        accountBookTransaction.sourceYear,
-                        accountBookTransaction.sourceMonth,
-                        accountBookTransaction.originalAmount,
-                        accountBookTransaction.originalCurrencyCode,
-                        accountBookTransaction.exchangeRate,
-                        accountBookTransaction.requestedRateDate,
-                        accountBookTransaction.effectiveRateDate,
-                        accountBookTransaction.exchangeRateProvider,
-                        accountBookTransaction.targetCurrencyCode,
-                        accountBookTransaction.rateFetchedAt,
-                        accountBookTransaction.convertedAt,
-                        accountBookTransaction.roundingPrecision,
-                        accountBookTransaction.roundingMode,
-                        accountBookTransaction.conversionPolicyVersion,
-                        accountBookTransaction.conversionQuoteId,
-                        accountBookTransaction.purchaseTotal,
-                        accountBookTransaction.bookAmount,
-                        accountBookTransaction.receiptPaymentBreakdownJson,
-                        accountBookTransaction.cashTendered,
-                        accountBookTransaction.changeAmount,
-                        accountBookTransaction.amountPolicyVersion,
-                        accountBookTransaction.amountReason,
-                        accountBookTransaction.amountReviewStatus,
-                        accountBookTransaction.receiptBranchName,
-                        accountBookTransaction.receiptSourceImageId,
-                        accountBookTransaction.receiptAnalysisRevision,
-                        accountBookTransaction.receiptTransactionTime
-                ))
-                .from(accountBookTransaction)
-                .where(where)
-                .orderBy(
-                        accountBookTransaction.transactionDate.desc(),
-                        accountBookTransaction.createdAt.desc(),
-                        accountBookTransaction.id.desc()
-                )
-                .offset(condition.getOffset())
-                .limit(condition.getPageSize())
-                .fetch();
+        List<AccountBookTransactionResponseDto> content =
+                queryFactory
+                        .select(Projections.constructor(AccountBookTransactionResponseDto.class,
+                                accountBookTransaction.id, accountBookTransaction.accountBook.id,
+                                accountBookTransaction.type, accountBookTransaction.title,
+                                accountBookTransaction.storeName, accountBookTransaction.category,
+                                accountBookTransaction.amount, accountBookTransaction.transactionDate,
+                                accountBookTransaction.memo, accountBookTransaction.createdAt,
+                                accountBookTransaction.sourceType, accountBookTransaction.sourceId,
+                                accountBookTransaction.sourceYear, accountBookTransaction.sourceMonth,
+                                accountBookTransaction.originalAmount, accountBookTransaction.originalCurrencyCode,
+                                accountBookTransaction.exchangeRate, accountBookTransaction.requestedRateDate,
+                                accountBookTransaction.effectiveRateDate, accountBookTransaction.exchangeRateProvider,
+                                accountBookTransaction.targetCurrencyCode, accountBookTransaction.rateFetchedAt,
+                                accountBookTransaction.convertedAt, accountBookTransaction.roundingPrecision,
+                                accountBookTransaction.roundingMode, accountBookTransaction.conversionPolicyVersion,
+                                accountBookTransaction.conversionQuoteId, accountBookTransaction.purchaseTotal,
+                                accountBookTransaction.bookAmount, accountBookTransaction.receiptPaymentBreakdownJson,
+                                accountBookTransaction.cashTendered, accountBookTransaction.changeAmount,
+                                accountBookTransaction.amountPolicyVersion, accountBookTransaction.amountReason,
+                                accountBookTransaction.amountReviewStatus, accountBookTransaction.receiptBranchName,
+                                accountBookTransaction.receiptSourceImageId,
+                                accountBookTransaction.receiptAnalysisRevision,
+                                accountBookTransaction.receiptTransactionTime))
+                        .from(accountBookTransaction)
+                        .where(where)
+                        .orderBy(accountBookTransaction.transactionDate.desc(), accountBookTransaction.createdAt.desc(),
+                                accountBookTransaction.id.desc())
+                        .offset(condition.getOffset())
+                        .limit(condition.getPageSize())
+                        .fetch();
 
-        Long total = queryFactory
-                .select(accountBookTransaction.count())
-                .from(accountBookTransaction)
-                .where(where)
-                .fetchOne();
+        Long total = queryFactory.select(accountBookTransaction.count())
+                             .from(accountBookTransaction)
+                             .where(where)
+                             .fetchOne();
 
-        return PagingUtil.toPage(
-                content,
-                total != null ? total : 0L,
-                condition
-        );
+        return PagingUtil.toPage(content, total != null ? total : 0L, condition);
     }
 
     @Override
     public List<AccountBookTransactionMonthResponseDto> findTransactionMonths(Long accountBookId) {
-        NumberExpression<Integer> transactionYear =
-                QueryDslUtil.yearOf(accountBookTransaction.transactionDate);
+        NumberExpression<Integer> transactionYear = QueryDslUtil.yearOf(accountBookTransaction.transactionDate);
 
-        NumberExpression<Integer> transactionMonth =
-                QueryDslUtil.monthOf(accountBookTransaction.transactionDate);
+        NumberExpression<Integer> transactionMonth = QueryDslUtil.monthOf(accountBookTransaction.transactionDate);
 
-        List<Tuple> result = queryFactory
-                .select(transactionYear, transactionMonth)
-                .from(accountBookTransaction)
-                .where(accountBookTransaction.accountBook.id.eq(accountBookId))
-                .groupBy(transactionYear, transactionMonth)
-                .orderBy(transactionYear.desc(), transactionMonth.desc())
-                .fetch();
+        List<Tuple> result = queryFactory.select(transactionYear, transactionMonth)
+                                     .from(accountBookTransaction)
+                                     .where(accountBookTransaction.accountBook.id.eq(accountBookId))
+                                     .groupBy(transactionYear, transactionMonth)
+                                     .orderBy(transactionYear.desc(), transactionMonth.desc())
+                                     .fetch();
 
         YearMonth currentYearMonth = YearMonth.now();
 
@@ -177,62 +129,38 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
                         return null;
                     }
 
-                    boolean currentMonth =
-                            Integer.valueOf(currentYearMonth.getYear()).equals(year) &&
-                                    Integer.valueOf(currentYearMonth.getMonthValue()).equals(month);
+                    boolean currentMonth = Integer.valueOf(currentYearMonth.getYear()).equals(year)
+                            && Integer.valueOf(currentYearMonth.getMonthValue()).equals(month);
 
-                    return AccountBookTransactionMonthResponseDto.of(
-                            year,
-                            month,
-                            currentMonth
-                    );
+                    return AccountBookTransactionMonthResponseDto.of(year, month, currentMonth);
                 })
                 .filter(Objects::nonNull)
                 .toList();
     }
 
     @Override
-    public BigDecimal sumExpenseAmountByMonth(
-            Long accountBookId,
-            Integer year,
-            Integer month
-    ) {
-        BigDecimal result = queryFactory
-                .select(accountBookTransaction.amount.sum())
-                .from(accountBookTransaction)
-                .where(
-                        accountBookTransaction.accountBook.id.eq(accountBookId),
-                        accountBookTransaction.type.eq(AccountBookTransactionType.EXPENSE),
-                        QueryDslUtil.yearOf(accountBookTransaction.transactionDate).eq(year),
-                        QueryDslUtil.monthOf(accountBookTransaction.transactionDate).eq(month)
-                )
-                .fetchOne();
+    public BigDecimal sumExpenseAmountByMonth(Long accountBookId, Integer year, Integer month) {
+        BigDecimal result = queryFactory.select(accountBookTransaction.amount.sum())
+                                    .from(accountBookTransaction)
+                                    .where(accountBookTransaction.accountBook.id.eq(accountBookId),
+                                            accountBookTransaction.type.eq(AccountBookTransactionType.EXPENSE),
+                                            QueryDslUtil.yearOf(accountBookTransaction.transactionDate).eq(year),
+                                            QueryDslUtil.monthOf(accountBookTransaction.transactionDate).eq(month))
+                                    .fetchOne();
 
         return result == null ? BigDecimal.ZERO : result;
     }
 
     @Override
     public List<AccountBookStoreSuggestionResponseDto> findStoreSuggestions(
-            Long accountBookId,
-            AccountBookTransactionType type,
-            String keyword
-    ) {
+            Long accountBookId, AccountBookTransactionType type, String keyword) {
         return queryFactory
                 .select(Projections.constructor(
-                        AccountBookStoreSuggestionResponseDto.class,
-                        accountBookTransaction.storeName
-                ))
+                        AccountBookStoreSuggestionResponseDto.class, accountBookTransaction.storeName))
                 .from(accountBookTransaction)
-                .where(
-                        accountBookTransaction.accountBook.id.eq(accountBookId),
-                        accountBookTransaction.type.eq(type),
-                        accountBookTransaction.storeName.isNotNull(),
-                        accountBookTransaction.storeName.ne(""),
-                        QueryDslUtil.containsIgnoreCaseIfHasText(
-                                accountBookTransaction.storeName,
-                                keyword
-                        )
-                )
+                .where(accountBookTransaction.accountBook.id.eq(accountBookId), accountBookTransaction.type.eq(type),
+                        accountBookTransaction.storeName.isNotNull(), accountBookTransaction.storeName.ne(""),
+                        QueryDslUtil.containsIgnoreCaseIfHasText(accountBookTransaction.storeName, keyword))
                 .groupBy(accountBookTransaction.storeName)
                 .orderBy(accountBookTransaction.storeName.asc())
                 .limit(20)
@@ -241,68 +169,36 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
 
     @Override
     public List<AccountBookMonthlyTransactionAggregateDto> aggregateMonthlyAmounts(
-            Long accountBookId,
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
-        QAccountBookTransaction transaction =
-                QAccountBookTransaction.accountBookTransaction;
+            Long accountBookId, LocalDate startDate, LocalDate endDate) {
+        QAccountBookTransaction transaction = QAccountBookTransaction.accountBookTransaction;
 
         NumberExpression<Integer> monthExpression =
-                Expressions.numberTemplate(
-                        Integer.class,
-                        "month({0})",
-                        transaction.transactionDate
-                );
+                Expressions.numberTemplate(Integer.class, "month({0})", transaction.transactionDate);
 
         return queryFactory
-                .select(
-                        Projections.constructor(
-                                AccountBookMonthlyTransactionAggregateDto.class,
-                                monthExpression,
-                                transaction.type,
-                                transaction.amount.sum().coalesce(BigDecimal.ZERO)
-                        )
-                )
+                .select(Projections.constructor(AccountBookMonthlyTransactionAggregateDto.class, monthExpression,
+                        transaction.type, transaction.amount.sum().coalesce(BigDecimal.ZERO)))
                 .from(transaction)
-                .where(
-                        transaction.accountBook.id.eq(accountBookId),
-                        transaction.transactionDate.goe(startDate),
-                        transaction.transactionDate.lt(endDate)
-                )
-                .groupBy(
-                        monthExpression,
-                        transaction.type
-                )
+                .where(transaction.accountBook.id.eq(accountBookId), transaction.transactionDate.goe(startDate),
+                        transaction.transactionDate.lt(endDate))
+                .groupBy(monthExpression, transaction.type)
                 .orderBy(monthExpression.asc())
                 .fetch();
     }
 
     @Override
     public List<AccountBookRankingChartAggregateDto> aggregateExpenseAmountsByCategory(
-            Long accountBookId,
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
-        NumberExpression<BigDecimal> amountSum =
-                accountBookTransaction.amount.sum();
+            Long accountBookId, LocalDate startDate, LocalDate endDate) {
+        NumberExpression<BigDecimal> amountSum = accountBookTransaction.amount.sum();
         return queryFactory
-                .select(
-                        Projections.constructor(
-                                AccountBookRankingChartAggregateDto.class,
-                                accountBookTransaction.category,
-                                amountSum.coalesce(BigDecimal.ZERO),
-                                accountBookTransaction.id.count(),
-                                accountBookTransaction.category
-                        )
-                )
+                .select(Projections.constructor(AccountBookRankingChartAggregateDto.class,
+                        accountBookTransaction.category, amountSum.coalesce(BigDecimal.ZERO),
+                        accountBookTransaction.id.count(), accountBookTransaction.category))
                 .from(accountBookTransaction)
-                .where(
-                        accountBookTransaction.accountBook.id.eq(accountBookId),
+                .where(accountBookTransaction.accountBook.id.eq(accountBookId),
                         accountBookTransaction.type.eq(AccountBookTransactionType.EXPENSE),
                         QueryDslUtil.goeIfNotNull(accountBookTransaction.transactionDate, startDate),
-                        QueryDslUtil.ltIfNotNull(accountBookTransaction.transactionDate, endDate)
-                )
+                        QueryDslUtil.ltIfNotNull(accountBookTransaction.transactionDate, endDate))
                 .groupBy(accountBookTransaction.category)
                 .orderBy(amountSum.desc())
                 .fetch();
@@ -310,33 +206,20 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
 
     @Override
     public List<AccountBookRankingChartAggregateDto> aggregateExpenseAmountsByStore(
-            Long accountBookId,
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
-        NumberExpression<BigDecimal> amountSum =
-                accountBookTransaction.amount.sum();
+            Long accountBookId, LocalDate startDate, LocalDate endDate) {
+        NumberExpression<BigDecimal> amountSum = accountBookTransaction.amount.sum();
         StringExpression merchantGroup = merchantGroup();
 
         return queryFactory
-                .select(
-                        Projections.constructor(
-                                AccountBookRankingChartAggregateDto.class,
-                                accountBookTransaction.storeName.min(),
-                                amountSum.coalesce(BigDecimal.ZERO),
-                                accountBookTransaction.id.count(),
-                                merchantGroup
-                        )
-                )
+                .select(Projections.constructor(AccountBookRankingChartAggregateDto.class,
+                        accountBookTransaction.storeName.min(), amountSum.coalesce(BigDecimal.ZERO),
+                        accountBookTransaction.id.count(), merchantGroup))
                 .from(accountBookTransaction)
-                .where(
-                        accountBookTransaction.accountBook.id.eq(accountBookId),
+                .where(accountBookTransaction.accountBook.id.eq(accountBookId),
                         accountBookTransaction.type.eq(AccountBookTransactionType.EXPENSE),
-                        accountBookTransaction.storeName.isNotNull(),
-                        accountBookTransaction.storeName.ne(""),
+                        accountBookTransaction.storeName.isNotNull(), accountBookTransaction.storeName.ne(""),
                         QueryDslUtil.goeIfNotNull(accountBookTransaction.transactionDate, startDate),
-                        QueryDslUtil.ltIfNotNull(accountBookTransaction.transactionDate, endDate)
-                )
+                        QueryDslUtil.ltIfNotNull(accountBookTransaction.transactionDate, endDate))
                 .groupBy(merchantGroup)
                 .orderBy(amountSum.desc())
                 .fetch();
@@ -369,7 +252,7 @@ public class AccountBookTransactionRepositoryImpl implements AccountBookTransact
         // 점포 차트가 제외한 점포 미지정 거래를 모달에도 포함하지 않는다.
         if (filter.type() == AccountBookChartTransactionFilterDto.Type.STORE) {
             selected = selected.and(accountBookTransaction.storeName.isNotNull())
-                    .and(accountBookTransaction.storeName.ne(""));
+                               .and(accountBookTransaction.storeName.ne(""));
         }
         return selected;
     }

@@ -17,13 +17,9 @@ import java.io.IOException;
 @Slf4j
 @Component
 public class ApiLoggingFilter extends OncePerRequestFilter {
-
     @Override
-    protected void doFilterInternal(@NotNull HttpServletRequest request,
-                                    @NotNull HttpServletResponse response,
-                                    @NotNull FilterChain chain)
-            throws IOException, ServletException {
-
+    protected void doFilterInternal(@NotNull HttpServletRequest request, @NotNull HttpServletResponse response,
+            @NotNull FilterChain chain) throws IOException, ServletException {
         // Auth contains passwords and bearer/refresh tokens. Voice contains transcripts,
         // translations and short-lived tickets. Log metadata only for both surfaces.
         String redactionLabel = sensitiveBodyLabel(request.getRequestURI());
@@ -46,21 +42,11 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
                 case "SPENDING_ANALYSIS_REDACTED" -> "/api/v1/account-books/[REDACTED]/spending-analysis/[REDACTED]";
                 default -> request.getRequestURI();
             };
-            log.info(
-                    "[REQUEST] [{}] {} {} | Body: [{}]",
-                    "REDACTED",
-                    request.getMethod(),
-                    loggedUri,
-                    redactionLabel
-            );
+            log.info("[REQUEST] [{}] {} {} | Body: [{}]", "REDACTED", request.getMethod(), loggedUri, redactionLabel);
             try {
                 chain.doFilter(request, response);
             } finally {
-                log.info(
-                        "[RESPONSE] Status: {} | Body: [{}]",
-                        response.getStatus(),
-                        redactionLabel
-                );
+                log.info("[RESPONSE] Status: {} | Body: [{}]", response.getStatus(), redactionLabel);
             }
             return;
         }
@@ -119,8 +105,8 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
         String trimmedBody = (body.length() > 200) ? body.substring(0, 200) + "... (TRUNCATED)" : body;
 
         // 원본 길이 기록.
-        log.info("[RESPONSE] Status: {}, Length: {} bytes, Body: {}",
-                response.getStatus(), content.length, trimmedBody);
+        log.info(
+                "[RESPONSE] Status: {}, Length: {} bytes, Body: {}", response.getStatus(), content.length, trimmedBody);
     }
 
     private String sensitiveBodyLabel(String uri) {
@@ -133,8 +119,8 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
             return "SPENDING_ANALYSIS_REDACTED";
         }
         // receipt/proof/Google 증명과 접수 응답은 원문 및 사용자 식별자를 모두 가린다.
-        if (uri != null && (uri.startsWith("/api/v1/users/me/deletion-")
-                || uri.equals("/api/v1/account-deletion/status"))) {
+        if (uri != null
+                && (uri.startsWith("/api/v1/users/me/deletion-") || uri.equals("/api/v1/account-deletion/status"))) {
             return "ACCOUNT_DELETION_REDACTED";
         }
         // 푸시 설치 proof와 provider token은 공개 등록 요청/응답 로그에서 제외한다.
@@ -146,8 +132,7 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
             return "PUSH_INTERNAL_REDACTED";
         }
         // 연결 응답의 비밀 토큰과 학습 원문·답안·전체 피드백을 요청 및 응답 로그에서 제외한다.
-        if (uri.equals("/api/v1/language-learning/web-ai")
-                || uri.startsWith("/api/v1/language-learning/web-ai/")) {
+        if (uri.equals("/api/v1/language-learning/web-ai") || uri.startsWith("/api/v1/language-learning/web-ai/")) {
             return "WEB_AI_REDACTED";
         }
         // 비공개 문의·개인 메시지·수신자 검색에는 본문과 계정 정보를 로그에 남기지 않는다.
@@ -165,9 +150,8 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
             return "NOVEL_REDACTED";
         }
         // Chat 메시지/이미지/프로필과 WebSocket handshake도 본문·사용자 식별자를 기록하지 않는다.
-        if (uri.equals("/api/v1/chat") || uri.startsWith("/api/v1/chat/")
-                || uri.equals("/api/v1/admin/chat") || uri.startsWith("/api/v1/admin/chat/")
-                || uri.equals("/api/v1/users/me/chat-language-settings")
+        if (uri.equals("/api/v1/chat") || uri.startsWith("/api/v1/chat/") || uri.equals("/api/v1/admin/chat")
+                || uri.startsWith("/api/v1/admin/chat/") || uri.equals("/api/v1/users/me/chat-language-settings")
                 || uri.equals("/ws/chat") || uri.startsWith("/ws/chat/")) {
             return "CHAT_REDACTED";
         }
@@ -189,8 +173,9 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     }
 
     private boolean isPushInstallationPath(String path) {
-        return path != null && (path.equals("/api/v1/users/me/push-installations")
-                || path.startsWith("/api/v1/users/me/push-installations/"));
+        return path != null
+                && (path.equals("/api/v1/users/me/push-installations")
+                        || path.startsWith("/api/v1/users/me/push-installations/"));
     }
 
     private boolean isInternalPushPath(String path) {

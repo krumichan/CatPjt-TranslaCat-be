@@ -19,9 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
-public class VoiceRelayConnection
-        implements VoiceConnectionRegistry.GracefulConnection {
-
+public class VoiceRelayConnection implements VoiceConnectionRegistry.GracefulConnection {
     private static final long MAX_SAFE_UTTERANCE_SEQUENCE = 9_007_199_254_740_991L;
 
     private final VoiceStreamContext context;
@@ -41,12 +39,8 @@ public class VoiceRelayConnection
 
     private volatile VoiceAiStreamClient.Connection aiConnection;
 
-    public VoiceRelayConnection(
-            VoiceStreamContext context,
-            WebSocketSession publicSession,
-            VoicePolicyProperties policy,
-            Consumer<Throwable> asyncError
-    ) {
+    public VoiceRelayConnection(VoiceStreamContext context, WebSocketSession publicSession,
+            VoicePolicyProperties policy, Consumer<Throwable> asyncError) {
         this.context = context;
         this.publicSession = publicSession;
         this.policy = policy;
@@ -80,24 +74,16 @@ public class VoiceRelayConnection
     public long globalSequence(long aiLocalSequence) {
         // FE의 정수 표현 범위와 reconnect offset을 함께 검사해 서로 다른 발화의 충돌을 막는다.
         long offset = context.sequenceOffset();
-        if (aiLocalSequence < 1
-                || aiLocalSequence > MAX_SAFE_UTTERANCE_SEQUENCE
-                || offset < 0
+        if (aiLocalSequence < 1 || aiLocalSequence > MAX_SAFE_UTTERANCE_SEQUENCE || offset < 0
                 || offset > MAX_SAFE_UTTERANCE_SEQUENCE - aiLocalSequence) {
-            throw new BusinessException(
-                    "Voice utteranceSequence and offset must produce a positive safe integer.",
-                    VoiceErrorCode.INVALID_EVENT_SCHEMA
-            );
+            throw new BusinessException("Voice utteranceSequence and offset must produce a positive safe integer.",
+                    VoiceErrorCode.INVALID_EVENT_SCHEMA);
         }
         return offset + aiLocalSequence;
     }
 
-    public synchronized boolean acceptPartial(
-            long globalSequence,
-            long revision
-    ) {
-        if (revision < 1
-                || finalizedSequences.containsKey(globalSequence)) {
+    public synchronized boolean acceptPartial(long globalSequence, long revision) {
+        if (revision < 1 || finalizedSequences.containsKey(globalSequence)) {
             return false;
         }
 
@@ -116,9 +102,7 @@ public class VoiceRelayConnection
         partialRevisions.remove(globalSequence);
     }
 
-    public synchronized void attachAi(
-            VoiceAiStreamClient.Connection connection
-    ) {
+    public synchronized void attachAi(VoiceAiStreamClient.Connection connection) {
         // 연결 준비 중 사용자가 종료했다면 늦게 도착한 AI 소켓도 즉시 폐기한다.
         if (terminated.get() || closeRequested.get()) {
             connection.abort();
@@ -143,19 +127,11 @@ public class VoiceRelayConnection
     }
 
     public synchronized void acceptAudio(byte[] bytes) {
-        if (bytes == null
-                || bytes.length == 0
-                || bytes.length > policy.getMaxAudioFrameBytes()) {
-            throw new BusinessException(
-                    "Invalid Voice binary audio frame size.",
-                    VoiceErrorCode.INVALID_AUDIO_FRAME
-            );
+        if (bytes == null || bytes.length == 0 || bytes.length > policy.getMaxAudioFrameBytes()) {
+            throw new BusinessException("Invalid Voice binary audio frame size.", VoiceErrorCode.INVALID_AUDIO_FRAME);
         }
         if (closeRequested.get()) {
-            throw new BusinessException(
-                    "Voice stream is closing.",
-                    VoiceErrorCode.STREAM_CLOSING
-            );
+            throw new BusinessException("Voice stream is closing.", VoiceErrorCode.STREAM_CLOSING);
         }
 
         if (!ready.get() || aiConnection == null) {
@@ -174,18 +150,12 @@ public class VoiceRelayConnection
 
     public void sendControl(String json) {
         if (terminated.get() || closeRequested.get()) {
-            throw new BusinessException(
-                    "Voice stream is closing.",
-                    VoiceErrorCode.STREAM_CLOSING
-            );
+            throw new BusinessException("Voice stream is closing.", VoiceErrorCode.STREAM_CLOSING);
         }
 
         VoiceAiStreamClient.Connection ai = aiConnection;
         if (ai == null) {
-            throw new BusinessException(
-                    "Voice AI stream is not connected.",
-                    VoiceErrorCode.AI_NOT_CONNECTED
-            );
+            throw new BusinessException("Voice AI stream is not connected.", VoiceErrorCode.AI_NOT_CONNECTED);
         }
 
         ai.sendText(json).whenComplete((ignored, error) -> {
@@ -222,19 +192,9 @@ public class VoiceRelayConnection
         }
 
         // Control reason은 JSON 문자열로 안전하게 보낼 수 있는 식별자로 제한한다.
-        String escaped = reason != null && reason.matches("[A-Za-z0-9_-]{1,80}")
-                ? reason
-                : "REQUESTED";
-        ai.sendText(
-                        "{\"type\":\"STREAM_FLUSH\",\"reason\":\""
-                                + escaped
-                                + "\"}"
-                )
-                .thenCompose(ignored -> ai.sendText(
-                        "{\"type\":\"STREAM_CLOSE\",\"reason\":\""
-                                + escaped
-                                + "\"}"
-                ))
+        String escaped = reason != null && reason.matches("[A-Za-z0-9_-]{1,80}") ? reason : "REQUESTED";
+        ai.sendText("{\"type\":\"STREAM_FLUSH\",\"reason\":\"" + escaped + "\"}")
+                .thenCompose(ignored -> ai.sendText("{\"type\":\"STREAM_CLOSE\",\"reason\":\"" + escaped + "\"}"))
                 .whenComplete((ignored, error) -> {
                     if (error != null) {
                         asyncError.accept(error);
@@ -285,15 +245,12 @@ public class VoiceRelayConnection
         // STREAM_CLOSED 확인 또는 AI 연결 전 취소만 markClosed로 먼저 성공을 확정한다.
         if (!closedFuture.isDone()) {
             closedFuture.completeExceptionally(new BusinessException(
-                    "Voice stream closed before graceful completion.",
-                    VoiceErrorCode.AI_CONNECTION_CLOSED
-            ));
+                    "Voice stream closed before graceful completion.", VoiceErrorCode.AI_CONNECTION_CLOSED));
         }
     }
 
     public long bufferedAudioMs() {
-        return bufferedBytes.get()
-                / VoicePolicy.PCM_S16LE_BYTES_PER_MILLISECOND;
+        return bufferedBytes.get() / VoicePolicy.PCM_S16LE_BYTES_PER_MILLISECOND;
     }
 
     private void drainPreReadyAudio() {
@@ -309,12 +266,7 @@ public class VoiceRelayConnection
         if (next > maxBufferedBytes()) {
             pendingAiBytes.addAndGet(-bytes.length);
             throw new BackpressureException(
-                    Math.max(
-                            1L,
-                            pendingAiBytes.get()
-                                    / VoicePolicy.PCM_S16LE_BYTES_PER_MILLISECOND
-                    )
-            );
+                    Math.max(1L, pendingAiBytes.get() / VoicePolicy.PCM_S16LE_BYTES_PER_MILLISECOND));
         }
 
         aiConnection.sendBinary(bytes).whenComplete((ignored, error) -> {
@@ -326,22 +278,15 @@ public class VoiceRelayConnection
     }
 
     private long maxBufferedBytes() {
-        return Math.max(
-                policy.getMaxAudioFrameBytes(),
-                policy.getMaxRelayBufferedAudioMs()
-                        * (long) VoicePolicy.PCM_S16LE_BYTES_PER_MILLISECOND
-        );
+        return Math.max(policy.getMaxAudioFrameBytes(),
+                policy.getMaxRelayBufferedAudioMs() * (long) VoicePolicy.PCM_S16LE_BYTES_PER_MILLISECOND);
     }
 
     public static class BackpressureException extends BusinessException {
-
         private final long bufferedAudioMs;
 
         public BackpressureException(long bufferedAudioMs) {
-            super(
-                    "Voice relay buffer is full.",
-                    VoiceErrorCode.BACKPRESSURE
-            );
+            super("Voice relay buffer is full.", VoiceErrorCode.BACKPRESSURE);
             this.bufferedAudioMs = bufferedAudioMs;
         }
 

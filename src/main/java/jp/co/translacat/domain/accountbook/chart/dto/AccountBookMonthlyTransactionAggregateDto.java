@@ -4,9 +4,5 @@ import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransact
 
 import java.math.BigDecimal;
 
-public record AccountBookMonthlyTransactionAggregateDto(
-        Integer month,
-        AccountBookTransactionType type,
-        BigDecimal amount
-) {
-}
+public record
+        AccountBookMonthlyTransactionAggregateDto(Integer month, AccountBookTransactionType type, BigDecimal amount) {}

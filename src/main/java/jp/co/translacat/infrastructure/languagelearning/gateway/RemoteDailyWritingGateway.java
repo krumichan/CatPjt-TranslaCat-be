@@ -25,8 +25,9 @@ public class RemoteDailyWritingGateway implements DailyWritingGateway {
 
     private LanguageLearningWritingClient client() {
         var value = clients.getIfAvailable();
-        if (value == null) throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
-                "LL_WRITING_REMOTE_DISABLED", "Writing 서비스 연결이 비활성화되어 있습니다.");
+        if (value == null)
+            throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, "LL_WRITING_REMOTE_DISABLED",
+                    "Writing 서비스 연결이 비활성화되어 있습니다.");
         return value;
     }
 
@@ -44,8 +45,8 @@ public class RemoteDailyWritingGateway implements DailyWritingGateway {
         try {
             return Optional.of(client().history(userId, date, type));
         } catch (LanguageLearningServiceException failure) {
-            if (failure.getStatus() == HttpStatus.NOT_FOUND
-                    && "WRITING_SET_NOT_FOUND".equals(failure.getErrorCode())) return Optional.empty();
+            if (failure.getStatus() == HttpStatus.NOT_FOUND && "WRITING_SET_NOT_FOUND".equals(failure.getErrorCode()))
+                return Optional.empty();
             throw failure;
         }
     }

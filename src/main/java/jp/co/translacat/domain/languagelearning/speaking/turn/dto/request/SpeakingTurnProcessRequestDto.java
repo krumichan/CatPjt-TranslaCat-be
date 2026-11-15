@@ -4,11 +4,5 @@ import jp.co.translacat.domain.languagelearning.speaking.common.enums.Assistance
 
 import java.util.List;
 
-public record SpeakingTurnProcessRequestDto(
-        Long turnId,
-        String uploadToken,
-        Double durationSeconds,
-        List<AssistanceType> assistanceUsage,
-        boolean rerecord
-) {
-}
+public record SpeakingTurnProcessRequestDto(Long turnId, String uploadToken, Double durationSeconds,
+        List<AssistanceType> assistanceUsage, boolean rerecord) {}

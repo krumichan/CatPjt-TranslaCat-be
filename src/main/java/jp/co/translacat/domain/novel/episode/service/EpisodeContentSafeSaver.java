@@ -28,10 +28,11 @@ public class EpisodeContentSafeSaver {
     public void saveEpisodeContents(Episode episode, List<EpisodeContent> contents, String expectedSnapshot) {
         // 실패/빈 번역과 잘못된 회차·순번을 기존 데이터 삭제 전에 차단한다.
         if (contents.isEmpty() || expectedSnapshot == null || expectedSnapshot.isBlank()
-                || contents.stream().anyMatch(content -> content == null || content.getEpisode() == null
-                    || !episode.getId().equals(content.getEpisode().getId()) || content.getContent() == null
-                    || (!content.getContent().isBlank()
-                        && (content.getContentKo() == null || content.getContentKo().isBlank())))
+                || contents.stream().anyMatch(content
+                        -> content == null || content.getEpisode() == null
+                                || !episode.getId().equals(content.getEpisode().getId()) || content.getContent() == null
+                                || (!content.getContent().isBlank()
+                                        && (content.getContentKo() == null || content.getContentKo().isBlank())))
                 || contents.stream().map(EpisodeContent::getSequence).distinct().count() != contents.size()) {
             throw new IllegalStateException("Novel content replacement is incomplete or invalid.");
         }
@@ -41,7 +42,8 @@ public class EpisodeContentSafeSaver {
                 .orElseThrow(() -> new IllegalStateException("Novel episode is missing."));
         List<EpisodeContent> current = episodeContentRepository.findAllByEpisodeIdOrderBySequenceAsc(episode.getId());
         if (!expectedSnapshot.equals(EpisodeContentSnapshot.fingerprint(current))) {
-            throw new IllegalStateException("Novel content changed while translation was running; existing data preserved.");
+            throw new IllegalStateException(
+                    "Novel content changed while translation was running; existing data preserved.");
         }
 
         // 1. 에피소드에 연결된 모든 내용 제거.
@@ -83,7 +85,8 @@ public class EpisodeContentSafeSaver {
         List<EpisodeContent> updatedContents = new ArrayList<>();
         for (EpisodeContent content : contents) {
             String contentJa = content.getContentJa();
-            if (contentJa == null || contentJa.isBlank()) continue;
+            if (contentJa == null || contentJa.isBlank())
+                continue;
 
             // 생성한 상세 루비 태그(synchronizedReplacement)로 치환
             String corrected = contentJa.replaceAll(finalRegex, synchronizedReplacement);

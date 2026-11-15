@@ -20,13 +20,11 @@ public class EpisodeContentContext extends BaseContext<EpisodeContent> {
 
     @Override
     protected List<TranslationComparison> getTranslationComparisons(EpisodeContent existing) {
-        return List.of(
-                TranslationComparison.builder()
+        return List.of(TranslationComparison.builder()
                         .unit(content)
                         .dbRawJa(Objects.isNull(existing) ? null : existing.getContent())
                         .dbJa(Objects.isNull(existing) ? null : existing.getContentJa())
                         .dbKo(Objects.isNull(existing) ? null : existing.getContentKo())
-                        .build()
-        );
+                        .build());
     }
 }

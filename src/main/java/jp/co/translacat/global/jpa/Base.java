@@ -16,17 +16,13 @@ import java.time.LocalDateTime;
 @MappedSuperclass
 @NoArgsConstructor
 public class Base {
-
     public Base(String createdBy) {
         this.createdBy = createdBy;
     }
 
-    @Column(length = 50, updatable = false)
-    protected String createdBy;
+    @Column(length = 50, updatable = false) protected String createdBy;
 
-    @Column(nullable = false, updatable = false)
-    @CreationTimestamp
-    protected LocalDateTime createdAt;
+    @Column(nullable = false, updatable = false) @CreationTimestamp protected LocalDateTime createdAt;
 
     @PrePersist
     protected void prePersist() {
@@ -35,7 +31,7 @@ public class Base {
                 this.createdBy = SecurityUtil.getAuditorIdentity();
             } catch (Exception e) {
                 this.createdBy = "SYSTEM";
-//                log.warn("Unable to get current username for createdBy. Falling back to 'SYSTEM'.", e);
+                //                log.warn("Unable to get current username for createdBy. Falling back to 'SYSTEM'.", e);
                 log.warn("Unable to get current username for createdBy. Falling back to 'SYSTEM'.");
             }
         }

@@ -6,7 +6,6 @@ import java.security.SecureRandom;
 
 @UtilityClass
 public final class PublicIdGenerator {
-
     private static final SecureRandom RANDOM = new SecureRandom();
 
     // 헷갈리는 문자 제거: O, 0, I, 1

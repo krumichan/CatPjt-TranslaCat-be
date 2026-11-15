@@ -9,8 +9,8 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 
 public final class AuthInputs {
-    private static final Pattern EMAIL = Pattern.compile(
-            "^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
+    private static final Pattern EMAIL =
+            Pattern.compile("^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
                     + "(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$");
 
     private AuthInputs() {
@@ -20,8 +20,8 @@ public final class AuthInputs {
         // 공백/대소문자만 정규화한다. Gmail의 점과 +별칭을 지워 다른 주소를 합치지 않는다.
         String email = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
         int at = email.indexOf('@');
-        if (email.length() > 254 || at < 1 || at > 64 || !EMAIL.matcher(email).matches()
-                || email.startsWith(".") || email.charAt(at - 1) == '.' || email.substring(0, at).contains("..")) {
+        if (email.length() > 254 || at < 1 || at > 64 || !EMAIL.matcher(email).matches() || email.startsWith(".")
+                || email.charAt(at - 1) == '.' || email.substring(0, at).contains("..")) {
             throw invalid("AUTH_EMAIL_INVALID", "올바른 이메일 주소를 입력해주세요.");
         }
         return email;

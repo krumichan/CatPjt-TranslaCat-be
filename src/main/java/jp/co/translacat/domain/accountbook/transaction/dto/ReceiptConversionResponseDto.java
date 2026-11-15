@@ -10,23 +10,13 @@ import java.time.LocalDate;
 import java.util.List;
 
 public record ReceiptConversionResponseDto(
-        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal originalAmount,
-        String originalCurrencyCode,
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal originalAmount, String originalCurrencyCode,
         String accountBookCurrencyCode,
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal convertedAmount,
-        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal exchangeRate,
-        LocalDate requestedRateDate,
-        LocalDate effectiveRateDate,
-        String exchangeRateProvider,
-        Instant rateFetchedAt,
-        Instant convertedAt,
-        int roundingPrecision,
-        String roundingMode,
-        String conversionPolicyVersion,
-        String conversionQuoteId,
-        String conversionStatus,
-        boolean rateDateFallback,
-        List<String> warnings) {
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal exchangeRate, LocalDate requestedRateDate,
+        LocalDate effectiveRateDate, String exchangeRateProvider, Instant rateFetchedAt, Instant convertedAt,
+        int roundingPrecision, String roundingMode, String conversionPolicyVersion, String conversionQuoteId,
+        String conversionStatus, boolean rateDateFallback, List<String> warnings) {
     public boolean registrable() {
         return "CONVERTED".equals(conversionStatus) || "NOT_REQUIRED".equals(conversionStatus);
     }

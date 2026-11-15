@@ -10,48 +10,62 @@ import java.util.Optional;
 public interface NovelRepository {
     record StoredSource(SourceEpisode source, long fetchedAt) {}
     record Glossary(String version, Map<String, String> terms, String targetLanguage) {
-        public Glossary(String version, Map<String, String> terms) { this(version, terms, "ko"); }
+        public Glossary(String version, Map<String, String> terms) {
+            this(version, terms, "ko");
+        }
     }
-    record Job(String cacheKey, String id, String sourceKey, String revision, long actorId,
-               String state, Map<String, String> results, Map<String, String> errors,
-               String owner, long fence, long leaseUntil, long eventSequence,
-               int providerCalls, long inputTokens, long outputTokens, String targetLanguage) {
-        public Job(String cacheKey, String id, String sourceKey, String revision, long actorId,
-                   String state, Map<String, String> results, Map<String, String> errors,
-                   String owner, long fence, long leaseUntil, long eventSequence,
-                   int providerCalls, long inputTokens, long outputTokens) {
+    record Job(String cacheKey, String id, String sourceKey, String revision, long actorId, String state,
+            Map<String, String> results, Map<String, String> errors, String owner, long fence, long leaseUntil,
+            long eventSequence, int providerCalls, long inputTokens, long outputTokens, String targetLanguage) {
+        public Job(String cacheKey, String id, String sourceKey, String revision, long actorId, String state,
+                Map<String, String> results, Map<String, String> errors, String owner, long fence, long leaseUntil,
+                long eventSequence, int providerCalls, long inputTokens, long outputTokens) {
             this(cacheKey, id, sourceKey, revision, actorId, state, results, errors, owner, fence, leaseUntil,
                     eventSequence, providerCalls, inputTokens, outputTokens, "ko");
         }
     }
     record Repair(String id, String cacheKey, String state, java.util.List<String> targetIds,
-                  Map<String,String> results, Map<String,String> errors, String owner, long fence,
-                  long leaseUntil, String traceId) {}
+            Map<String, String> results, Map<String, String> errors, String owner, long fence, long leaseUntil,
+            String traceId) {}
     record RepairClaim(Repair repair, boolean claimed) {}
 
     Optional<StoredSource> current(EpisodeKey key);
     SourceEpisode revision(EpisodeKey key, String revision);
     SourceEpisode saveSource(EpisodeKey key, SourceEpisode source, long fetchedAt);
     Job create(EpisodeKey key, SourceEpisode source, long actorId, String cacheKey, String requestKey);
-    default Job create(EpisodeKey key, SourceEpisode source, long actorId, String cacheKey, String requestKey, String targetLanguage) {
+    default Job create(EpisodeKey key, SourceEpisode source, long actorId, String cacheKey, String requestKey,
+            String targetLanguage) {
         if (!"ko".equals(jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage)))
             throw new UnsupportedOperationException("Target-aware repository required");
         return create(key, source, actorId, cacheKey, requestKey);
     }
     Optional<Job> byCache(String cacheKey);
-    default Optional<Job> sharedCompleted(String identity) { return Optional.empty(); }
-    default java.util.List<Job> completedCandidates(EpisodeKey key, String revision, String target) { return java.util.List.of(); }
-    default void publishShared(String identity, Job candidate, SourceEpisode source) {}
-    default Job attachShared(String identity, Job job, SourceEpisode source) { return job; }
-    default Job attachShared(String identity, Job job, SourceEpisode source, boolean explicitResume) { return attachShared(identity, job, source); }
-    default Job syncShared(Job job, SourceEpisode source) { return job; }
+    default Optional<Job> sharedCompleted(String identity) {
+        return Optional.empty();
+    }
+    default java.util.List<Job> completedCandidates(EpisodeKey key, String revision, String target) {
+        return java.util.List.of();
+    }
+    default void publishShared(String identity, Job candidate, SourceEpisode source) {
+    }
+    default Job attachShared(String identity, Job job, SourceEpisode source) {
+        return job;
+    }
+    default Job attachShared(String identity, Job job, SourceEpisode source, boolean explicitResume) {
+        return attachShared(identity, job, source);
+    }
+    default Job syncShared(Job job, SourceEpisode source) {
+        return job;
+    }
     Job byId(EpisodeKey key, String id, long actorId);
     Optional<Job> claim(String cacheKey, boolean retry, long leaseMillis);
     boolean reserveCall(Job job);
-    boolean merge(Job owner, Map<String, String> results, Map<String, String> errors, long inputTokens, long outputTokens);
+    boolean merge(
+            Job owner, Map<String, String> results, Map<String, String> errors, long inputTokens, long outputTokens);
     void finish(Job owner, SourceEpisode source);
     default void finish(Job owner, SourceEpisode source, boolean providerVerified) {
-        if (!providerVerified) throw new IllegalStateException("Repository must support verified progressive completion");
+        if (!providerVerified)
+            throw new IllegalStateException("Repository must support verified progressive completion");
         finish(owner, source);
     }
     void releaseRejected(Job owner);
@@ -63,7 +77,8 @@ public interface NovelRepository {
             throw new UnsupportedOperationException("Target-aware repository required");
         return glossary(key, actorId);
     }
-    default Glossary saveGlossary(EpisodeKey key, long actorId, String expectedVersion, Map<String, String> terms, String targetLanguage) {
+    default Glossary saveGlossary(
+            EpisodeKey key, long actorId, String expectedVersion, Map<String, String> terms, String targetLanguage) {
         if (!"ko".equals(jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage)))
             throw new UnsupportedOperationException("Target-aware repository required");
         return saveGlossary(key, actorId, expectedVersion, terms);
@@ -72,12 +87,28 @@ public interface NovelRepository {
     boolean saveDiagnostics(Job owner, Map<String, Object> diagnostics);
     Job cancel(EpisodeKey key, String jobId, long actorId, SourceEpisode source);
     default RepairClaim claimRepair(Job job, SourceEpisode source, java.util.List<String> ids, String requestKey,
-                                     String traceId, long leaseMillis) { throw new UnsupportedOperationException(); }
-    default Optional<Repair> latestRepair(Job job) { return Optional.empty(); }
-    default boolean reserveRepairCall(Repair owner) { return false; }
-    default boolean mergeRepair(Repair owner, Map<String,String> values, Map<String,String> errors, long input, long output) { return false; }
-    default void finishRepair(Repair owner, SourceEpisode source) { throw new UnsupportedOperationException(); }
-    default String initialAttemptState(Job job) { return job.state(); }
-    default Map<String,Object> repairDiagnostics(Repair repair) { return Map.of(); }
-    default void saveRepairDiagnostics(Repair repair, Map<String,Object> diagnostics) {}
+            String traceId, long leaseMillis) {
+        throw new UnsupportedOperationException();
+    }
+    default Optional<Repair> latestRepair(Job job) {
+        return Optional.empty();
+    }
+    default boolean reserveRepairCall(Repair owner) {
+        return false;
+    }
+    default boolean mergeRepair(
+            Repair owner, Map<String, String> values, Map<String, String> errors, long input, long output) {
+        return false;
+    }
+    default void finishRepair(Repair owner, SourceEpisode source) {
+        throw new UnsupportedOperationException();
+    }
+    default String initialAttemptState(Job job) {
+        return job.state();
+    }
+    default Map<String, Object> repairDiagnostics(Repair repair) {
+        return Map.of();
+    }
+    default void saveRepairDiagnostics(Repair repair, Map<String, Object> diagnostics) {
+    }
 }

@@ -14,92 +14,38 @@ import java.time.LocalDateTime;
 
 @Entity
 @Getter
-@Table(
-        name = "voice_session_channel",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_voice_session_channel",
-                        columnNames = {
-                                "session_id",
-                                "channel"
-                        }
-                )
-        }
-)
+@Table(name = "voice_session_channel",
+        uniqueConstraints =
+        { @UniqueConstraint(name = "uk_voice_session_channel", columnNames = {"session_id", "channel"}) })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class VoiceSessionChannel extends BaseAuditable {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @ManyToOne(
-            fetch = FetchType.LAZY,
-            optional = false
-    )
-    @JoinColumn(
-            name = "session_id",
-            nullable = false
-    )
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "session_id", nullable = false)
     private VoiceSession session;
 
-    @Enumerated(EnumType.STRING)
-    @Column(
-            nullable = false,
-            length = 16
-    )
-    private VoiceChannel channel;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 16) private VoiceChannel channel;
 
-    @Enumerated(EnumType.STRING)
-    @Column(
-            nullable = false,
-            length = 20
-    )
-    private VoiceChannelStatus status;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private VoiceChannelStatus status;
 
-    @Column(
-            name = "manual_source_language",
-            length = 8
-    )
-    private String manualSourceLanguage;
+    @Column(name = "manual_source_language", length = 8) private String manualSourceLanguage;
 
-    @Column(
-            name = "last_locked_language",
-            length = 8
-    )
-    private String lastLockedLanguage;
+    @Column(name = "last_locked_language", length = 8) private String lastLockedLanguage;
 
-    @Column(
-            name = "active_connection_id",
-            length = 36
-    )
-    private String activeConnectionId;
+    @Column(name = "active_connection_id", length = 36) private String activeConnectionId;
 
-    @Column(
-            name = "reconnect_count",
-            nullable = false
-    )
-    private int reconnectCount;
+    @Column(name = "reconnect_count", nullable = false) private int reconnectCount;
 
-    @Column(name = "connected_at")
-    private LocalDateTime connectedAt;
+    @Column(name = "connected_at") private LocalDateTime connectedAt;
 
-    @Column(name = "disconnected_at")
-    private LocalDateTime disconnectedAt;
+    @Column(name = "disconnected_at") private LocalDateTime disconnectedAt;
 
-    @Version
-    private long version;
+    @Version private long version;
 
-    private VoiceSessionChannel(
-            VoiceSession session,
-            VoiceChannel channel,
-            String manualSourceLanguage
-    ) {
+    private VoiceSessionChannel(VoiceSession session, VoiceChannel channel, String manualSourceLanguage) {
         if (!session.allows(channel)) {
-            throw new BusinessException(
-                    "Channel is not allowed for voice mode.",
-                    VoiceErrorCode.CHANNEL_NOT_ALLOWED
-            );
+            throw new BusinessException("Channel is not allowed for voice mode.", VoiceErrorCode.CHANNEL_NOT_ALLOWED);
         }
 
         this.session = session;
@@ -108,24 +54,14 @@ public class VoiceSessionChannel extends BaseAuditable {
         this.status = VoiceChannelStatus.DISCONNECTED;
     }
 
-    public static VoiceSessionChannel create(
-            VoiceSession session,
-            VoiceChannel channel,
-            String manualSourceLanguage
-    ) {
-        return new VoiceSessionChannel(
-                session,
-                channel,
-                manualSourceLanguage
-        );
+    public static VoiceSessionChannel create(VoiceSession session, VoiceChannel channel, String manualSourceLanguage) {
+        return new VoiceSessionChannel(session, channel, manualSourceLanguage);
     }
 
     public void connecting(String connectionId) {
         if (activeConnectionId != null) {
             throw new BusinessException(
-                    "Voice channel already has an active connection.",
-                    VoiceErrorCode.CHANNEL_ALREADY_CONNECTED
-            );
+                    "Voice channel already has an active connection.", VoiceErrorCode.CHANNEL_ALREADY_CONNECTED);
         }
 
         if (connectedAt != null) {
@@ -171,8 +107,7 @@ public class VoiceSessionChannel extends BaseAuditable {
     }
 
     public void disconnected(String connectionId) {
-        if (activeConnectionId == null
-                || !activeConnectionId.equals(connectionId)) {
+        if (activeConnectionId == null || !activeConnectionId.equals(connectionId)) {
             return;
         }
 
@@ -186,12 +121,8 @@ public class VoiceSessionChannel extends BaseAuditable {
     }
 
     private void requireConnection(String connectionId) {
-        if (activeConnectionId == null
-                || !activeConnectionId.equals(connectionId)) {
-            throw new BusinessException(
-                    "Stale voice connection.",
-                    VoiceErrorCode.STALE_CONNECTION
-            );
+        if (activeConnectionId == null || !activeConnectionId.equals(connectionId)) {
+            throw new BusinessException("Stale voice connection.", VoiceErrorCode.STALE_CONNECTION);
         }
     }
 }

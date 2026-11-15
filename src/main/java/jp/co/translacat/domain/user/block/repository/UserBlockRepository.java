@@ -8,6 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface UserBlockRepository extends JpaRepository<UserBlock, Long>, UserBlockRepositoryCustom {
-
     Optional<UserBlock> findByIdAndDeletedFalse(Long id);
 }

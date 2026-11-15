@@ -20,20 +20,15 @@ public class EpisodeController {
 
     @GetMapping("/{episodeId}")
     @Operation(summary = "에피소드 제목/내용", description = "임의 에피소드에 대한 제목 및 내용을 조회한다.")
-    public ResponseDto<EpisodeResponseDto> episode(
-            @PathVariable PlatformCode platformCode,
-            @PathVariable String novelIdentifier,
-            @PathVariable String episodeId) {
-        return ResponseUtil.ok(this.novelEpisodeFacade.getTranslatedEpisode(
-                platformCode, novelIdentifier, episodeId));
+    public ResponseDto<EpisodeResponseDto> episode(@PathVariable PlatformCode platformCode,
+            @PathVariable String novelIdentifier, @PathVariable String episodeId) {
+        return ResponseUtil.ok(this.novelEpisodeFacade.getTranslatedEpisode(platformCode, novelIdentifier, episodeId));
     }
 
     @GetMapping
     @Operation(summary = "단편 소설 제목/내용", description = "단편 소설의 제목 및 내용을 조회한다.")
     public ResponseDto<EpisodeResponseDto> episode(
-            @PathVariable PlatformCode platformCode,
-            @PathVariable String novelIdentifier) {
-        return ResponseUtil.ok(this.novelEpisodeFacade.getTranslatedEpisode(
-                platformCode, novelIdentifier));
+            @PathVariable PlatformCode platformCode, @PathVariable String novelIdentifier) {
+        return ResponseUtil.ok(this.novelEpisodeFacade.getTranslatedEpisode(platformCode, novelIdentifier));
     }
 }

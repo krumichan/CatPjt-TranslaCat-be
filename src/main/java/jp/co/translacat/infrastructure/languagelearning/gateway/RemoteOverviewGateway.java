@@ -26,8 +26,8 @@ public class RemoteOverviewGateway implements OverviewGateway {
     private LanguageLearningOverviewClient client() {
         var client = clients.getIfAvailable();
         if (client == null) {
-            throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "LL_OVERVIEW_REMOTE_DISABLED", "공통 학습 조회 서비스 연결이 비활성화되어 있습니다.");
+            throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, "LL_OVERVIEW_REMOTE_DISABLED",
+                    "공통 학습 조회 서비스 연결이 비활성화되어 있습니다.");
         }
         return client;
     }

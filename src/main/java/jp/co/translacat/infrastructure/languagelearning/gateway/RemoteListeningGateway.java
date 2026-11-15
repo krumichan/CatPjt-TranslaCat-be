@@ -26,8 +26,8 @@ public class RemoteListeningGateway implements ListeningGateway {
     private LanguageLearningListeningClient client() {
         var client = clients.getIfAvailable();
         if (client == null) {
-            throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "LL_LISTENING_REMOTE_DISABLED", "Listening 서비스 연결이 비활성화되어 있습니다.");
+            throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, "LL_LISTENING_REMOTE_DISABLED",
+                    "Listening 서비스 연결이 비활성화되어 있습니다.");
         }
         return client;
     }

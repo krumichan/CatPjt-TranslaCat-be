@@ -27,7 +27,8 @@ public interface EmailVerificationChallengeRepository extends JpaRepository<Emai
     @Modifying
     @Query("update EmailVerificationChallenge c set c.status = :invalidated "
             + "where c.email = :email and c.consumedAt is null and c.status in :statuses")
-    int invalidateUnconsumed(@Param("email") String email,
-                            @Param("statuses") Collection<EmailVerificationChallenge.Status> statuses,
-                            @Param("invalidated") EmailVerificationChallenge.Status invalidated);
+    int
+    invalidateUnconsumed(@Param("email") String email,
+            @Param("statuses") Collection<EmailVerificationChallenge.Status> statuses,
+            @Param("invalidated") EmailVerificationChallenge.Status invalidated);
 }

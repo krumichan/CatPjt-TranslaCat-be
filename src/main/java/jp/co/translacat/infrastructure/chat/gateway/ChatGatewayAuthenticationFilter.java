@@ -29,7 +29,8 @@ final class ChatGatewayAuthenticationFilter extends OncePerRequestFilter {
         // 브라우저가 서버 전용 credential을 제출할 수 없다. caller ID/role 헤더도 신뢰하지 않는다.
         var authorization = Collections.list(request.getHeaders("Authorization"));
         var current = authorization.size() == 1 && request.getHeader("X-Chat-Service-Authorization") == null
-                ? authenticator.authenticate(authorization.get(0)) : null;
+                ? authenticator.authenticate(authorization.get(0))
+                : null;
         if (current == null) {
             response.setStatus(401);
             response.setHeader("Cache-Control", "no-store");

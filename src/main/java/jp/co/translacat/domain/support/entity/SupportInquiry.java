@@ -12,44 +12,34 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@Table(name = "support_inquiry", indexes = {
-        @Index(name = "idx_support_inquiry_user_updated", columnList = "user_id,updated_at"),
-        @Index(name = "idx_support_inquiry_status_updated", columnList = "status,updated_at")
-})
+@Table(name = "support_inquiry",
+        indexes =
+        {
+            @Index(name = "idx_support_inquiry_user_updated", columnList = "user_id,updated_at")
+            , @Index(name = "idx_support_inquiry_status_updated", columnList = "status,updated_at")
+        })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SupportInquiry extends BaseAuditable {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, length = 200)
-    private String title;
+    @Column(nullable = false, length = 200) private String title;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String content;
+    @Column(nullable = false, columnDefinition = "TEXT") private String content;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private InquiryCategory category;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private InquiryCategory category;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private InquiryStatus status;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private InquiryStatus status;
 
-    @Column(nullable = false)
-    private int replyCount;
+    @Column(nullable = false) private int replyCount;
 
-    @Column
-    private Long relatedMessageId;
+    @Column private Long relatedMessageId;
 
     public static SupportInquiry create(
-            User user, String title, String content, InquiryCategory category, Long relatedMessageId
-    ) {
+            User user, String title, String content, InquiryCategory category, Long relatedMessageId) {
         SupportInquiry inquiry = new SupportInquiry();
         inquiry.user = user;
         inquiry.title = title;

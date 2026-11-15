@@ -10,30 +10,20 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@Table(name = "author", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"platform_id", "identifier"})
-})
+@Table(name = "author", uniqueConstraints = { @UniqueConstraint(columnNames = {"platform_id", "identifier"}) })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Author extends BaseAuditable {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "platform_id", nullable = false)
-    private Platform platform;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "platform_id", nullable = false) private Platform platform;
 
-    @Column(length = 50, nullable = false)
-    private String identifier;
+    @Column(length = 50, nullable = false) private String identifier;
 
-    @Column(nullable = false)
-    private String name;
+    @Column(nullable = false) private String name;
 
-    @Column(length = 1000, nullable = false)
-    private String nameJa;
+    @Column(length = 1000, nullable = false) private String nameJa;
 
-    @Column
-    private String nameKo;
+    @Column private String nameKo;
 
     @Builder(access = AccessLevel.PRIVATE)
     private Author(Platform platform, String identifier, String name, String nameJa, String nameKo) {

@@ -19,17 +19,16 @@ import java.util.Optional;
 @Repository
 @RequiredArgsConstructor
 public class SpendingAnalysisJobStore {
-    public enum Status {
-        QUEUED, RUNNING, CANCELING, SUCCEEDED, FAILED, CANCELED
-    }
+    public enum Status { QUEUED, RUNNING, CANCELING, SUCCEEDED, FAILED, CANCELED }
 
-    public record Job(long id, long bookId, long requestedBy, LocalDate start, LocalDate endExclusive,
-                      Status status, String analysisId, String errorCode) { }
+    public record Job(long id, long bookId, long requestedBy, LocalDate start, LocalDate endExclusive, Status status,
+            String analysisId, String errorCode) {}
 
-    private static final RowMapper<Job> JOB = (row, index) -> new Job(
-            row.getLong("id"), row.getLong("account_book_id"), row.getLong("requested_by"),
-            row.getObject("period_start", LocalDate.class), row.getObject("period_end_exclusive", LocalDate.class),
-            Status.valueOf(row.getString("status")), row.getString("analysis_id"), row.getString("error_code"));
+    private static final RowMapper<Job> JOB = (row, index)
+            -> new Job(row.getLong("id"), row.getLong("account_book_id"), row.getLong("requested_by"),
+                    row.getObject("period_start", LocalDate.class),
+                    row.getObject("period_end_exclusive", LocalDate.class), Status.valueOf(row.getString("status")),
+                    row.getString("analysis_id"), row.getString("error_code"));
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
@@ -65,7 +64,8 @@ public class SpendingAnalysisJobStore {
 
     public Optional<Job> active(long bookId) {
         return jdbc.query("SELECT * FROM account_book_spending_analysis_job WHERE active_book_id=?", JOB, bookId)
-                .stream().findFirst();
+                .stream()
+                .findFirst();
     }
 
     public Optional<Job> latestRequested(long bookId, long userId) {
@@ -76,8 +76,11 @@ public class SpendingAnalysisJobStore {
     }
 
     public Optional<Job> find(long bookId, long jobId) {
-        return jdbc.query("SELECT * FROM account_book_spending_analysis_job WHERE account_book_id=? AND id=?", JOB, bookId, jobId)
-                .stream().findFirst();
+        return jdbc
+                .query("SELECT * FROM account_book_spending_analysis_job WHERE account_book_id=? AND id=?", JOB, bookId,
+                        jobId)
+                .stream()
+                .findFirst();
     }
 
     public Optional<Job> lock(long bookId, long jobId) {
@@ -87,8 +90,11 @@ public class SpendingAnalysisJobStore {
     }
 
     public Optional<Job> nextQueued() {
-        return jdbc.query("SELECT * FROM account_book_spending_analysis_job WHERE status='QUEUED' ORDER BY id LIMIT 1", JOB)
-                .stream().findFirst();
+        return jdbc
+                .query("SELECT * FROM account_book_spending_analysis_job WHERE status='QUEUED' ORDER BY id LIMIT 1",
+                        JOB)
+                .stream()
+                .findFirst();
     }
 
     public boolean claim(long id, Instant leaseUntil) {
@@ -103,7 +109,8 @@ public class SpendingAnalysisJobStore {
         String json = jdbc.query("""
                 SELECT request_json FROM account_book_spending_analysis_job WHERE id=? AND status='RUNNING'
                 """, (row, index) -> row.getString(1), id).stream().findFirst().orElse(null);
-        if (json == null) return null;
+        if (json == null)
+            return null;
         try {
             return mapper.readValue(json, Request.class);
         } catch (JsonProcessingException error) {

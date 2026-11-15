@@ -10,11 +10,10 @@ import org.springframework.stereotype.Component;
 public class VoiceHistoryCleanupBatch {
     private final VoiceHistoryCleanupService cleanupService;
 
-    @Scheduled(
-            fixedDelayString = "${translacat.voice.cleanup-fixed-delay-ms:60000}",
-            initialDelayString = "${translacat.voice.cleanup-initial-delay-ms:60000}"
-    )
-    public void cleanupStaleSessions() {
+    @Scheduled(fixedDelayString = "${translacat.voice.cleanup-fixed-delay-ms:60000}",
+            initialDelayString = "${translacat.voice.cleanup-initial-delay-ms:60000}")
+    public void
+    cleanupStaleSessions() {
         cleanupService.cleanupStaleSessions();
     }
 }

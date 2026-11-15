@@ -26,8 +26,9 @@ public class RemotePracticeGateway implements PracticeGateway {
 
     private LanguageLearningPracticeClient client() {
         var client = clients.getIfAvailable();
-        if (client == null) throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
-                "LL_PRACTICE_REMOTE_DISABLED", "Reading 서비스 연결이 비활성화되어 있습니다.");
+        if (client == null)
+            throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, "LL_PRACTICE_REMOTE_DISABLED",
+                    "Reading 서비스 연결이 비활성화되어 있습니다.");
         return client;
     }
 
@@ -57,8 +58,8 @@ public class RemotePracticeGateway implements PracticeGateway {
     }
 
     @Override
-    public PracticeAnswerResultResponseDto answer(Long userId, Long questionId,
-                                                  PracticeAnswerSubmitRequestDto request) {
+    public PracticeAnswerResultResponseDto answer(
+            Long userId, Long questionId, PracticeAnswerSubmitRequestDto request) {
         return client().answer(userId, questionId, request);
     }
 

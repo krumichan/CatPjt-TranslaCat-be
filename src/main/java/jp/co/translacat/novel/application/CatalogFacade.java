@@ -14,7 +14,9 @@ public class CatalogFacade {
     public CatalogModels.Snapshot start(long actor, String platform, CatalogModels.Start request) {
         return queries.snapshot(actor, commands.start(actor, platform, request, RequestTrace.idOrNew()));
     }
-    public CatalogModels.Snapshot snapshot(long actor, String id) { return queries.snapshot(actor, id); }
+    public CatalogModels.Snapshot snapshot(long actor, String id) {
+        return queries.snapshot(actor, id);
+    }
     public CatalogModels.Snapshot retry(long actor, String id, String item, CatalogModels.Retry request) {
         commands.retry(actor, id, item, request.idempotencyKey());
         return queries.snapshot(actor, id);

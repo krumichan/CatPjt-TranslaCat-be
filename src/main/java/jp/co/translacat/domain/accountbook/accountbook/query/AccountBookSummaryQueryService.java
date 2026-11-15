@@ -11,22 +11,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AccountBookSummaryQueryService {
-
     private final AccountBookRepository accountBookRepository;
     private final AccountBookSummaryRepositoryCustom accountBookSummaryRepository;
 
-    public AccountBookSummaryResponseDto getSummary(
-            Long accountBookId,
-            Integer year,
-            Integer month
-    ) {
+    public AccountBookSummaryResponseDto getSummary(Long accountBookId, Integer year, Integer month) {
         accountBookRepository.findById(accountBookId)
                 .orElseThrow(() -> new IllegalArgumentException("Account book not found."));
 
-        return accountBookSummaryRepository.getSummary(
-                accountBookId,
-                year,
-                month
-        );
+        return accountBookSummaryRepository.getSummary(accountBookId, year, month);
     }
 }

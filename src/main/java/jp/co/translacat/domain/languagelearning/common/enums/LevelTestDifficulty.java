@@ -1,7 +1,3 @@
 package jp.co.translacat.domain.languagelearning.common.enums;
 
-public enum LevelTestDifficulty {
-    EASY,
-    NORMAL,
-    CHALLENGE
-}
+public enum LevelTestDifficulty { EASY, NORMAL, CHALLENGE }

@@ -18,99 +18,53 @@ import java.util.List;
 @RequestMapping("/api/v1/account-books/{accountBookId}/transactions")
 @RequiredArgsConstructor
 public class AccountBookTransactionController {
-
     private final AccountBookTransactionService accountBookTransactionService;
     private final AccountBookTransactionQueryService accountBookTransactionQueryService;
 
     @PostMapping
     public ResponseDto<AccountBookTransactionListResponseDto> getTransactions(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId,
-            @RequestBody @Valid AccountBookTransactionRequestDto request
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId,
+            @RequestBody @Valid AccountBookTransactionRequestDto request) {
         return ResponseUtil.ok(
-                accountBookTransactionService.getTransactions(
-                        accountBookId,
-                        request,
-                        userPrincipal.getId()
-                )
-        );
+                accountBookTransactionService.getTransactions(accountBookId, request, userPrincipal.getId()));
     }
 
     @PostMapping("/register")
     public ResponseDto<AccountBookTransactionResponseDto> createTransaction(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId,
-            @RequestBody @Valid AccountBookTransactionCreateRequestDto request
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId,
+            @RequestBody @Valid AccountBookTransactionCreateRequestDto request) {
         return ResponseUtil.ok(
-                accountBookTransactionService.createTransaction(
-                        accountBookId,
-                        request,
-                        userPrincipal.getId()
-                )
-        );
+                accountBookTransactionService.createTransaction(accountBookId, request, userPrincipal.getId()));
     }
 
     @PutMapping("/{transactionId}")
     public ResponseDto<AccountBookTransactionResponseDto> updateTransaction(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId,
-            @PathVariable Long transactionId,
-            @RequestBody @Valid AccountBookTransactionUpdateRequestDto request
-    ) {
-        return ResponseUtil.ok(
-                accountBookTransactionService.updateTransaction(
-                        accountBookId,
-                        transactionId,
-                        request,
-                        userPrincipal.getId()
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId,
+            @PathVariable Long transactionId, @RequestBody @Valid AccountBookTransactionUpdateRequestDto request) {
+        return ResponseUtil.ok(accountBookTransactionService.updateTransaction(
+                accountBookId, transactionId, request, userPrincipal.getId()));
     }
 
     @GetMapping("/months")
     public ResponseDto<List<AccountBookTransactionMonthResponseDto>> getTransactionMonths(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId) {
         return ResponseUtil.ok(
-                accountBookTransactionQueryService.getTransactionMonths(
-                        accountBookId,
-                        userPrincipal.getId()
-                )
-        );
+                accountBookTransactionQueryService.getTransactionMonths(accountBookId, userPrincipal.getId()));
     }
 
     @GetMapping("/stores/suggestions")
     public ResponseDto<List<AccountBookStoreSuggestionResponseDto>> getStoreSuggestions(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId,
             @RequestParam(defaultValue = "EXPENSE") AccountBookTransactionType type,
-            @RequestParam(required = false) String keyword
-    ) {
-        return ResponseUtil.ok(
-                accountBookTransactionQueryService.getStoreSuggestions(
-                        accountBookId,
-                        type,
-                        keyword,
-                        userPrincipal.getId()
-                )
-        );
+            @RequestParam(required = false) String keyword) {
+        return ResponseUtil.ok(accountBookTransactionQueryService.getStoreSuggestions(
+                accountBookId, type, keyword, userPrincipal.getId()));
     }
 
     @DeleteMapping("/{transactionId}")
-    public ResponseDto<Boolean> deleteTransaction(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId,
-            @PathVariable Long transactionId
-    ) {
+    public ResponseDto<Boolean> deleteTransaction(@AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long accountBookId, @PathVariable Long transactionId) {
         return ResponseUtil.ok(
-                accountBookTransactionService.deleteTransaction(
-                        accountBookId,
-                        transactionId,
-                        userPrincipal.getId()
-                )
-        );
+                accountBookTransactionService.deleteTransaction(accountBookId, transactionId, userPrincipal.getId()));
     }
 }

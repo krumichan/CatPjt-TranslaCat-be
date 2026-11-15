@@ -5,25 +5,31 @@ import java.util.Map;
 
 /** 목록의 위치와 작품 번역의 재사용 identity를 분리한다. */
 public final class CatalogModels {
-    private CatalogModels() {}
+    private CatalogModels() {
+    }
 
     public record Selector(String kind, String period, String genreId, String keyword, int page, String language) {
         public Selector {
             if (!("RANKING".equals(kind) || "SEARCH".equals(kind)) || page < 1 || page > 10000
-                    || !java.util.Set.of("ja", "ko", "en").contains(language == null ? "" : language)) invalid();
+                    || !java.util.Set.of("ja", "ko", "en").contains(language == null ? "" : language))
+                invalid();
             // 공개 장르 식별자(_201 등)는 DB와 화면 selector에서도 같은 값으로 유지한다.
-            if ("RANKING".equals(kind) && (period == null || !period.matches("[a-zA-Z]{1,20}")
-                    || genreId == null || !genreId.matches("[A-Za-z0-9_]{1,20}"))) invalid();
-            if ("SEARCH".equals(kind) && (keyword == null || keyword.isBlank() || keyword.length() > 100)) invalid();
+            if ("RANKING".equals(kind)
+                    && (period == null || !period.matches("[a-zA-Z]{1,20}") || genreId == null
+                            || !genreId.matches("[A-Za-z0-9_]{1,20}")))
+                invalid();
+            if ("SEARCH".equals(kind) && (keyword == null || keyword.isBlank() || keyword.length() > 100))
+                invalid();
         }
     }
 
     public record SourceCard(String identifier, int rank, int sourcePosition, String title, String author,
-                             String synopsis, String statusText, String genreText, boolean isShortStory) {
+            String synopsis, String statusText, String genreText, boolean isShortStory) {
         public SourceCard {
             if (identifier == null || !(identifier.matches("n[0-9]{1,8}[a-z]{1,4}") || EpisodeKey.numericId(identifier))
-                    || rank < 0 || sourcePosition < 0 || sourcePosition > 49
-                    || title == null || title.isBlank() || title.length() > 1000) invalid();
+                    || rank < 0 || sourcePosition < 0 || sourcePosition > 49 || title == null || title.isBlank()
+                    || title.length() > 1000)
+                invalid();
             author = bounded(author, 500);
             synopsis = bounded(synopsis, 12000);
             statusText = bounded(statusText, 500);
@@ -37,30 +43,42 @@ public final class CatalogModels {
 
     public record SourcePage(List<SourceCard> cards, Map<String, Object> pageInfo, long sourceFetchMs) {
         public SourcePage {
-            if (cards == null || cards.size() > 50 || cards.stream().map(SourceCard::identifier).distinct().count() != cards.size()
-                    || cards.stream().mapToInt(c -> c.title().length() + c.author().length() + c.synopsis().length()).sum() > 90000) invalid();
+            if (cards == null || cards.size() > 50
+                    || cards.stream().map(SourceCard::identifier).distinct().count() != cards.size()
+                    || cards.stream()
+                                    .mapToInt(c -> c.title().length() + c.author().length() + c.synopsis().length())
+                                    .sum()
+                            > 90000)
+                invalid();
             cards = List.copyOf(cards);
-            pageInfo = pageInfo == null ? Map.of() : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(pageInfo));
+            pageInfo = pageInfo == null
+                    ? Map.of()
+                    : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(pageInfo));
         }
     }
 
     public record Start(Selector selector, String idempotencyKey, SourcePage source) {}
     public record Retry(String idempotencyKey) {}
     public record Text(String rawJa, String ja, String ko, String translatedText, String targetLanguage) {
-        public Text(String rawJa, String ja, String ko) { this(rawJa, ja, ko, ko, "ko"); }
+        public Text(String rawJa, String ja, String ko) {
+            this(rawJa, ja, ko, ko, "ko");
+        }
     }
-    public record Item(String itemId, String identifier, int rank, int sourcePosition, String status,
-                       Text title, Text author, Text synopsis, Text statusText, String genreText,
-                       boolean isShortStory, long arrivalSequence, String errorCode, boolean cached) {}
+    public record Item(String itemId, String identifier, int rank, int sourcePosition, String status, Text title,
+            Text author, Text synopsis, Text statusText, String genreText, boolean isShortStory, long arrivalSequence,
+            String errorCode, boolean cached) {}
     public record Snapshot(String snapshotId, long eventSequence, String state, int total, int ready, int failed,
-                           Map<String, Object> pageInfo, Selector selector, List<Item> items,
-                           String traceId, long sourceFetchMs) {}
+            Map<String, Object> pageInfo, Selector selector, List<Item> items, String traceId, long sourceFetchMs) {}
 
     private static String bounded(String value, int max) {
-        if (value == null) return "";
-        if (value.length() > max) invalid();
+        if (value == null)
+            return "";
+        if (value.length() > max)
+            invalid();
         return value;
     }
 
-    private static void invalid() { throw new NovelProblem("CATALOG_REQUEST_INVALID", 400); }
+    private static void invalid() {
+        throw new NovelProblem("CATALOG_REQUEST_INVALID", 400);
+    }
 }

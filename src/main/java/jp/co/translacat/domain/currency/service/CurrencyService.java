@@ -14,7 +14,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class CurrencyService {
-
     private final CurrencyRepository currencyRepository;
     private final AccountBookRepository accountBookRepository;
 
@@ -26,17 +25,11 @@ public class CurrencyService {
     }
 
     public List<CurrencyResponseDto> listEnabledCurrencies() {
-        return currencyRepository.findAllByEnabledTrueOrderByCodeAsc()
-                .stream()
-                .map(CurrencyResponseDto::from)
-                .toList();
+        return currencyRepository.findAllByEnabledTrueOrderByCodeAsc().stream().map(CurrencyResponseDto::from).toList();
     }
 
     public List<AdminCurrencyResponseDto> listAdminCurrencies() {
-        return currencyRepository.findAllByOrderByCodeAsc()
-                .stream()
-                .map(AdminCurrencyResponseDto::from)
-                .toList();
+        return currencyRepository.findAllByOrderByCodeAsc().stream().map(AdminCurrencyResponseDto::from).toList();
     }
 
     @Transactional
@@ -51,30 +44,19 @@ public class CurrencyService {
             unsetAllBaseCurrencies();
         }
 
-        Currency currency = Currency.create(
-                normalizedCode,
-                dto.name().trim(),
-                dto.symbol() == null ? null : dto.symbol().trim(),
-                dto.decimalPlaces(),
-                Boolean.TRUE.equals(dto.baseCurrency())
-        );
+        Currency currency =
+                Currency.create(normalizedCode, dto.name().trim(), dto.symbol() == null ? null : dto.symbol().trim(),
+                        dto.decimalPlaces(), Boolean.TRUE.equals(dto.baseCurrency()));
 
         return AdminCurrencyResponseDto.from(currencyRepository.save(currency));
     }
 
     @Transactional
-    public AdminCurrencyResponseDto update(
-            Long currencyId,
-            CurrencyUpdateRequestDto dto
-    ) {
+    public AdminCurrencyResponseDto update(Long currencyId, CurrencyUpdateRequestDto dto) {
         Currency currency = currencyRepository.findById(currencyId)
-                .orElseThrow(() -> new IllegalArgumentException("통화를 찾을 수 없습니다."));
+                                    .orElseThrow(() -> new IllegalArgumentException("통화를 찾을 수 없습니다."));
 
-        currency.update(
-                dto.name().trim(),
-                dto.symbol() == null ? null : dto.symbol().trim(),
-                dto.decimalPlaces()
-        );
+        currency.update(dto.name().trim(), dto.symbol() == null ? null : dto.symbol().trim(), dto.decimalPlaces());
 
         return AdminCurrencyResponseDto.from(currency);
     }
@@ -82,7 +64,7 @@ public class CurrencyService {
     @Transactional
     public Boolean delete(Long currencyId) {
         Currency currency = currencyRepository.findById(currencyId)
-                .orElseThrow(() -> new IllegalArgumentException("통화를 찾을 수 없습니다."));
+                                    .orElseThrow(() -> new IllegalArgumentException("통화를 찾을 수 없습니다."));
 
         if (currency.isBaseCurrency()) {
             throw new IllegalArgumentException("기본 통화는 삭제할 수 없습니다.");
@@ -98,8 +80,7 @@ public class CurrencyService {
     }
 
     private void unsetAllBaseCurrencies() {
-        currencyRepository.findAllByBaseCurrencyTrue()
-                .forEach(Currency::unsetBaseCurrency);
+        currencyRepository.findAllByBaseCurrencyTrue().forEach(Currency::unsetBaseCurrency);
     }
 
     private String normalizeCode(String currencyCode) {
@@ -111,12 +92,9 @@ public class CurrencyService {
     }
 
     @Transactional
-    public AdminCurrencyResponseDto updateEnabled(
-            Long currencyId,
-            CurrencyEnabledUpdateRequestDto dto
-    ) {
+    public AdminCurrencyResponseDto updateEnabled(Long currencyId, CurrencyEnabledUpdateRequestDto dto) {
         Currency currency = currencyRepository.findById(currencyId)
-                .orElseThrow(() -> new IllegalArgumentException("통화를 찾을 수 없습니다."));
+                                    .orElseThrow(() -> new IllegalArgumentException("통화를 찾을 수 없습니다."));
 
         currency.changeEnabled(Boolean.TRUE.equals(dto.enabled()));
 
@@ -126,14 +104,13 @@ public class CurrencyService {
     @Transactional
     public AdminCurrencyResponseDto setBaseCurrency(Long currencyId) {
         Currency targetCurrency = currencyRepository.findById(currencyId)
-                .orElseThrow(() -> new IllegalArgumentException("통화를 찾을 수 없습니다."));
+                                          .orElseThrow(() -> new IllegalArgumentException("통화를 찾을 수 없습니다."));
 
         if (!targetCurrency.isEnabled()) {
             throw new IllegalArgumentException("비활성화된 통화는 기본 통화로 설정할 수 없습니다.");
         }
 
-        currencyRepository.findAllByBaseCurrencyTrue()
-                .forEach(Currency::unsetBaseCurrency);
+        currencyRepository.findAllByBaseCurrencyTrue().forEach(Currency::unsetBaseCurrency);
 
         targetCurrency.setBaseCurrency();
 

@@ -21,7 +21,6 @@ import static jp.co.translacat.domain.board.BoardDtos.Board;
 @Service
 @RequiredArgsConstructor
 class BoardAccess {
-
     private final JWTService jwt;
     private final JdbcTemplate jdbc;
     private final PasswordEncoder passwords;
@@ -29,8 +28,8 @@ class BoardAccess {
 
     Reader reader(UserPrincipal principal, String authorization, Board board) {
         // 인증 필터가 확인한 현재 계정과 JWT의 로그인 세션을 사용한다.
-        if (principal == null || !principal.user().isActiveAccount()
-                || authorization == null || !authorization.startsWith("Bearer ")) {
+        if (principal == null || !principal.user().isActiveAccount() || authorization == null
+                || !authorization.startsWith("Bearer ")) {
             throw BoardException.missing();
         }
 
@@ -65,7 +64,8 @@ class BoardAccess {
             return true;
         }
 
-        return Boolean.TRUE.equals(jdbc.queryForObject("""
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+                """
                 SELECT EXISTS (
                     SELECT 1 FROM board_unlock
                     WHERE entry_id = ? AND viewer_id = ? AND session_hash = ?
@@ -103,13 +103,12 @@ class BoardAccess {
 
     private static String hash(String identity) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(identity.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(identity.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException error) {
             throw new IllegalStateException(error);
         }
     }
 
-    record Reader(long id, String sessionHash) {
-    }
+    record Reader(long id, String sessionHash) {}
 }

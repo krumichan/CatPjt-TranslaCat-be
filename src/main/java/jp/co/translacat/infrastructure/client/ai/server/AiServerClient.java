@@ -26,17 +26,13 @@ public class AiServerClient {
     private final ExternalApiClient apiClient;
     private final ObjectMapper objectMapper;
 
-    @Value("${ai-server.url}")
-    private String aiServerUrl;
+    @Value("${ai-server.url}") private String aiServerUrl;
 
-    @Value("${ai-server.api-key}")
-    private String apiKey;
+    @Value("${ai-server.api-key}") private String apiKey;
 
-    @Value("${receipt-runtime.expected-run-id:}")
-    private String expectedReceiptRunId;
+    @Value("${receipt-runtime.expected-run-id:}") private String expectedReceiptRunId;
 
-    @Value("${receipt-runtime.expected-source-fingerprint:}")
-    private String expectedReceiptSourceFingerprint;
+    @Value("${receipt-runtime.expected-source-fingerprint:}") private String expectedReceiptSourceFingerprint;
 
     public String callFileConversion(MultipartFile file) {
         String url = aiServerUrl + "/api/v1/stt/transcribe";
@@ -83,8 +79,8 @@ public class AiServerClient {
             return List.copyOf(validated);
         } catch (Exception e) {
             log.error("Novel legacy AI request failed: type={}", e.getClass().getSimpleName());
-            throw new AiServerCommunicationException("Novel AI translation failed", "NOVEL_TRANSLATION_FAILED",
-                    false, 502, null);
+            throw new AiServerCommunicationException(
+                    "Novel AI translation failed", "NOVEL_TRANSLATION_FAILED", false, 502, null);
         }
     }
 
@@ -99,9 +95,15 @@ public class AiServerClient {
         int upstreamStatus = 0;
         try {
             var client = java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(10)).build();
-            var message = java.net.http.HttpRequest.newBuilder(java.net.URI.create(aiServerUrl + "/api/v1/account-book/spending-analysis"))
-                    .timeout(java.time.Duration.ofSeconds(250)).header("Content-Type", "application/json")
-                    .header("X-API-KEY", apiKey).POST(java.net.http.HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(request))).build();
+            var message =
+                    java.net.http.HttpRequest
+                            .newBuilder(java.net.URI.create(aiServerUrl + "/api/v1/account-book/spending-analysis"))
+                            .timeout(java.time.Duration.ofSeconds(250))
+                            .header("Content-Type", "application/json")
+                            .header("X-API-KEY", apiKey)
+                            .POST(java.net.http.HttpRequest.BodyPublishers.ofString(
+                                    objectMapper.writeValueAsString(request)))
+                            .build();
             phase = "SEND_REQUEST";
             var response = client.send(message, java.net.http.HttpResponse.BodyHandlers.ofString());
             upstreamStatus = response.statusCode();
@@ -132,44 +134,26 @@ public class AiServerClient {
                 error.getClass().getSimpleName(), causeType);
     }
 
-    public AiReceiptAnalysisResponse callReceiptAnalysis(
-            MultipartFile file,
-            AiReceiptAnalysisOptions options
-    ) {
+    public AiReceiptAnalysisResponse callReceiptAnalysis(MultipartFile file, AiReceiptAnalysisOptions options) {
         String url = aiServerUrl + "/api/v1/account-book/receipts/analyze";
         String traceId = UUID.randomUUID().toString();
         AiReceiptRuntimeIdentity preflight = callReceiptRuntimeIdentity();
         assertExpectedReceiptRuntime(preflight);
 
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
-        builder.part("file", file.getResource())
-                .filename(file.getOriginalFilename());
-        builder.part("trace_id", traceId)
-                .contentType(MediaType.TEXT_PLAIN);
+        builder.part("file", file.getResource()).filename(file.getOriginalFilename());
+        builder.part("trace_id", traceId).contentType(MediaType.TEXT_PLAIN);
 
         if (options != null) {
-            builder.part("options", toJson(options))
-                    .contentType(MediaType.TEXT_PLAIN);
+            builder.part("options", toJson(options)).contentType(MediaType.TEXT_PLAIN);
         }
 
         try {
             AiReceiptAnalysisResponse response = this.apiClient.postMultipart(
-                    url,
-                    builder.build(),
-                    this.basicHeader(),
-                    AiReceiptAnalysisResponse.class
-            );
-            if (response != null && (response.analysisTraceId() == null
-                    || response.analysisTraceId().isBlank())) {
-                return new AiReceiptAnalysisResponse(
-                        response.receipts(),
-                        response.receiptCount(),
-                        response.warnings(),
-                        response.ocrEngine(),
-                        response.usedAi(),
-                        traceId,
-                        response.runtimeIdentity()
-                );
+                    url, builder.build(), this.basicHeader(), AiReceiptAnalysisResponse.class);
+            if (response != null && (response.analysisTraceId() == null || response.analysisTraceId().isBlank())) {
+                return new AiReceiptAnalysisResponse(response.receipts(), response.receiptCount(), response.warnings(),
+                        response.ocrEngine(), response.usedAi(), traceId, response.runtimeIdentity());
             }
             if (response == null || response.runtimeIdentity() == null
                     || !sameReceiptRuntime(preflight, response.runtimeIdentity())) {
@@ -185,9 +169,9 @@ public class AiServerClient {
 
     public AiReceiptRuntimeIdentity callReceiptRuntimeIdentity() {
         try {
-            AiReceiptRuntimeIdentity identity = apiClient.getOnce(
-                    aiServerUrl + "/api/v1/account-book/receipts/runtime-identity",
-                    basicHeader(), AiReceiptRuntimeIdentity.class);
+            AiReceiptRuntimeIdentity identity =
+                    apiClient.getOnce(aiServerUrl + "/api/v1/account-book/receipts/runtime-identity", basicHeader(),
+                            AiReceiptRuntimeIdentity.class);
             if (identity == null || blank(identity.runId()) || blank(identity.sourceFingerprint()))
                 throw new IllegalStateException("AI receipt runtime identity is incomplete.");
             return identity;
@@ -204,10 +188,8 @@ public class AiServerClient {
             throw new IllegalStateException("AI receipt runtime source fingerprint does not match the launcher.");
     }
 
-    private boolean sameReceiptRuntime(
-            AiReceiptRuntimeIdentity before, AiReceiptRuntimeIdentity after) {
-        return before.runId().equals(after.runId())
-                && before.sourceFingerprint().equals(after.sourceFingerprint())
+    private boolean sameReceiptRuntime(AiReceiptRuntimeIdentity before, AiReceiptRuntimeIdentity after) {
+        return before.runId().equals(after.runId()) && before.sourceFingerprint().equals(after.sourceFingerprint())
                 && java.util.Objects.equals(before.processId(), after.processId())
                 && java.util.Objects.equals(before.startedAt(), after.startedAt());
     }
@@ -223,5 +205,4 @@ public class AiServerClient {
             throw new BusinessException("AI Server 요청 옵션 생성에 실패했습니다.");
         }
     }
-
 }

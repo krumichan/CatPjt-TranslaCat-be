@@ -3,7 +3,6 @@ package jp.co.translacat.domain.user.profile.storage.model;
 import java.util.UUID;
 
 public enum ProfileImageType {
-
     PROFILE("profile", 5L * 1024 * 1024),
     BACKGROUND("background", 10L * 1024 * 1024);
 
@@ -20,11 +19,6 @@ public enum ProfileImageType {
     }
 
     public String createObjectKey(Long userId, String extension) {
-        return "user-profile/%d/%s/%s.%s".formatted(
-                userId,
-                pathSegment,
-                UUID.randomUUID(),
-                extension
-        );
+        return "user-profile/%d/%s/%s.%s".formatted(userId, pathSegment, UUID.randomUUID(), extension);
     }
 }

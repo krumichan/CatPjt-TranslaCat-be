@@ -10,15 +10,12 @@ import org.springframework.data.domain.PageRequest;
 @Getter
 @Setter
 public class PageableDto {
-    @Schema(hidden = true)
-    private PageRequest pageRequest;
+    @Schema(hidden = true) private PageRequest pageRequest;
     private Pagination pagination;
 
     public PageableDto() {
         this.pagination = new Pagination();
-        this.pageRequest = PageRequest.of(
-                0,
-                Integer.MAX_VALUE);
+        this.pageRequest = PageRequest.of(0, Integer.MAX_VALUE);
     }
 
     public void setPagination(Pagination pagination) {
@@ -26,13 +23,10 @@ public class PageableDto {
 
         if (pagination.isPagingYn()) {
             int pageIndex = Math.max(0, pagination.getPage() - 1);
-            this.pageRequest = PageRequest.of(pageIndex
-                    , pagination.getPerPage()
-                    , SortUtil.getSort(pagination.getOrders()));
+            this.pageRequest =
+                    PageRequest.of(pageIndex, pagination.getPerPage(), SortUtil.getSort(pagination.getOrders()));
         } else {
-            this.pageRequest = PageRequest.of(0
-                    , Integer.MAX_VALUE
-                    , SortUtil.getSort(pagination.getOrders()));
+            this.pageRequest = PageRequest.of(0, Integer.MAX_VALUE, SortUtil.getSort(pagination.getOrders()));
         }
     }
 

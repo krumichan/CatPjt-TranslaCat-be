@@ -15,7 +15,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 public final class BoundedHttp {
-    private BoundedHttp() {}
+    private BoundedHttp() {
+    }
 
     public static HttpResponse<byte[]> send(HttpClient client, HttpRequest request, int maxBytes, long remainingMillis)
             throws IOException, InterruptedException {
@@ -43,13 +44,20 @@ public final class BoundedHttp {
         private final CompletableFuture<byte[]> result = new CompletableFuture<>();
         private Flow.Subscription subscription;
 
-        private Subscriber(int maxBytes) { this.maxBytes = maxBytes; }
-        @Override public CompletionStage<byte[]> getBody() { return result; }
-        @Override public void onSubscribe(Flow.Subscription value) {
+        private Subscriber(int maxBytes) {
+            this.maxBytes = maxBytes;
+        }
+        @Override
+        public CompletionStage<byte[]> getBody() {
+            return result;
+        }
+        @Override
+        public void onSubscribe(Flow.Subscription value) {
             subscription = value;
             value.request(1);
         }
-        @Override public void onNext(List<ByteBuffer> buffers) {
+        @Override
+        public void onNext(List<ByteBuffer> buffers) {
             for (ByteBuffer buffer : buffers) {
                 if (buffer.remaining() > maxBytes - bytes.size()) {
                     subscription.cancel();
@@ -62,7 +70,13 @@ public final class BoundedHttp {
             }
             subscription.request(1);
         }
-        @Override public void onError(Throwable error) { result.completeExceptionally(error); }
-        @Override public void onComplete() { result.complete(bytes.toByteArray()); }
+        @Override
+        public void onError(Throwable error) {
+            result.completeExceptionally(error);
+        }
+        @Override
+        public void onComplete() {
+            result.complete(bytes.toByteArray());
+        }
     }
 }

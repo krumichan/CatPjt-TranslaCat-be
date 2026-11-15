@@ -32,18 +32,12 @@ public class ExchangeRateService {
     }
 
     @Autowired
-    public ExchangeRateService(
-            ExchangeRateCache cache,
-            ExchangeRateProvider provider,
+    public ExchangeRateService(ExchangeRateCache cache, ExchangeRateProvider provider,
             @Value("${exchange-rate.cache-refresh-after-seconds:86400}") long refreshAfterSeconds) {
         this(cache, provider, Duration.ofSeconds(refreshAfterSeconds), Clock.systemUTC());
     }
 
-    ExchangeRateService(
-            ExchangeRateCache cache,
-            ExchangeRateProvider provider,
-            Duration refreshAfter,
-            Clock clock) {
+    ExchangeRateService(ExchangeRateCache cache, ExchangeRateProvider provider, Duration refreshAfter, Clock clock) {
         this.cache = cache;
         this.provider = provider;
         if (refreshAfter == null || refreshAfter.isNegative() || refreshAfter.isZero()) {
@@ -65,57 +59,37 @@ public class ExchangeRateService {
             var cached = cache.find(source, target, requested, provider.name());
             Instant now = clock.instant();
             if (cached.isPresent() && isFresh(cached.get(), now)) {
-                log.info(
-                        "exchange_rate source={} target={} requested={} provider={} cache=hit",
-                        source,
-                        target,
-                        requested,
-                        provider.name());
+                log.info("exchange_rate source={} target={} requested={} provider={} cache=hit", source, target,
+                        requested, provider.name());
                 return cached.get();
             }
             long started = System.nanoTime();
             ExchangeRateProvider.Quote quote = provider.fetch(source, target, requested);
-            if (quote == null
-                    || quote.rate() == null
-                    || quote.rate().signum() <= 0
-                    || quote.effectiveDate() == null
+            if (quote == null || quote.rate() == null || quote.rate().signum() <= 0 || quote.effectiveDate() == null
                     || quote.effectiveDate().isAfter(requested))
                 throw new RateUnavailableException();
             if ((long) quote.rate().precision() - quote.rate().scale() > 20)
                 throw new RateUnavailableException();
             BigDecimal rate = quote.rate().setScale(18, RoundingMode.HALF_UP);
-            if (rate.signum() <= 0 || rate.precision() > 38) throw new RateUnavailableException();
-            ExchangeRate saved =
-                    cache.saveOrRefresh(
-                            ExchangeRate.create(
-                                    source,
-                                    target,
-                                    rate,
-                                    requested,
-                                    quote.effectiveDate(),
-                                    provider.name(),
-                                    now));
-            log.info(
-                    "exchange_rate source={} target={} requested={} effective={} provider={}"
+            if (rate.signum() <= 0 || rate.precision() > 38)
+                throw new RateUnavailableException();
+            ExchangeRate saved = cache.saveOrRefresh(
+                    ExchangeRate.create(source, target, rate, requested, quote.effectiveDate(), provider.name(), now));
+            log.info("exchange_rate source={} target={} requested={} effective={} provider={}"
                             + " cache={} latencyMs={}",
-                    source,
-                    target,
-                    requested,
-                    saved.getRateDate(),
-                    provider.name(),
-                    cached.isPresent() ? "refresh" : "miss",
-                    (System.nanoTime() - started) / 1_000_000);
+                    source, target, requested, saved.getRateDate(), provider.name(),
+                    cached.isPresent() ? "refresh" : "miss", (System.nanoTime() - started) / 1_000_000);
             return saved;
         }
     }
 
     private boolean isFresh(ExchangeRate rate, Instant now) {
-        return rate.getRateFetchedAt() != null
-                && rate.getRateFetchedAt().plus(refreshAfter).isAfter(now);
+        return rate.getRateFetchedAt() != null && rate.getRateFetchedAt().plus(refreshAfter).isAfter(now);
     }
 
     public static String normalizeCode(String code) {
-        if (code == null) throw new IllegalArgumentException("Currency code is required.");
+        if (code == null)
+            throw new IllegalArgumentException("Currency code is required.");
         String normalized = code.trim().toUpperCase(Locale.ROOT);
         if (!normalized.matches("[A-Z]{3}"))
             throw new IllegalArgumentException("Invalid ISO currency code.");

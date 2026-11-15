@@ -26,10 +26,10 @@ public class CuratedWritingController {
     }
 
     @PostMapping("/sets")
-    public ResponseDto<JsonNode> start(@AuthenticationPrincipal UserPrincipal principal,
-                                       @RequestBody StartRequest request) {
-        return ResponseUtil.ok(client().curatedStart(SecurityUtil.getLoginUserId(principal),
-                request.writingType(), request.rePractice()));
+    public ResponseDto<JsonNode> start(
+            @AuthenticationPrincipal UserPrincipal principal, @RequestBody StartRequest request) {
+        return ResponseUtil.ok(client().curatedStart(
+                SecurityUtil.getLoginUserId(principal), request.writingType(), request.rePractice()));
     }
 
     @GetMapping("/sets/{setId}")
@@ -38,34 +38,34 @@ public class CuratedWritingController {
     }
 
     @GetMapping("/history/{date}")
-    public ResponseDto<JsonNode> history(@AuthenticationPrincipal UserPrincipal principal,
-                                         @PathVariable LocalDate date,
-                                         @RequestParam DailyWritingType writingType) {
+    public ResponseDto<JsonNode> history(@AuthenticationPrincipal UserPrincipal principal, @PathVariable LocalDate date,
+            @RequestParam DailyWritingType writingType) {
         return ResponseUtil.ok(client().curatedHistory(SecurityUtil.getLoginUserId(principal), date, writingType));
     }
 
     @PostMapping("/items/{itemId}/answers")
-    public ResponseDto<JsonNode> answer(@AuthenticationPrincipal UserPrincipal principal,
-                                        @PathVariable Long itemId, @RequestBody AnswerRequest request) {
-        return ResponseUtil.ok(client().curatedSubmit(SecurityUtil.getLoginUserId(principal),
-                itemId, request.answer(), request.contentRevision()));
+    public ResponseDto<JsonNode> answer(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long itemId,
+            @RequestBody AnswerRequest request) {
+        return ResponseUtil.ok(client().curatedSubmit(
+                SecurityUtil.getLoginUserId(principal), itemId, request.answer(), request.contentRevision()));
     }
 
     @PostMapping("/sets/{setId}/replace")
-    public ResponseDto<JsonNode> replace(@AuthenticationPrincipal UserPrincipal principal,
-                                         @PathVariable Long setId, @RequestBody ReplaceRequest request) {
-        return ResponseUtil.ok(client().curatedReplace(SecurityUtil.getLoginUserId(principal),
-                setId, request.rePractice()));
+    public ResponseDto<JsonNode> replace(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long setId,
+            @RequestBody ReplaceRequest request) {
+        return ResponseUtil.ok(
+                client().curatedReplace(SecurityUtil.getLoginUserId(principal), setId, request.rePractice()));
     }
 
     private LanguageLearningWritingClient client() {
         var value = clients.getIfAvailable();
-        if (value == null) throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
-                "LL_WRITING_REMOTE_DISABLED", "Writing 서비스 연결이 비활성화되어 있습니다.");
+        if (value == null)
+            throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, "LL_WRITING_REMOTE_DISABLED",
+                    "Writing 서비스 연결이 비활성화되어 있습니다.");
         return value;
     }
 
-    public record StartRequest(DailyWritingType writingType, boolean rePractice) { }
-    public record AnswerRequest(String answer, String contentRevision) { }
-    public record ReplaceRequest(boolean rePractice) { }
+    public record StartRequest(DailyWritingType writingType, boolean rePractice) {}
+    public record AnswerRequest(String answer, String contentRevision) {}
+    public record ReplaceRequest(boolean rePractice) {}
 }

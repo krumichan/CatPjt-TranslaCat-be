@@ -16,57 +16,31 @@ import java.time.Year;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/account-books/{accountBookId}/charts")
 public class AccountBookChartController {
-
     private final AccountBookChartService accountBookChartService;
 
     @GetMapping("/monthly")
     public ResponseDto<AccountBookMonthlyChartResponseDto> getMonthlyChart(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId,
-            @RequestParam(required = false) Integer year
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId,
+            @RequestParam(required = false) Integer year) {
         int targetYear = year != null ? year : Year.now().getValue();
 
         return ResponseUtil.ok(
-                accountBookChartService.getMonthlyChart(
-                        accountBookId,
-                        targetYear,
-                        userPrincipal.getId()
-                )
-        );
+                accountBookChartService.getMonthlyChart(accountBookId, targetYear, userPrincipal.getId()));
     }
 
     @GetMapping("/categories")
     public ResponseDto<AccountBookRankingChartResponseDto> getCategoryChart(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId,
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId,
+            @RequestParam(required = false) Integer year, @RequestParam(required = false) Integer month) {
         return ResponseUtil.ok(
-                accountBookChartService.getCategoryChart(
-                        accountBookId,
-                        year,
-                        month,
-                        userPrincipal.getId()
-                )
-        );
+                accountBookChartService.getCategoryChart(accountBookId, year, month, userPrincipal.getId()));
     }
 
     @GetMapping("/stores")
     public ResponseDto<AccountBookRankingChartResponseDto> getStoreChart(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId,
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId,
+            @RequestParam(required = false) Integer year, @RequestParam(required = false) Integer month) {
         return ResponseUtil.ok(
-                accountBookChartService.getStoreChart(
-                        accountBookId,
-                        year,
-                        month,
-                        userPrincipal.getId()
-                )
-        );
+                accountBookChartService.getStoreChart(accountBookId, year, month, userPrincipal.getId()));
     }
 }

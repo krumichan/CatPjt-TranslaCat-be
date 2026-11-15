@@ -15,8 +15,8 @@ final class JobTelemetry {
     private final List<Map<String, Object>> chunks = new ArrayList<>();
 
     JobTelemetry(NovelRepository store, NovelRepository.Job owner, String traceId, long started,
-                 TranslationPlanner.Plan plan, double planningMs, int globalLimit, long deadlineMillis,
-                 String profileIdentity) {
+            TranslationPlanner.Plan plan, double planningMs, int globalLimit, long deadlineMillis,
+            String profileIdentity) {
         this.store = store;
         this.owner = owner;
         this.started = started;
@@ -38,7 +38,9 @@ final class JobTelemetry {
         values.put("segmentationVersion", plan.segmentationVersion());
         values.put("validationPolicy", plan.validationPolicy());
         values.put("annotationPolicy", plan.annotationPolicy());
-        values.put("schemaVersion", jp.co.translacat.novel.domain.TranslationOptions.ResponseShape.valueOf(plan.responseShape()).schemaVersion());
+        values.put("schemaVersion",
+                jp.co.translacat.novel.domain.TranslationOptions.ResponseShape.valueOf(plan.responseShape())
+                        .schemaVersion());
         values.put("adjustmentReasons", plan.adjustmentReasons());
         values.put("planningMs", planningMs);
         values.put("executionDeadlineMs", deadlineMillis);
@@ -88,10 +90,13 @@ final class JobTelemetry {
         // 성공 상태 commit 반환 뒤의 관측 시각이며 FE 표시 완료나 응답 전달 시간은 아니다.
         values.put("finishCommitMs", finishCommitMs);
         values.put("jobElapsedMs", RequestTrace.elapsed(started));
-        if (durable) values.put("durableCompleteMs", RequestTrace.elapsed(started));
+        if (durable)
+            values.put("durableCompleteMs", RequestTrace.elapsed(started));
         publish();
     }
 
     // 저장소가 owner/fence를 검사하므로 취소·소유권 변경 후 계측도 이전 실행에서 덮지 않는다.
-    private void publish() { store.saveDiagnostics(owner, values); }
+    private void publish() {
+        store.saveDiagnostics(owner, values);
+    }
 }

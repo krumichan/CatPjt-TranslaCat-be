@@ -18,17 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/language-learning/profile")
 @RequiredArgsConstructor
 public class LanguageLearningProfileController {
-
     private final LearningProfileQueryService profileQueryService;
 
     @GetMapping
-    public ResponseDto<ProfileResponseDto> get(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
-    ) {
-        return ResponseUtil.ok(
-                profileQueryService.getProfile(
-                        SecurityUtil.getLoginUserId(userPrincipal)
-                )
-        );
+    public ResponseDto<ProfileResponseDto> get(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+        return ResponseUtil.ok(profileQueryService.getProfile(SecurityUtil.getLoginUserId(userPrincipal)));
     }
 }

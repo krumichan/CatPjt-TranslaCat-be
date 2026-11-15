@@ -29,13 +29,12 @@ public class NovelContext extends BaseContext<Novel> {
 
     @Override
     protected List<TranslationComparison> getTranslationComparisons(Novel existing) {
-        return List.of(
-                TranslationComparison.builder()
-                        .unit(title)
-                        .dbRawJa(Objects.isNull(existing) ? null : existing.getTitle())
-                        .dbJa(Objects.isNull(existing) ? null : existing.getTitleJa())
-                        .dbKo(Objects.isNull(existing) ? null : existing.getTitleKo())
-                        .build(),
+        return List.of(TranslationComparison.builder()
+                               .unit(title)
+                               .dbRawJa(Objects.isNull(existing) ? null : existing.getTitle())
+                               .dbJa(Objects.isNull(existing) ? null : existing.getTitleJa())
+                               .dbKo(Objects.isNull(existing) ? null : existing.getTitleKo())
+                               .build(),
                 TranslationComparison.builder()
                         .unit(author)
                         .dbRawJa(Objects.isNull(existing) ? null : existing.getAuthor().getName())
@@ -53,7 +52,6 @@ public class NovelContext extends BaseContext<Novel> {
                         .dbRawJa(Objects.isNull(existing) ? null : existing.getSynopsis())
                         .dbJa(Objects.isNull(existing) ? null : existing.getSynopsisJa())
                         .dbKo(Objects.isNull(existing) ? null : existing.getSynopsisKo())
-                        .build()
-        );
+                        .build());
     }
 }

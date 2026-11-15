@@ -6,6 +6,5 @@ import jp.co.translacat.domain.accountbook.accountbook.dto.AccountBookSearchRequ
 import java.util.List;
 
 public interface AccountBookRepositoryCustom {
-
     List<AccountBookResponseDto> search(Long userId, AccountBookSearchRequestDto condition);
 }

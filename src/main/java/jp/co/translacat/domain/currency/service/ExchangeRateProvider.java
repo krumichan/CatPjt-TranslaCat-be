@@ -11,6 +11,5 @@ public interface ExchangeRateProvider {
 
     Quote fetch(String source, String target, LocalDate requestedDate);
 
-    record Quote(BigDecimal rate, LocalDate effectiveDate) {
-    }
+    record Quote(BigDecimal rate, LocalDate effectiveDate) {}
 }

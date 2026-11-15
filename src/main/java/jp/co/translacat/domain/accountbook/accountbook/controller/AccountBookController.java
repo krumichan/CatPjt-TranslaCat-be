@@ -21,53 +21,37 @@ import java.util.List;
 @RequestMapping("/api/v1/account-books")
 @RequiredArgsConstructor
 public class AccountBookController {
-
     private final AccountBookService accountBookService;
 
     @GetMapping
-    @Operation(summary = "가계부 목록 조회", description = "특정 유저 또는 그룹에 등록되어 있는 가계부 목록을 조회한다.")
-    public ResponseDto<List<AccountBookResponseDto>> list(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @ModelAttribute AccountBookSearchRequestDto searchDto
-    ) {
-        return ResponseUtil.ok(
-                accountBookService.list(userPrincipal.getId(), searchDto)
-        );
+    @Operation(
+            summary = "가계부 목록 조회", description = "특정 유저 또는 그룹에 등록되어 있는 가계부 목록을 조회한다.")
+    public ResponseDto<List<AccountBookResponseDto>>
+    list(@AuthenticationPrincipal UserPrincipal userPrincipal, @ModelAttribute AccountBookSearchRequestDto searchDto) {
+        return ResponseUtil.ok(accountBookService.list(userPrincipal.getId(), searchDto));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "가계부 등록", description = "특정 유저 또는 그룹에 가계부를 등록한다.")
     public ResponseDto<AccountBookResponseDto> register(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @Valid @RequestBody AccountBookCreateRequestDto dto
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @Valid @RequestBody AccountBookCreateRequestDto dto) {
         return ResponseUtil.created(accountBookService.register(userPrincipal.getId(), dto));
     }
 
     @GetMapping("/{accountBookId}")
     @Operation(summary = "가계부 상세 조회", description = "등록되어 있는 가계부 상세를 조회한다.")
     public ResponseDto<AccountBookResponseDto> get(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId
-    ) {
-        return ResponseUtil.ok(
-                accountBookService.get(userPrincipal.getId(), accountBookId)
-        );
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId) {
+        return ResponseUtil.ok(accountBookService.get(userPrincipal.getId(), accountBookId));
     }
 
     @PutMapping("/{accountBookId}")
     @Operation(summary = "가계부 수정", description = "등록되어 있는 가계부 내용을 수정한다.")
-    public ResponseDto<AccountBookResponseDto> updateAccountBook(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId,
-            @RequestBody @Valid AccountBookUpdateRequestDto request
-    ) {
-        AccountBookResponseDto response = accountBookService.updateAccountBook(
-                accountBookId,
-                request,
-                userPrincipal.getId()
-        );
+    public ResponseDto<AccountBookResponseDto> updateAccountBook(@AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long accountBookId, @RequestBody @Valid AccountBookUpdateRequestDto request) {
+        AccountBookResponseDto response =
+                accountBookService.updateAccountBook(accountBookId, request, userPrincipal.getId());
 
         return ResponseUtil.ok(response);
     }
@@ -75,9 +59,7 @@ public class AccountBookController {
     @DeleteMapping("/{accountBookId}")
     @Operation(summary = "가계부 삭제", description = "등록되어 있는 가계부를 삭제 상태로 전환한다.")
     public ResponseDto<Boolean> deleteAccountBook(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId) {
         return ResponseUtil.ok(accountBookService.deleteAccountBook(accountBookId, userPrincipal.getId()));
     }
 }

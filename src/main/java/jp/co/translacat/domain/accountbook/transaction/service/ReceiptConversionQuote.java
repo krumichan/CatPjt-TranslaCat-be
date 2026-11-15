@@ -22,28 +22,17 @@ final class ReceiptConversionQuote {
         return id(value, accountBookId, null);
     }
 
-    static String id(
-            ReceiptConversionResponseDto value, Long accountBookId, String amountFingerprint) {
-        if (!value.registrable()) return null;
-        String canonical = String.join(
-                "|",
-                text(accountBookId),
-                text(value.originalCurrencyCode()),
-                decimal(value.originalAmount()),
-                text(value.accountBookCurrencyCode()),
-                decimal(value.convertedAmount()),
-                decimal(value.exchangeRate()),
-                text(value.requestedRateDate()),
-                text(value.effectiveRateDate()),
-                text(value.exchangeRateProvider()),
-                text(value.rateFetchedAt()),
-                Integer.toString(value.roundingPrecision()),
-                text(value.roundingMode()),
-                text(value.conversionPolicyVersion()),
-                text(amountFingerprint));
+    static String id(ReceiptConversionResponseDto value, Long accountBookId, String amountFingerprint) {
+        if (!value.registrable())
+            return null;
+        String canonical = String.join("|", text(accountBookId), text(value.originalCurrencyCode()),
+                decimal(value.originalAmount()), text(value.accountBookCurrencyCode()),
+                decimal(value.convertedAmount()), decimal(value.exchangeRate()), text(value.requestedRateDate()),
+                text(value.effectiveRateDate()), text(value.exchangeRateProvider()), text(value.rateFetchedAt()),
+                Integer.toString(value.roundingPrecision()), text(value.roundingMode()),
+                text(value.conversionPolicyVersion()), text(amountFingerprint));
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(canonical.getBytes(StandardCharsets.UTF_8));
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 is unavailable.", impossible);

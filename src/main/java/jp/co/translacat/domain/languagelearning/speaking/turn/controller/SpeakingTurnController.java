@@ -18,98 +18,45 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/language-learning/speaking/sessions/{sessionId}")
 @RequiredArgsConstructor
 public class SpeakingTurnController {
-
     private final SpeakingTurnFacade turnFacade;
 
     @PostMapping("/turns/upload-url")
     public ResponseDto<SpeakingTurnUploadGrantResponseDto> createUploadGrant(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId,
-            @org.springframework.web.bind.annotation.RequestBody SpeakingTurnUploadGrantRequestDto request
-    ) {
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId,
+            @org.springframework.web.bind.annotation.RequestBody SpeakingTurnUploadGrantRequestDto request) {
         return ResponseUtil.ok(
-                turnFacade.createUploadGrant(
-                        SecurityUtil.getLoginUserId(principal),
-                        sessionId,
-                        request
-                )
-        );
+                turnFacade.createUploadGrant(SecurityUtil.getLoginUserId(principal), sessionId, request));
     }
 
     @PostMapping("/turns/{turnId}/rerecord/upload-url")
     public ResponseDto<SpeakingTurnUploadGrantResponseDto> createRerecordUploadGrant(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId,
-            @PathVariable Long turnId
-    ) {
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId, @PathVariable Long turnId) {
         return ResponseUtil.ok(
-                turnFacade.createRerecordUploadGrant(
-                        SecurityUtil.getLoginUserId(principal),
-                        sessionId,
-                        turnId
-                )
-        );
+                turnFacade.createRerecordUploadGrant(SecurityUtil.getLoginUserId(principal), sessionId, turnId));
     }
 
     @PostMapping(value = "/turns", consumes = "multipart/form-data")
-    public ResponseDto<SpeakingTurnResponseDto> process(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId,
-            @RequestPart("context") SpeakingTurnProcessRequestDto request,
-            @RequestPart("audio") MultipartFile audio
-    ) {
-        return ResponseUtil.ok(
-                turnFacade.process(
-                        SecurityUtil.getLoginUserId(principal),
-                        sessionId,
-                        request,
-                        audio
-                )
-        );
+    public ResponseDto<SpeakingTurnResponseDto> process(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long sessionId, @RequestPart("context") SpeakingTurnProcessRequestDto request,
+            @RequestPart("audio") MultipartFile audio) {
+        return ResponseUtil.ok(turnFacade.process(SecurityUtil.getLoginUserId(principal), sessionId, request, audio));
     }
 
     @GetMapping("/turns/{turnId}")
     public ResponseDto<SpeakingTurnResponseDto> get(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId,
-            @PathVariable Long turnId
-    ) {
-        return ResponseUtil.ok(
-                turnFacade.get(
-                        SecurityUtil.getLoginUserId(principal),
-                        sessionId,
-                        turnId
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId, @PathVariable Long turnId) {
+        return ResponseUtil.ok(turnFacade.get(SecurityUtil.getLoginUserId(principal), sessionId, turnId));
     }
 
     @PostMapping("/turns/{turnId}/retry")
     public ResponseDto<SpeakingTurnResponseDto> retry(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId,
-            @PathVariable Long turnId
-    ) {
-        return ResponseUtil.ok(
-                turnFacade.retry(
-                        SecurityUtil.getLoginUserId(principal),
-                        sessionId,
-                        turnId
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId, @PathVariable Long turnId) {
+        return ResponseUtil.ok(turnFacade.retry(SecurityUtil.getLoginUserId(principal), sessionId, turnId));
     }
 
     @PostMapping("/turns/{turnId}/exclude")
     public ResponseDto<SpeakingTurnResponseDto> exclude(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId,
-            @PathVariable Long turnId
-    ) {
-        return ResponseUtil.ok(
-                turnFacade.exclude(
-                        SecurityUtil.getLoginUserId(principal),
-                        sessionId,
-                        turnId
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId, @PathVariable Long turnId) {
+        return ResponseUtil.ok(turnFacade.exclude(SecurityUtil.getLoginUserId(principal), sessionId, turnId));
     }
 }

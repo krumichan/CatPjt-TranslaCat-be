@@ -13,7 +13,6 @@ import java.util.List;
  */
 public record PracticeReportSnapshot(List<SetFact> sets) {
     public record SetFact(Long setId, LocalDate learningDate, PracticeDomain domain, String mode,
-                          PracticeSetStatus status, int questionCount, int answeredCount, Double officialScore,
-                          LocalDateTime startedAt, LocalDateTime completedAt, List<PracticeMetricResponseDto> metrics) {
-    }
+            PracticeSetStatus status, int questionCount, int answeredCount, Double officialScore,
+            LocalDateTime startedAt, LocalDateTime completedAt, List<PracticeMetricResponseDto> metrics) {}
 }

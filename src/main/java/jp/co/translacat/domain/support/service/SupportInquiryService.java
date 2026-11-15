@@ -20,7 +20,6 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SupportInquiryService {
-
     private final SupportInquiryRepository inquiryRepository;
     private final SupportReplyRepository replyRepository;
     private final SupportMessageRepository messageRepository;
@@ -28,21 +27,17 @@ public class SupportInquiryService {
     private final SupportNotificationService notificationService;
 
     public SupportPageResponseDto<InquiryResponseDto> list(
-            Long actorId, InquiryStatus status, String search, int page, int size
-    ) {
+            Long actorId, InquiryStatus status, String search, int page, int size) {
         // 관리자 여부를 서버에서 판정하여 조회 조건에 소유권을 포함한다.
         User actor = accessService.user(actorId);
-        Page<SupportInquiry> result = inquiryRepository.search(
-                accessService.isAdmin(actor), actorId, status, accessService.searchPattern(search),
-                accessService.page(page, size, Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("id")))
-        );
+        Page<SupportInquiry> result = inquiryRepository.search(accessService.isAdmin(actor), actorId, status,
+                accessService.searchPattern(search),
+                accessService.page(page, size, Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("id"))));
 
         Set<Long> unreadIds = notificationService.unreadTargets(
-                actorId, SupportTargetType.INQUIRY, result.map(SupportInquiry::getId).getContent()
-        );
+                actorId, SupportTargetType.INQUIRY, result.map(SupportInquiry::getId).getContent());
         return SupportPageResponseDto.from(
-                result, inquiry -> InquiryResponseDto.from(inquiry, List.of(), unreadIds.contains(inquiry.getId()))
-        );
+                result, inquiry -> InquiryResponseDto.from(inquiry, List.of(), unreadIds.contains(inquiry.getId())));
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -62,18 +57,14 @@ public class SupportInquiryService {
         User actor = accessService.user(actorId);
         if (request.relatedMessageId() != null) {
             SupportMessage message = messageRepository.findLockedById(request.relatedMessageId())
-                    .orElseThrow(SupportException::notFound);
+                                             .orElseThrow(SupportException::notFound);
             if (!message.getRecipient().getId().equals(actorId)) {
                 throw SupportException.notFound();
             }
         }
 
-        SupportInquiry inquiry = inquiryRepository.saveAndFlush(
-                SupportInquiry.create(
-                        actor, request.title().strip(), request.content().strip(),
-                        request.category(), request.relatedMessageId()
-                )
-        );
+        SupportInquiry inquiry = inquiryRepository.saveAndFlush(SupportInquiry.create(actor, request.title().strip(),
+                request.content().strip(), request.category(), request.relatedMessageId()));
 
         notificationService.notifyAdmins(actorId, inquiry.getId(), null, inquiry.getTitle());
         return InquiryResponseDto.from(inquiry, List.of(), false);
@@ -89,15 +80,12 @@ public class SupportInquiryService {
         inquiry.addReply(admin);
 
         SupportReply reply = replyRepository.saveAndFlush(
-                SupportReply.create(inquiry, actor, admin, request.content().strip(), parent)
-        );
+                SupportReply.create(inquiry, actor, admin, request.content().strip(), parent));
 
         // 답변 내용과 알림을 같은 트랜잭션에서 저장한다.
         if (admin) {
-            notificationService.notifyUser(
-                    inquiry.getUser(), actorId, SupportNotificationType.SUPPORT_REPLY,
-                    SupportTargetType.INQUIRY, inquiryId, reply.getId(), inquiry.getTitle()
-            );
+            notificationService.notifyUser(inquiry.getUser(), actorId, SupportNotificationType.SUPPORT_REPLY,
+                    SupportTargetType.INQUIRY, inquiryId, reply.getId(), inquiry.getTitle());
         } else {
             notificationService.notifyAdmins(actorId, inquiryId, reply.getId(), inquiry.getTitle());
         }
@@ -123,8 +111,7 @@ public class SupportInquiryService {
     }
 
     private SupportInquiry accessibleInquiry(User actor, Long inquiryId) {
-        SupportInquiry inquiry = inquiryRepository.findLockedById(inquiryId)
-                .orElseThrow(SupportException::notFound);
+        SupportInquiry inquiry = inquiryRepository.findLockedById(inquiryId).orElseThrow(SupportException::notFound);
         accessService.requireOwnerOrAdmin(actor, inquiry.getUser().getId());
         return inquiry;
     }
@@ -140,7 +127,6 @@ public class SupportInquiryService {
     }
 
     private List<ReplyResponseDto> replies(Long inquiryId) {
-        return replyRepository.findByInquiry_IdOrderByIdAsc(inquiryId)
-                .stream().map(ReplyResponseDto::from).toList();
+        return replyRepository.findByInquiry_IdOrderByIdAsc(inquiryId).stream().map(ReplyResponseDto::from).toList();
     }
 }

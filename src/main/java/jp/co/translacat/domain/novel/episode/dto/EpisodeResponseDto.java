@@ -30,12 +30,14 @@ public class EpisodeResponseDto {
     }
 
     public static EpisodeResponseDto of(EpisodePagerContext pagerContext, TranslationUnit title,
-                                        List<EpisodeContentContext> contents, NovelRubyFormatter ruby) {
+            List<EpisodeContentContext> contents, NovelRubyFormatter ruby) {
         EpisodeResponseDto result = of(pagerContext, title, contents);
         // 기존 번역/DB 값은 그대로 두고 구형 회차 API의 표시용 ja만 보충한다.
         result.title = TranslationUnit.of(title.getRawJa(), ruby.markup(title.getRawJa()), title.getKo());
-        result.contents = result.contents.stream().map(unit -> TranslationUnit.of(
-                unit.getRawJa(), ruby.markup(unit.getRawJa()), unit.getKo())).toList();
+        result.contents =
+                result.contents.stream()
+                        .map(unit -> TranslationUnit.of(unit.getRawJa(), ruby.markup(unit.getRawJa()), unit.getKo()))
+                        .toList();
         return result;
     }
 }

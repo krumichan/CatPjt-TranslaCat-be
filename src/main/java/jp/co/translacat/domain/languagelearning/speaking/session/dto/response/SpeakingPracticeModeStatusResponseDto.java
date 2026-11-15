@@ -5,16 +5,6 @@ import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingPr
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingResultKind;
 import jp.co.translacat.domain.languagelearning.speaking.common.enums.SpeakingSessionStatus;
 
-public record SpeakingPracticeModeStatusResponseDto(
-        SpeakingPracticeMode practiceMode,
-        Long sessionId,
-        SpeakingSessionStatus sessionStatus,
-        SpeakingEvaluationStatus evaluationStatus,
-        SpeakingResultKind resultKind,
-        String resultPolicyVersion,
-        String resultStatus,
-        int completedTurns,
-        int maxTurns,
-        boolean completed
-) {
-}
+public record SpeakingPracticeModeStatusResponseDto(SpeakingPracticeMode practiceMode, Long sessionId,
+        SpeakingSessionStatus sessionStatus, SpeakingEvaluationStatus evaluationStatus, SpeakingResultKind resultKind,
+        String resultPolicyVersion, String resultStatus, int completedTurns, int maxTurns, boolean completed) {}

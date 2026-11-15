@@ -30,17 +30,16 @@ public class MobileAuthService {
     private final AuthAttemptLimiter attempts;
     private final Clock clock;
 
-    @PersistenceContext
-    private EntityManager entities;
+    @PersistenceContext private EntityManager entities;
 
     @Autowired
     public MobileAuthService(MobileAuthRequestRepository requests, MobileAuthRedirects redirects,
-                             AuthSessionService sessions, UserRepository users, AuthAttemptLimiter attempts) {
+            AuthSessionService sessions, UserRepository users, AuthAttemptLimiter attempts) {
         this(requests, redirects, sessions, users, attempts, Clock.systemUTC());
     }
 
-    MobileAuthService(MobileAuthRequestRepository requests, MobileAuthRedirects redirects,
-                      AuthSessionService sessions, UserRepository users, AuthAttemptLimiter attempts, Clock clock) {
+    MobileAuthService(MobileAuthRequestRepository requests, MobileAuthRedirects redirects, AuthSessionService sessions,
+            UserRepository users, AuthAttemptLimiter attempts, Clock clock) {
         this.requests = requests;
         this.redirects = redirects;
         this.sessions = sessions;
@@ -59,8 +58,8 @@ public class MobileAuthService {
 
         Instant now = clock.instant();
         String requestId = UUID.randomUUID().toString();
-        requests.saveAndFlush(MobileAuthRequest.create(requestId, codeChallenge, state, redirectUri,
-                now, now.plusSeconds(REQUEST_TTL_SECONDS)));
+        requests.saveAndFlush(MobileAuthRequest.create(
+                requestId, codeChallenge, state, redirectUri, now, now.plusSeconds(REQUEST_TTL_SECONDS)));
         return new RequestResponse(requestId, REQUEST_TTL_SECONDS);
     }
 
@@ -69,22 +68,27 @@ public class MobileAuthService {
         // HTTP 경계는 BFF 서명을 확인하며 승인 주체는 검증된 Bearer principal만 사용한다.
         // 같은 요청의 다른 승인·교환과 행 잠금을 공유한다.
         String id = requireRequestId(requestId);
-        if (userId == null || userId <= 0) throw invalidProof();
+        if (userId == null || userId <= 0)
+            throw invalidProof();
         acquire("MOBILE_APPROVE_USER", String.valueOf(userId));
         MobileAuthRequest request = lock(id);
         Instant now = clock.instant();
         requireNotExpired(request, now);
         redirects.requireAllowed(request.getRedirectUri());
-        if (request.getConsumedAt() != null) throw alreadyUsed();
+        if (request.getConsumedAt() != null)
+            throw alreadyUsed();
         if (request.getApprovedAt() != null) {
-            throw new AuthException(HttpStatus.CONFLICT, "MOBILE_AUTH_ALREADY_APPROVED", "이미 승인한 로그인 요청입니다.");
+            throw new AuthException(
+                    HttpStatus.CONFLICT, "MOBILE_AUTH_ALREADY_APPROVED", "이미 승인한 로그인 요청입니다.");
         }
-        if (!users.findById(userId).map(user -> user.isActiveAccount()).orElse(false)) throw invalidProof();
+        if (!users.findById(userId).map(user -> user.isActiveAccount()).orElse(false))
+            throw invalidProof();
 
         // 원문 코드는 이 응답 한 번에만 반환한다. 요청 전체 300초와 코드 최대 60초를 함께 지킨다.
         String code = MobileAuthProofs.issueCode();
         Instant codeExpiry = now.plusSeconds(CODE_TTL_SECONDS);
-        if (codeExpiry.isAfter(request.getExpiresAt())) codeExpiry = request.getExpiresAt();
+        if (codeExpiry.isAfter(request.getExpiresAt()))
+            codeExpiry = request.getExpiresAt();
         request.approve(userId, MobileAuthProofs.hash(code), now, codeExpiry);
         return new AuthorizeResponse(request.getRedirectUri(), code, request.getState());
     }
@@ -101,28 +105,36 @@ public class MobileAuthService {
         // 탈퇴가 user→승인 요청 순서로 정리하므로 교환도 같은 순서로 잠근다.
         // 아래 잠금 안에서 승인 소유자를 재검사하므로 이 예비 조회를 권한 증명으로 사용하지 않는다.
         MobileAuthRequest preliminary = requests.findById(id).orElseThrow(this::invalidProof);
-        if (preliminary.getApprovedUserId() == null) throw invalidProof();
+        if (preliminary.getApprovedUserId() == null)
+            throw invalidProof();
         var user = users.findLockedById(preliminary.getApprovedUserId()).orElseThrow(this::invalidProof);
         entities.refresh(user, LockModeType.PESSIMISTIC_WRITE);
-        if (!user.isActiveAccount()) throw invalidProof();
+        if (!user.isActiveAccount())
+            throw invalidProof();
         MobileAuthRequest request = lock(id);
         entities.refresh(request, LockModeType.PESSIMISTIC_WRITE);
         Instant now = clock.instant();
         requireNotExpired(request, now);
         redirects.requireAllowed(request.getRedirectUri());
-        if (request.getConsumedAt() != null) throw alreadyUsed();
-        if (request.getApprovedUserId() == null || request.getCodeExpiresAt() == null) throw invalidProof();
+        if (request.getConsumedAt() != null)
+            throw alreadyUsed();
+        if (request.getApprovedUserId() == null || request.getCodeExpiresAt() == null)
+            throw invalidProof();
         // 비밀번호 재설정 전에 시작된 승인 교환으로 기존 로그인을 되살리지 않는다.
         if (user.getPasswordResetAt() != null && !request.getCreatedAt().isAfter(user.getPasswordResetAt())) {
             throw invalidProof();
         }
-        if (!request.getCodeExpiresAt().isAfter(now)) throw expired();
+        if (!request.getCodeExpiresAt().isAfter(now))
+            throw expired();
         boolean codeMatches = MobileAuthProofs.same(request.getCodeHash(), MobileAuthProofs.hash(code));
-        boolean pkceMatches = MobileAuthProofs.same(request.getCodeChallenge(), MobileAuthProofs.challenge(codeVerifier));
-        if (!codeMatches || !pkceMatches) throw invalidProof();
+        boolean pkceMatches =
+                MobileAuthProofs.same(request.getCodeChallenge(), MobileAuthProofs.challenge(codeVerifier));
+        if (!codeMatches || !pkceMatches)
+            throw invalidProof();
 
         // 일회용 소비와 독립 sid 생성은 같은 트랜잭션이다. 발급 실패 시 요청 소비도 되돌린다.
-        if (!user.getId().equals(request.getApprovedUserId())) throw invalidProof();
+        if (!user.getId().equals(request.getApprovedUserId()))
+            throw invalidProof();
         request.consume(now);
         return sessions.create(user);
     }
@@ -130,19 +142,24 @@ public class MobileAuthService {
     @Scheduled(fixedDelayString = "${auth.mobile.cleanup-delay-ms:60000}",
             initialDelayString = "${auth.mobile.cleanup-initial-delay-ms:60000}")
     @Transactional
-    public void cleanupExpired() {
+    public void
+    cleanupExpired() {
         // 한 번에 최대 500개만 정리해 긴 삭제 트랜잭션과 원문 로그를 만들지 않는다.
         var expired = requests.findExpiredIds(clock.instant(), PageRequest.of(0, 500));
-        if (!expired.isEmpty()) requests.deleteAllByIdInBatch(expired);
+        if (!expired.isEmpty())
+            requests.deleteAllByIdInBatch(expired);
     }
 
     private MobileAuthRequest lock(String id) {
-        return requests.lockById(id).orElseThrow(() ->
-                new AuthException(HttpStatus.BAD_REQUEST, "MOBILE_AUTH_INVALID_REQUEST", "로그인 요청을 다시 시작해 주세요."));
+        return requests.lockById(id).orElseThrow(
+                ()
+                        -> new AuthException(HttpStatus.BAD_REQUEST, "MOBILE_AUTH_INVALID_REQUEST",
+                                "로그인 요청을 다시 시작해 주세요."));
     }
 
     private void requireNotExpired(MobileAuthRequest request, Instant now) {
-        if (!request.getExpiresAt().isAfter(now)) throw expired();
+        if (!request.getExpiresAt().isAfter(now))
+            throw expired();
     }
 
     private String requireRequestId(String value) {
@@ -152,7 +169,8 @@ public class MobileAuthService {
 
     private void requireMatch(String value, String pattern) {
         if (value == null || value.length() > 128 || !value.matches(pattern)) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "MOBILE_AUTH_INVALID_INPUT", "앱 로그인 입력값을 확인해 주세요.");
+            throw new AuthException(
+                    HttpStatus.BAD_REQUEST, "MOBILE_AUTH_INVALID_INPUT", "앱 로그인 입력값을 확인해 주세요.");
         }
     }
 
@@ -165,27 +183,28 @@ public class MobileAuthService {
         try {
             attempts.acquire(purpose, identity);
         } catch (AuthException failure) {
-            if (failure.getStatus() != HttpStatus.TOO_MANY_REQUESTS) throw failure;
+            if (failure.getStatus() != HttpStatus.TOO_MANY_REQUESTS)
+                throw failure;
             throw new AuthException(HttpStatus.TOO_MANY_REQUESTS, "MOBILE_AUTH_RATE_LIMITED",
                     "앱 로그인 요청이 많습니다. 잠시 후 다시 시도해 주세요.", failure.getRetryAfterSeconds());
         }
     }
 
     private AuthException invalidProof() {
-        return new AuthException(HttpStatus.UNAUTHORIZED, "MOBILE_AUTH_INVALID_PROOF", "앱 로그인 확인에 실패했습니다. 다시 시작해 주세요.");
+        return new AuthException(HttpStatus.UNAUTHORIZED, "MOBILE_AUTH_INVALID_PROOF",
+                "앱 로그인 확인에 실패했습니다. 다시 시작해 주세요.");
     }
 
     private AuthException expired() {
-        return new AuthException(HttpStatus.GONE, "MOBILE_AUTH_EXPIRED", "앱 로그인 요청이 만료되었습니다. 다시 시작해 주세요.");
+        return new AuthException(
+                HttpStatus.GONE, "MOBILE_AUTH_EXPIRED", "앱 로그인 요청이 만료되었습니다. 다시 시작해 주세요.");
     }
 
     private AuthException alreadyUsed() {
         return new AuthException(HttpStatus.CONFLICT, "MOBILE_AUTH_ALREADY_USED", "이미 완료한 앱 로그인 요청입니다.");
     }
 
-    public record RequestResponse(String requestId, long expiresIn) {
-    }
+    public record RequestResponse(String requestId, long expiresIn) {}
 
-    public record AuthorizeResponse(String redirectUri, String code, String state) {
-    }
+    public record AuthorizeResponse(String redirectUri, String code, String state) {}
 }

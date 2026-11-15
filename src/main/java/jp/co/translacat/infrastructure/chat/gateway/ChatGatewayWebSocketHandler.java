@@ -15,8 +15,8 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
-        implements SubProtocolCapable, DisposableBean {
+public final class ChatGatewayWebSocketHandler
+        extends AbstractWebSocketHandler implements SubProtocolCapable, DisposableBean {
     static final String SERVICE_HEADER = "X-Chat-Service-Authorization";
     static final int MAX_BYTES = 64 * 1024;
     private final ChatGatewayUserAuthenticator users;
@@ -28,15 +28,18 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
     private final AtomicBoolean stopping = new AtomicBoolean();
 
     public ChatGatewayWebSocketHandler(ChatGatewayProperties properties, ChatGatewayTarget target,
-                                       ChatGatewayTokenIssuer tokens, ChatGatewayUserAuthenticator users) {
+            ChatGatewayTokenIssuer tokens, ChatGatewayUserAuthenticator users) {
         this(properties, tokens, users, (browser, serviceToken, listener) -> {
-            var builder = target.httpClient().newWebSocketBuilder()
-                    .connectTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
-                    .header(SERVICE_HEADER, "Bearer " + serviceToken);
+            var builder = target.httpClient()
+                                  .newWebSocketBuilder()
+                                  .connectTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
+                                  .header(SERVICE_HEADER, "Bearer " + serviceToken);
             String protocol = browser.getAcceptedProtocol();
-            if (protocol != null && !protocol.isBlank()) builder.subprotocols(protocol);
+            if (protocol != null && !protocol.isBlank())
+                builder.subprotocols(protocol);
             String origin = browser.getHandshakeHeaders().getOrigin();
-            if (origin != null) builder.header("Origin", origin);
+            if (origin != null)
+                builder.header("Origin", origin);
             return builder.buildAsync(target.webSocketUri(), listener);
         }, Executors.newSingleThreadScheduledExecutor(action -> {
             var thread = new Thread(action, "chat-gateway-websocket-timeouts");
@@ -46,8 +49,7 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
     }
 
     ChatGatewayWebSocketHandler(ChatGatewayProperties properties, ChatGatewayTokenIssuer tokens,
-                                ChatGatewayUserAuthenticator users, Connector connector,
-                                ScheduledExecutorService scheduler) {
+            ChatGatewayUserAuthenticator users, Connector connector, ScheduledExecutorService scheduler) {
         this.timeoutSeconds = properties.getTimeoutSeconds();
         this.tokens = tokens;
         this.users = users;
@@ -81,8 +83,8 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
         var bridge = new Bridge(session);
         bridges.put(session.getId(), bridge);
         try {
-            bridge.deadline = scheduler.schedule(() -> close(bridge, CloseStatus.POLICY_VIOLATION),
-                    timeoutSeconds, TimeUnit.SECONDS);
+            bridge.deadline = scheduler.schedule(
+                    () -> close(bridge, CloseStatus.POLICY_VIOLATION), timeoutSeconds, TimeUnit.SECONDS);
         } catch (RuntimeException ignored) {
             close(bridge, CloseStatus.GOING_AWAY);
         }
@@ -91,7 +93,8 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {
         var bridge = bridges.get(session.getId());
-        if (bridge == null || bridge.closed.get()) return;
+        if (bridge == null || bridge.closed.get())
+            return;
 
         String authorization = null;
         try {
@@ -102,7 +105,8 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
                     close(bridge, CloseStatus.TOO_BIG_TO_PROCESS);
                     return;
                 }
-                if (!message.isLast()) return;
+                if (!message.isLast())
+                    return;
                 String complete = bridge.fragment.toString();
                 bridge.fragment.setLength(0);
                 if (bridge.upstream != null) {
@@ -115,9 +119,11 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
                     close(bridge, CloseStatus.TOO_BIG_TO_PROCESS);
                     return;
                 }
-                if (bridge.authStarted) return;
+                if (bridge.authStarted)
+                    return;
                 authorization = connectAuthorization(bridge.pending.toString().getBytes(StandardCharsets.UTF_8));
-                if (authorization == null) return;
+                if (authorization == null)
+                    return;
                 bridge.authStarted = true;
             }
 
@@ -128,11 +134,13 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
                 return;
             }
             bridge.authorization = authorization;
-            if (bridge.closed.get()) return;
-            var connecting = connector.connect(session, tokens.issue(principal.getId(), "chat:realtime"),
-                    new UpstreamListener(bridge));
+            if (bridge.closed.get())
+                return;
+            var connecting = connector.connect(
+                    session, tokens.issue(principal.getId(), "chat:realtime"), new UpstreamListener(bridge));
             bridge.connecting = connecting;
-            if (bridge.closed.get()) connecting.cancel(true);
+            if (bridge.closed.get())
+                connecting.cancel(true);
             connecting.orTimeout(timeoutSeconds, TimeUnit.SECONDS).whenComplete((upstream, failure) -> {
                 if (failure != null) {
                     close(bridge, CloseStatus.SERVER_ERROR);
@@ -183,41 +191,50 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
             return;
         }
         synchronized (bridge.sendLock) {
-            bridge.sends = bridge.sends.thenCompose(ignored -> {
-                if (bridge.closed.get()) return CompletableFuture.failedFuture(new IllegalStateException());
-                if (!activeSession(bridge)) return CompletableFuture.failedFuture(new IllegalStateException());
-                return bridge.upstream.sendText(text, true).thenApply(sent -> (Void) null);
-            }).orTimeout(timeoutSeconds, TimeUnit.SECONDS).whenComplete((ignored, failure) -> {
-                bridge.queuedBytes.addAndGet(-bytes);
-                bridge.queuedMessages.decrementAndGet();
-                if (failure != null) close(bridge, CloseStatus.SERVER_ERROR);
-            });
+            bridge.sends = bridge.sends
+                                   .thenCompose(ignored -> {
+                                       if (bridge.closed.get())
+                                           return CompletableFuture.failedFuture(new IllegalStateException());
+                                       if (!activeSession(bridge))
+                                           return CompletableFuture.failedFuture(new IllegalStateException());
+                                       return bridge.upstream.sendText(text, true).thenApply(sent -> (Void) null);
+                                   })
+                                   .orTimeout(timeoutSeconds, TimeUnit.SECONDS)
+                                   .whenComplete((ignored, failure) -> {
+                                       bridge.queuedBytes.addAndGet(-bytes);
+                                       bridge.queuedMessages.decrementAndGet();
+                                       if (failure != null)
+                                           close(bridge, CloseStatus.SERVER_ERROR);
+                                   });
         }
     }
 
     private boolean activeSession(Bridge bridge) {
         // 대기 중인 송신과 수신 모두 전달 직전에 검사해 logout 뒤 이어지는 frame을 차단한다.
-        if (users.isSessionActive(bridge.authorization)) return true;
+        if (users.isSessionActive(bridge.authorization))
+            return true;
         close(bridge, CloseStatus.POLICY_VIOLATION);
         return false;
     }
 
     private void close(Bridge bridge, CloseStatus status) {
-        if (bridge == null || !bridge.closed.compareAndSet(false, true)) return;
+        if (bridge == null || !bridge.closed.compareAndSet(false, true))
+            return;
         bridges.remove(bridge.browser.getId(), bridge);
-        if (bridge.deadline != null) bridge.deadline.cancel(false);
-        if (bridge.connecting != null && !bridge.connecting.isDone()) bridge.connecting.cancel(true);
+        if (bridge.deadline != null)
+            bridge.deadline.cancel(false);
+        if (bridge.connecting != null && !bridge.connecting.isDone())
+            bridge.connecting.cancel(true);
 
         // 느린 브라우저 send가 끝나기를 기다리지 않고 upstream 정리부터 예약한다.
         // browserLock은 send끼리의 직렬화에만 쓰며, close와 공유하지 않는다.
         var upstream = bridge.upstream;
         if (upstream != null) {
             try {
-                upstream.sendClose(safeStatus(status.getCode()).getCode(), "")
-                        .exceptionally(failure -> {
-                            upstream.abort();
-                            return upstream;
-                        });
+                upstream.sendClose(safeStatus(status.getCode()).getCode(), "").exceptionally(failure -> {
+                    upstream.abort();
+                    return upstream;
+                });
                 scheduler.schedule(upstream::abort, 3, TimeUnit.SECONDS);
             } catch (Exception ignored) {
                 upstream.abort();
@@ -225,7 +242,8 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
         }
 
         try {
-            if (bridge.browser.isOpen()) bridge.browser.close(status);
+            if (bridge.browser.isOpen())
+                bridge.browser.close(status);
         } catch (Exception ignored) {
             // 종료 실패로 인증이나 relay를 다시 살리지 않는다.
         }
@@ -246,12 +264,15 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
         // Spring StompDecoder는 TRACE에서 native Authorization을 출력하므로 이 경계에서 사용하지 않는다.
         // 첫 CONNECT/STOMP의 완료 여부와 헤더만 검사한다. 이후 frame의 업무 해석은 CHAT에 남긴다.
         int cursor = 0;
-        while (cursor < frame.length && (frame[cursor] == '\r' || frame[cursor] == '\n')) cursor++;
+        while (cursor < frame.length && (frame[cursor] == '\r' || frame[cursor] == '\n'))
+            cursor++;
         int start = cursor;
         int lineEnd = indexOf(frame, (byte) '\n', cursor);
-        if (lineEnd < 0) return null;
+        if (lineEnd < 0)
+            return null;
         String command = line(frame, cursor, lineEnd);
-        if (!command.equals("CONNECT") && !command.equals("STOMP")) throw new IllegalArgumentException();
+        if (!command.equals("CONNECT") && !command.equals("STOMP"))
+            throw new IllegalArgumentException();
         cursor = lineEnd + 1;
         String authorization = null;
         int contentLength = -1;
@@ -259,62 +280,78 @@ public final class ChatGatewayWebSocketHandler extends AbstractWebSocketHandler
         while (true) {
             lineEnd = indexOf(frame, (byte) '\n', cursor);
             if (lineEnd < 0) {
-                if (frame.length - start > 8192) throw new IllegalArgumentException();
+                if (frame.length - start > 8192)
+                    throw new IllegalArgumentException();
                 return null;
             }
-            if (lineEnd - start > 8192) throw new IllegalArgumentException();
+            if (lineEnd - start > 8192)
+                throw new IllegalArgumentException();
             String header = line(frame, cursor, lineEnd);
             cursor = lineEnd + 1;
-            if (header.isEmpty()) break;
+            if (header.isEmpty())
+                break;
             int colon = header.indexOf(':');
-            if (colon <= 0 || names.size() >= 64) throw new IllegalArgumentException();
+            if (colon <= 0 || names.size() >= 64)
+                throw new IllegalArgumentException();
             String name = header.substring(0, colon);
             String value = header.substring(colon + 1);
-            if (!names.add(name) || SERVICE_HEADER.equalsIgnoreCase(name)) throw new IllegalArgumentException();
-            if (name.equals("Authorization")) authorization = value;
+            if (!names.add(name) || SERVICE_HEADER.equalsIgnoreCase(name))
+                throw new IllegalArgumentException();
+            if (name.equals("Authorization"))
+                authorization = value;
             if (name.equals("content-length")) {
-                if (!value.matches("[0-9]+")) throw new IllegalArgumentException();
+                if (!value.matches("[0-9]+"))
+                    throw new IllegalArgumentException();
                 contentLength = Integer.parseInt(value);
-                if (contentLength > MAX_BYTES) throw new IllegalArgumentException();
+                if (contentLength > MAX_BYTES)
+                    throw new IllegalArgumentException();
             }
         }
 
         int terminator;
         if (contentLength >= 0) {
             terminator = cursor + contentLength;
-            if (terminator >= MAX_BYTES) throw new IllegalArgumentException();
-            if (frame.length <= terminator) return null;
-            if (frame[terminator] != 0) throw new IllegalArgumentException();
+            if (terminator >= MAX_BYTES)
+                throw new IllegalArgumentException();
+            if (frame.length <= terminator)
+                return null;
+            if (frame[terminator] != 0)
+                throw new IllegalArgumentException();
         } else {
             terminator = indexOf(frame, (byte) 0, cursor);
-            if (terminator < 0) return null;
+            if (terminator < 0)
+                return null;
         }
-        if (authorization == null || authorization.isEmpty()) throw new IllegalArgumentException();
+        if (authorization == null || authorization.isEmpty())
+            throw new IllegalArgumentException();
         return authorization;
     }
 
     private static int indexOf(byte[] value, byte target, int from) {
         for (int index = from; index < value.length; index++) {
-            if (value[index] == target) return index;
+            if (value[index] == target)
+                return index;
         }
         return -1;
     }
 
     private static String line(byte[] frame, int start, int end) {
-        if (end > start && frame[end - 1] == '\r') end--;
+        if (end > start && frame[end - 1] == '\r')
+            end--;
         return new String(frame, start, end - start, StandardCharsets.UTF_8);
     }
 
     private static CloseStatus safeStatus(int code) {
         if ((code >= 1000 && code <= 1014 && code != 1004 && code != 1005 && code != 1006)
-                || code >= 3000 && code <= 4999) return new CloseStatus(code);
+                || code >= 3000 && code <= 4999)
+            return new CloseStatus(code);
         return CloseStatus.GOING_AWAY;
     }
 
     @FunctionalInterface
     interface Connector {
-        CompletableFuture<WebSocket> connect(WebSocketSession browser, String serviceToken,
-                                             WebSocket.Listener listener);
+        CompletableFuture<WebSocket> connect(
+                WebSocketSession browser, String serviceToken, WebSocket.Listener listener);
     }
 
     private static final class Bridge {

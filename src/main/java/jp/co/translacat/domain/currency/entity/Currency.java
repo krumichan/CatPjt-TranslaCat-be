@@ -11,39 +11,24 @@ import lombok.NoArgsConstructor;
 @Table(name = "currency")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Currency extends BaseAuditable {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
     // JPY, KRW, USD
-    @Column(nullable = false, unique = true, length = 10)
-    private String code;
+    @Column(nullable = false, unique = true, length = 10) private String code;
 
     // Japanese Yen, Korean Won
-    @Column(nullable = false, length = 100)
-    private String name;
+    @Column(nullable = false, length = 100) private String name;
 
     // ¥, ₩, $
-    @Column(length = 10)
-    private String symbol;
+    @Column(length = 10) private String symbol;
 
-    @Column(nullable = false)
-    private Integer decimalPlaces;
+    @Column(nullable = false) private Integer decimalPlaces;
 
-    @Column(nullable = false)
-    private boolean enabled = true;
+    @Column(nullable = false) private boolean enabled = true;
 
-    @Column(nullable = false)
-    private boolean baseCurrency = false;
+    @Column(nullable = false) private boolean baseCurrency = false;
 
-    private Currency(
-            String code,
-            String name,
-            String symbol,
-            Integer decimalPlaces,
-            boolean baseCurrency
-    ) {
+    private Currency(String code, String name, String symbol, Integer decimalPlaces, boolean baseCurrency) {
         this.code = code;
         this.name = name;
         this.symbol = symbol;
@@ -52,26 +37,11 @@ public class Currency extends BaseAuditable {
     }
 
     public static Currency create(
-            String code,
-            String name,
-            String symbol,
-            Integer decimalPlaces,
-            boolean baseCurrency
-    ) {
-        return new Currency(
-                code,
-                name,
-                symbol,
-                decimalPlaces,
-                baseCurrency
-        );
+            String code, String name, String symbol, Integer decimalPlaces, boolean baseCurrency) {
+        return new Currency(code, name, symbol, decimalPlaces, baseCurrency);
     }
 
-    public void update(
-            String name,
-            String symbol,
-            Integer decimalPlaces
-    ) {
+    public void update(String name, String symbol, Integer decimalPlaces) {
         this.name = name;
         this.symbol = symbol;
         this.decimalPlaces = decimalPlaces;

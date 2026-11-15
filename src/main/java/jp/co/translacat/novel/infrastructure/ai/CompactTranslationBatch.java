@@ -38,12 +38,15 @@ public final class CompactTranslationBatch {
             String alias = "s" + index;
             ids.put(alias, segment.id());
             wire.add(new SourceEpisode.Segment(alias, segment.paragraphId(), segment.order(), segment.paragraphIndex(),
-                    segment.startOffset(), segment.endOffset(), segment.rawJa(), segment.plainJa(), segment.rubyTokens()));
+                    segment.startOffset(), segment.endOffset(), segment.rawJa(), segment.plainJa(),
+                    segment.rubyTokens()));
         }
         return new CompactTranslationBatch(wire, ids);
     }
 
-    public List<SourceEpisode.Segment> wireSegments() { return wireSegments; }
+    public List<SourceEpisode.Segment> wireSegments() {
+        return wireSegments;
+    }
 
     public Map<String, String> restore(JsonNode output) {
         return restore(output, TranslationOptions.ResponseShape.ARRAY_V2);
@@ -51,10 +54,12 @@ public final class CompactTranslationBatch {
     public Map<String, String> restore(JsonNode output, TranslationOptions.ResponseShape shape) {
         return restore(output, shape, TranslationOptions.ValidationPolicy.BASIC_V1);
     }
-    public Map<String, String> restore(JsonNode output, TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy policy) {
+    public Map<String, String> restore(
+            JsonNode output, TranslationOptions.ResponseShape shape, TranslationOptions.ValidationPolicy policy) {
         // 누락·중복·추가·잘못된 타입을 모두 검사한 후에만 canonical ID로 복원한다.
         Map<String, String> validated = shape != TranslationOptions.ResponseShape.ARRAY_V2
-                ? new StrictTranslationValidator().validateKeyed(output, wireSegments, policy) : new StrictTranslationValidator().validate(output, wireSegments, policy);
+                ? new StrictTranslationValidator().validateKeyed(output, wireSegments, policy)
+                : new StrictTranslationValidator().validate(output, wireSegments, policy);
         Map<String, String> restored = new java.util.LinkedHashMap<>();
         wireSegments.forEach(segment -> restored.put(canonicalByWire.get(segment.id()), validated.get(segment.id())));
         return java.util.Collections.unmodifiableMap(restored);

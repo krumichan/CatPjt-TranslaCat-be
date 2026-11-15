@@ -31,17 +31,19 @@ public class LanguageLearningPracticeClient implements PracticeGateway {
     public LanguageLearningPracticeClient(RestClient http, LanguageLearningInternalJwtProvider jwt, ObjectMapper json) {
         this.http = http;
         this.jwt = jwt;
-        this.json = json.copy().enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
-                .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        this.json = json.copy()
+                            .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
+                            .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
+                            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     }
 
     @Override
     public PracticeSetResponseDto today(Long userId, PracticeDomain domain, String mode) {
-        return read(http.get().uri(builder -> builder.path(ROOT + "/today")
-                        .queryParam("domain", domain).queryParam("mode", mode).build()), userId,
-                type(PracticeSetResponseDto.class));
+        return read(
+                http.get().uri(builder
+                        -> builder.path(ROOT + "/today").queryParam("domain", domain).queryParam("mode", mode).build()),
+                userId, type(PracticeSetResponseDto.class));
     }
 
     @Override
@@ -69,20 +71,21 @@ public class LanguageLearningPracticeClient implements PracticeGateway {
     }
 
     @Override
-    public PracticeAnswerResultResponseDto answer(Long userId, Long questionId,
-                                                  PracticeAnswerSubmitRequestDto request) {
-        return post(userId, "/questions/" + id(questionId) + "/answers", request,
-                PracticeAnswerResultResponseDto.class);
+    public PracticeAnswerResultResponseDto answer(
+            Long userId, Long questionId, PracticeAnswerSubmitRequestDto request) {
+        return post(
+                userId, "/questions/" + id(questionId) + "/answers", request, PracticeAnswerResultResponseDto.class);
     }
 
     @Override
     public VocabularyMasterySummaryResponseDto mastery(Long userId) {
-        return read(http.get().uri(ROOT + "/vocabulary/mastery"), userId,
-                type(VocabularyMasterySummaryResponseDto.class));
+        return read(
+                http.get().uri(ROOT + "/vocabulary/mastery"), userId, type(VocabularyMasterySummaryResponseDto.class));
     }
 
     public PracticeReportSnapshot report(Long userId, LocalDate from, LocalDate to) {
-        if ((from == null) != (to == null)) throw new IllegalArgumentException("조회 시작일과 종료일을 함께 지정해 주세요.");
+        if ((from == null) != (to == null))
+            throw new IllegalArgumentException("조회 시작일과 종료일을 함께 지정해 주세요.");
         String query = from == null ? "" : "?from=" + from + "&to=" + to;
         return read(http.get().uri(ROOT + "/report" + query), userId, type(PracticeReportSnapshot.class));
     }
@@ -90,9 +93,9 @@ public class LanguageLearningPracticeClient implements PracticeGateway {
     private <T> T post(Long userId, String path, Object body, Class<T> type) {
         try {
             return read(http.post()
-                            .uri(ROOT + path)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .body(json.writeValueAsBytes(body)),
+                                .uri(ROOT + path)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body(json.writeValueAsBytes(body)),
                     userId, type(type));
         } catch (IOException failure) {
             throw contractFailure();
@@ -100,7 +103,8 @@ public class LanguageLearningPracticeClient implements PracticeGateway {
     }
 
     private <T> T read(RestClient.RequestHeadersSpec<?> request, Long userId, JavaType type) {
-        if (userId == null || userId <= 0) throw new IllegalArgumentException("사용자 식별자가 필요합니다.");
+        if (userId == null || userId <= 0)
+            throw new IllegalArgumentException("사용자 식별자가 필요합니다.");
         try {
             // 내부 JWT는 BE가 검증한 사용자를 결합하며 응답 크기와 오류 DTO를 제한한다.
             return request.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.issueUserToken(userId))
@@ -108,7 +112,8 @@ public class LanguageLearningPracticeClient implements PracticeGateway {
                         int status = response.getStatusCode().value();
                         int limit = status >= 400 ? 65536 : 4 * 1024 * 1024;
                         byte[] bytes = response.getBody().readNBytes(limit + 1);
-                        if (bytes.length == 0 || bytes.length > limit) throw contractFailure();
+                        if (bytes.length == 0 || bytes.length > limit)
+                            throw contractFailure();
                         if (status >= 400) {
                             InternalApiErrorDto error;
                             try {
@@ -118,13 +123,15 @@ public class LanguageLearningPracticeClient implements PracticeGateway {
                             }
                             if (error == null || error.code() == null || error.message() == null)
                                 throw contractFailure();
-                            throw new LanguageLearningServiceException(HttpStatus.valueOf(status), error.code(),
-                                    error.message());
+                            throw new LanguageLearningServiceException(
+                                    HttpStatus.valueOf(status), error.code(), error.message());
                         }
-                        if (status < 200 || status >= 300) throw contractFailure();
+                        if (status < 200 || status >= 300)
+                            throw contractFailure();
                         try {
                             T value = json.readValue(bytes, type);
-                            if (value == null) throw contractFailure();
+                            if (value == null)
+                                throw contractFailure();
                             return value;
                         } catch (IOException | IllegalArgumentException failure) {
                             throw contractFailure();
@@ -141,12 +148,13 @@ public class LanguageLearningPracticeClient implements PracticeGateway {
     }
 
     private static Long id(Long value) {
-        if (value == null || value == 0) throw new IllegalArgumentException("학습 식별자가 필요합니다.");
+        if (value == null || value == 0)
+            throw new IllegalArgumentException("학습 식별자가 필요합니다.");
         return value;
     }
 
     private static LanguageLearningServiceException contractFailure() {
-        return new LanguageLearningServiceException(HttpStatus.BAD_GATEWAY, "LL_PRACTICE_CONTRACT_ERROR",
-                "Reading 서비스 응답 계약이 올바르지 않습니다.");
+        return new LanguageLearningServiceException(
+                HttpStatus.BAD_GATEWAY, "LL_PRACTICE_CONTRACT_ERROR", "Reading 서비스 응답 계약이 올바르지 않습니다.");
     }
 }

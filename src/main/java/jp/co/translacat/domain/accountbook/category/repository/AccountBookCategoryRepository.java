@@ -7,13 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface AccountBookCategoryRepository extends JpaRepository<AccountBookCategory, Long> {
+    List<AccountBookCategory> findByAccountBookIdAndActiveTrueOrderByDisplayOrderAscNameAsc(Long accountBookId);
 
-    List<AccountBookCategory> findByAccountBookIdAndActiveTrueOrderByDisplayOrderAscNameAsc(
-            Long accountBookId
-    );
-
-    Optional<AccountBookCategory> findByAccountBookIdAndName(
-            Long accountBookId,
-            String name
-    );
+    Optional<AccountBookCategory> findByAccountBookIdAndName(Long accountBookId, String name);
 }

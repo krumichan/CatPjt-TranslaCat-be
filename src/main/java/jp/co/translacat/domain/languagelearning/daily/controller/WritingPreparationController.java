@@ -30,14 +30,16 @@ public class WritingPreparationController {
     }
 
     @GetMapping("/{requestKey}")
-    public ResponseDto<JsonNode> get(@AuthenticationPrincipal UserPrincipal principal, @PathVariable String requestKey) {
+    public ResponseDto<JsonNode> get(
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable String requestKey) {
         return ResponseUtil.ok(client().writingPreparationGet(SecurityUtil.getLoginUserId(principal), requestKey));
     }
 
     private LanguageLearningWritingClient client() {
         var client = clients.getIfAvailable();
-        if (client == null) throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
-                "LL_WRITING_REMOTE_DISABLED", "Writing 서비스 연결이 비활성화되어 있습니다.");
+        if (client == null)
+            throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, "LL_WRITING_REMOTE_DISABLED",
+                    "Writing 서비스 연결이 비활성화되어 있습니다.");
         return client;
     }
 }

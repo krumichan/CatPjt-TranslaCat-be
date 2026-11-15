@@ -7,7 +7,6 @@ import java.util.EnumMap;
 import java.util.Map;
 
 public class AiGeminiConstant {
-
     public final static Map<AiRuleType, InternalInfo> internalMap;
 
     static {
@@ -21,8 +20,7 @@ public class AiGeminiConstant {
         internalMap = Collections.unmodifiableMap(map);
     }
 
-    public record InternalInfo(int batchSize, String rule) {
-    }
+    public record InternalInfo(int batchSize, String rule) {}
 
     /**
      * 랭킹 정보 번역 (제목, 작가명, 줄거리 등)

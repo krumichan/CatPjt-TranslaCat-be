@@ -9,17 +9,9 @@ import java.util.Optional;
 
 @Repository
 public interface AccountBookMonthlyGoalRepository
-        extends JpaRepository<AccountBookMonthlyGoal, Long>,
-        AccountBookMonthlyGoalRepositoryCustom {
-
+        extends JpaRepository<AccountBookMonthlyGoal, Long>, AccountBookMonthlyGoalRepositoryCustom {
     Optional<AccountBookMonthlyGoal> findByAccountBookIdAndTargetYearAndTargetMonth(
-            Long accountBookId,
-            Integer targetYear,
-            Integer targetMonth
-    );
+            Long accountBookId, Integer targetYear, Integer targetMonth);
 
-    List<AccountBookMonthlyGoal> findByAccountBookIdAndTargetYear(
-            Long accountBookId,
-            Integer year
-    );
+    List<AccountBookMonthlyGoal> findByAccountBookIdAndTargetYear(Long accountBookId, Integer year);
 }

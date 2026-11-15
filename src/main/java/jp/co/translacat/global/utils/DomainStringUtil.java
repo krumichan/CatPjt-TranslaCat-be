@@ -4,7 +4,6 @@ import lombok.experimental.UtilityClass;
 
 @UtilityClass
 public final class DomainStringUtil {
-
     public static String normalizeRequired(String value, String message) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(message);

@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CurrencyRepository extends JpaRepository<Currency, Long> {
-
     Optional<Currency> findByCodeAndEnabledTrue(String code);
 
     boolean existsByCode(String code);

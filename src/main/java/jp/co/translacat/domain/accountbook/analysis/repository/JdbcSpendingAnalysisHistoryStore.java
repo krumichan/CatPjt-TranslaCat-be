@@ -20,8 +20,10 @@ public class JdbcSpendingAnalysisHistoryStore implements SpendingAnalysisHistory
     public void save(Long bookId, Long userId, Response response) {
         // 기간이 같아도 INSERT로 새 스냅샷을 남긴다. 이전 결과는 갱신하지 않는다.
         try {
-            jdbc.update("INSERT INTO account_book_spending_analysis (id, account_book_id, created_by, generated_at, result_json) VALUES (?, ?, ?, ?, ?)",
-                    response.analysisId(), bookId, userId, Timestamp.from(response.generatedAt()), mapper.writeValueAsString(response));
+            jdbc.update(
+                    "INSERT INTO account_book_spending_analysis (id, account_book_id, created_by, generated_at, result_json) VALUES (?, ?, ?, ?, ?)",
+                    response.analysisId(), bookId, userId, Timestamp.from(response.generatedAt()),
+                    mapper.writeValueAsString(response));
         } catch (JsonProcessingException error) {
             throw new IllegalStateException("Could not serialize analysis snapshot");
         }
@@ -29,20 +31,25 @@ public class JdbcSpendingAnalysisHistoryStore implements SpendingAnalysisHistory
 
     @Override
     public List<Response> list(Long bookId, int page, int size) {
-        return jdbc.query("SELECT result_json FROM account_book_spending_analysis WHERE account_book_id=? ORDER BY generated_at DESC,id DESC LIMIT ? OFFSET ?",
+        return jdbc.query(
+                "SELECT result_json FROM account_book_spending_analysis WHERE account_book_id=? ORDER BY generated_at DESC,id DESC LIMIT ? OFFSET ?",
                 (row, index) -> decode(row.getString(1)), bookId, size, Math.multiplyExact(page, size));
     }
 
     @Override
     public long count(Long bookId) {
-        Long count = jdbc.queryForObject("SELECT COUNT(*) FROM account_book_spending_analysis WHERE account_book_id=?", Long.class, bookId);
+        Long count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM account_book_spending_analysis WHERE account_book_id=?", Long.class, bookId);
         return count == null ? 0 : count;
     }
 
     @Override
     public Optional<Response> find(Long bookId, String analysisId) {
-        return jdbc.query("SELECT result_json FROM account_book_spending_analysis WHERE account_book_id=? AND id=?",
-                (row, index) -> decode(row.getString(1)), bookId, analysisId).stream().findFirst();
+        return jdbc
+                .query("SELECT result_json FROM account_book_spending_analysis WHERE account_book_id=? AND id=?",
+                        (row, index) -> decode(row.getString(1)), bookId, analysisId)
+                .stream()
+                .findFirst();
     }
 
     private Response decode(String json) {

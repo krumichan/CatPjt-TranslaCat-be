@@ -12,21 +12,15 @@ import java.math.BigDecimal;
 
 @Getter
 @Entity
-@Table(
-        name = "account_book_monthly_goals",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_account_book_monthly_goal",
-                        columnNames = {"account_book_id", "target_year", "target_month"}
-                )
-        }
-)
+@Table(name = "account_book_monthly_goals",
+        uniqueConstraints =
+        {
+            @UniqueConstraint(name = "uk_account_book_monthly_goal",
+                    columnNames = {"account_book_id", "target_year", "target_month"})
+        })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AccountBookMonthlyGoal extends BaseAuditable {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
     /**
      * 대상 가계부
@@ -38,27 +32,20 @@ public class AccountBookMonthlyGoal extends BaseAuditable {
     /**
      * 대상 연도
      */
-    @Column(name = "target_year", nullable = false)
-    private Integer targetYear;
+    @Column(name = "target_year", nullable = false) private Integer targetYear;
 
     /**
      * 대상 월
      */
-    @Column(name = "target_month", nullable = false)
-    private Integer targetMonth;
+    @Column(name = "target_month", nullable = false) private Integer targetMonth;
 
     /**
      * 월별 목표 지출 금액
      */
-    @Column(nullable = false, precision = 28, scale = 8)
-    private BigDecimal goalAmount;
+    @Column(nullable = false, precision = 28, scale = 8) private BigDecimal goalAmount;
 
     private AccountBookMonthlyGoal(
-            AccountBook accountBook,
-            Integer targetYear,
-            Integer targetMonth,
-            BigDecimal goalAmount
-    ) {
+            AccountBook accountBook, Integer targetYear, Integer targetMonth, BigDecimal goalAmount) {
         this.accountBook = accountBook;
         this.targetYear = targetYear;
         this.targetMonth = targetMonth;
@@ -66,17 +53,8 @@ public class AccountBookMonthlyGoal extends BaseAuditable {
     }
 
     public static AccountBookMonthlyGoal create(
-            AccountBook accountBook,
-            Integer targetYear,
-            Integer targetMonth,
-            BigDecimal goalAmount
-    ) {
-        return new AccountBookMonthlyGoal(
-                accountBook,
-                targetYear,
-                targetMonth,
-                goalAmount
-        );
+            AccountBook accountBook, Integer targetYear, Integer targetMonth, BigDecimal goalAmount) {
+        return new AccountBookMonthlyGoal(accountBook, targetYear, targetMonth, goalAmount);
     }
 
     public void updateGoalAmount(BigDecimal goalAmount) {

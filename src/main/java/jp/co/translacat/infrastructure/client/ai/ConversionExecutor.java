@@ -8,7 +8,6 @@ import org.springframework.web.multipart.MultipartFile;
 @Component
 @RequiredArgsConstructor
 public class ConversionExecutor {
-
     private final AiServerClient aiServerClient;
 
     public String stt(MultipartFile file) {

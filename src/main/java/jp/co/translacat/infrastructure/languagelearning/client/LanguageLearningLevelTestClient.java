@@ -28,18 +28,19 @@ public class LanguageLearningLevelTestClient {
     private final LanguageLearningInternalJwtProvider jwt;
     private final ObjectMapper json;
 
-    public LanguageLearningLevelTestClient(RestClient http, LanguageLearningInternalJwtProvider jwt,
-                                           ObjectMapper json) {
+    public LanguageLearningLevelTestClient(
+            RestClient http, LanguageLearningInternalJwtProvider jwt, ObjectMapper json) {
         this.http = http;
         this.jwt = jwt;
         this.json = json.copy()
-                .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
-                .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
-                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                            .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
+                            .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
+                            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     }
 
     private static Long positive(Long value) {
-        if (value == null || value <= 0) throw new IllegalArgumentException("양수 식별자가 필요합니다.");
+        if (value == null || value <= 0)
+            throw new IllegalArgumentException("양수 식별자가 필요합니다.");
         return value;
     }
 
@@ -56,7 +57,8 @@ public class LanguageLearningLevelTestClient {
     }
 
     private static LanguageLearningServiceException unavailable() {
-        return failure("LL_LEVEL_SERVICE_UNAVAILABLE", "레벨 테스트 서비스에 연결하지 못했거나 제한 시간이 지났습니다. 저장 여부는 같은 키로 확인해 주세요.");
+        return failure("LL_LEVEL_SERVICE_UNAVAILABLE",
+                "레벨 테스트 서비스에 연결하지 못했거나 제한 시간이 지났습니다. 저장 여부는 같은 키로 확인해 주세요.");
     }
 
     public LevelStatusResponseDto status(Long user) {
@@ -79,18 +81,20 @@ public class LanguageLearningLevelTestClient {
         return post(user, itemPath(session, item) + "/answers", request, LevelAnswerResultResponseDto.class);
     }
 
-    public LevelAudioAnswerResultResponseDto submitAudio(Long user, Long session, Long item, byte[] bytes, String mime,
-                                                         Integer duration, String key) {
+    public LevelAudioAnswerResultResponseDto submitAudio(
+            Long user, Long session, Long item, byte[] bytes, String mime, Integer duration, String key) {
         if (bytes == null || bytes.length == 0 || bytes.length > 10 * 1024 * 1024)
             throw failure("LL_LEVEL_AUDIO_INVALID", "녹음 크기를 확인해 주세요.");
         return read(http.post()
-                .uri(builder -> builder.path(ROOT + itemPath(session, item) + "/answers/audio")
-                        .queryParam("durationMs", duration)
-                        .queryParam("idempotencyKey", key)
-                        .build())
-                .header(HttpHeaders.AUTHORIZATION, token(user))
-                .contentType(MediaType.parseMediaType(mime))
-                .body(bytes), LevelAudioAnswerResultResponseDto.class);
+                            .uri(builder
+                                    -> builder.path(ROOT + itemPath(session, item) + "/answers/audio")
+                                            .queryParam("durationMs", duration)
+                                            .queryParam("idempotencyKey", key)
+                                            .build())
+                            .header(HttpHeaders.AUTHORIZATION, token(user))
+                            .contentType(MediaType.parseMediaType(mime))
+                            .body(bytes),
+                LevelAudioAnswerResultResponseDto.class);
     }
 
     public LevelAnswerResultResponseDto retry(Long user, Long session, Long item) {
@@ -123,9 +127,9 @@ public class LanguageLearningLevelTestClient {
                         if (bytes.length == 0 || bytes.length > 10 * 1024 * 1024)
                             throw failure("LL_LEVEL_AUDIO_INVALID", "음성 응답 크기를 확인해 주세요.");
                         String mime = response.getHeaders().getFirst(HttpHeaders.CONTENT_TYPE);
-                        if (mime == null || (!mime.startsWith("audio/")
-                                && !mime.startsWith("video/webm")
-                                && !mime.startsWith("video/mp4")))
+                        if (mime == null
+                                || (!mime.startsWith("audio/") && !mime.startsWith("video/webm")
+                                        && !mime.startsWith("video/mp4")))
                             throw failure("LL_LEVEL_AUDIO_INVALID", "음성 응답 형식이 올바르지 않습니다.");
                         return new LevelTestAudioData(bytes, mime);
                     });
@@ -140,10 +144,11 @@ public class LanguageLearningLevelTestClient {
 
     private <T> T post(Long user, String path, Object value, Class<T> type) {
         return read(http.post()
-                .uri(ROOT + path)
-                .header(HttpHeaders.AUTHORIZATION, token(user))
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(value), type);
+                            .uri(ROOT + path)
+                            .header(HttpHeaders.AUTHORIZATION, token(user))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .body(value),
+                type);
     }
 
     private <T> T read(RestClient.RequestHeadersSpec<?> request, Class<T> type) {
@@ -155,7 +160,8 @@ public class LanguageLearningLevelTestClient {
                     throw failure("LL_LEVEL_RESPONSE_INVALID", "레벨 테스트 응답 크기를 확인해 주세요.");
                 try {
                     T value = HistoryLanguageMetadata.readValue(json, bytes, type);
-                    if (value == null) throw failure("LL_LEVEL_RESPONSE_INVALID", "레벨 테스트 응답이 비어 있습니다.");
+                    if (value == null)
+                        throw failure("LL_LEVEL_RESPONSE_INVALID", "레벨 테스트 응답이 비어 있습니다.");
                     return value;
                 } catch (IOException | IllegalArgumentException error) {
                     throw failure("LL_LEVEL_RESPONSE_INVALID", "레벨 테스트 응답 계약을 확인해 주세요.");
@@ -167,15 +173,18 @@ public class LanguageLearningLevelTestClient {
     }
 
     private void checkError(int status, java.io.InputStream body) throws IOException {
-        if (status >= 200 && status < 300) return;
+        if (status >= 200 && status < 300)
+            return;
         InternalApiErrorDto error = null;
         byte[] bytes = body.readNBytes(65537);
-        if (bytes.length <= 65536) try {
-            error = json.readValue(bytes, InternalApiErrorDto.class);
-        } catch (IOException ignored) {
-        }
+        if (bytes.length <= 65536)
+            try {
+                error = json.readValue(bytes, InternalApiErrorDto.class);
+            } catch (IOException ignored) {
+            }
         HttpStatus resolved = HttpStatus.resolve(status);
-        if (resolved == null || status < 400) resolved = HttpStatus.BAD_GATEWAY;
+        if (resolved == null || status < 400)
+            resolved = HttpStatus.BAD_GATEWAY;
         throw new LanguageLearningServiceException(resolved,
                 error == null || error.code() == null ? "LL_LEVEL_REQUEST_FAILED" : error.code(),
                 error == null || error.message() == null ? "레벨 테스트 서비스 요청이 실패했습니다." : error.message());
@@ -184,5 +193,4 @@ public class LanguageLearningLevelTestClient {
     private String token(Long user) {
         return "Bearer " + jwt.issueUserToken(positive(user));
     }
-
 }

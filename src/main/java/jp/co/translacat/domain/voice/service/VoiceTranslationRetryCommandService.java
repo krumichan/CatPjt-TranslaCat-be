@@ -21,56 +21,35 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class VoiceTranslationRetryCommandService {
-
     private final VoiceSegmentRepository segmentRepository;
     private final VoiceResponseMapper responseMapper;
     private final ObjectMapper objectMapper;
     private final VoiceSourceReadingService sourceReadingService;
 
     @Transactional
-    public VoiceSegmentResponseDto apply(
-            Long userId,
-            String sessionId,
-            Long segmentId,
-            VoiceTranslationRetryContext context,
-            AiVoiceTranslationRetryResponse response
-    ) {
-        VoiceSegment segment = segmentRepository
-                .findOwnedForUpdate(
-                        segmentId,
-                        sessionId,
-                        userId
-                )
-                .orElseThrow(this::notFound);
+    public VoiceSegmentResponseDto apply(Long userId, String sessionId, Long segmentId,
+            VoiceTranslationRetryContext context, AiVoiceTranslationRetryResponse response) {
+        VoiceSegment segment =
+                segmentRepository.findOwnedForUpdate(segmentId, sessionId, userId).orElseThrow(this::notFound);
 
         if (segment.getStatus() != VoiceSegmentStatus.TRANSLATION_FAILED
                 || !context.sourceText().equals(segment.getSourceText())) {
             throw new BusinessException(
-                    "Voice segment changed while translation retry was running.",
-                    VoiceErrorCode.RETRY_CONFLICT
-            );
+                    "Voice segment changed while translation retry was running.", VoiceErrorCode.RETRY_CONFLICT);
         }
 
         AiVoiceModelResponse model = response.model();
         // 재시도에서도 원문 언어와 텍스트는 저장된 스냅샷을 기준으로 로컬에서 읽기를 다시 만든다.
-        String readingTokens = writeJson(
-                sourceReadingService.forLanguage(context.sourceText(), context.sourceLanguage())
-        );
+        String readingTokens =
+                writeJson(sourceReadingService.forLanguage(context.sourceText(), context.sourceLanguage()));
         if ("ja".equals(context.sourceLanguage())) {
             // 일시적인 Sudachi 실패가 이전 확정 원문의 유효한 읽기까지 지우지 않게 한다.
             readingTokens = sourceReadingService.preserveStoredWhenGenerationFails(
-                    readingTokens,
-                    segment.getSourceReadingTokens(),
-                    segment.getSourceText()
-            );
+                    readingTokens, segment.getSourceReadingTokens(), segment.getSourceText());
         }
-        segment.applyRetry(
-                requireTranslatedText(response.translatedText()),
-                readingTokens,
-                response.translationSkipped(),
-                model == null ? null : model.translationVersion(),
-                model == null ? null : model.promptVersion()
-        );
+        segment.applyRetry(requireTranslatedText(response.translatedText()), readingTokens,
+                response.translationSkipped(), model == null ? null : model.translationVersion(),
+                model == null ? null : model.promptVersion());
 
         return responseMapper.toSegmentResponse(segment);
     }
@@ -78,37 +57,24 @@ public class VoiceTranslationRetryCommandService {
     private String writeJson(JsonNode node) {
         try {
             return objectMapper.writeValueAsString(
-                    node == null || node.isMissingNode() || node.isNull()
-                            ? objectMapper.createArrayNode()
-                            : node
-            );
+                    node == null || node.isMissingNode() || node.isNull() ? objectMapper.createArrayNode() : node);
         } catch (Exception e) {
-            throw invalidAiResponse(
-                    "Invalid Reading token response from AI."
-            );
+            throw invalidAiResponse("Invalid Reading token response from AI.");
         }
     }
 
     private String requireTranslatedText(String translatedText) {
         if (translatedText == null || translatedText.isBlank()) {
-            throw invalidAiResponse(
-                    "AI translation retry response is invalid."
-            );
+            throw invalidAiResponse("AI translation retry response is invalid.");
         }
         return translatedText;
     }
 
     private BusinessException invalidAiResponse(String message) {
-        return new BusinessException(
-                message,
-                VoiceErrorCode.INVALID_AI_RESPONSE
-        );
+        return new BusinessException(message, VoiceErrorCode.INVALID_AI_RESPONSE);
     }
 
     private BusinessException notFound() {
-        return new BusinessException(
-                "Voice segment was not found.",
-                VoiceErrorCode.NOT_FOUND
-        );
+        return new BusinessException("Voice segment was not found.", VoiceErrorCode.NOT_FOUND);
     }
 }

@@ -21,8 +21,10 @@ public class NovelServiceClient {
     public NovelServiceClient(NovelGatewayProperties properties, ObjectMapper mapper) {
         this.properties = properties;
         this.mapper = mapper;
-        client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
-                .connectTimeout(Duration.ofSeconds(3)).build();
+        client = HttpClient.newBuilder()
+                         .followRedirects(HttpClient.Redirect.NEVER)
+                         .connectTimeout(Duration.ofSeconds(3))
+                         .build();
         // 이 별도 client를 명시적으로 만드는 경우 목적지와 인증키를 반드시 검증한다.
         base = validateBase(properties.getBaseUrl());
         if (properties.getTimeoutSeconds() < 1 || properties.getTimeoutSeconds() > 90) {
@@ -31,8 +33,12 @@ public class NovelServiceClient {
         issuer = new NovelGatewayTokenIssuer(properties.getSecretBase64(), Clock.systemUTC());
     }
 
-    public JsonNode get(long actor, String path) { return exchange(actor, "GET", path, null, 8192); }
-    public JsonNode post(long actor, String path, Object body) { return exchange(actor, "POST", path, body, 8192); }
+    public JsonNode get(long actor, String path) {
+        return exchange(actor, "GET", path, null, 8192);
+    }
+    public JsonNode post(long actor, String path, Object body) {
+        return exchange(actor, "POST", path, body, 8192);
+    }
     public JsonNode postCatalog(long actor, String path, Object body) {
         if (!path.matches("/internal/v1/novel/catalog/syosyetu/snapshots")) {
             throw new NovelGatewayException(400, "NOVEL_REQUEST_INVALID", false);
@@ -49,15 +55,18 @@ public class NovelServiceClient {
         }
         try {
             byte[] payload = body == null ? new byte[0] : mapper.writeValueAsBytes(body);
-            if (payload.length > bodyLimit) throw new NovelGatewayException(413, "NOVEL_REQUEST_TOO_LARGE", false);
+            if (payload.length > bodyLimit)
+                throw new NovelGatewayException(413, "NOVEL_REQUEST_TOO_LARGE", false);
             var request = HttpRequest.newBuilder(base.resolve(path))
-                    .timeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
-                    .header("Authorization", "Bearer " + issuer.issue(actor))
-                    .header("Content-Type", "application/json")
-                    .header("X-Request-ID", trace.id())
-                    .header(NovelGatewayTrace.HEADER, trace.id())
-                    .method(method, payload.length == 0 ? HttpRequest.BodyPublishers.noBody()
-                            : HttpRequest.BodyPublishers.ofByteArray(payload)).build();
+                                  .timeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
+                                  .header("Authorization", "Bearer " + issuer.issue(actor))
+                                  .header("Content-Type", "application/json")
+                                  .header("X-Request-ID", trace.id())
+                                  .header(NovelGatewayTrace.HEADER, trace.id())
+                                  .method(method,
+                                          payload.length == 0 ? HttpRequest.BodyPublishers.noBody()
+                                                              : HttpRequest.BodyPublishers.ofByteArray(payload))
+                                  .build();
 
             // 중계 계층은 재시도하지 않는다. headers 이후 본문 대기도 같은 전체 deadline에 포함한다.
             long upstreamStarted = System.nanoTime();
@@ -76,7 +85,8 @@ public class NovelServiceClient {
                 }
             } finally {
                 trace.markUpstreamIncomplete(upstreamStarted);
-                if (!pending.isDone()) pending.cancel(true);
+                if (!pending.isDone())
+                    pending.cancel(true);
             }
         } catch (NovelGatewayException failure) {
             throw failure;
@@ -107,9 +117,9 @@ public class NovelServiceClient {
         if (status < 200 || status >= 300) {
             JsonNode error = decoded.has("detail") ? decoded.get("detail") : decoded;
             String code = error.path("code").asText("");
-            if (!code.matches("[A-Z][A-Z0-9_]{1,79}")) code = "NOVEL_UPSTREAM_ERROR";
-            int safeStatus = java.util.Set.of(400, 404, 409, 413, 422, 429, 503, 504).contains(status)
-                    ? status : 502;
+            if (!code.matches("[A-Z][A-Z0-9_]{1,79}"))
+                code = "NOVEL_UPSTREAM_ERROR";
+            int safeStatus = java.util.Set.of(400, 404, 409, 413, 422, 429, 503, 504).contains(status) ? status : 502;
             throw new NovelGatewayException(safeStatus, code, error.path("retryable").asBoolean(false));
         }
         return decoded;
@@ -119,9 +129,9 @@ public class NovelServiceClient {
         try {
             URI uri = URI.create(value);
             boolean local = java.util.Set.of("127.0.0.1", "localhost", "[::1]").contains(uri.getHost());
-            if (!("https".equals(uri.getScheme()) || (local && "http".equals(uri.getScheme())))
-                    || uri.getHost() == null || uri.getUserInfo() != null || uri.getQuery() != null
-                    || uri.getFragment() != null || !(uri.getPath().isEmpty() || uri.getPath().equals("/"))) {
+            if (!("https".equals(uri.getScheme()) || (local && "http".equals(uri.getScheme()))) || uri.getHost() == null
+                    || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null
+                    || !(uri.getPath().isEmpty() || uri.getPath().equals("/"))) {
                 throw new IllegalArgumentException();
             }
             return uri;

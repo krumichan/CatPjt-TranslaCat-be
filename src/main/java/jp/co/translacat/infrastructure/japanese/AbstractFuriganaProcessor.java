@@ -6,7 +6,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public abstract class AbstractFuriganaProcessor {
-
     protected volatile Map<String, String> cachedDict = Map.of();
 
     protected abstract String analyzeWithEngine(String segment);
@@ -14,7 +13,8 @@ public abstract class AbstractFuriganaProcessor {
     public void syncCachedDict(Map<String, String> newDict) {
         // 긴 등록어부터 적용하고, 요청 중에는 비워진 사전이 보이지 않도록 한 번에 교체한다.
         Map<String, String> ordered = new LinkedHashMap<>();
-        newDict.entrySet().stream()
+        newDict.entrySet()
+                .stream()
                 .sorted(Map.Entry.<String, String>comparingByKey(
                         Comparator.comparingInt(String::length).reversed().thenComparing(Comparator.naturalOrder())))
                 .forEach(entry -> ordered.put(entry.getKey(), entry.getValue()));
@@ -23,7 +23,8 @@ public abstract class AbstractFuriganaProcessor {
 
     protected String preProcessWithDict(String rawJa) {
         Map<String, String> dictionary = cachedDict;
-        if (rawJa == null || rawJa.isBlank() || dictionary.isEmpty()) return rawJa;
+        if (rawJa == null || rawJa.isBlank() || dictionary.isEmpty())
+            return rawJa;
 
         // 이미 발음이 지정된 부분을 보존하고 일반 텍스트에서만 사용자 사전을 적용한다.
         String[] parts = rawJa.split("(?=<ruby)|(?<=</ruby>)");
@@ -55,12 +56,14 @@ public abstract class AbstractFuriganaProcessor {
     }
 
     public String resolveDetailedRuby(String surface, String reading) {
-        if (surface == null || reading == null) return surface;
+        if (surface == null || reading == null)
+            return surface;
         return this.makeFineGrainedRuby(surface, reading);
     }
 
     public String convertToRuby(String rawJa) {
-        if (rawJa == null || rawJa.isBlank()) return rawJa;
+        if (rawJa == null || rawJa.isBlank())
+            return rawJa;
 
         String preProcessed = preProcessWithDict(rawJa);
         StringBuilder finalResult = new StringBuilder();
@@ -80,7 +83,8 @@ public abstract class AbstractFuriganaProcessor {
      * 공통: 문자열 내에 한자가 포함되어 있는지 확인
      */
     protected boolean containsKanji(String surface) {
-        if (surface == null) return false;
+        if (surface == null)
+            return false;
         return surface.codePoints().anyMatch(this::isKanji);
     }
 
@@ -119,7 +123,8 @@ public abstract class AbstractFuriganaProcessor {
      * 공통: 상세 루비 태그 생성 로직 (Sudachi와 Kuromoji가 공유)
      */
     protected String makeFineGrainedRuby(String surface, String reading) {
-        if (surface.equals(reading) || reading.equals("*")) return surface;
+        if (surface.equals(reading) || reading.equals("*"))
+            return surface;
 
         StringBuilder sb = new StringBuilder();
         int sIdx = 0;
@@ -186,13 +191,15 @@ public abstract class AbstractFuriganaProcessor {
 
     private int findNextMatchingIndex(String reading, int start, char tail) {
         for (int i = start; i < reading.length(); i++) {
-            if (isMatch(reading.charAt(i), tail)) return i;
+            if (isMatch(reading.charAt(i), tail))
+                return i;
         }
         return -1;
     }
 
     private boolean isMatch(char c1, char c2) {
-        if (c1 == c2) return true;
+        if (c1 == c2)
+            return true;
         char h1 = (c1 >= 'ァ' && c1 <= 'ヶ') ? (char) (c1 - 0x60) : c1;
         char h2 = (c2 >= 'ァ' && c2 <= 'ヶ') ? (char) (c2 - 0x60) : c2;
         return h1 == h2;

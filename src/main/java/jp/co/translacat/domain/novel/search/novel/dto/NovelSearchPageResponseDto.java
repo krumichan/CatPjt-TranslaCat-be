@@ -17,9 +17,7 @@ public class NovelSearchPageResponseDto {
     public static NovelSearchPageResponseDto of(PageNumberContext pageNumberContext, List<NovelContext> novelContexts) {
         NovelSearchPageResponseDto response = new NovelSearchPageResponseDto();
         response.setPageInfo(PageNumberResponseDto.of(pageNumberContext));
-        response.setNovels(novelContexts.stream()
-                .map(NovelSearchResponseDto::of)
-                .toList());
+        response.setNovels(novelContexts.stream().map(NovelSearchResponseDto::of).toList());
         return response;
     }
 }

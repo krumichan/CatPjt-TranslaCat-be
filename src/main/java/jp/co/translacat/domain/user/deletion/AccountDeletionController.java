@@ -19,10 +19,12 @@ public class AccountDeletionController {
     private final AccountDeletionService deletion;
     private final AccountDeletionReauthentication reauthentication;
     private final JWTService jwt;
-    private final ObjectMapper json = new ObjectMapper().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
-            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+    private final ObjectMapper json = new ObjectMapper()
+                                              .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                                              .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 
-    public AccountDeletionController(AccountDeletionService deletion, AccountDeletionReauthentication reauthentication, JWTService jwt) {
+    public AccountDeletionController(
+            AccountDeletionService deletion, AccountDeletionReauthentication reauthentication, JWTService jwt) {
         this.deletion = deletion;
         this.reauthentication = reauthentication;
         this.jwt = jwt;
@@ -42,7 +44,8 @@ public class AccountDeletionController {
     }
 
     @PostMapping(value = "/api/v1/users/me/deletion-reauthentication/google/complete", consumes = "application/json")
-    public ResponseEntity<?> googleComplete(@AuthenticationPrincipal UserPrincipal principal, HttpServletRequest request) {
+    public ResponseEntity<?> googleComplete(
+            @AuthenticationPrincipal UserPrincipal principal, HttpServletRequest request) {
         var actor = actor(principal, request);
         var body = read(request, Google.class);
         return ok(reauthentication.completeGoogle(actor.userId(), actor.sid(), body.intentToken(), body.idToken()));
@@ -60,9 +63,11 @@ public class AccountDeletionController {
     }
 
     private Actor actor(UserPrincipal principal, HttpServletRequest request) {
-        if (principal == null || !principal.isEnabled()) throw DeletionTokens.invalid();
+        if (principal == null || !principal.isEnabled())
+            throw DeletionTokens.invalid();
         String authorization = request.getHeader("Authorization");
-        if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() > 8200) throw DeletionTokens.invalid();
+        if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() > 8200)
+            throw DeletionTokens.invalid();
         String sid = jwt.getSessionId(authorization.substring(7));
         return new Actor(principal.getId(), DeletionTokens.uuid(sid));
     }
@@ -71,9 +76,11 @@ public class AccountDeletionController {
         // actorId 추가, 중복 JSON 키와 초과 본문을 거부하고 parser의 원문 예외는 외부로 보내지 않는다.
         try {
             byte[] bytes = request.getInputStream().readNBytes(24 * 1024 + 1);
-            if (bytes.length > 24 * 1024) throw DeletionTokens.invalid();
+            if (bytes.length > 24 * 1024)
+                throw DeletionTokens.invalid();
             T value = json.readValue(bytes, type);
-            if (value == null) throw DeletionTokens.invalid();
+            if (value == null)
+                throw DeletionTokens.invalid();
             return value;
         } catch (IOException ignored) {
             throw DeletionTokens.invalid();
@@ -84,8 +91,8 @@ public class AccountDeletionController {
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(ResponseUtil.ok(value));
     }
 
-    private record Actor(long userId, String sid) { }
-    public record Password(String password) { }
-    public record Google(String intentToken, String idToken) { }
-    public record Empty() { }
+    private record Actor(long userId, String sid) {}
+    public record Password(String password) {}
+    public record Google(String intentToken, String idToken) {}
+    public record Empty() {}
 }

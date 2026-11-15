@@ -20,21 +20,17 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserProfileService {
-
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
     private final UserProfileImageUrlResolver imageUrlResolver;
 
-    @PersistenceContext
-    private EntityManager entities;
+    @PersistenceContext private EntityManager entities;
 
     @Transactional
     public UserProfile getOrCreateByUser(User user) {
         User current = UserAccountWriteFence.lock(entities, user);
-        return userProfileRepository.findByUserAndDeletedFalse(current)
-                .orElseGet(() ->
-                        userProfileRepository.save(UserProfile.createDefault(current))
-                );
+        return userProfileRepository.findByUserAndDeletedFalse(current).orElseGet(
+                () -> userProfileRepository.save(UserProfile.createDefault(current)));
     }
 
     @Transactional
@@ -50,16 +46,10 @@ public class UserProfileService {
     }
 
     @Transactional
-    public UserProfileResponseDto updateMyProfile(
-            Long userId,
-            UserProfileUpdateRequestDto request
-    ) {
+    public UserProfileResponseDto updateMyProfile(Long userId, UserProfileUpdateRequestDto request) {
         UserProfile userProfile = getOrCreateByUserId(userId);
 
-        userProfile.updateText(
-                request.nickname(),
-                request.bio()
-        );
+        userProfile.updateText(request.nickname(), request.bio());
 
         return toResponse(userProfile);
     }
@@ -68,27 +58,18 @@ public class UserProfileService {
     public UserSummaryProfileResponseDto getSummaryByUser(User user) {
         UserProfile userProfile = getOrCreateByUser(user);
 
-        return UserSummaryProfileResponseDto.from(
-                userProfile,
-                imageUrlResolver.resolveProfileImageUrl(userProfile),
-                imageUrlResolver.resolveProfileBackgroundImageUrl(userProfile)
-        );
+        return UserSummaryProfileResponseDto.from(userProfile, imageUrlResolver.resolveProfileImageUrl(userProfile),
+                imageUrlResolver.resolveProfileBackgroundImageUrl(userProfile));
     }
 
     public UserProfileResponseDto toResponse(UserProfile userProfile) {
-        return UserProfileResponseDto.from(
-                userProfile,
-                imageUrlResolver.resolveProfileImageUrl(userProfile),
-                imageUrlResolver.resolveProfileBackgroundImageUrl(userProfile)
-        );
+        return UserProfileResponseDto.from(userProfile, imageUrlResolver.resolveProfileImageUrl(userProfile),
+                imageUrlResolver.resolveProfileBackgroundImageUrl(userProfile));
     }
 
     private User getUser(Long userId) {
         return userRepository.findById(userId)
                 .filter(User::isActiveAccount)
-                .orElseThrow(() -> new BusinessException(
-                        "사용자를 찾을 수 없습니다.",
-                        "USER_NOT_FOUND"
-                ));
+                .orElseThrow(() -> new BusinessException("사용자를 찾을 수 없습니다.", "USER_NOT_FOUND"));
     }
 }

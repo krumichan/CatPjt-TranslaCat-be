@@ -11,7 +11,8 @@ import java.util.Optional;
 public interface GoogleAuthIntentRepository extends JpaRepository<GoogleAuthIntent, String> {
     @Query("select new jp.co.translacat.domain.user.auth.account.GoogleAuthIntentSnapshot(intent.userId, intent.expiresAt, intent.consumedAt) "
             + "from GoogleAuthIntent intent where intent.tokenHash = :hash")
-    Optional<GoogleAuthIntentSnapshot> findStateByHash(@Param("hash") String hash);
+    Optional<GoogleAuthIntentSnapshot>
+    findStateByHash(@Param("hash") String hash);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select intent from GoogleAuthIntent intent where intent.tokenHash = :hash")

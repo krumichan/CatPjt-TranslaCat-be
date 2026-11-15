@@ -9,29 +9,16 @@ import jp.co.translacat.domain.accountbook.transaction.enums.AccountBookTransact
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-public record AccountBookTransactionUpdateRequestDto(
-        @NotNull
-        AccountBookTransactionType type,
+public record AccountBookTransactionUpdateRequestDto(@NotNull AccountBookTransactionType type,
 
-        @NotBlank
-        @Size(max = 100)
-        String title,
+        @NotBlank @Size(max = 100) String title,
 
-        @Size(max = 100)
-        String storeName,
+        @Size(max = 100) String storeName,
 
-        @NotBlank
-        @Size(max = 50)
-        String category,
+        @NotBlank @Size(max = 50) String category,
 
-        @NotNull
-        @DecimalMin(value = "0", inclusive = false)
-        BigDecimal amount,
+        @NotNull @DecimalMin(value = "0", inclusive = false) BigDecimal amount,
 
-        @NotNull
-        LocalDate transactionDate,
+        @NotNull LocalDate transactionDate,
 
-        @Size(max = 500)
-        String memo
-) {
-}
+        @Size(max = 500) String memo) {}

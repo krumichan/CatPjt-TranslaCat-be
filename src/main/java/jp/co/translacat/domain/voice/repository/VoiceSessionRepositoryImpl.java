@@ -18,76 +18,41 @@ import static jp.co.translacat.domain.voice.entity.QVoiceSession.voiceSession;
 
 @Repository
 @RequiredArgsConstructor
-public class VoiceSessionRepositoryImpl
-        implements VoiceSessionRepositoryCustom {
-
+public class VoiceSessionRepositoryImpl implements VoiceSessionRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Optional<VoiceSession> findOwnedForUpdate(
-            String sessionId,
-            Long userId
-    ) {
-        VoiceSession result = queryFactory
-                .selectFrom(voiceSession)
-                .where(
-                        voiceSession.id.eq(sessionId),
-                        voiceSession.user.id.eq(userId)
-                )
-                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
-                .fetchOne();
+    public Optional<VoiceSession> findOwnedForUpdate(String sessionId, Long userId) {
+        VoiceSession result = queryFactory.selectFrom(voiceSession)
+                                      .where(voiceSession.id.eq(sessionId), voiceSession.user.id.eq(userId))
+                                      .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                                      .fetchOne();
 
         return Optional.ofNullable(result);
     }
 
     @Override
-    public List<VoiceSession> findActiveByUserId(
-            Long userId,
-            Collection<VoiceSessionStatus> statuses
-    ) {
-        return queryFactory
-                .selectFrom(voiceSession)
-                .where(
-                        voiceSession.user.id.eq(userId),
-                        voiceSession.status.in(statuses)
-                )
+    public List<VoiceSession> findActiveByUserId(Long userId, Collection<VoiceSessionStatus> statuses) {
+        return queryFactory.selectFrom(voiceSession)
+                .where(voiceSession.user.id.eq(userId), voiceSession.status.in(statuses))
                 .fetch();
     }
 
     @Override
     public List<VoiceSession> findHistory(
-            Long userId,
-            Collection<VoiceSessionStatus> statuses,
-            LocalDateTime cursor,
-            int limit
-    ) {
-        return queryFactory
-                .selectFrom(voiceSession)
-                .where(
-                        voiceSession.user.id.eq(userId),
-                        voiceSession.saveTranscript.isTrue(),
-                        voiceSession.status.in(statuses),
-                        cursor == null
-                                ? null
-                                : voiceSession.createdAt.lt(cursor)
-                )
+            Long userId, Collection<VoiceSessionStatus> statuses, LocalDateTime cursor, int limit) {
+        return queryFactory.selectFrom(voiceSession)
+                .where(voiceSession.user.id.eq(userId), voiceSession.saveTranscript.isTrue(),
+                        voiceSession.status.in(statuses), cursor == null ? null : voiceSession.createdAt.lt(cursor))
                 .orderBy(voiceSession.createdAt.desc())
                 .limit(limit)
                 .fetch();
     }
 
     @Override
-    public List<VoiceSession> findStale(
-            Collection<VoiceSessionStatus> statuses,
-            LocalDateTime threshold,
-            int limit
-    ) {
-        return queryFactory
-                .selectFrom(voiceSession)
-                .where(
-                        voiceSession.status.in(statuses),
-                        voiceSession.updatedAt.lt(threshold)
-                )
+    public List<VoiceSession> findStale(Collection<VoiceSessionStatus> statuses, LocalDateTime threshold, int limit) {
+        return queryFactory.selectFrom(voiceSession)
+                .where(voiceSession.status.in(statuses), voiceSession.updatedAt.lt(threshold))
                 .orderBy(voiceSession.updatedAt.asc())
                 .limit(limit)
                 .fetch();

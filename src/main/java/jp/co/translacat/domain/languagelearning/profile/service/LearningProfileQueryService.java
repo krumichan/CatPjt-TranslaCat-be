@@ -35,18 +35,18 @@ public class LearningProfileQueryService {
                     new SkillScoresResponseDto(null, null, null, null, null),
                     new DifficultyPerformanceResponseDto(null, null, null), 0, "stable", List.of(), List.of(),
                     List.of(), List.of(), List.of(), List.of(),
-                    new jp.co.translacat.domain.languagelearning.practice.dto.response.VocabularyMasterySummaryResponseDto(
-                            0, 0, 0, 0, 0, 0, 0, List.of()));
+                    new jp.co.translacat.domain.languagelearning.practice.dto.response
+                            .VocabularyMasterySummaryResponseDto(0, 0, 0, 0, 0, 0, 0, List.of()));
         return new ProfileResponseDto(p.profileVersion(), p.state(), p.baseLevelScore(), p.calibrationStartedDate(),
                 p.calibrationCompletedDate(),
                 new SkillScoresResponseDto(p.meaningScore(), p.grammarScore(), p.vocabularyScore(),
                         p.naturalnessScore(), p.expressionScore()),
-                new DifficultyPerformanceResponseDto(p.reviewPerformance(), p.normalPerformance(),
-                        p.challengePerformance()), p.confidence(), p.trend(),
-                value.masteries().stream().limit(100).toList(), signals(value, ProfileSignalType.GRAMMAR_WEAKNESS),
-                signals(value, ProfileSignalType.ERROR_PATTERN), signals(value, ProfileSignalType.STRENGTH),
-                signals(value, ProfileSignalType.WEAKNESS), signals(value, ProfileSignalType.RECOMMENDED_FOCUS),
-                vocabulary.get(userId));
+                new DifficultyPerformanceResponseDto(
+                        p.reviewPerformance(), p.normalPerformance(), p.challengePerformance()),
+                p.confidence(), p.trend(), value.masteries().stream().limit(100).toList(),
+                signals(value, ProfileSignalType.GRAMMAR_WEAKNESS), signals(value, ProfileSignalType.ERROR_PATTERN),
+                signals(value, ProfileSignalType.STRENGTH), signals(value, ProfileSignalType.WEAKNESS),
+                signals(value, ProfileSignalType.RECOMMENDED_FOCUS), vocabulary.get(userId));
     }
 
     private List<ProfileSignalResponseDto> signals(GrowthSnapshot value, ProfileSignalType type) {

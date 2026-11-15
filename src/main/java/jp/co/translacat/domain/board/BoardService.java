@@ -19,7 +19,6 @@ import static jp.co.translacat.domain.board.BoardDtos.*;
 @RequiredArgsConstructor
 @Transactional
 class BoardService {
-
     private static final int PAGE_SIZE = 20;
     private static final int MAX_REPLY_DEPTH = 8;
 
@@ -28,16 +27,18 @@ class BoardService {
     private final BoardAttachments attachments;
     private final BoardTranslation translation;
     private final JdbcTemplate jdbc;
-    @PersistenceContext
-    private EntityManager entities;
+    @PersistenceContext private EntityManager entities;
 
     Page posts(Board board, BoardAccess.Reader reader, Locale locale, int page) {
         // 목록의 비밀글에는 제목·작성자·첨부를 포함하지 않는다.
         List<BoardRepository.EntryRow> rows = entries.posts(board, offset(page), PAGE_SIZE + 1);
-        return new Page(rows.stream().limit(PAGE_SIZE)
-                .map(row -> row.passwordHash() == null
-                        ? visible(board, reader, row, true, locale)
-                        : locked(row)).toList(), rows.size() > PAGE_SIZE);
+        return new Page(
+                rows.stream()
+                        .limit(PAGE_SIZE)
+                        .map(row
+                                -> row.passwordHash() == null ? visible(board, reader, row, true, locale) : locked(row))
+                        .toList(),
+                rows.size() > PAGE_SIZE);
     }
 
     Entry post(Board board, BoardAccess.Reader reader, UUID post, Locale locale) {
@@ -53,12 +54,15 @@ class BoardService {
             requireThread(reader, root, entries.reply(post, parent));
         }
 
-        List<BoardRepository.EntryRow> rows = entries.replies(parent == null ? post : parent,
-                offset(page), PAGE_SIZE + 1);
-        return new Page(rows.stream().limit(PAGE_SIZE)
-                .map(row -> access.unlocked(reader, row)
-                        ? visible(board, reader, row, false, locale)
-                        : locked(row)).toList(), rows.size() > PAGE_SIZE);
+        List<BoardRepository.EntryRow> rows =
+                entries.replies(parent == null ? post : parent, offset(page), PAGE_SIZE + 1);
+        return new Page(rows.stream()
+                                .limit(PAGE_SIZE)
+                                .map(row
+                                        -> access.unlocked(reader, row) ? visible(board, reader, row, false, locale)
+                                                                        : locked(row))
+                                .toList(),
+                rows.size() > PAGE_SIZE);
     }
 
     Created createPost(Board board, BoardAccess.Reader reader, Write request) {
@@ -85,8 +89,8 @@ class BoardService {
         requireReplyFields(request);
 
         String hash = access.passwordHash(request.password());
-        UUID id = entries.insert(board, reader.id(), post, parent == null ? post : parent,
-                null, request.content(), hash);
+        UUID id =
+                entries.insert(board, reader.id(), post, parent == null ? post : parent, null, request.content(), hash);
         return new Created(id);
     }
 
@@ -150,14 +154,12 @@ class BoardService {
         return attachments.download(post, attachment);
     }
 
-    @Scheduled(fixedDelayString = "${translacat.board.unlock-cleanup.interval-ms:60000}",
-            initialDelayString = "60000")
+    @Scheduled(fixedDelayString = "${translacat.board.unlock-cleanup.interval-ms:60000}", initialDelayString = "60000")
     void cleanExpiredUnlocks() {
         jdbc.update("DELETE FROM board_unlock WHERE expires_at <= UTC_TIMESTAMP(6) LIMIT 1000");
     }
 
-    private int requireThread(BoardAccess.Reader reader, BoardRepository.EntryRow post,
-                              BoardRepository.EntryRow row) {
+    private int requireThread(BoardAccess.Reader reader, BoardRepository.EntryRow post, BoardRepository.EntryRow row) {
         access.requireUnlocked(reader, post);
         int depth = 0;
 
@@ -176,22 +178,22 @@ class BoardService {
         return depth;
     }
 
-    private Entry visible(Board board, BoardAccess.Reader reader, BoardRepository.EntryRow row,
-                          boolean summary, Locale locale) {
+    private Entry visible(
+            Board board, BoardAccess.Reader reader, BoardRepository.EntryRow row, boolean summary, Locale locale) {
         // 익명 작성자의 식별자는 API 응답에 포함하지 않는다.
         String author = board == Board.ANONYMOUS ? null : row.author();
-        var translated = locale == null ? new BoardTranslation.Result(null, null, false)
-                : translation.read(row, locale);
+        var translated =
+                locale == null ? new BoardTranslation.Result(null, null, false) : translation.read(row, locale);
 
-        return new Entry(row.id(), false, row.passwordHash() != null, row.authorId() == reader.id(),
-                author, row.createdAt(), row.updatedAt(), row.title(), summary ? null : row.content(),
-                translated.title(), summary ? null : translated.content(), translated.translating(),
+        return new Entry(row.id(), false, row.passwordHash() != null, row.authorId() == reader.id(), author,
+                row.createdAt(), row.updatedAt(), row.title(), summary ? null : row.content(), translated.title(),
+                summary ? null : translated.content(), translated.translating(),
                 !summary && row.parent() == null ? attachments.list(row.id()) : List.of());
     }
 
     private static Entry locked(BoardRepository.EntryRow row) {
-        return new Entry(row.id(), true, true, false, null, row.createdAt(), row.updatedAt(),
-                null, null, null, null, false, List.of());
+        return new Entry(row.id(), true, true, false, null, row.createdAt(), row.updatedAt(), null, null, null, null,
+                false, List.of());
     }
 
     private void lockAuthor(BoardAccess.Reader reader) {

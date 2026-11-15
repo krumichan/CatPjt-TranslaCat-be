@@ -7,26 +7,12 @@ import jp.co.translacat.domain.languagelearning.profile.dto.response.SkillScores
 
 import java.util.List;
 
-public record DashboardBaseResponseDto(
-        int todayCompleted,
-        int todayTotal,
-        int currentStreak,
-        long totalStudySentenceCount,
-        Double weeklyAverageScore,
-        Double monthlyAverageScore,
-        SkillScoresResponseDto skillRadar,
-        List<ScorePointResponseDto> metricTrend,
-        DifficultyPerformanceResponseDto difficultyPerformance,
-        List<KeywordMasteryResponseDto> keywordMastery,
-        List<ProfileSignalResponseDto> grammarWeaknesses,
-        List<ProfileSignalResponseDto> errorPatterns,
-        List<RecentLearningResponseDto> recentLearningHistory,
-        MonthlyReportResponseDto monthlyReport,
-        SpeakingTodayProgressResponseDto speakingToday,
-        StreakResponseDto streak,
-        SpeakingFeatureSummaryResponseDto speakingSummary,
-        SourceSkillTrendResponseDto sourceSkillTrend,
-        DashboardInsightsResponseDto insights,
-        String source
-) {
-}
+public record
+        DashboardBaseResponseDto(int todayCompleted, int todayTotal, int currentStreak, long totalStudySentenceCount,
+                Double weeklyAverageScore, Double monthlyAverageScore, SkillScoresResponseDto skillRadar,
+                List<ScorePointResponseDto> metricTrend, DifficultyPerformanceResponseDto difficultyPerformance,
+                List<KeywordMasteryResponseDto> keywordMastery, List<ProfileSignalResponseDto> grammarWeaknesses,
+                List<ProfileSignalResponseDto> errorPatterns, List<RecentLearningResponseDto> recentLearningHistory,
+                MonthlyReportResponseDto monthlyReport, SpeakingTodayProgressResponseDto speakingToday,
+                StreakResponseDto streak, SpeakingFeatureSummaryResponseDto speakingSummary,
+                SourceSkillTrendResponseDto sourceSkillTrend, DashboardInsightsResponseDto insights, String source) {}

@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 @UtilityClass
 @SuppressWarnings("unchecked")
 public class ResponseUtil {
-
     /* ===============================
      *  SUCCESS RESPONSE
      * =============================== */
@@ -45,22 +44,14 @@ public class ResponseUtil {
      * 생성 성공 응답
      */
     public <T> ResponseDto<T> created(final T body) {
-        return buildResponse(
-                HttpStatus.CREATED.value(),
-                HttpStatus.CREATED.getReasonPhrase(),
-                body
-        );
+        return buildResponse(HttpStatus.CREATED.value(), HttpStatus.CREATED.getReasonPhrase(), body);
     }
 
     /**
      * 내용 없는 성공 응답
      */
     public ResponseDto<Void> noContent() {
-        return buildResponse(
-                HttpStatus.NO_CONTENT.value(),
-                HttpStatus.NO_CONTENT.getReasonPhrase(),
-                null
-        );
+        return buildResponse(HttpStatus.NO_CONTENT.value(), HttpStatus.NO_CONTENT.getReasonPhrase(), null);
     }
 
     /* ===============================

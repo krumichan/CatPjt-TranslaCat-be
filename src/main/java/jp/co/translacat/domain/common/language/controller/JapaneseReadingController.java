@@ -25,7 +25,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class JapaneseReadingController {
-
     private static final int MAX_REQUEST_BYTES = 64 * 1024;
     private static final int MAX_TEXTS = 12;
     private static final int MAX_TEXT_LENGTH = 3_000;
@@ -45,7 +44,8 @@ public class JapaneseReadingController {
         if (texts.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
                 .body(ResponseUtil.ok(texts.stream().map(this::annotate).toList()));
     }
 
@@ -102,6 +102,5 @@ public class JapaneseReadingController {
         }
     }
 
-    public record Reading(int startOffset, String surface, String reading) {
-    }
+    public record Reading(int startOffset, String surface, String reading) {}
 }

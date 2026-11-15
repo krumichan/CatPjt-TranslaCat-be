@@ -11,16 +11,14 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Setter
-@Table(name = "recent_view", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"user_id", "platform_id", "recent_view_type", "novel_id", "episode_id"})
-})
+@Table(name = "recent_view",
+        uniqueConstraints =
+        { @UniqueConstraint(columnNames = {"user_id", "platform_id", "recent_view_type", "novel_id", "episode_id"}) })
 @NoArgsConstructor
 public class RecentView {
-
     @Builder(access = AccessLevel.PROTECTED)
-    private RecentView(User user, Platform platform, RecentViewType recentViewType,
-                       String novelId, String episodeId, String title, String titleJa, String titleKo,
-                       String titleEn, String targetLanguage) {
+    private RecentView(User user, Platform platform, RecentViewType recentViewType, String novelId, String episodeId,
+            String title, String titleJa, String titleKo, String titleEn, String targetLanguage) {
         this.user = user;
         this.platform = platform;
         this.recentViewType = recentViewType;
@@ -33,55 +31,37 @@ public class RecentView {
         this.targetLanguage = targetLanguage;
     }
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @ManyToOne @JoinColumn(name = "user_id", nullable = false) private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "platform_id", nullable = false)
-    private Platform platform;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "platform_id", nullable = false) private Platform platform;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private RecentViewType recentViewType;
+    @Enumerated(EnumType.STRING) @Column(nullable = false) private RecentViewType recentViewType;
 
-    @Column(nullable = false)
-    private String novelId;
+    @Column(nullable = false) private String novelId;
 
-    @Column
-    private String episodeId;
+    @Column private String episodeId;
 
-    @Column(length = 2000)
-    private String title;
+    @Column(length = 2000) private String title;
 
-    @Column(length = 2000)
-    private String titleJa;
+    @Column(length = 2000) private String titleJa;
 
-    @Column(length = 2000)
-    private String titleKo;
+    @Column(length = 2000) private String titleKo;
 
-    @Column(length = 2000)
-    private String titleEn;
+    @Column(length = 2000) private String titleEn;
 
-    @Column(nullable = false, length = 2)
-    private String targetLanguage = "ko";
+    @Column(nullable = false, length = 2) private String targetLanguage = "ko";
 
-    @Column(nullable = false)
-    @CreationTimestamp
-    private LocalDateTime viewedAt;
+    @Column(nullable = false) @CreationTimestamp private LocalDateTime viewedAt;
 
-    public static RecentView create(User user, Platform platform, RecentViewType recentViewType,
-                                    String novelId, String episodeId, String title, String titleJa, String titleKo) {
+    public static RecentView create(User user, Platform platform, RecentViewType recentViewType, String novelId,
+            String episodeId, String title, String titleJa, String titleKo) {
         return create(user, platform, recentViewType, novelId, episodeId, title, titleJa, titleKo, null, "ko");
     }
 
-    public static RecentView create(User user, Platform platform, RecentViewType recentViewType,
-                                    String novelId, String episodeId, String title, String titleJa, String titleKo,
-                                    String titleEn, String targetLanguage) {
+    public static RecentView create(User user, Platform platform, RecentViewType recentViewType, String novelId,
+            String episodeId, String title, String titleJa, String titleKo, String titleEn, String targetLanguage) {
         String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
         // 새 영어 방문은 한국어 제목으로 위장하지 않는다. 번역이 없으면 원제와 함께 보존한다.
         return RecentView.builder()
@@ -106,10 +86,13 @@ public class RecentView {
         String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
         // 같은 책의 기존 최근 기록을 갱신하되 다른 언어의 제목은 유지한다.
         // 원제 정보가 없는 내부 reader 호출도 이미 저장한 원문을 지우지 않는다.
-        if (hasTitle(title)) this.title = title;
-        if (hasTitle(titleJa)) this.titleJa = titleJa;
+        if (hasTitle(title))
+            this.title = title;
+        if (hasTitle(titleJa))
+            this.titleJa = titleJa;
         if ("en".equals(target)) {
-            if (hasTitle(titleEn)) this.titleEn = titleEn;
+            if (hasTitle(titleEn))
+                this.titleEn = titleEn;
         } else if (hasTitle(titleKo)) {
             // 원문만 가진 한국어 reader 재진입도 이미 알려진 번역 제목을 지우지 않는다.
             this.titleKo = titleKo;

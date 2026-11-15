@@ -18,67 +18,34 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/language-learning/speaking/sessions")
 @RequiredArgsConstructor
 public class SpeakingSessionController {
-
     private final SpeakingSessionFacade sessionFacade;
 
     @GetMapping("/today/status")
     public ResponseDto<java.util.List<SpeakingPracticeModeStatusResponseDto>> todayStatus(
-            @AuthenticationPrincipal UserPrincipal principal
-    ) {
-        return ResponseUtil.ok(sessionFacade.todayModeStatuses(
-                SecurityUtil.getLoginUserId(principal)
-        ));
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseUtil.ok(sessionFacade.todayModeStatuses(SecurityUtil.getLoginUserId(principal)));
     }
 
     @PostMapping
     public ResponseDto<SpeakingSessionResponseDto> create(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody SpeakingSessionCreateRequestDto request
-    ) {
-        return ResponseUtil.ok(
-                sessionFacade.create(
-                        SecurityUtil.getLoginUserId(principal),
-                        request
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal principal, @RequestBody SpeakingSessionCreateRequestDto request) {
+        return ResponseUtil.ok(sessionFacade.create(SecurityUtil.getLoginUserId(principal), request));
     }
 
     @PostMapping("/{sessionId}/complete")
-    public ResponseDto<SpeakingSessionResponseDto> complete(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId,
-            @RequestBody(required = false) SpeakingSessionCompleteRequestDto request
-    ) {
-        return ResponseUtil.ok(
-                sessionFacade.complete(
-                        SecurityUtil.getLoginUserId(principal),
-                        sessionId,
-                        request
-                )
-        );
+    public ResponseDto<SpeakingSessionResponseDto> complete(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long sessionId, @RequestBody(required = false) SpeakingSessionCompleteRequestDto request) {
+        return ResponseUtil.ok(sessionFacade.complete(SecurityUtil.getLoginUserId(principal), sessionId, request));
     }
 
     @GetMapping("/{sessionId}")
     public ResponseDto<SpeakingSessionDetailResponseDto> get(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId
-    ) {
-        return ResponseUtil.ok(
-                sessionFacade.get(
-                        SecurityUtil.getLoginUserId(principal),
-                        sessionId
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId) {
+        return ResponseUtil.ok(sessionFacade.get(SecurityUtil.getLoginUserId(principal), sessionId));
     }
 
     @GetMapping("/active")
-    public ResponseDto<SpeakingSessionDetailResponseDto> getActive(
-            @AuthenticationPrincipal UserPrincipal principal
-    ) {
-        return ResponseUtil.ok(
-                sessionFacade.getActive(
-                        SecurityUtil.getLoginUserId(principal)
-                )
-        );
+    public ResponseDto<SpeakingSessionDetailResponseDto> getActive(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseUtil.ok(sessionFacade.getActive(SecurityUtil.getLoginUserId(principal)));
     }
 }

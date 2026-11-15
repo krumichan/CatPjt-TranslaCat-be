@@ -2,13 +2,8 @@ package jp.co.translacat.domain.accountbook.accountbook.dto;
 
 import jakarta.validation.constraints.NotBlank;
 
-public record AccountBookUpdateRequestDto(
-        @NotBlank
-        String name,
+public record AccountBookUpdateRequestDto(@NotBlank String name,
 
-        @NotBlank
-        String category,
+        @NotBlank String category,
 
-        String description
-) {
-}
+        String description) {}

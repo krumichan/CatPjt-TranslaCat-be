@@ -26,8 +26,7 @@ public final class MoneyAmount {
     public static BigDecimal positive(BigDecimal amount, Currency currency) {
         BigDecimal value = normalize(amount, currency);
         if (value.signum() <= 0)
-            throw new IllegalArgumentException(
-                    "Amount rounds to zero in the account-book currency.");
+            throw new IllegalArgumentException("Amount rounds to zero in the account-book currency.");
         return value;
     }
 }

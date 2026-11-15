@@ -30,19 +30,20 @@ public class ChatCoreIdentityController {
         JsonNode body;
         try {
             byte[] bytes = request.getInputStream().readNBytes(MAX_BODY_BYTES + 1);
-            if (bytes.length > MAX_BODY_BYTES) return rejected(400);
+            if (bytes.length > MAX_BODY_BYTES)
+                return rejected(400);
             body = mapper.readTree(bytes);
         } catch (IOException ignored) {
             return rejected(400);
         }
-        if (caller == null || body == null || !body.isObject() || body.size() != 2
-                || !body.path("subject").isTextual() || body.path("subject").textValue().isBlank()
-                || body.path("subject").textValue().length() > 320
+        if (caller == null || body == null || !body.isObject() || body.size() != 2 || !body.path("subject").isTextual()
+                || body.path("subject").textValue().isBlank() || body.path("subject").textValue().length() > 320
                 || !body.path("tokenUserId").isIntegralNumber() || !body.path("tokenUserId").canConvertToLong()) {
             return rejected(400);
         }
         long userId = body.path("tokenUserId").longValue();
-        if (userId <= 0 || userId != caller.userId()) return rejected(403);
+        if (userId <= 0 || userId != caller.userId())
+            return rejected(403);
 
         // 계정 소유 저장소의 현재 ID/email/role만 조회한다. get-or-create, profile 생성, 계정 복제는 없다.
         String email = body.path("subject").textValue();
@@ -55,16 +56,17 @@ public class ChatCoreIdentityController {
         // 탈퇴 접수 직후부터 계정 원본의 현재 상태를 반영한다. 캐시된 사용자 JWT 서명만으로 허용하지 않는다.
         boolean canAuthenticate = principal.isEnabled() && principal.isAccountNonLocked()
                 && principal.isAccountNonExpired() && principal.isCredentialsNonExpired();
-        return ResponseEntity.ok().header("Cache-Control", "no-store").body(
-                new IdentityResponse(userId, principal.getUsername(), user.get().getAuthority().value(),
-                        canAuthenticate));
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
+                .body(new IdentityResponse(
+                        userId, principal.getUsername(), user.get().getAuthority().value(), canAuthenticate));
     }
 
     private static ResponseEntity<?> rejected(int status) {
-        return ResponseEntity.status(status).header("Cache-Control", "no-store")
+        return ResponseEntity.status(status)
+                .header("Cache-Control", "no-store")
                 .body(Map.of("code", "CHAT_CORE_IDENTITY_REJECTED"));
     }
 
-    public record IdentityResponse(long userId, String email, String role, boolean canAuthenticate) {
-    }
+    public record IdentityResponse(long userId, String email, String role, boolean canAuthenticate) {}
 }

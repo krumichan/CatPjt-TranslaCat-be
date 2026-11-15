@@ -32,8 +32,8 @@ public class PlatformService {
     }
 
     public Platform getPlatformByCode(PlatformCode code) {
-        return this.findPlatformByCode(code)
-                .orElseThrow(() -> new EntityNotFoundException("해당 플랫폼을 찾을 수 없습니다: " + code));
+        return this.findPlatformByCode(code).orElseThrow(
+                () -> new EntityNotFoundException("해당 플랫폼을 찾을 수 없습니다: " + code));
     }
 
     public Optional<PlatformUrlTemplate> findUrlTemplate(Long platformId, PlatformUrlType urlType) {
@@ -42,7 +42,8 @@ public class PlatformService {
 
     public PlatformUrlTemplate getUrlTemplate(Long platformId, PlatformUrlType urlType) {
         return this.findUrlTemplate(platformId, urlType)
-                .orElseThrow(
-                        () -> new EntityNotFoundException("해당 타입의 URL을 찾을 수 없습니다: " + platformId + ", " + urlType));
+                .orElseThrow(()
+                                     -> new EntityNotFoundException(
+                                             "해당 타입의 URL을 찾을 수 없습니다: " + platformId + ", " + urlType));
     }
 }

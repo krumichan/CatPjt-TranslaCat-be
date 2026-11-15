@@ -23,67 +23,51 @@ import java.nio.file.Path;
 import java.util.Map;
 
 @Component
-@ConditionalOnProperty(
-        prefix = "translacat.storage",
-        name = "type",
-        havingValue = "s3"
-)
-public class S3CompatibleImageStorageAdapter
-        implements ImageStoragePort, NovelAudioObjectStore {
-
+@ConditionalOnProperty(prefix = "translacat.storage", name = "type", havingValue = "s3")
+public class S3CompatibleImageStorageAdapter implements ImageStoragePort, NovelAudioObjectStore {
     private final S3Client s3Client;
     private final String bucket;
     private final String publicBaseUrl;
 
-    public S3CompatibleImageStorageAdapter(
-            S3Client s3Client,
-            StorageProperties properties
-    ) {
+    public S3CompatibleImageStorageAdapter(S3Client s3Client, StorageProperties properties) {
         this.s3Client = s3Client;
         this.bucket = properties.getS3().getBucket();
-        this.publicBaseUrl = stripTrailingSlash(
-                properties.getS3().getPublicBaseUrl()
-        );
+        this.publicBaseUrl = stripTrailingSlash(properties.getS3().getPublicBaseUrl());
     }
 
     @Override
     public void store(ImageStorageUpload upload) {
         PutObjectRequest request = PutObjectRequest.builder()
-                .bucket(bucket)
-                .key(upload.objectKey())
-                .contentType(upload.contentType())
-                .cacheControl("public, max-age=31536000, immutable")
-                .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(30)).apiCallAttemptTimeout(java.time.Duration.ofSeconds(15)))
-                .build();
+                                           .bucket(bucket)
+                                           .key(upload.objectKey())
+                                           .contentType(upload.contentType())
+                                           .cacheControl("public, max-age=31536000, immutable")
+                                           .overrideConfiguration(config
+                                                   -> config.apiCallTimeout(java.time.Duration.ofSeconds(30))
+                                                           .apiCallAttemptTimeout(java.time.Duration.ofSeconds(15)))
+                                           .build();
 
         try {
-            s3Client.putObject(
-                    request,
-                    RequestBody.fromBytes(upload.bytes())
-            );
+            s3Client.putObject(request, RequestBody.fromBytes(upload.bytes()));
         } catch (SdkException e) {
-            throw new BusinessException(
-                    "이미지 저장소 업로드에 실패했습니다.",
-                    e
-            );
+            throw new BusinessException("이미지 저장소 업로드에 실패했습니다.", e);
         }
     }
 
     @Override
     public void delete(String objectKey) {
         DeleteObjectRequest request = DeleteObjectRequest.builder()
-                .bucket(bucket)
-                .key(objectKey)
-                .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(5)).apiCallAttemptTimeout(java.time.Duration.ofSeconds(3)))
-                .build();
+                                              .bucket(bucket)
+                                              .key(objectKey)
+                                              .overrideConfiguration(config
+                                                      -> config.apiCallTimeout(java.time.Duration.ofSeconds(5))
+                                                              .apiCallAttemptTimeout(java.time.Duration.ofSeconds(3)))
+                                              .build();
 
         try {
             s3Client.deleteObject(request);
         } catch (SdkException e) {
-            throw new BusinessException(
-                    "이미지 저장소 삭제에 실패했습니다.",
-                    e
-            );
+            throw new BusinessException("이미지 저장소 삭제에 실패했습니다.", e);
         }
     }
 
@@ -93,25 +77,47 @@ public class S3CompatibleImageStorageAdapter
     }
 
     @Override
-    public boolean supportsAccountDeletion() { return true; }
+    public boolean supportsAccountDeletion() {
+        return true;
+    }
 
     @Override
     public boolean deleteUserProfileObjects(long userId) {
-        if (userId <= 0) throw new IllegalArgumentException("Positive account ID required");
+        if (userId <= 0)
+            throw new IllegalArgumentException("Positive account ID required");
         String prefix = "user-profile/" + userId + "/";
         long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(20);
         try {
-            var listed = s3Client.listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).prefix(prefix).maxKeys(100)
-                    .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(5)).apiCallAttemptTimeout(java.time.Duration.ofSeconds(3))).build());
+            var listed = s3Client.listObjectsV2(ListObjectsV2Request.builder()
+                            .bucket(bucket)
+                            .prefix(prefix)
+                            .maxKeys(100)
+                            .overrideConfiguration(config
+                                    -> config.apiCallTimeout(java.time.Duration.ofSeconds(5))
+                                            .apiCallAttemptTimeout(java.time.Duration.ofSeconds(3)))
+                            .build());
             for (var object : listed.contents()) {
                 // 운영 설정의 bucket과 정확한 숫자 계정 prefix만 사용한다. 객체 key를 다른 계정으로 확장하지 않는다.
-                if (!object.key().startsWith(prefix)) throw new IllegalStateException("Profile cleanup object escaped prefix");
-                if (System.nanoTime() >= deadline) return false;
-                s3Client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(object.key())
-                        .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(5)).apiCallAttemptTimeout(java.time.Duration.ofSeconds(3))).build());
+                if (!object.key().startsWith(prefix))
+                    throw new IllegalStateException("Profile cleanup object escaped prefix");
+                if (System.nanoTime() >= deadline)
+                    return false;
+                s3Client.deleteObject(DeleteObjectRequest.builder()
+                                .bucket(bucket)
+                                .key(object.key())
+                                .overrideConfiguration(config
+                                        -> config.apiCallTimeout(java.time.Duration.ofSeconds(5))
+                                                .apiCallAttemptTimeout(java.time.Duration.ofSeconds(3)))
+                                .build());
             }
-            var remaining = s3Client.listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).prefix(prefix).maxKeys(1)
-                    .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(5)).apiCallAttemptTimeout(java.time.Duration.ofSeconds(3))).build());
+            var remaining = s3Client.listObjectsV2(ListObjectsV2Request.builder()
+                            .bucket(bucket)
+                            .prefix(prefix)
+                            .maxKeys(1)
+                            .overrideConfiguration(config
+                                    -> config.apiCallTimeout(java.time.Duration.ofSeconds(5))
+                                            .apiCallAttemptTimeout(java.time.Duration.ofSeconds(3)))
+                            .build());
             return remaining.contents().isEmpty();
         } catch (SdkException failure) {
             throw new BusinessException("프로필 이미지 정리에 실패했습니다.", "PROFILE_CLEANUP_UNAVAILABLE");
@@ -124,11 +130,17 @@ public class S3CompatibleImageStorageAdapter
         try {
             // 기존 이미지 R2 bucket을 공유한다. 재생 응답은 BE가 전달하며 bucket 자체는 공개 접근 가능하다.
             s3Client.putObject(PutObjectRequest.builder()
-                    .bucket(bucket).key(objectKey).contentType(contentType)
-                    .overrideConfiguration(config -> config.apiCallTimeout(java.time.Duration.ofSeconds(30))
-                            .apiCallAttemptTimeout(java.time.Duration.ofSeconds(15)))
-                    .contentLength(bytes).cacheControl("private, max-age=31536000, immutable")
-                    .metadata(Map.of("sha256", sha256)).build(), RequestBody.fromFile(file));
+                                       .bucket(bucket)
+                                       .key(objectKey)
+                                       .contentType(contentType)
+                                       .overrideConfiguration(config
+                                               -> config.apiCallTimeout(java.time.Duration.ofSeconds(30))
+                                                       .apiCallAttemptTimeout(java.time.Duration.ofSeconds(15)))
+                                       .contentLength(bytes)
+                                       .cacheControl("private, max-age=31536000, immutable")
+                                       .metadata(Map.of("sha256", sha256))
+                                       .build(),
+                    RequestBody.fromFile(file));
         } catch (SdkException failure) {
             throw unavailable();
         }
@@ -138,12 +150,11 @@ public class S3CompatibleImageStorageAdapter
     public ObjectInfo head(String objectKey) {
         requireAudioKey(objectKey);
         try {
-            var response = s3Client.headObject(HeadObjectRequest.builder()
-                    .bucket(bucket).key(objectKey).build());
-            return new ObjectInfo(response.contentLength(), response.metadata().get("sha256"),
-                    response.contentType());
+            var response = s3Client.headObject(HeadObjectRequest.builder().bucket(bucket).key(objectKey).build());
+            return new ObjectInfo(response.contentLength(), response.metadata().get("sha256"), response.contentType());
         } catch (S3Exception failure) {
-            if (failure.statusCode() == 404) throw new NovelAudioObjectStore.Missing();
+            if (failure.statusCode() == 404)
+                throw new NovelAudioObjectStore.Missing();
             throw unavailable();
         } catch (SdkException failure) {
             throw unavailable();
@@ -159,13 +170,14 @@ public class S3CompatibleImageStorageAdapter
     @Override
     public ObjectData read(String objectKey, int maxBytes) {
         requireAudioKey(objectKey);
-        try (var stream = s3Client.getObject(GetObjectRequest.builder()
-                .bucket(bucket).key(objectKey).build())) {
+        try (var stream = s3Client.getObject(GetObjectRequest.builder().bucket(bucket).key(objectKey).build())) {
             byte[] data = stream.readNBytes(maxBytes + 1);
-            if (data.length > maxBytes) throw new NovelProblem("AUDIO_OBJECT_TOO_LARGE", 502);
+            if (data.length > maxBytes)
+                throw new NovelProblem("AUDIO_OBJECT_TOO_LARGE", 502);
             return new ObjectData(data, stream.response().contentType());
         } catch (S3Exception failure) {
-            if (failure.statusCode() == 404) throw new NovelAudioObjectStore.Missing();
+            if (failure.statusCode() == 404)
+                throw new NovelAudioObjectStore.Missing();
             throw unavailable();
         } catch (IOException | SdkException failure) {
             throw unavailable();
@@ -184,13 +196,9 @@ public class S3CompatibleImageStorageAdapter
 
     private String stripTrailingSlash(String value) {
         if (value == null || value.isBlank()) {
-            throw new IllegalStateException(
-                    "STORAGE_S3_PUBLIC_BASE_URL 설정이 필요합니다."
-            );
+            throw new IllegalStateException("STORAGE_S3_PUBLIC_BASE_URL 설정이 필요합니다.");
         }
 
-        return value.endsWith("/")
-                ? value.substring(0, value.length() - 1)
-                : value;
+        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
     }
 }

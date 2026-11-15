@@ -21,8 +21,8 @@ public interface LevelTestGateway {
 
     LevelAnswerResultResponseDto submit(Long userId, Long sessionId, Long itemId, LevelAnswerRequestDto request);
 
-    LevelAudioAnswerResultResponseDto submitAudio(Long userId, Long sessionId, Long itemId, byte[] audio,
-                                                  String contentType, Integer durationMs, String key);
+    LevelAudioAnswerResultResponseDto submitAudio(
+            Long userId, Long sessionId, Long itemId, byte[] audio, String contentType, Integer durationMs, String key);
 
     LevelAnswerResultResponseDto retry(Long userId, Long sessionId, Long itemId);
 
@@ -33,5 +33,4 @@ public interface LevelTestGateway {
     LevelTestHistoryDetailResponseDto detail(Long userId, Long sessionId);
 
     LevelTestAudioData audio(Long userId, Long itemId, String kind);
-
 }

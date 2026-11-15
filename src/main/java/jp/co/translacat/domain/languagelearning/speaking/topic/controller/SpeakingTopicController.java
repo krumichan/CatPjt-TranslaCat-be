@@ -21,20 +21,19 @@ import java.util.List;
 @RequestMapping("/api/v1/language-learning/speaking/topics")
 @RequiredArgsConstructor
 public class SpeakingTopicController {
-
     private final SpeakingGateway gateway;
 
     @GetMapping
-    public ResponseDto<List<SpeakingTopicResponseDto>> getTopics(
-            @AuthenticationPrincipal UserPrincipal principal,
+    public ResponseDto<List<SpeakingTopicResponseDto>> getTopics(@AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String learningLanguage,
-            @RequestParam(required = false) SpeakingTopicCategory category
-    ) {
+            @RequestParam(required = false) SpeakingTopicCategory category) {
         var path = UriComponentsBuilder.fromPath("/topics");
-        if (learningLanguage != null) path.queryParam("learningLanguage", learningLanguage);
-        if (category != null) path.queryParam("category", category.name());
+        if (learningLanguage != null)
+            path.queryParam("learningLanguage", learningLanguage);
+        if (category != null)
+            path.queryParam("category", category.name());
 
-        return ResponseUtil.ok(gateway.list(SecurityUtil.getLoginUserId(principal),
-                path.build().encode().toUriString(), SpeakingTopicResponseDto.class));
+        return ResponseUtil.ok(gateway.list(SecurityUtil.getLoginUserId(principal), path.build().encode().toUriString(),
+                SpeakingTopicResponseDto.class));
     }
 }

@@ -1,6 +1,3 @@
 package jp.co.translacat.domain.languagelearning.common.enums;
 
-public enum PracticeSetStatus {
-    ACTIVE,
-    COMPLETED
-}
+public enum PracticeSetStatus { ACTIVE, COMPLETED }

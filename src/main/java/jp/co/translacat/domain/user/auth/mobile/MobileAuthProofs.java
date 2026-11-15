@@ -28,8 +28,9 @@ final class MobileAuthProofs {
     }
 
     static boolean same(String expected, String actual) {
-        return expected != null && actual != null && MessageDigest.isEqual(
-                expected.getBytes(StandardCharsets.US_ASCII), actual.getBytes(StandardCharsets.US_ASCII));
+        return expected != null && actual != null
+                && MessageDigest.isEqual(
+                        expected.getBytes(StandardCharsets.US_ASCII), actual.getBytes(StandardCharsets.US_ASCII));
     }
 
     private static byte[] digest(String value) {

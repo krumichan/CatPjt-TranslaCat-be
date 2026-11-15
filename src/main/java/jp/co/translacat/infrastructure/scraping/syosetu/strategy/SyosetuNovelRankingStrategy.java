@@ -30,9 +30,7 @@ public class SyosetuNovelRankingStrategy implements NovelRankingStrategy {
 
     @Override
     public List<NovelRankingPeriodResponseDto> getPeriods() {
-        return Stream.of(SyosetuRankingPeriod.values())
-                .map(RankingPeriod::toResponseDto)
-                .toList();
+        return Stream.of(SyosetuRankingPeriod.values()).map(RankingPeriod::toResponseDto).toList();
     }
 
     @Override

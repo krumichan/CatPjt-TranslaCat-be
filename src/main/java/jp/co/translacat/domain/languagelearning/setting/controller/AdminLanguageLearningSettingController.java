@@ -16,23 +16,16 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminLanguageLearningSettingController {
-
     private final AdminLanguageLearningSettingFacade settingFacade;
 
     @GetMapping
-    public ResponseDto<AdminSettingResponseDto> get(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
-    ) {
+    public ResponseDto<AdminSettingResponseDto> get(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         return ResponseUtil.ok(settingFacade.get(userPrincipal.getId()));
     }
 
     @PatchMapping
     public ResponseDto<AdminSettingResponseDto> update(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestBody AdminSettingUpdateRequestDto request
-    ) {
-        return ResponseUtil.ok(
-                settingFacade.update(userPrincipal.getId(), request)
-        );
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @RequestBody AdminSettingUpdateRequestDto request) {
+        return ResponseUtil.ok(settingFacade.update(userPrincipal.getId(), request));
     }
 }

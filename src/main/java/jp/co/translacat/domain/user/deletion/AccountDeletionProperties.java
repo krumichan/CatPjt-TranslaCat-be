@@ -7,8 +7,16 @@ public class AccountDeletionProperties {
     private boolean enabled;
     private boolean workerEnabled;
 
-    public boolean isEnabled() { return enabled; }
-    public void setEnabled(boolean enabled) { this.enabled = enabled; }
-    public boolean isWorkerEnabled() { return workerEnabled; }
-    public void setWorkerEnabled(boolean workerEnabled) { this.workerEnabled = workerEnabled; }
+    public boolean isEnabled() {
+        return enabled;
+    }
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+    public boolean isWorkerEnabled() {
+        return workerEnabled;
+    }
+    public void setWorkerEnabled(boolean workerEnabled) {
+        this.workerEnabled = workerEnabled;
+    }
 }

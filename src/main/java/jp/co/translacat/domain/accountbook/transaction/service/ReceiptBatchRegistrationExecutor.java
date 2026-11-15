@@ -32,20 +32,14 @@ public class ReceiptBatchRegistrationExecutor {
 
     @Transactional
     public List<AccountBookTransactionResponseDto> execute(
-            Long bookId,
-            Long userId,
-            String idempotencyKey,
-            String fingerprint,
-            ReceiptBatchRequestDto request) {
+            Long bookId, Long userId, String idempotencyKey, String fingerprint, ReceiptBatchRequestDto request) {
         var book = access.getAccessibleAccountBook(bookId, userId);
-        if (request.receipts() == null
-                || request.receipts().isEmpty()
-                || request.receipts().size() > 30) {
+        if (request.receipts() == null || request.receipts().isEmpty() || request.receipts().size() > 30) {
             throw new IllegalArgumentException("A receipt batch must contain 1 to 30 receipts.");
         }
 
-        ReceiptBatchRegistration registration = ReceiptBatchRegistration.claim(
-                bookId, userId, idempotencyKey, fingerprint);
+        ReceiptBatchRegistration registration =
+                ReceiptBatchRegistration.claim(bookId, userId, idempotencyKey, fingerprint);
         registrations.saveAndFlush(registration);
 
         Set<String> ids = new HashSet<>();
@@ -56,28 +50,19 @@ public class ReceiptBatchRegistrationExecutor {
             }
             validateReviewCompletion(item);
             var amountDecision = ReceiptAmountPolicy.decide(
-                    item.purchaseTotal(), item.paymentBreakdown(),
-                    item.cashTendered(), item.change());
+                    item.purchaseTotal(), item.paymentBreakdown(), item.cashTendered(), item.change());
             if (!amountDecision.ready()) {
-                throw new IllegalArgumentException(
-                        "Receipt amount requires review: " + amountDecision.reason());
+                throw new IllegalArgumentException("Receipt amount requires review: " + amountDecision.reason());
             }
-            if (item.originalAmount() != null
-                    && item.originalAmount().compareTo(amountDecision.bookAmount()) != 0) {
+            if (item.originalAmount() != null && item.originalAmount().compareTo(amountDecision.bookAmount()) != 0) {
                 throw new IllegalArgumentException("Receipt book amount does not match source facts.");
             }
-            if (!ReceiptAmountPolicy.VERSION.equals(item.amountPolicyVersion())
-                    || !"READY".equals(item.reviewStatus())
+            if (!ReceiptAmountPolicy.VERSION.equals(item.amountPolicyVersion()) || !"READY".equals(item.reviewStatus())
                     || !Objects.equals(item.amountReason(), amountDecision.reason())) {
                 throw new IllegalArgumentException("Receipt amount decision is stale.");
             }
-            var conversion = conversions.convert(
-                    amountDecision.bookAmount(),
-                    item.originalCurrencyCode(),
-                    item.transactionDate(),
-                    book.getCurrency(),
-                    bookId,
-                    amountDecision.fingerprint());
+            var conversion = conversions.convert(amountDecision.bookAmount(), item.originalCurrencyCode(),
+                    item.transactionDate(), book.getCurrency(), bookId, amountDecision.fingerprint());
             if (!conversion.registrable()) {
                 throw new IllegalArgumentException(
                         "Receipt candidate requires review: " + conversion.conversionStatus());
@@ -86,35 +71,19 @@ public class ReceiptBatchRegistrationExecutor {
                 throw ReceiptRegistrationException.quoteChanged(item.receiptId());
             }
             var category = categories.findOrCreateCategory(bookId, item.categoryName());
-            var transaction = AccountBookTransaction.create(
-                    book,
-                    AccountBookTransactionType.EXPENSE,
-                    conversion.convertedAmount(),
-                    item.title(),
-                    item.storeName(),
-                    category.getName(),
-                    item.transactionDate(),
-                    item.memo());
+            var transaction = AccountBookTransaction.create(book, AccountBookTransactionType.EXPENSE,
+                    conversion.convertedAmount(), item.title(), item.storeName(), category.getName(),
+                    item.transactionDate(), item.memo());
             transaction.recordReceiptConversion(conversion);
-            transaction.recordReceiptFacts(
-                    amountDecision.purchaseTotal(),
-                    amountDecision.bookAmount(),
-                    writePayments(amountDecision.payments()),
-                    amountDecision.cashTendered(),
-                    amountDecision.change(),
-                    amountDecision.policyVersion(),
-                    amountDecision.reason(),
-                    amountDecision.status(),
-                    item.branchName(),
-                    item.sourceImageId(),
-                    item.analysisRevision(),
-                    item.transactionTime());
+            transaction.recordReceiptFacts(amountDecision.purchaseTotal(), amountDecision.bookAmount(),
+                    writePayments(amountDecision.payments()), amountDecision.cashTendered(), amountDecision.change(),
+                    amountDecision.policyVersion(), amountDecision.reason(), amountDecision.status(), item.branchName(),
+                    item.sourceImageId(), item.analysisRevision(), item.transactionTime());
             created.add(transactions.save(transaction));
         }
         transactions.flush();
-        List<AccountBookTransactionResponseDto> result = created.stream()
-                .map(AccountBookTransactionResponseDto::from)
-                .toList();
+        List<AccountBookTransactionResponseDto> result =
+                created.stream().map(AccountBookTransactionResponseDto::from).toList();
         try {
             registration.complete(objectMapper.writeValueAsString(result));
         } catch (JsonProcessingException e) {
@@ -124,17 +93,15 @@ public class ReceiptBatchRegistrationExecutor {
     }
 
     private void validateReviewCompletion(ReceiptCandidateRequestDto item) {
-        if (!"ASSISTED".equals(item.reviewMode())) return;
+        if (!"ASSISTED".equals(item.reviewMode()))
+            return;
         if (item.draftRevision() == null || item.reviewedRevision() == null
                 || !item.draftRevision().equals(item.reviewedRevision())) {
-            throw new IllegalArgumentException(
-                    "Review-assisted receipt changed after source confirmation.");
+            throw new IllegalArgumentException("Review-assisted receipt changed after source confirmation.");
         }
         List<Double> region = item.sourceRegion();
-        if (region == null || region.size() != 4
-                || region.get(0) >= region.get(2) || region.get(1) >= region.get(3)) {
-            throw new IllegalArgumentException(
-                    "Review-assisted receipt requires a valid source region.");
+        if (region == null || region.size() != 4 || region.get(0) >= region.get(2) || region.get(1) >= region.get(3)) {
+            throw new IllegalArgumentException("Review-assisted receipt requires a valid source region.");
         }
     }
 

@@ -58,7 +58,6 @@ public class SyosetuNovelStrategy implements NovelStrategy {
     }
 
     private NovelContext fetchNovelContextFromHeader(Document document) {
-
         // 소설 작품 정보 URL 취득.
         String detailUrl = this.syosetuParser.extractNovelDetailUrlFromHeader(document);
 

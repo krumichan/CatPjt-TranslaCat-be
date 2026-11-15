@@ -19,48 +19,72 @@ import java.util.function.Supplier;
 @Component
 @RequiredArgsConstructor
 class BoardStorage {
-
     private final ObjectProvider<S3Client> clients;
     private final ObjectProvider<S3Presigner> presigners;
 
-    @Value("${translacat.board.storage.bucket:}")
-    private String bucket;
+    @Value("${translacat.board.storage.bucket:}") private String bucket;
 
-    @Value("${translacat.storage.s3.bucket:}")
-    private String publicBucket;
+    @Value("${translacat.storage.s3.bucket:}") private String publicBucket;
 
     String start(UUID id, String filename) {
         // 원본 파일명은 다운로드 메타데이터에만 쓰고 객체 키는 서버에서 생성한다.
         String download = ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build().toString();
-        return request(() -> client().createMultipartUpload(CreateMultipartUploadRequest.builder()
-                .bucket(bucket()).key(key(id)).contentDisposition(download)
-                .contentType("application/octet-stream").cacheControl("private, no-store").build()).uploadId());
+        return request(()
+                               -> client()
+                                       .createMultipartUpload(CreateMultipartUploadRequest.builder()
+                                                       .bucket(bucket())
+                                                       .key(key(id))
+                                                       .contentDisposition(download)
+                                                       .contentType("application/octet-stream")
+                                                       .cacheControl("private, no-store")
+                                                       .build())
+                                       .uploadId());
     }
 
     String signPart(UUID id, String uploadId, int number, long length) {
         // 브라우저가 Blob 크기로 생성하는 Content-Length를 서명에 포함한다.
         String destination = bucket();
-        return request(() -> presigner().presignUploadPart(config -> config
-                .signatureDuration(Duration.ofMinutes(30))
-                .uploadPartRequest(req -> req.bucket(destination).key(key(id)).uploadId(uploadId)
-                        .partNumber(number).contentLength(length))).url().toExternalForm());
+        return request(()
+                               -> presigner()
+                                       .presignUploadPart(config
+                                               -> config.signatureDuration(Duration.ofMinutes(30))
+                                                       .uploadPartRequest(req
+                                                               -> req.bucket(destination)
+                                                                       .key(key(id))
+                                                                       .uploadId(uploadId)
+                                                                       .partNumber(number)
+                                                                       .contentLength(length)))
+                                       .url()
+                                       .toExternalForm());
     }
 
     List<Part> parts(UUID id, String uploadId) {
-        return request(() -> client().listPartsPaginator(ListPartsRequest.builder()
-                .bucket(bucket()).key(key(id)).uploadId(uploadId).build())
-                .parts().stream().toList());
+        return request(()
+                               -> client()
+                                       .listPartsPaginator(ListPartsRequest.builder()
+                                                       .bucket(bucket())
+                                                       .key(key(id))
+                                                       .uploadId(uploadId)
+                                                       .build())
+                                       .parts()
+                                       .stream()
+                                       .toList());
     }
 
     void complete(UUID id, String uploadId, List<Part> parts) {
         // 완료에는 R2가 응답한 ETag만 사용한다. 업로드 중인 파트가 바뀌면 R2가 완료를 거절한다.
-        List<CompletedPart> completed = parts.stream()
-                .map(part -> CompletedPart.builder().partNumber(part.partNumber()).eTag(part.eTag()).build())
-                .toList();
+        List<CompletedPart> completed =
+                parts.stream()
+                        .map(part -> CompletedPart.builder().partNumber(part.partNumber()).eTag(part.eTag()).build())
+                        .toList();
 
-        request(() -> client().completeMultipartUpload(CompleteMultipartUploadRequest.builder()
-                .bucket(bucket()).key(key(id)).uploadId(uploadId)
-                .multipartUpload(item -> item.parts(completed)).build()));
+        request(()
+                        -> client().completeMultipartUpload(CompleteMultipartUploadRequest.builder()
+                                        .bucket(bucket())
+                                        .key(key(id))
+                                        .uploadId(uploadId)
+                                        .multipartUpload(item -> item.parts(completed))
+                                        .build()));
     }
 
     Long bytes(UUID id) {
@@ -78,9 +102,13 @@ class BoardStorage {
 
     String download(UUID id) {
         String destination = bucket();
-        return request(() -> presigner().presignGetObject(config -> config
-                .signatureDuration(Duration.ofSeconds(60))
-                .getObjectRequest(req -> req.bucket(destination).key(key(id)))).url().toExternalForm());
+        return request(()
+                               -> presigner()
+                                       .presignGetObject(config
+                                               -> config.signatureDuration(Duration.ofSeconds(60))
+                                                       .getObjectRequest(req -> req.bucket(destination).key(key(id))))
+                                       .url()
+                                       .toExternalForm());
     }
 
     void delete(UUID id, String uploadId) {

@@ -12,8 +12,7 @@ public class LegacyApiClientFacade {
     private final ExternalApiClient externalApiClient;
     private final GoogleProxy googleProxy;
 
-    @Value("${external.use-proxy}")
-    private boolean useProxy;
+    @Value("${external.use-proxy}") private boolean useProxy;
 
     public <T> T get(String uri, Class<T> responseType) {
         log.info("[LegacyApiClientFacade] Send Request....");

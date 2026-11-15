@@ -60,8 +60,7 @@ public class UserService {
     private final AuthSessionService sessions;
     private final AccountDeletionIdentityGate deletionIdentities;
 
-    @PersistenceContext
-    private EntityManager entities;
+    @PersistenceContext private EntityManager entities;
 
     public User getById(Long userId) {
         return userRepository.findById(userId)
@@ -74,7 +73,9 @@ public class UserService {
     }
 
     public User findByPublicId(String publicId) {
-        return userRepository.findByPublicId(publicId).map(user -> UserAccountWriteFence.lock(entities, user)).orElse(null);
+        return userRepository.findByPublicId(publicId)
+                .map(user -> UserAccountWriteFence.lock(entities, user))
+                .orElse(null);
     }
 
     public Optional<UserAllowed> findUserAllowedByEmail(String email) {
@@ -93,10 +94,11 @@ public class UserService {
         deletionIdentities.requireNewAccountAllowed(email);
         emailVerification.consume(request.getVerificationToken(), email, EmailVerificationPurpose.REGISTER, null);
         if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
-            throw new AuthException(HttpStatus.CONFLICT, "ACCOUNT_ALREADY_EXISTS", "이미 가입된 이메일입니다. 기존 방식으로 로그인해 주세요.");
+            throw new AuthException(HttpStatus.CONFLICT, "ACCOUNT_ALREADY_EXISTS",
+                    "이미 가입된 이메일입니다. 기존 방식으로 로그인해 주세요.");
         }
-        User user = User.createLocalUser(email, passwordEncoder.encode(request.getPassword()),
-                nickname, Role.USER, generateUniquePublicId());
+        User user = User.createLocalUser(
+                email, passwordEncoder.encode(request.getPassword()), nickname, Role.USER, generateUniquePublicId());
         user.setBirthDate(birthDate);
         user.setEmailVerifiedAt(Instant.now());
 
@@ -105,7 +107,8 @@ public class UserService {
             userProfiles.saveAndFlush(UserProfile.createDefault(saved));
             return saved;
         } catch (DataIntegrityViolationException exception) {
-            throw new AuthException(HttpStatus.CONFLICT, "REGISTRATION_CONFLICT", "가입 정보가 중복되었습니다. 다시 확인해 주세요.");
+            throw new AuthException(
+                    HttpStatus.CONFLICT, "REGISTRATION_CONFLICT", "가입 정보가 중복되었습니다. 다시 확인해 주세요.");
         }
     }
 
@@ -128,8 +131,8 @@ public class UserService {
                     "이미 가입된 이메일입니다. 기존 방식으로 로그인한 뒤 계정 설정에서 Google을 연결해 주세요.");
         }
         String displayName = username == null || username.isBlank() ? normalizedEmail.split("@")[0] : username.trim();
-        User user = User.createSocialUser(normalizedEmail, displayName, socialType, socialId,
-                Role.USER, generateUniquePublicId());
+        User user = User.createSocialUser(
+                normalizedEmail, displayName, socialType, socialId, Role.USER, generateUniquePublicId());
         try {
             return userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException exception) {
@@ -143,11 +146,7 @@ public class UserService {
         String email = AuthInputs.normalizeEmail(userLoginRequestDto.getEmail());
         attempts.acquire("LOGIN", email);
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginEmail(email),
-                        userLoginRequestDto.getPassword()
-                )
-        );
+                new UsernamePasswordAuthenticationToken(loginEmail(email), userLoginRequestDto.getPassword()));
 
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         User user = userPrincipal.user();
@@ -185,8 +184,8 @@ public class UserService {
             return sessions.refresh(refreshToken, userId, sessionId);
         }
 
-        RefreshToken rt = refreshTokenRepository.findById(userId)
-                .orElseThrow(() -> new AuthException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN", "다시 로그인해 주세요."));
+        RefreshToken rt = refreshTokenRepository.findById(userId).orElseThrow(
+                () -> new AuthException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN", "다시 로그인해 주세요."));
 
         if (!rt.getToken().equals(refreshToken)) {
             throw new AuthException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN", "다시 로그인해 주세요.");
@@ -197,8 +196,8 @@ public class UserService {
             throw new AuthException(HttpStatus.UNAUTHORIZED, "REFRESH_TOKEN_EXPIRED", "다시 로그인해 주세요.");
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        User user = userRepository.findById(userId).orElseThrow(
+                () -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
         if (!user.isActiveAccount()) {
             throw new AuthException(HttpStatus.UNAUTHORIZED, "ACCOUNT_INACTIVE", "다시 로그인해 주세요.");

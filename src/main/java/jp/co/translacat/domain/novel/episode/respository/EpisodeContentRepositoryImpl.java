@@ -16,7 +16,8 @@ public class EpisodeContentRepositoryImpl implements EpisodeContentBatchReposito
 
     @Override
     public void batchInsertAll(List<EpisodeContent> contents) {
-        if (contents.isEmpty()) return;
+        if (contents.isEmpty())
+            return;
 
         String sql = """
                 INSERT INTO episode_content (
@@ -35,7 +36,8 @@ public class EpisodeContentRepositoryImpl implements EpisodeContentBatchReposito
 
     @Override
     public void batchUpdateAll(List<EpisodeContent> contents) {
-        if (contents.isEmpty()) return;
+        if (contents.isEmpty())
+            return;
 
         String sql = """
                 UPDATE episode_content

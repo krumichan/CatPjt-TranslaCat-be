@@ -26,35 +26,22 @@ import java.time.LocalDate;
 @RequestMapping("/api/v1/language-learning/dashboard")
 @RequiredArgsConstructor
 public class LanguageLearningDashboardController {
-
     private final LanguageLearningDashboardQueryService dashboardQueryService;
 
-    @Operation(
-            summary = "Language Learning Dashboard",
-            description = "통합 언어 능력, 학습별 성과, 성장, 약점, 추천과 Source/Task별 Trend를 반환합니다."
-    )
+    @Operation(summary = "Language Learning Dashboard",
+            description = "통합 언어 능력, 학습별 성과, 성장, 약점, 추천과 Source/Task별 Trend를 반환합니다.")
     @GetMapping
-    public ResponseDto<DashboardResponseDto> get(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @Parameter(description = "조회 시작일. 기본값은 종료일 기준 30일 전")
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @Parameter(description = "조회 종료일. 기본값은 사용자 Timezone의 오늘")
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @Parameter(description = "ALL, WRITING, SPEAKING, LISTENING, READING, VOCABULARY")
-            @RequestParam(defaultValue = "ALL") String source,
-            @Parameter(description = "Listening Trend를 Task 단위로 제한할 때 사용")
-            @RequestParam(required = false) ListeningTaskType taskType
-    ) {
+    public ResponseDto<DashboardResponseDto>
+    get(@AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Parameter(description = "조회 시작일. 기본값은 종료일 기준 30일 전") @RequestParam(
+                    required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @Parameter(description = "조회 종료일. 기본값은 사용자 Timezone의 오늘") @RequestParam(
+                    required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @Parameter(description = "ALL, WRITING, SPEAKING, LISTENING, READING, VOCABULARY") @RequestParam(
+                    defaultValue = "ALL") String source,
+            @Parameter(description = "Listening Trend를 Task 단위로 제한할 때 사용") @RequestParam(
+                    required = false) ListeningTaskType taskType) {
         return ResponseUtil.ok(
-                dashboardQueryService.get(
-                        SecurityUtil.getLoginUserId(userPrincipal),
-                        from,
-                        to,
-                        source,
-                        taskType
-                )
-        );
+                dashboardQueryService.get(SecurityUtil.getLoginUserId(userPrincipal), from, to, source, taskType));
     }
 }

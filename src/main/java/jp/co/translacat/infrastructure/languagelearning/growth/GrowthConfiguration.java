@@ -13,7 +13,7 @@ public class GrowthConfiguration {
     @Bean
 
     public GrowthHttpClient growthHttpClient(@Qualifier("languageLearningRestClient") RestClient client,
-                                             LanguageLearningInternalJwtProvider jwt, ObjectMapper mapper) {
+            LanguageLearningInternalJwtProvider jwt, ObjectMapper mapper) {
         return new GrowthHttpClient(client, jwt, mapper);
     }
 

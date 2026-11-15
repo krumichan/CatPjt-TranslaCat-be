@@ -40,8 +40,8 @@ final class ChatCoreIdentityFilter extends OncePerRequestFilter {
         }
 
         var context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(new UsernamePasswordAuthenticationToken(principal, null,
-                List.of(new SimpleGrantedAuthority(scope == null ? "chat:identity:read" : scope))));
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(
+                principal, null, List.of(new SimpleGrantedAuthority(scope == null ? "chat:identity:read" : scope))));
         SecurityContextHolder.setContext(context);
         try {
             chain.doFilter(request, response);

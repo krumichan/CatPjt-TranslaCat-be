@@ -17,42 +17,27 @@ import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
 @RestController
-@ConditionalOnProperty(
-        prefix = "translacat.storage",
-        name = "type",
-        havingValue = "local",
-        matchIfMissing = true
-)
+@ConditionalOnProperty(prefix = "translacat.storage", name = "type", havingValue = "local", matchIfMissing = true)
 public class LocalStorageResourceController {
-
-    private static final String PUBLIC_PREFIX =
-            "/api/v1/public/storage/";
+    private static final String PUBLIC_PREFIX = "/api/v1/public/storage/";
 
     private final LocalImageStorageAdapter localImageStorageAdapter;
 
-    public LocalStorageResourceController(
-            LocalImageStorageAdapter localImageStorageAdapter
-    ) {
+    public LocalStorageResourceController(LocalImageStorageAdapter localImageStorageAdapter) {
         this.localImageStorageAdapter = localImageStorageAdapter;
     }
 
     @GetMapping("/api/v1/public/storage/**")
-    public ResponseEntity<Resource> getObject(
-            HttpServletRequest request
-    ) throws Exception {
+    public ResponseEntity<Resource> getObject(HttpServletRequest request) throws Exception {
         String requestUri = request.getRequestURI();
 
         if (!requestUri.startsWith(PUBLIC_PREFIX)) {
             return ResponseEntity.notFound().build();
         }
 
-        String encodedObjectKey =
-                requestUri.substring(PUBLIC_PREFIX.length());
+        String encodedObjectKey = requestUri.substring(PUBLIC_PREFIX.length());
 
-        String objectKey = URLDecoder.decode(
-                encodedObjectKey,
-                StandardCharsets.UTF_8
-        );
+        String objectKey = URLDecoder.decode(encodedObjectKey, StandardCharsets.UTF_8);
 
         Path path = localImageStorageAdapter.resolveSafePath(objectKey);
 
@@ -61,15 +46,12 @@ public class LocalStorageResourceController {
         }
 
         String detectedContentType = Files.probeContentType(path);
-        MediaType mediaType = detectedContentType == null
-                ? MediaType.APPLICATION_OCTET_STREAM
-                : MediaType.parseMediaType(detectedContentType);
+        MediaType mediaType = detectedContentType == null ? MediaType.APPLICATION_OCTET_STREAM
+                                                          : MediaType.parseMediaType(detectedContentType);
 
         return ResponseEntity.ok()
                 .contentType(mediaType)
-                .cacheControl(
-                        CacheControl.maxAge(1, TimeUnit.DAYS).cachePublic()
-                )
+                .cacheControl(CacheControl.maxAge(1, TimeUnit.DAYS).cachePublic())
                 .body(new PathResource(path));
     }
 }

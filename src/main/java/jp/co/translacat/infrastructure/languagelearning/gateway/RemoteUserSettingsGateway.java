@@ -22,5 +22,4 @@ public class RemoteUserSettingsGateway implements UserSettingsGateway {
     public UserSettingResponseDto update(Long userId, UserSettingUpdateRequestDto request) {
         return access.forUser(userId).updateUserSettings(userId, request);
     }
-
 }

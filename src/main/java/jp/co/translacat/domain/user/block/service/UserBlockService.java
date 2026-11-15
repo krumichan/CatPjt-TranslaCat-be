@@ -23,27 +23,19 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserBlockService {
-
     private final UserBlockRepository userBlockRepository;
     private final UserRepository userRepository;
 
-    @PersistenceContext
-    private EntityManager entities;
+    @PersistenceContext private EntityManager entities;
     private final FriendService friendService;
     private final UserProfileQueryService userProfileQueryService;
 
     @Transactional
-    public UserBlockResponseDto blockUser(
-            Long blockerUserId,
-            UserBlockRequestDto request
-    ) {
+    public UserBlockResponseDto blockUser(Long blockerUserId, UserBlockRequestDto request) {
         validateBlockRequest(request);
 
         User blockedUser = getUserByPublicId(request.blockedPublicId());
-        UserBlock userBlock = blockUser(
-                blockerUserId,
-                blockedUser.getId()
-        );
+        UserBlock userBlock = blockUser(blockerUserId, blockedUser.getId());
 
         return toResponse(userBlock);
     }
@@ -56,22 +48,14 @@ public class UserBlockService {
     }
 
     @Transactional
-    public UserBlock blockUser(
-            Long blockerUserId,
-            Long blockedUserId
-    ) {
+    public UserBlock blockUser(Long blockerUserId, Long blockedUserId) {
         User blockerUser = getUser(blockerUserId);
         User blockedUser = getUser(blockedUserId);
 
-        UserBlock userBlock = userBlockRepository.findByBlockerAndBlocked(
-                        blockerUserId,
-                        blockedUserId
-                )
-                .map(this::restoreOrThrowIfActive)
-                .orElseGet(() -> userBlockRepository.save(UserBlock.create(
-                        blockerUser,
-                        blockedUser
-                )));
+        UserBlock userBlock =
+                userBlockRepository.findByBlockerAndBlocked(blockerUserId, blockedUserId)
+                        .map(this::restoreOrThrowIfActive)
+                        .orElseGet(() -> userBlockRepository.save(UserBlock.create(blockerUser, blockedUser)));
 
         /*
          * 차단 시 친구 관계는 끊는 정책으로 처리한다.
@@ -85,85 +69,52 @@ public class UserBlockService {
     }
 
     @Transactional
-    public void unblockUser(
-            Long blockerUserId,
-            Long blockedUserId
-    ) {
+    public void unblockUser(Long blockerUserId, Long blockedUserId) {
         UserBlock userBlock = getActiveBlock(blockerUserId, blockedUserId);
         userBlock.softDelete();
     }
 
-    public boolean isBlocking(
-            Long blockerUserId,
-            Long blockedUserId
-    ) {
+    public boolean isBlocking(Long blockerUserId, Long blockedUserId) {
         if (blockerUserId == null || blockedUserId == null || blockerUserId.equals(blockedUserId)) {
             return false;
         }
 
-        return userBlockRepository.existsActiveByBlockerAndBlocked(
-                blockerUserId,
-                blockedUserId
-        );
+        return userBlockRepository.existsActiveByBlockerAndBlocked(blockerUserId, blockedUserId);
     }
 
-    public boolean isBlockedBetween(
-            Long userId1,
-            Long userId2
-    ) {
+    public boolean isBlockedBetween(Long userId1, Long userId2) {
         if (userId1 == null || userId2 == null || userId1.equals(userId2)) {
             return false;
         }
 
-        return userBlockRepository.existsActiveBlockBetweenUsers(
-                userId1,
-                userId2
-        );
+        return userBlockRepository.existsActiveBlockBetweenUsers(userId1, userId2);
     }
 
     public List<UserBlock> getActiveBlocksByBlockerUserId(Long blockerUserId) {
         return userBlockRepository.findActiveBlocksByBlockerUserId(blockerUserId);
     }
 
-    public UserBlock getActiveBlock(
-            Long blockerUserId,
-            Long blockedUserId
-    ) {
-        return userBlockRepository.findActiveByBlockerAndBlocked(
-                        blockerUserId,
-                        blockedUserId
-                )
-                .orElseThrow(() -> new BusinessException(
-                        "차단 관계를 찾을 수 없습니다.",
-                        "USER_BLOCK_NOT_FOUND"
-                ));
+    public UserBlock getActiveBlock(Long blockerUserId, Long blockedUserId) {
+        return userBlockRepository.findActiveByBlockerAndBlocked(blockerUserId, blockedUserId)
+                .orElseThrow(() -> new BusinessException("차단 관계를 찾을 수 없습니다.", "USER_BLOCK_NOT_FOUND"));
     }
 
     private UserBlockResponseDto toResponse(UserBlock userBlock) {
         UserSummaryProfileResponseDto blockedUserProfile =
                 userProfileQueryService.getSummaryByUser(userBlock.getBlockedUser());
 
-        return UserBlockResponseDto.of(
-                userBlock,
-                blockedUserProfile
-        );
+        return UserBlockResponseDto.of(userBlock, blockedUserProfile);
     }
 
     private void validateBlockRequest(UserBlockRequestDto request) {
         if (request == null || request.blockedPublicId() == null || request.blockedPublicId().trim().isEmpty()) {
-            throw new BusinessException(
-                    "차단 대상 publicId는 필수입니다.",
-                    "BLOCKED_PUBLIC_ID_REQUIRED"
-            );
+            throw new BusinessException("차단 대상 publicId는 필수입니다.", "BLOCKED_PUBLIC_ID_REQUIRED");
         }
     }
 
     private UserBlock restoreOrThrowIfActive(UserBlock userBlock) {
         if (userBlock.isActive()) {
-            throw new BusinessException(
-                    "이미 차단한 사용자입니다.",
-                    "USER_BLOCK_ALREADY_EXISTS"
-            );
+            throw new BusinessException("이미 차단한 사용자입니다.", "USER_BLOCK_ALREADY_EXISTS");
         }
 
         userBlock.restore();
@@ -174,19 +125,13 @@ public class UserBlockService {
         return userRepository.findById(userId)
                 .map(user -> UserAccountWriteFence.lock(entities, user))
                 .filter(User::isActiveAccount)
-                .orElseThrow(() -> new BusinessException(
-                        "사용자를 찾을 수 없습니다.",
-                        "USER_NOT_FOUND"
-                ));
+                .orElseThrow(() -> new BusinessException("사용자를 찾을 수 없습니다.", "USER_NOT_FOUND"));
     }
 
     private User getUserByPublicId(String publicId) {
         return userRepository.findByPublicId(publicId.trim())
                 .map(user -> UserAccountWriteFence.lock(entities, user))
                 .filter(User::isActiveAccount)
-                .orElseThrow(() -> new BusinessException(
-                        "사용자를 찾을 수 없습니다.",
-                        "PUBLIC_ID_NOT_FOUND"
-                ));
+                .orElseThrow(() -> new BusinessException("사용자를 찾을 수 없습니다.", "PUBLIC_ID_NOT_FOUND"));
     }
 }

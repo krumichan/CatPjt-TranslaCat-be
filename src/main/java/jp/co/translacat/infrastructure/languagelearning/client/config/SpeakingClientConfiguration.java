@@ -15,9 +15,8 @@ import java.time.Duration;
 public class SpeakingClientConfiguration {
     @Bean
 
-    public LanguageLearningSpeakingClient languageLearningSpeakingClient(
-            RestClient.Builder builder, LanguageLearningClientProperties properties,
-            LanguageLearningInternalJwtProvider jwt, ObjectMapper json) {
+    public LanguageLearningSpeakingClient languageLearningSpeakingClient(RestClient.Builder builder,
+            LanguageLearningClientProperties properties, LanguageLearningInternalJwtProvider jwt, ObjectMapper json) {
         // 음성 발화는 LL이 STT·대화·TTS를 마친 뒤 응답하므로 일반 조회의 5초 기한을 공유하지 않는다.
         LanguageLearningClientConfiguration.validate(properties);
         int timeout = properties.getSpeaking().getReadTimeoutMs();
@@ -26,14 +25,13 @@ public class SpeakingClientConfiguration {
         }
 
         var http = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(properties.getRemote().getConnectTimeoutMs()))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .version(HttpClient.Version.HTTP_1_1)
-                .build();
+                           .connectTimeout(Duration.ofMillis(properties.getRemote().getConnectTimeoutMs()))
+                           .followRedirects(HttpClient.Redirect.NEVER)
+                           .version(HttpClient.Version.HTTP_1_1)
+                           .build();
         var factory = new JdkClientHttpRequestFactory(http);
         factory.setReadTimeout(Duration.ofMillis(timeout));
-        var client = builder.clone().baseUrl(properties.getUrl().replaceAll("/+$", ""))
-                .requestFactory(factory).build();
+        var client = builder.clone().baseUrl(properties.getUrl().replaceAll("/+$", "")).requestFactory(factory).build();
         return new LanguageLearningSpeakingClient(client, jwt, json);
     }
 }

@@ -3,7 +3,6 @@ package jp.co.translacat.domain.support.dto;
 import jp.co.translacat.domain.user.entity.User;
 
 public record SupportUserResponseDto(Long id, String name, String email, String publicId) {
-
     public static SupportUserResponseDto from(User user) {
         return new SupportUserResponseDto(user.getId(), displayName(user), user.getEmail(), user.getPublicId());
     }

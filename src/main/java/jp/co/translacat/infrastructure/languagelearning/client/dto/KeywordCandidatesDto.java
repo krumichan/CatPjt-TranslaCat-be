@@ -4,5 +4,4 @@ import jp.co.translacat.domain.languagelearning.keyword.model.KeywordCandidateSn
 
 import java.util.List;
 
-public record KeywordCandidatesDto(List<KeywordCandidateSnapshot> candidates) {
-}
+public record KeywordCandidatesDto(List<KeywordCandidateSnapshot> candidates) {}

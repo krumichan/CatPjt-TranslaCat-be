@@ -10,11 +10,7 @@ import lombok.Getter;
 @Getter
 @Table(name = "language")
 public class Language {
+    @Id @Column(length = 2) private String code;
 
-    @Id
-    @Column(length = 2)
-    private String code;
-
-    @Column(length = 50, nullable = false)
-    private String name;
+    @Column(length = 50, nullable = false) private String name;
 }

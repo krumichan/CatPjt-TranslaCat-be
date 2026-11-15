@@ -24,9 +24,7 @@ public class EmailVerificationController {
         return ResponseUtil.ok(service.verify(request.challengeId(), request.code()));
     }
 
-    public record ChallengeRequest(String email) {
-    }
+    public record ChallengeRequest(String email) {}
 
-    public record VerifyRequest(String challengeId, String code) {
-    }
+    public record VerifyRequest(String challengeId, String code) {}
 }

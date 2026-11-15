@@ -23,18 +23,11 @@ public class ReceiptAnalysisOptionQueryService {
 
     public AiReceiptAnalysisOptions getOptions(Long accountBookId) {
         // Legacy currency-specific settings stay editable, never selected from target currency.
-        var keywords =
-                receiptKeywordRepository
-                        .findByCurrencyCodeIsNullAndEnabledTrueAndDeletedFalseOrderByDisplayOrderAscIdAsc();
-        return new AiReceiptAnalysisOptions(
-                null,
-                null,
-                words(keywords, ReceiptKeywordType.STOP_AFTER),
-                words(keywords, ReceiptKeywordType.IMPORTANT),
-                words(keywords, ReceiptKeywordType.EXCLUDE_ITEM),
-                categoryRepository
-                        .findByAccountBookIdAndActiveTrueOrderByDisplayOrderAscNameAsc(
-                                accountBookId)
+        var keywords = receiptKeywordRepository
+                               .findByCurrencyCodeIsNullAndEnabledTrueAndDeletedFalseOrderByDisplayOrderAscIdAsc();
+        return new AiReceiptAnalysisOptions(null, null, words(keywords, ReceiptKeywordType.STOP_AFTER),
+                words(keywords, ReceiptKeywordType.IMPORTANT), words(keywords, ReceiptKeywordType.EXCLUDE_ITEM),
+                categoryRepository.findByAccountBookIdAndActiveTrueOrderByDisplayOrderAscNameAsc(accountBookId)
                         .stream()
                         .map(AccountBookCategory::getName)
                         .toList(),

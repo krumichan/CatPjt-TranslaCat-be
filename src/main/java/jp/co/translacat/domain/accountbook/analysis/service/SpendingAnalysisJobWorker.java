@@ -17,8 +17,8 @@ public class SpendingAnalysisJobWorker {
     private static final int WORKERS = 2;
 
     private final SpendingAnalysisJobService jobs;
-    private final ExecutorService executor = new ThreadPoolExecutor(
-            WORKERS, WORKERS, 0, TimeUnit.SECONDS, new SynchronousQueue<>());
+    private final ExecutorService executor =
+            new ThreadPoolExecutor(WORKERS, WORKERS, 0, TimeUnit.SECONDS, new SynchronousQueue<>());
 
     @Scheduled(fixedDelayString = "${account-book.spending-analysis.poll-delay-ms:2000}")
     public void poll() {

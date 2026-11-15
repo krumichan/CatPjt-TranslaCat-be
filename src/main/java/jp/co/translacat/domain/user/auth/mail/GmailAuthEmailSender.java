@@ -23,9 +23,8 @@ public class GmailAuthEmailSender implements AuthEmailSender {
     private final String appPassword;
 
     public GmailAuthEmailSender(ObjectProvider<JavaMailSender> mailSender,
-                               @Value("${translacat.auth.mail.enabled:false}") boolean enabled,
-                               @Value("${spring.mail.username:}") String username,
-                               @Value("${spring.mail.password:}") String appPassword) {
+            @Value("${translacat.auth.mail.enabled:false}") boolean enabled,
+            @Value("${spring.mail.username:}") String username, @Value("${spring.mail.password:}") String appPassword) {
         this.mailSender = mailSender;
         this.enabled = enabled;
         this.username = username;
@@ -62,8 +61,8 @@ public class GmailAuthEmailSender implements AuthEmailSender {
             helper.setFrom(AuthInputs.normalizeEmail(username), "TranslaCat");
             helper.setTo(AuthInputs.normalizeEmail(email));
             helper.setSubject("TranslaCat 이메일 인증 / メール認証");
-            helper.setText("TranslaCat 인증 코드 / 認証コード: " + code
-                    + "\n\n" + validityMinutes + "분 이내에 입력해주세요. / " + validityMinutes + "分以内に入力してください。"
+            helper.setText("TranslaCat 인증 코드 / 認証コード: " + code + "\n\n" + validityMinutes
+                    + "분 이내에 입력해주세요. / " + validityMinutes + "分以内に入力してください。"
                     + "\n요청하지 않았다면 이 메일을 무시해주세요. / 心当たりがない場合は、このメールを破棄してください。");
             transport.send(message);
         } catch (MailException | MessagingException | UnsupportedEncodingException failure) {
@@ -73,7 +72,7 @@ public class GmailAuthEmailSender implements AuthEmailSender {
     }
 
     private AuthException unavailable(String code) {
-        return new AuthException(HttpStatus.SERVICE_UNAVAILABLE, code,
-                "인증 메일을 보낼 수 없습니다. 잠시 후 다시 시도해주세요.");
+        return new AuthException(
+                HttpStatus.SERVICE_UNAVAILABLE, code, "인증 메일을 보낼 수 없습니다. 잠시 후 다시 시도해주세요.");
     }
 }

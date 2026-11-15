@@ -12,10 +12,7 @@ import java.util.Optional;
 import java.util.List;
 
 public interface SupportNoticeRepository extends JpaRepository<SupportNotice, Long> {
-
-    @Override
-    @EntityGraph(attributePaths = "author")
-    Page<SupportNotice> findAll(Pageable pageable);
+    @Override @EntityGraph(attributePaths = "author") Page<SupportNotice> findAll(Pageable pageable);
 
     @EntityGraph(attributePaths = "author")
     @Query("""
@@ -27,9 +24,7 @@ public interface SupportNoticeRepository extends JpaRepository<SupportNotice, Lo
               )
             order by n.id desc
             """)
-    List<SupportNotice> findUndismissed(
-            @Param("userId") Long userId, @Param("noticeType") NoticeType noticeType
-    );
+    List<SupportNotice> findUndismissed(@Param("userId") Long userId, @Param("noticeType") NoticeType noticeType);
 
     @Modifying(flushAutomatically = true)
     @Query("delete from SupportNotice n where n.id = :noticeId")

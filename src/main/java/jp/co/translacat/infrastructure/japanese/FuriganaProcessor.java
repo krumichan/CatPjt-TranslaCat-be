@@ -18,9 +18,8 @@ public class FuriganaProcessor {
     }
 
     public String convertToRuby(String rawJa, boolean useSudachi) {
-        return useSudachi
-                ? sudachiFuriganaProcessor.convertToRuby(rawJa)
-                : kuromojiFuriganaProcessor.convertToRuby(rawJa);
+        return useSudachi ? sudachiFuriganaProcessor.convertToRuby(rawJa)
+                          : kuromojiFuriganaProcessor.convertToRuby(rawJa);
     }
 
     public String resolveDetailedRuby(String surface, String reading) {
@@ -28,9 +27,8 @@ public class FuriganaProcessor {
     }
 
     public String resolveDetailedRuby(String surface, String reading, boolean useSudachi) {
-        return useSudachi
-                ? sudachiFuriganaProcessor.makeFineGrainedRuby(surface, reading)
-                : kuromojiFuriganaProcessor.makeFineGrainedRuby(surface, reading);
+        return useSudachi ? sudachiFuriganaProcessor.makeFineGrainedRuby(surface, reading)
+                          : kuromojiFuriganaProcessor.makeFineGrainedRuby(surface, reading);
     }
 
     public void syncCachedDict(Map<String, String> newDict) {

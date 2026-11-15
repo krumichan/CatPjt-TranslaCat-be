@@ -19,7 +19,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SupportMessageService {
-
     private final SupportMessageRepository messageRepository;
     private final SupportRecipientRepository recipientRepository;
     private final SupportAccessService accessService;
@@ -27,21 +26,16 @@ public class SupportMessageService {
 
     public SupportPageResponseDto<MessageResponseDto> list(Long actorId, int page, int size) {
         User actor = accessService.user(actorId);
-        return SupportPageResponseDto.from(
-                messageRepository.search(
-                        accessService.isAdmin(actor), actorId,
-                        accessService.page(page, size, Sort.by("id").descending())
-                ),
-                MessageResponseDto::from
-        );
+        return SupportPageResponseDto.from(messageRepository.search(accessService.isAdmin(actor), actorId,
+                                                   accessService.page(page, size, Sort.by("id").descending())),
+                MessageResponseDto::from);
     }
 
     @Transactional
     public MessageResponseDto detail(Long actorId, Long messageId) {
         // 관리자의 발송 확인은 수신자의 읽음 상태를 바꾸지 않는다.
         User actor = accessService.user(actorId);
-        SupportMessage message = messageRepository.findLockedById(messageId)
-                .orElseThrow(SupportException::notFound);
+        SupportMessage message = messageRepository.findLockedById(messageId).orElseThrow(SupportException::notFound);
         accessService.requireOwnerOrAdmin(actor, message.getRecipient().getId());
 
         if (message.getRecipient().getId().equals(actorId)) {
@@ -58,15 +52,10 @@ public class SupportMessageService {
         User sender = accessService.admin(actorId);
         User recipient = accessService.user(request.recipientId());
         SupportMessage message = messageRepository.saveAndFlush(
-                SupportMessage.create(
-                        sender, recipient, request.title().strip(), request.content().strip()
-                )
-        );
+                SupportMessage.create(sender, recipient, request.title().strip(), request.content().strip()));
 
-        notificationService.notifyUser(
-                recipient, actorId, SupportNotificationType.SUPPORT_MESSAGE,
-                SupportTargetType.MESSAGE, message.getId(), null, message.getTitle()
-        );
+        notificationService.notifyUser(recipient, actorId, SupportNotificationType.SUPPORT_MESSAGE,
+                SupportTargetType.MESSAGE, message.getId(), null, message.getTitle());
         return MessageResponseDto.from(message);
     }
 
@@ -79,6 +68,8 @@ public class SupportMessageService {
         }
 
         return recipientRepository.search(pattern, PageRequest.of(0, 20))
-                .stream().map(SupportUserResponseDto::from).toList();
+                .stream()
+                .map(SupportUserResponseDto::from)
+                .toList();
     }
 }

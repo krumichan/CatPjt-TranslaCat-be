@@ -8,10 +8,10 @@ import java.util.List;
 
 @Slf4j
 public abstract class AbstractTranslationExecutor implements AiTranslationProvider {
-
     @Override
     public <T extends Translatable> List<T> executeTranslation(List<T> batch, AiRuleType rule) {
-        if (batch.isEmpty()) return batch;
+        if (batch.isEmpty())
+            return batch;
         // 외부 실행 실패를 빈 정상 결과로 바꾸지 않는다.
         List<String> japaneseTexts = batch.stream().map(Translatable::getRawJa).toList();
         if (japaneseTexts.stream().anyMatch(java.util.Objects::isNull)) {
@@ -30,7 +30,8 @@ public abstract class AbstractTranslationExecutor implements AiTranslationProvid
                 throw new IllegalStateException("Translation result contains invalid text.");
             }
         }
-        for (int i = 0; i < batch.size(); i++) batch.get(i).setKo(translatedTexts.get(i));
+        for (int i = 0; i < batch.size(); i++)
+            batch.get(i).setKo(translatedTexts.get(i));
         return batch;
     }
 
@@ -38,6 +39,5 @@ public abstract class AbstractTranslationExecutor implements AiTranslationProvid
 
     protected abstract String getProviderName();
 
-    @Override
-    public abstract TranslationType getSupportedType();
+    @Override public abstract TranslationType getSupportedType();
 }

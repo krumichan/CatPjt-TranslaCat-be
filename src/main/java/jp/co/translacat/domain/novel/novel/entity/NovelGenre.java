@@ -12,17 +12,11 @@ import lombok.NoArgsConstructor;
 @Table(name = "genre_novel")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class NovelGenre extends BaseAuditable {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "novel_id", nullable = false)
-    private Novel novel;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "novel_id", nullable = false) private Novel novel;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "genre_id", nullable = false)
-    private Genre genre;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "genre_id", nullable = false) private Genre genre;
 
     public static NovelGenre create(Novel novel, Genre genre) {
         NovelGenre novelGenre = new NovelGenre();

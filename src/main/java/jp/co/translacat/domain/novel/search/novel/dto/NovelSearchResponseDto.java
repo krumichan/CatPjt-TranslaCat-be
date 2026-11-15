@@ -11,8 +11,7 @@ import lombok.Setter;
 public class NovelSearchResponseDto {
     private String identifier;
 
-    @JsonProperty("isShortStory")
-    private boolean isShortStory;
+    @JsonProperty("isShortStory") private boolean isShortStory;
 
     private TranslationUnit title;
     private TranslationUnit author;

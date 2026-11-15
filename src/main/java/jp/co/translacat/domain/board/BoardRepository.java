@@ -14,12 +14,11 @@ import static jp.co.translacat.domain.board.BoardDtos.Board;
 @Repository
 @RequiredArgsConstructor
 class BoardRepository {
-
-    private static final RowMapper<EntryRow> ROW = (rs, index) -> new EntryRow(
-            id(rs.getString("id")), id(rs.getString("root_id")), id(rs.getString("parent_id")),
-            rs.getLong("author_id"), rs.getString("author"), rs.getString("title"),
-            rs.getString("content"), rs.getString("password_hash"), rs.getInt("revision"),
-            rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant());
+    private static final RowMapper<EntryRow> ROW = (rs, index)
+            -> new EntryRow(id(rs.getString("id")), id(rs.getString("root_id")), id(rs.getString("parent_id")),
+                    rs.getLong("author_id"), rs.getString("author"), rs.getString("title"), rs.getString("content"),
+                    rs.getString("password_hash"), rs.getInt("revision"), rs.getTimestamp("created_at").toInstant(),
+                    rs.getTimestamp("updated_at").toInstant());
 
     private static final String SELECT = """
             SELECT e.*, u.username AS author
@@ -48,17 +47,25 @@ class BoardRepository {
             return jdbc.query("""
                     SELECT e.*, NULL AS author FROM board_entry e
                     WHERE e.id = ? AND e.board = ? AND e.parent_id IS NULL FOR UPDATE
-                    """, ROW, id.toString(), board.name()).stream()
-                    .findFirst().orElseThrow(BoardException::missing);
+                    """, ROW, id.toString(), board.name())
+                    .stream()
+                    .findFirst()
+                    .orElseThrow(BoardException::missing);
         }
 
-        return jdbc.query(SELECT + " WHERE e.id = ? AND e.board = ? AND e.parent_id IS NULL",
-                ROW, id.toString(), board.name()).stream().findFirst().orElseThrow(BoardException::missing);
+        return jdbc
+                .query(SELECT + " WHERE e.id = ? AND e.board = ? AND e.parent_id IS NULL", ROW, id.toString(),
+                        board.name())
+                .stream()
+                .findFirst()
+                .orElseThrow(BoardException::missing);
     }
 
     EntryRow reply(UUID root, UUID id) {
-        return jdbc.query(SELECT + " WHERE e.id = ? AND e.root_id = ?",
-                ROW, id.toString(), root.toString()).stream().findFirst().orElseThrow(BoardException::missing);
+        return jdbc.query(SELECT + " WHERE e.id = ? AND e.root_id = ?", ROW, id.toString(), root.toString())
+                .stream()
+                .findFirst()
+                .orElseThrow(BoardException::missing);
     }
 
     UUID insert(Board board, long author, UUID root, UUID parent, String title, String body, String password) {
@@ -105,8 +112,8 @@ class BoardRepository {
     }
 
     private void deleteReplies(UUID parent) {
-        var children = jdbc.queryForList("SELECT id FROM board_entry WHERE parent_id = ?",
-                String.class, parent.toString());
+        var children =
+                jdbc.queryForList("SELECT id FROM board_entry WHERE parent_id = ?", String.class, parent.toString());
 
         for (String child : children) {
             UUID id = UUID.fromString(child);
@@ -130,7 +137,6 @@ class BoardRepository {
         return id == null ? null : id.toString();
     }
 
-    record EntryRow(UUID id, UUID root, UUID parent, long authorId, String author, String title,
-                    String content, String passwordHash, int revision, Instant createdAt, Instant updatedAt) {
-    }
+    record EntryRow(UUID id, UUID root, UUID parent, long authorId, String author, String title, String content,
+            String passwordHash, int revision, Instant createdAt, Instant updatedAt) {}
 }

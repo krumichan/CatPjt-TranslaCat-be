@@ -6,9 +6,7 @@ import java.util.Set;
 
 @UtilityClass
 public class VoicePolicy {
-
-    public static final Set<String> SUPPORTED_LANGUAGES =
-            Set.of("ko", "ja", "en");
+    public static final Set<String> SUPPORTED_LANGUAGES = Set.of("ko", "ja", "en");
 
     public static final int DEFAULT_PAGE_SIZE = 50;
     public static final int MAX_PAGE_SIZE = 100;

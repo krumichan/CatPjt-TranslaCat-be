@@ -26,8 +26,8 @@ public class SyosetuNovelSearchStrategy implements NovelSearchStrategy {
     @Override
     public String getUrl(String pattern, Object... urlArgs) {
         urlArgs = Stream.of(urlArgs)
-                .map(obj -> obj instanceof String ? ((String) obj).toLowerCase() : obj)
-                .toArray(Object[]::new);
+                          .map(obj -> obj instanceof String ? ((String) obj).toLowerCase() : obj)
+                          .toArray(Object[] ::new);
         return String.format(pattern, urlArgs);
     }
 

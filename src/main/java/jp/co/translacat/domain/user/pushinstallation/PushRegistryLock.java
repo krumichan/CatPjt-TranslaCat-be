@@ -7,9 +7,11 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "push_registry_lock")
 public class PushRegistryLock {
-    @Id
-    private Integer id;
+    @Id private Integer id;
 
-    protected PushRegistryLock() {}
-    public PushRegistryLock(int id) { this.id = id; }
+    protected PushRegistryLock() {
+    }
+    public PushRegistryLock(int id) {
+        this.id = id;
+    }
 }

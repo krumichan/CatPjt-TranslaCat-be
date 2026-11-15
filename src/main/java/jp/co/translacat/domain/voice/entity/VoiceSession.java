@@ -19,111 +19,46 @@ import java.util.UUID;
 
 @Entity
 @Getter
-@Table(
-        name = "voice_session",
-        indexes = {
-                @Index(
-                        name = "idx_voice_session_user_status",
-                        columnList = "user_id,status"
-                )
-        }
-)
+@Table(name = "voice_session",
+        indexes = { @Index(name = "idx_voice_session_user_status", columnList = "user_id,status") })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class VoiceSession extends BaseAuditable {
+    @Id @Column(length = 36, nullable = false, updatable = false) private String id;
 
-    @Id
-    @Column(
-            length = 36,
-            nullable = false,
-            updatable = false
-    )
-    private String id;
-
-    @ManyToOne(
-            fetch = FetchType.LAZY,
-            optional = false
-    )
-    @JoinColumn(
-            name = "user_id",
-            nullable = false
-    )
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Enumerated(EnumType.STRING)
-    @Column(
-            nullable = false,
-            length = 16
-    )
-    private VoiceMode mode;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 16) private VoiceMode mode;
 
     @Enumerated(EnumType.STRING)
-    @Column(
-            name = "source_language_mode",
-            nullable = false,
-            length = 16
-    )
+    @Column(name = "source_language_mode", nullable = false, length = 16)
     private VoiceSourceLanguageMode sourceLanguageMode;
 
-    @Column(
-            name = "target_language",
-            nullable = false,
-            length = 8
-    )
-    private String targetLanguage;
+    @Column(name = "target_language", nullable = false, length = 8) private String targetLanguage;
 
-    @Column(
-            name = "save_transcript",
-            nullable = false
-    )
-    private boolean saveTranscript;
+    @Column(name = "save_transcript", nullable = false) private boolean saveTranscript;
 
-    @Enumerated(EnumType.STRING)
-    @Column(
-            nullable = false,
-            length = 16
-    )
-    private VoiceSessionStatus status;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 16) private VoiceSessionStatus status;
 
-    @Column(
-            nullable = false,
-            length = 200
-    )
-    private String title;
+    @Column(nullable = false, length = 200) private String title;
 
     @Lob
-    @Column(
-            name = "policy_snapshot",
-            nullable = false,
-            columnDefinition = "LONGTEXT"
-    )
+    @Column(name = "policy_snapshot", nullable = false, columnDefinition = "LONGTEXT")
     private String policySnapshot;
 
-    @Column(name = "started_at")
-    private LocalDateTime startedAt;
+    @Column(name = "started_at") private LocalDateTime startedAt;
 
-    @Column(name = "completing_at")
-    private LocalDateTime completingAt;
+    @Column(name = "completing_at") private LocalDateTime completingAt;
 
-    @Column(name = "completed_at")
-    private LocalDateTime completedAt;
+    @Column(name = "completed_at") private LocalDateTime completedAt;
 
-    @Column(
-            name = "processed_audio_ms",
-            nullable = false
-    )
-    private long processedAudioMs;
+    @Column(name = "processed_audio_ms", nullable = false) private long processedAudioMs;
 
-    @Version
-    private long version;
+    @Version private long version;
 
-    private VoiceSession(
-            User user,
-            VoiceMode mode,
-            VoiceSourceLanguageMode sourceLanguageMode,
-            String targetLanguage,
-            boolean saveTranscript,
-            String policySnapshot
-    ) {
+    private VoiceSession(User user, VoiceMode mode, VoiceSourceLanguageMode sourceLanguageMode, String targetLanguage,
+            boolean saveTranscript, String policySnapshot) {
         this.id = UUID.randomUUID().toString();
         this.user = user;
         this.mode = mode;
@@ -131,30 +66,15 @@ public class VoiceSession extends BaseAuditable {
         this.targetLanguage = targetLanguage;
         this.saveTranscript = saveTranscript;
         this.status = VoiceSessionStatus.CREATED;
-        this.title = LocalDateTime.now()
-                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-                + " 기록";
+        this.title = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) + " 기록";
         this.policySnapshot = policySnapshot;
         this.processedAudioMs = 0L;
         this.createdBy = user.getEmail();
     }
 
-    public static VoiceSession create(
-            User user,
-            VoiceMode mode,
-            VoiceSourceLanguageMode sourceLanguageMode,
-            String targetLanguage,
-            boolean saveTranscript,
-            String policySnapshot
-    ) {
-        return new VoiceSession(
-                user,
-                mode,
-                sourceLanguageMode,
-                targetLanguage,
-                saveTranscript,
-                policySnapshot
-        );
+    public static VoiceSession create(User user, VoiceMode mode, VoiceSourceLanguageMode sourceLanguageMode,
+            String targetLanguage, boolean saveTranscript, String policySnapshot) {
+        return new VoiceSession(user, mode, sourceLanguageMode, targetLanguage, saveTranscript, policySnapshot);
     }
 
     public boolean allows(VoiceChannel channel) {
@@ -163,10 +83,7 @@ public class VoiceSession extends BaseAuditable {
 
     public void updateTitle(String title) {
         if (title == null || title.isBlank()) {
-            throw new BusinessException(
-                    "Voice session title must not be blank.",
-                    VoiceErrorCode.INVALID_TITLE
-            );
+            throw new BusinessException("Voice session title must not be blank.", VoiceErrorCode.INVALID_TITLE);
         }
 
         this.title = title.trim();
@@ -201,9 +118,7 @@ public class VoiceSession extends BaseAuditable {
 
         if (!status.isOpen()) {
             throw new BusinessException(
-                    "Voice session cannot complete from status " + status,
-                    VoiceErrorCode.INVALID_STATE
-            );
+                    "Voice session cannot complete from status " + status, VoiceErrorCode.INVALID_STATE);
         }
 
         status = VoiceSessionStatus.COMPLETING;
@@ -216,10 +131,7 @@ public class VoiceSession extends BaseAuditable {
         }
 
         if (status != VoiceSessionStatus.COMPLETING) {
-            throw new BusinessException(
-                    "Voice session is not completing.",
-                    VoiceErrorCode.INVALID_STATE
-            );
+            throw new BusinessException("Voice session is not completing.", VoiceErrorCode.INVALID_STATE);
         }
 
         status = VoiceSessionStatus.COMPLETED;
@@ -227,8 +139,7 @@ public class VoiceSession extends BaseAuditable {
     }
 
     public void fail() {
-        if (status == VoiceSessionStatus.COMPLETED
-                || status == VoiceSessionStatus.FAILED) {
+        if (status == VoiceSessionStatus.COMPLETED || status == VoiceSessionStatus.FAILED) {
             return;
         }
 
@@ -238,10 +149,7 @@ public class VoiceSession extends BaseAuditable {
 
     public void addProcessedAudioMs(long amount) {
         if (amount < 0) {
-            throw new BusinessException(
-                    "Processed audio duration must be non-negative.",
-                    VoiceErrorCode.INVALID_USAGE
-            );
+            throw new BusinessException("Processed audio duration must be non-negative.", VoiceErrorCode.INVALID_USAGE);
         }
 
         processedAudioMs += amount;

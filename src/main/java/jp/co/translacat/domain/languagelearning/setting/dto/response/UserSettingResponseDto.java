@@ -5,33 +5,14 @@ import jp.co.translacat.domain.languagelearning.listening.common.enums.Listening
 import java.time.LocalDate;
 import java.util.List;
 
-public record UserSettingResponseDto(
-        String originLanguage,
-        String learningLanguage,
-        String feedbackLanguage,
-        String timezone,
-        int dailySentenceCount,
-        int dailySpeakingGoalMinutes,
-        String speakingVoiceId,
-        String speakingPlaybackSpeed,
-        int dailyListeningGoalCount,
-        List<ListeningTaskType> defaultListeningTaskTypes,
-        String pendingOriginLanguage,
-        String pendingLearningLanguage,
-        String pendingFeedbackLanguage,
-        String pendingTimezone,
-        Integer pendingDailySentenceCount,
-        Integer pendingDailySpeakingGoalMinutes,
-        Integer pendingDailyListeningGoalCount,
-        LocalDate pendingEffectiveDate,
-        int minDailySentenceCount,
-        int maxDailySentenceCount,
-        int minDailySpeakingGoalMinutes,
-        int maxDailySpeakingGoalMinutes,
-        int minDailyListeningGoalCount,
-        int maxDailyListeningGoalCount,
-        boolean configured
-) {
+public record UserSettingResponseDto(String originLanguage, String learningLanguage, String feedbackLanguage,
+        String timezone, int dailySentenceCount, int dailySpeakingGoalMinutes, String speakingVoiceId,
+        String speakingPlaybackSpeed, int dailyListeningGoalCount, List<ListeningTaskType> defaultListeningTaskTypes,
+        String pendingOriginLanguage, String pendingLearningLanguage, String pendingFeedbackLanguage,
+        String pendingTimezone, Integer pendingDailySentenceCount, Integer pendingDailySpeakingGoalMinutes,
+        Integer pendingDailyListeningGoalCount, LocalDate pendingEffectiveDate, int minDailySentenceCount,
+        int maxDailySentenceCount, int minDailySpeakingGoalMinutes, int maxDailySpeakingGoalMinutes,
+        int minDailyListeningGoalCount, int maxDailyListeningGoalCount, boolean configured) {
     public UserSettingResponseDto {
         // 외부 응답과 snapshot에서 같은 목록을 읽더라도 호출자가 내부 상태를 변경하지 못한다.
         defaultListeningTaskTypes = defaultListeningTaskTypes == null ? null : List.copyOf(defaultListeningTaskTypes);

@@ -34,9 +34,8 @@ public class ChatCoreDirectoryController {
     private final FriendRequestRepository requests;
 
     public ChatCoreDirectoryController(UserRepository users, UserProfileRepository profiles,
-                                       UserProfileImageUrlResolver urls,
-                                       FriendService friends, UserBlockService blocks,
-                                       FriendRequestRepository requests) {
+            UserProfileImageUrlResolver urls, FriendService friends, UserBlockService blocks,
+            FriendRequestRepository requests) {
         this.users = users;
         this.profiles = profiles;
         this.urls = urls;
@@ -45,18 +44,20 @@ public class ChatCoreDirectoryController {
         this.requests = requests;
     }
 
-    @PostMapping(value = "/internal/v1/chat/accounts/lookup", consumes = "application/json",
-            produces = "application/json")
-    public ResponseEntity<?> accounts(@AuthenticationPrincipal ChatCoreServicePrincipal caller,
-                                      HttpServletRequest request) {
+    @PostMapping(
+            value = "/internal/v1/chat/accounts/lookup", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?>
+    accounts(@AuthenticationPrincipal ChatCoreServicePrincipal caller, HttpServletRequest request) {
         // 인증된 CHAT 서비스의 제한된 projection만 제공한다. 비밀번호/role/social ID와 전체 목록 API는 없다.
-        if (caller == null || !"chat:accounts:read".equals(caller.scope())) return ChatCoreJson.rejected(403);
+        if (caller == null || !"chat:accounts:read".equals(caller.scope()))
+            return ChatCoreJson.rejected(403);
         JsonNode body;
         List<Long> ids;
         List<String> publicIds = new ArrayList<>();
         try {
             body = ChatCoreJson.read(request, 32 * 1024);
-            if (body.size() != 2 || !body.has("userIds") || !body.path("publicIds").isArray()) throw new IOException();
+            if (body.size() != 2 || !body.has("userIds") || !body.path("publicIds").isArray())
+                throw new IOException();
             ids = ids(body.path("userIds"));
             for (JsonNode value : body.path("publicIds")) {
                 if (!value.isTextual() || value.textValue().isBlank() || value.textValue().length() > 255)
@@ -93,26 +94,30 @@ public class ChatCoreDirectoryController {
                 .body(new Accounts(accounts, missingIds, missingPublicIds));
     }
 
-    @PostMapping(value = "/internal/v1/chat/relations/query", consumes = "application/json",
-            produces = "application/json")
-    public ResponseEntity<?> relations(@AuthenticationPrincipal ChatCoreServicePrincipal caller,
-                                       HttpServletRequest request) {
+    @PostMapping(
+            value = "/internal/v1/chat/relations/query", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?>
+    relations(@AuthenticationPrincipal ChatCoreServicePrincipal caller, HttpServletRequest request) {
         // 사용자/방의 접근 권한은 CHAT use case가 확인한다. Core는 기존 관계 정책만 계산한다.
-        if (caller == null || !"chat:relations:read".equals(caller.scope())) return ChatCoreJson.rejected(403);
+        if (caller == null || !"chat:relations:read".equals(caller.scope()))
+            return ChatCoreJson.rejected(403);
         JsonNode body;
         long requester;
         List<Long> targets;
         try {
             body = ChatCoreJson.read(request, 32 * 1024);
             if (body.size() != 2 || !body.path("requesterUserId").isIntegralNumber()
-                    || !body.path("requesterUserId").canConvertToLong()) throw new IOException();
+                    || !body.path("requesterUserId").canConvertToLong())
+                throw new IOException();
             requester = body.path("requesterUserId").longValue();
             targets = ids(body.path("targetUserIds"));
-            if (requester <= 0 || targets.isEmpty()) throw new IOException();
+            if (requester <= 0 || targets.isEmpty())
+                throw new IOException();
         } catch (IOException ignored) {
             return ChatCoreJson.rejected(400);
         }
-        if (!users.existsById(requester)) return ChatCoreJson.rejected(404);
+        if (!users.existsById(requester))
+            return ChatCoreJson.rejected(404);
         List<Relation> result = new ArrayList<>();
         List<Long> missing = new ArrayList<>();
         for (Long target : new LinkedHashSet<>(targets)) {
@@ -135,17 +140,18 @@ public class ChatCoreDirectoryController {
                     new UserSummaryProfileResponseDto(user.getId(), "DELETED", "탈퇴한 사용자", null, null, null));
         }
         // 실제 profile nullable과 default summary를 분리해 notification/direct/message의 다른 fallback을 보존한다.
-        Profile actual =
-                profile == null ? null : new Profile(profile.getNickname(), urls.resolveProfileImageUrl(profile),
-                        urls.resolveProfileBackgroundImageUrl(profile), profile.getBio());
+        Profile actual = profile == null ? null
+                                         : new Profile(profile.getNickname(), urls.resolveProfileImageUrl(profile),
+                                                   urls.resolveProfileBackgroundImageUrl(profile), profile.getBio());
         UserProfile summary = profile == null ? UserProfile.createDefault(user) : profile;
         return new Account(user.getId(), user.getEmail(), user.getUsername(), user.getPublicId(), actual,
-                UserSummaryProfileResponseDto.from(summary, urls.resolveProfileImageUrl(summary),
-                        urls.resolveProfileBackgroundImageUrl(summary)));
+                UserSummaryProfileResponseDto.from(
+                        summary, urls.resolveProfileImageUrl(summary), urls.resolveProfileBackgroundImageUrl(summary)));
     }
 
     private static List<Long> ids(JsonNode values) throws IOException {
-        if (!values.isArray() || values.size() > MAXIMUM_TARGETS) throw new IOException();
+        if (!values.isArray() || values.size() > MAXIMUM_TARGETS)
+            throw new IOException();
         List<Long> result = new ArrayList<>();
         for (JsonNode value : values) {
             if (!value.isIntegralNumber() || !value.canConvertToLong() || value.longValue() <= 0)
@@ -155,19 +161,14 @@ public class ChatCoreDirectoryController {
         return result;
     }
 
-    public record Profile(String nickname, String profileImageUrl, String profileBackgroundImageUrl, String bio) {
-    }
+    public record Profile(String nickname, String profileImageUrl, String profileBackgroundImageUrl, String bio) {}
 
     public record Account(long userId, String email, String username, String publicId, Profile profile,
-                          UserSummaryProfileResponseDto summary) {
-    }
+            UserSummaryProfileResponseDto summary) {}
 
-    public record Accounts(List<Account> accounts, List<Long> missingUserIds, List<String> missingPublicIds) {
-    }
+    public record Accounts(List<Account> accounts, List<Long> missingUserIds, List<String> missingPublicIds) {}
 
-    public record Relation(long targetUserId, boolean friends, boolean blocked, String friendStatus) {
-    }
+    public record Relation(long targetUserId, boolean friends, boolean blocked, String friendStatus) {}
 
-    public record Relations(List<Relation> relations, List<Long> missingUserIds) {
-    }
+    public record Relations(List<Relation> relations, List<Long> missingUserIds) {}
 }

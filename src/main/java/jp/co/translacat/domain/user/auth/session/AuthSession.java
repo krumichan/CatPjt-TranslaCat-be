@@ -14,32 +14,28 @@ import java.time.Instant;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "auth_session", indexes = {
-        @Index(name = "ix_auth_session_user", columnList = "user_id"),
-        @Index(name = "ix_auth_session_expiry", columnList = "expires_at")
-})
+@Table(name = "auth_session",
+        indexes =
+        {
+            @Index(name = "ix_auth_session_user", columnList = "user_id")
+            , @Index(name = "ix_auth_session_expiry", columnList = "expires_at")
+        })
 public class AuthSession {
-    @Id
-    @Column(length = 36, nullable = false, updatable = false)
-    private String id;
+    @Id @Column(length = 36, nullable = false, updatable = false) private String id;
 
-    @Column(name = "user_id", nullable = false, updatable = false)
-    private Long userId;
+    @Column(name = "user_id", nullable = false, updatable = false) private Long userId;
 
     @Column(name = "refresh_token_hash", length = 64, nullable = false, updatable = false)
     private String refreshTokenHash;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
+    @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
 
-    @Column(name = "expires_at", nullable = false, updatable = false)
-    private Instant expiresAt;
+    @Column(name = "expires_at", nullable = false, updatable = false) private Instant expiresAt;
 
-    @Column(name = "revoked_at")
-    private Instant revokedAt;
+    @Column(name = "revoked_at") private Instant revokedAt;
 
-    public static AuthSession create(String id, Long userId, String refreshTokenHash,
-                                     Instant createdAt, Instant expiresAt) {
+    public static AuthSession create(
+            String id, Long userId, String refreshTokenHash, Instant createdAt, Instant expiresAt) {
         AuthSession session = new AuthSession();
         session.id = id;
         session.userId = userId;
@@ -54,6 +50,7 @@ public class AuthSession {
     }
 
     public void revoke(Instant now) {
-        if (revokedAt == null) revokedAt = now;
+        if (revokedAt == null)
+            revokedAt = now;
     }
 }

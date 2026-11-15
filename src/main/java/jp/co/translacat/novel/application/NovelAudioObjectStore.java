@@ -15,6 +15,8 @@ public interface NovelAudioObjectStore {
     }
 
     final class Missing extends RuntimeException {
-        public Missing() { super("NOVEL_AUDIO_OBJECT_MISSING"); }
+        public Missing() {
+            super("NOVEL_AUDIO_OBJECT_MISSING");
+        }
     }
 }

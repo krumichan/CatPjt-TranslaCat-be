@@ -22,18 +22,25 @@ public class ProfileObjectWriteRegistry {
     }
 
     public void write(long userId, String objectKey, Runnable upload) {
-        if (!ownedProfileKey(userId, objectKey)) throw DeletionTokens.invalid();
+        if (!ownedProfileKey(userId, objectKey))
+            throw DeletionTokens.invalid();
         String id = UUID.randomUUID().toString();
         // scalar user_id는 outer 트랜잭션이 보유한 사용자 행과 FK 잠금을 경합하지 않는다.
-        independent.executeWithoutResult(status -> jdbc.update("insert into profile_object_write (id,user_id,object_key,state,started_at) values (?,?,?,'STARTED',?)",
-                id, userId, objectKey, java.sql.Timestamp.from(Instant.now())));
+        independent.executeWithoutResult(status
+                -> jdbc.update(
+                        "insert into profile_object_write (id,user_id,object_key,state,started_at) values (?,?,?,'STARTED',?)",
+                        id, userId, objectKey, java.sql.Timestamp.from(Instant.now())));
         try {
             upload.run();
-            independent.executeWithoutResult(status -> jdbc.update("update profile_object_write set state='ACKNOWLEDGED',finished_at=? where id=? and state='STARTED'",
-                    java.sql.Timestamp.from(Instant.now()), id));
+            independent.executeWithoutResult(status
+                    -> jdbc.update(
+                            "update profile_object_write set state='ACKNOWLEDGED',finished_at=? where id=? and state='STARTED'",
+                            java.sql.Timestamp.from(Instant.now()), id));
         } catch (RuntimeException failed) {
             // timeout/통신 오류는 제공자에서 실행하지 않았다는 증거가 아니다. 시각 경과만으로 이 상태를 완료하지 않는다.
-            independent.executeWithoutResult(status -> jdbc.update("update profile_object_write set state='UNCERTAIN' where id=? and state='STARTED'", id));
+            independent.executeWithoutResult(status
+                    -> jdbc.update(
+                            "update profile_object_write set state='UNCERTAIN' where id=? and state='STARTED'", id));
             throw failed;
         }
     }

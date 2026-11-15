@@ -9,20 +9,13 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@Table(
-        name = "support_notice_dismissal",
+@Table(name = "support_notice_dismissal",
         uniqueConstraints = @UniqueConstraint(
-                name = "uq_support_notice_dismissal_user_notice",
-                columnNames = {"user_id", "notice_id"}
-        ),
-        indexes = @Index(name = "idx_support_notice_dismissal_notice", columnList = "notice_id")
-)
+                name = "uq_support_notice_dismissal_user_notice", columnNames = {"user_id", "notice_id"}),
+        indexes = @Index(name = "idx_support_notice_dismissal_notice", columnList = "notice_id"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SupportNoticeDismissal extends Base {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)

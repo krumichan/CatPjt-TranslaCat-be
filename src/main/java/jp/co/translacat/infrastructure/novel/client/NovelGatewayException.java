@@ -12,7 +12,13 @@ public final class NovelGatewayException extends RuntimeException {
         this.retryable = retryable;
     }
 
-    public int status() { return status; }
-    public String code() { return code; }
-    public boolean retryable() { return retryable; }
+    public int status() {
+        return status;
+    }
+    public String code() {
+        return code;
+    }
+    public boolean retryable() {
+        return retryable;
+    }
 }

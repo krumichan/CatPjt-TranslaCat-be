@@ -28,7 +28,6 @@ import java.util.function.Function;
  */
 @Service
 public class JWTService {
-
     private final String KEY_ID = "id";
 
     private final long accessTokenExpiredAt;
@@ -42,28 +41,25 @@ public class JWTService {
      * HmacSHA256 알고리즘으로 SecretKey를 생성하고 Base64로 인코딩
      */
     public JWTService(@Value("${jwt.token.secret-key}") String secretKey,
-                      @Value("${jwt.token.expired.access}") long accExpiredAt,
-                      @Value("${jwt.token.expired.refresh}") long rfExpiredAt) {
+            @Value("${jwt.token.expired.access}") long accExpiredAt,
+            @Value("${jwt.token.expired.refresh}") long rfExpiredAt) {
         this(secretKey, accExpiredAt, rfExpiredAt, (AuthSessionRepository) null);
     }
 
     @Autowired
     public JWTService(@Value("${jwt.token.secret-key}") String secretKey,
-                      @Value("${jwt.token.expired.access}") long accExpiredAt,
-                      @Value("${jwt.token.expired.refresh}") long rfExpiredAt,
-                      ObjectProvider<AuthSessionRepository> sessions,
-                      ObjectProvider<UserRepository> users) {
+            @Value("${jwt.token.expired.access}") long accExpiredAt,
+            @Value("${jwt.token.expired.refresh}") long rfExpiredAt, ObjectProvider<AuthSessionRepository> sessions,
+            ObjectProvider<UserRepository> users) {
         this(secretKey, accExpiredAt, rfExpiredAt, sessions.getIfAvailable(), users.getIfAvailable());
     }
 
-    public JWTService(String secretKey, long accExpiredAt, long rfExpiredAt,
-                      AuthSessionRepository sessions) {
+    public JWTService(String secretKey, long accExpiredAt, long rfExpiredAt, AuthSessionRepository sessions) {
         this(secretKey, accExpiredAt, rfExpiredAt, sessions, null);
     }
 
-    public JWTService(String secretKey, long accExpiredAt, long rfExpiredAt,
-                      AuthSessionRepository sessions, UserRepository users) {
-
+    public JWTService(String secretKey, long accExpiredAt, long rfExpiredAt, AuthSessionRepository sessions,
+            UserRepository users) {
         accessTokenExpiredAt = accExpiredAt;
         refreshTokenExpiredAt = rfExpiredAt;
 
@@ -87,7 +83,8 @@ public class JWTService {
         Map<String, Object> claims = new HashMap<>();
         claims.put(this.KEY_ID, userId);
         claims.put("token_use", "access");
-        if (sessionId != null) claims.put("sid", sessionId);
+        if (sessionId != null)
+            claims.put("sid", sessionId);
         return this.generateToken(email, claims, accessTokenExpiredAt);
     }
 
@@ -106,7 +103,8 @@ public class JWTService {
         Map<String, Object> claims = new HashMap<>();
         claims.put(this.KEY_ID, userId);
         claims.put("token_use", "refresh");
-        if (sessionId != null) claims.put("sid", sessionId);
+        if (sessionId != null)
+            claims.put("sid", sessionId);
         return this.generateToken(email, claims, refreshTokenExpiredAt);
     }
 
@@ -170,11 +168,7 @@ public class JWTService {
      * JWT에서 모든 Claims 추출
      */
     private Claims extractAllClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(getKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        return Jwts.parser().verifyWith(getKey()).build().parseSignedClaims(token).getPayload();
     }
 
     /**
@@ -187,8 +181,7 @@ public class JWTService {
     public boolean validateToken(String token, UserDetails userDetails) {
         // 보호 API에서는 access만 허용한다. 사용자 조회 결과와 토큰의 회원 ID도 일치해야 한다.
         Claims claims = extractAllClaims(token);
-        if (!isAccessToken(claims) || !hasActiveSession(claims) || !activeAccount(claims)
-                || !userDetails.isEnabled()
+        if (!isAccessToken(claims) || !hasActiveSession(claims) || !activeAccount(claims) || !userDetails.isEnabled()
                 || !userDetails.getUsername().equals(claims.getSubject())) {
             return false;
         }
@@ -219,7 +212,8 @@ public class JWTService {
     private boolean hasActiveSession(Claims claims) {
         // 구형 sid 없는 access는 기존 짧은 수명과 용도 검증을 유지한다.
         String sessionId = sessionId(claims);
-        if (sessionId == null) return true;
+        if (sessionId == null)
+            return true;
 
         // 새 토큰은 서명만으로 허용하지 않는다. 폐기·만료·다른 사용자 세션은 즉시 거부한다.
         Long userId = claims.get(KEY_ID, Long.class);
@@ -230,10 +224,13 @@ public class JWTService {
     private boolean activeAccount(Claims claims) {
         // 운영 생성자는 계정 저장소를 주입한다. sid 없는 구형 access도 탈퇴 상태를 우회하지 않는다.
         Long id = claims.get(KEY_ID, Long.class);
-        return users == null || id != null && users.findById(id)
-                .map(user -> user.isActiveAccount()
-                        && (sessionId(claims) != null || user.getPasswordResetAt() == null))
-                .orElse(false);
+        return users == null
+                || id != null
+                && users.findById(id)
+                           .map(user
+                                   -> user.isActiveAccount()
+                                           && (sessionId(claims) != null || user.getPasswordResetAt() == null))
+                           .orElse(false);
     }
 
     public Long getRefreshId(String token) {

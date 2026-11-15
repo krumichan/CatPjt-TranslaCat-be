@@ -9,17 +9,11 @@ import jp.co.translacat.domain.user.friend.service.FriendService;
 import jp.co.translacat.domain.user.search.enums.UserSearchFriendStatus;
 
 public final class UserFriendStatusResolver {
-
     private UserFriendStatusResolver() {
     }
 
-    public static UserSearchFriendStatus resolve(
-            Long loginUserId,
-            User targetUser,
-            UserBlockService userBlockService,
-            FriendService friendService,
-            FriendRequestRepository friendRequestRepository
-    ) {
+    public static UserSearchFriendStatus resolve(Long loginUserId, User targetUser, UserBlockService userBlockService,
+            FriendService friendService, FriendRequestRepository friendRequestRepository) {
         Long targetUserId = targetUser.getId();
 
         if (targetUserId.equals(loginUserId)) {
@@ -34,22 +28,12 @@ public final class UserFriendStatusResolver {
             return UserSearchFriendStatus.FRIEND;
         }
 
-        return friendRequestRepository.findBetweenUsersByStatus(
-                        loginUserId,
-                        targetUserId,
-                        FriendRequestStatus.PENDING
-                )
-                .map(friendRequest -> resolvePendingRequestStatus(
-                        friendRequest,
-                        loginUserId
-                ))
+        return friendRequestRepository.findBetweenUsersByStatus(loginUserId, targetUserId, FriendRequestStatus.PENDING)
+                .map(friendRequest -> resolvePendingRequestStatus(friendRequest, loginUserId))
                 .orElse(UserSearchFriendStatus.NONE);
     }
 
-    private static UserSearchFriendStatus resolvePendingRequestStatus(
-            FriendRequest friendRequest,
-            Long loginUserId
-    ) {
+    private static UserSearchFriendStatus resolvePendingRequestStatus(FriendRequest friendRequest, Long loginUserId) {
         if (friendRequest.isRequestedBy(loginUserId)) {
             return UserSearchFriendStatus.REQUEST_SENT;
         }

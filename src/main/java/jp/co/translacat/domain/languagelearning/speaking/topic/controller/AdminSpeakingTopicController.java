@@ -17,16 +17,12 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminSpeakingTopicController {
-
     private final SpeakingGateway gateway;
 
     @PatchMapping("/{topicId}")
-    public ResponseDto<SpeakingTopicResponseDto> update(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long topicId,
-            @RequestBody SpeakingTopicUpdateRequestDto request
-    ) {
-        return ResponseUtil.ok(gateway.adminPatch(SecurityUtil.getLoginUserId(principal),
-                "/admin/topics/" + topicId, request, SpeakingTopicResponseDto.class));
+    public ResponseDto<SpeakingTopicResponseDto> update(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long topicId, @RequestBody SpeakingTopicUpdateRequestDto request) {
+        return ResponseUtil.ok(gateway.adminPatch(SecurityUtil.getLoginUserId(principal), "/admin/topics/" + topicId,
+                request, SpeakingTopicResponseDto.class));
     }
 }

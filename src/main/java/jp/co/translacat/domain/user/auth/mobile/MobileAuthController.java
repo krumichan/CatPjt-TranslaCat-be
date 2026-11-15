@@ -25,7 +25,8 @@ public class MobileAuthController {
     @PostMapping("/requests")
     public ResponseEntity<ResponseDto<MobileAuthService.RequestResponse>> create(
             @RequestBody CreateRequest request, HttpServletRequest servlet) {
-        return privateResponse(mobile.create(request.codeChallenge(), request.state(), request.redirectUri(), servlet.getRemoteAddr()));
+        return privateResponse(mobile.create(
+                request.codeChallenge(), request.state(), request.redirectUri(), servlet.getRemoteAddr()));
     }
 
     @PostMapping("/authorize")
@@ -42,20 +43,20 @@ public class MobileAuthController {
     @PostMapping("/exchange")
     public ResponseEntity<ResponseDto<UserLoginResponseDto>> exchange(
             @RequestBody ExchangeRequest request, HttpServletRequest servlet) {
-        return privateResponse(mobile.exchange(request.requestId(), request.code(), request.codeVerifier(), servlet.getRemoteAddr()));
+        return privateResponse(
+                mobile.exchange(request.requestId(), request.code(), request.codeVerifier(), servlet.getRemoteAddr()));
     }
 
     private <T> ResponseEntity<ResponseDto<T>> privateResponse(T value) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header("Referrer-Policy", "no-referrer")
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header("Referrer-Policy", "no-referrer")
                 .body(ResponseUtil.ok(value));
     }
 
-    public record CreateRequest(String codeChallenge, String state, String redirectUri) {
-    }
+    public record CreateRequest(String codeChallenge, String state, String redirectUri) {}
 
-    public record AuthorizeRequest(String requestId) {
-    }
+    public record AuthorizeRequest(String requestId) {}
 
-    public record ExchangeRequest(String requestId, String code, String codeVerifier) {
-    }
+    public record ExchangeRequest(String requestId, String code, String codeVerifier) {}
 }

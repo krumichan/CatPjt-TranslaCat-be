@@ -30,8 +30,9 @@ public class RemoteKeywordCatalogGateway implements KeywordCatalogGateway {
 
     private LanguageLearningKeywordClient forUser(Long userId) {
         LanguageLearningKeywordClient client = clients.getIfAvailable();
-        if (client == null) throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
-                "LL_KEYWORDS_REMOTE_DISABLED", "언어학습 키워드 연결이 활성화되지 않았습니다.");
+        if (client == null)
+            throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, "LL_KEYWORDS_REMOTE_DISABLED",
+                    "언어학습 키워드 연결이 활성화되지 않았습니다.");
         if (userId == null || userId <= 0 || !users.existsById(userId)) {
             throw new BusinessException("사용자를 찾을 수 없습니다.", LanguageLearningErrorCode.USER_NOT_FOUND);
         }

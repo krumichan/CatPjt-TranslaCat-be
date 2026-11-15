@@ -22,7 +22,6 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class VoiceFinalResultCommandService {
-
     private final VoiceSessionRepository sessionRepository;
     private final VoiceSegmentRepository segmentRepository;
     private final VoiceUsageLedgerRepository usageRepository;
@@ -31,57 +30,32 @@ public class VoiceFinalResultCommandService {
     private final VoiceSourceReadingService sourceReadingService;
 
     @Transactional
-    public VoiceSegment persistTranscriptFinal(
-            VoiceStreamContext context,
-            JsonNode event,
-            long globalSequence
-    ) {
+    public VoiceSegment persistTranscriptFinal(VoiceStreamContext context, JsonNode event, long globalSequence) {
         // 세션 종료/삭제와 동일한 row lock을 먼저 잡아 늦은 결과의 재생성을 막는다.
         VoiceSession session = requireActiveSession(context);
         String eventId = requiredText(event, "eventId");
-        VoiceSegment duplicate = segmentRepository
-                .findByTranscriptFinalEventId(eventId)
-                .orElse(null);
+        VoiceSegment duplicate = segmentRepository.findByTranscriptFinalEventId(eventId).orElse(null);
         if (duplicate != null) {
-            verifyIdentity(
-                    duplicate,
-                    context,
-                    globalSequence,
-                    requiredText(event, "sourceText")
-            );
+            verifyIdentity(duplicate, context, globalSequence, requiredText(event, "sourceText"));
             return duplicate;
         }
 
         VoiceSegment bySequence = segmentRepository
-                .findBySession_IdAndChannelAndUtteranceSequence(
-                        context.sessionId(),
-                        context.channel(),
-                        globalSequence
-                )
-                .orElse(null);
+                                          .findBySession_IdAndChannelAndUtteranceSequence(
+                                                  context.sessionId(), context.channel(), globalSequence)
+                                          .orElse(null);
         if (bySequence != null) {
             throw new BusinessException(
-                    "Conflicting Final payload for Voice utterance sequence.",
-                    VoiceErrorCode.FINAL_SEQUENCE_CONFLICT
-            );
+                    "Conflicting Final payload for Voice utterance sequence.", VoiceErrorCode.FINAL_SEQUENCE_CONFLICT);
         }
 
         // 저장과 사용량은 같은 트랜잭션에서 확정한다.
         long speechDurationMs = longValue(event, "speechDurationMs");
-        VoiceSegment segment = VoiceSegment.transcriptFinal(
-                session,
-                context.channel(),
-                context.channel().name() + "-" + globalSequence,
-                globalSequence,
-                eventId,
-                longValue(event, "startedAtOffsetMs"),
-                longValue(event, "endedAtOffsetMs"),
-                speechDurationMs,
-                nullableText(event, "detectedLanguage"),
-                nullableDouble(event, "languageConfidence"),
-                nullableText(event, "lockedLanguage"),
-                requiredText(event, "sourceText")
-        );
+        VoiceSegment segment = VoiceSegment.transcriptFinal(session, context.channel(),
+                context.channel().name() + "-" + globalSequence, globalSequence, eventId,
+                longValue(event, "startedAtOffsetMs"), longValue(event, "endedAtOffsetMs"), speechDurationMs,
+                nullableText(event, "detectedLanguage"), nullableDouble(event, "languageConfidence"),
+                nullableText(event, "lockedLanguage"), requiredText(event, "sourceText"));
         segment.applySourceReadingTokens(writeJson(event.path("sourceReadingTokens")));
         segmentRepository.saveAndFlush(segment);
         recordUsage(session, segment, speechDurationMs);
@@ -92,149 +66,80 @@ public class VoiceFinalResultCommandService {
 
     @Transactional
     public VoiceSegment persistCompleted(
-            VoiceStreamContext context,
-            JsonNode event,
-            long globalSequence,
-            long beRelayAndPersistMs
-    ) {
+            VoiceStreamContext context, JsonNode event, long globalSequence, long beRelayAndPersistMs) {
         // 기존 세그먼트 갱신도 terminal 상태의 저장 금지 규칙을 적용한다.
         VoiceSession session = requireActiveSession(context);
         String completedEventId = requiredText(event, "eventId");
-        VoiceSegment duplicate = segmentRepository
-                .findByPipelineCompletedEventId(completedEventId)
-                .orElse(null);
+        VoiceSegment duplicate = segmentRepository.findByPipelineCompletedEventId(completedEventId).orElse(null);
         if (duplicate != null) {
-            verifyIdentity(
-                    duplicate,
-                    context,
-                    globalSequence,
-                    requiredText(event, "sourceText")
-            );
+            verifyIdentity(duplicate, context, globalSequence, requiredText(event, "sourceText"));
             return duplicate;
         }
 
-        VoiceSegment segment = segmentRepository
-                .findBySession_IdAndChannelAndUtteranceSequence(
-                        context.sessionId(),
-                        context.channel(),
-                        globalSequence
-                )
-                .orElseGet(() -> persistTranscriptFromCompleted(
-                        session,
-                        context,
-                        event,
-                        globalSequence
-                ));
+        VoiceSegment segment =
+                segmentRepository
+                        .findBySession_IdAndChannelAndUtteranceSequence(
+                                context.sessionId(), context.channel(), globalSequence)
+                        .orElseGet(() -> persistTranscriptFromCompleted(session, context, event, globalSequence));
 
         if (!segment.matchesSource(requiredText(event, "sourceText"))) {
             throw new BusinessException(
-                    "Completed Voice payload does not match stored transcript.",
-                    VoiceErrorCode.FINAL_PAYLOAD_CONFLICT
-            );
+                    "Completed Voice payload does not match stored transcript.", VoiceErrorCode.FINAL_PAYLOAD_CONFLICT);
         }
-        if (!Objects.equals(
-                segment.getTargetLanguage(),
-                requiredText(event, "targetLanguage")
-        )) {
-            throw new BusinessException(
-                    "Completed Voice target language does not match session snapshot.",
-                    VoiceErrorCode.TARGET_LANGUAGE_CONFLICT
-            );
+        if (!Objects.equals(segment.getTargetLanguage(), requiredText(event, "targetLanguage"))) {
+            throw new BusinessException("Completed Voice target language does not match session snapshot.",
+                    VoiceErrorCode.TARGET_LANGUAGE_CONFLICT);
         }
 
         // 완료 단계에서 Sudachi가 일시적으로 실패했다면 확정 원문 때 저장한 읽기를 유지한다.
-        String readingTokens = sourceReadingService.preserveStoredWhenGenerationFails(
-                writeJson(event.path("sourceReadingTokens")),
-                segment.getSourceReadingTokens(),
-                segment.getSourceText()
-        );
+        String readingTokens =
+                sourceReadingService.preserveStoredWhenGenerationFails(writeJson(event.path("sourceReadingTokens")),
+                        segment.getSourceReadingTokens(), segment.getSourceText());
 
         JsonNode latency = event.path("latency");
         JsonNode model = event.path("model");
-        segment.applyCompleted(
-                completedEventId,
-                requiredText(event, "translatedText"),
-                readingTokens,
-                event.path("translationSkipped").asBoolean(false),
-                nullableLong(latency, "endpointingMs"),
-                nullableLong(latency, "sttFinalizeMs"),
-                nullableLong(latency, "translationMs"),
-                nullableLong(latency, "aiTotalAfterSpeechMs"),
-                beRelayAndPersistMs,
-                nullableText(model, "sttVersion"),
-                nullableText(model, "translationVersion"),
-                nullableText(model, "promptVersion")
-        );
+        segment.applyCompleted(completedEventId, requiredText(event, "translatedText"), readingTokens,
+                event.path("translationSkipped").asBoolean(false), nullableLong(latency, "endpointingMs"),
+                nullableLong(latency, "sttFinalizeMs"), nullableLong(latency, "translationMs"),
+                nullableLong(latency, "aiTotalAfterSpeechMs"), beRelayAndPersistMs, nullableText(model, "sttVersion"),
+                nullableText(model, "translationVersion"), nullableText(model, "promptVersion"));
         updateLockedLanguage(context, event);
 
         return segment;
     }
 
     @Transactional
-    public void updateRelayLatency(
-            VoiceStreamContext context,
-            Long segmentId,
-            long beRelayAndPersistMs
-    ) {
+    public void updateRelayLatency(VoiceStreamContext context, Long segmentId, long beRelayAndPersistMs) {
         // 완료 이벤트의 후속 latency 쓰기도 미보관 삭제보다 늦게 되살아나지 않게 한다.
         requireActiveSession(context);
-        VoiceSegment segment = segmentRepository
-                .findOwnedForUpdate(
-                        segmentId,
-                        context.sessionId(),
-                        context.userId()
-                )
-                .orElseThrow(this::notFound);
+        VoiceSegment segment = segmentRepository.findOwnedForUpdate(segmentId, context.sessionId(), context.userId())
+                                       .orElseThrow(this::notFound);
         segment.updateRelayLatency(beRelayAndPersistMs);
     }
 
     @Transactional
-    public void persistTranslationFailure(
-            VoiceStreamContext context,
-            JsonNode event,
-            long globalSequence
-    ) {
+    public void persistTranslationFailure(VoiceStreamContext context, JsonNode event, long globalSequence) {
         JsonNode error = event.path("error");
         String stage = nullableText(error, "stage");
-        if (!("TRANSLATION".equals(stage) || "LANGUAGE".equals(stage))
-                || nullableText(event, "sourceText") == null) {
+        if (!("TRANSLATION".equals(stage) || "LANGUAGE".equals(stage)) || nullableText(event, "sourceText") == null) {
             return;
         }
 
         // 언어 거절도 이력에 보존하고 timeout 정리와 동일한 세션 잠금 순서를 사용한다.
         requireActiveSession(context);
         segmentRepository
-                .findBySession_IdAndChannelAndUtteranceSequence(
-                        context.sessionId(),
-                        context.channel(),
-                        globalSequence
-                )
-                .ifPresent(segment -> segment.markTranslationFailed(
-                        nullableText(error, "code")
-                ));
+                .findBySession_IdAndChannelAndUtteranceSequence(context.sessionId(), context.channel(), globalSequence)
+                .ifPresent(segment -> segment.markTranslationFailed(nullableText(error, "code")));
     }
 
     private VoiceSegment persistTranscriptFromCompleted(
-            VoiceSession session,
-            VoiceStreamContext context,
-            JsonNode event,
-            long globalSequence
-    ) {
+            VoiceSession session, VoiceStreamContext context, JsonNode event, long globalSequence) {
         long speechDurationMs = longValue(event, "speechDurationMs");
-        VoiceSegment segment = VoiceSegment.transcriptFinal(
-                session,
-                context.channel(),
-                context.channel().name() + "-" + globalSequence,
-                globalSequence,
-                null,
-                longValue(event, "startedAtOffsetMs"),
-                longValue(event, "endedAtOffsetMs"),
-                speechDurationMs,
-                nullableText(event, "detectedLanguage"),
-                nullableDouble(event, "languageConfidence"),
-                nullableText(event, "lockedLanguage"),
-                requiredText(event, "sourceText")
-        );
+        VoiceSegment segment = VoiceSegment.transcriptFinal(session, context.channel(),
+                context.channel().name() + "-" + globalSequence, globalSequence, null,
+                longValue(event, "startedAtOffsetMs"), longValue(event, "endedAtOffsetMs"), speechDurationMs,
+                nullableText(event, "detectedLanguage"), nullableDouble(event, "languageConfidence"),
+                nullableText(event, "lockedLanguage"), requiredText(event, "sourceText"));
         segment.applySourceReadingTokens(writeJson(event.path("sourceReadingTokens")));
         segmentRepository.saveAndFlush(segment);
         recordUsage(session, segment, speechDurationMs);
@@ -242,150 +147,86 @@ public class VoiceFinalResultCommandService {
         return segment;
     }
 
-    private VoiceSession requireActiveSession(
-            VoiceStreamContext context
-    ) {
-        VoiceSession session = sessionRepository
-                .findOwnedForUpdate(
-                        context.sessionId(),
-                        context.userId()
-                )
-                .orElseThrow(this::notFound);
+    private VoiceSession requireActiveSession(VoiceStreamContext context) {
+        VoiceSession session =
+                sessionRepository.findOwnedForUpdate(context.sessionId(), context.userId()).orElseThrow(this::notFound);
         if (!session.getStatus().isActiveLike()) {
             throw new BusinessException(
-                    "Voice session no longer accepts Final events.",
-                    VoiceErrorCode.LATE_FINAL_EVENT
-            );
+                    "Voice session no longer accepts Final events.", VoiceErrorCode.LATE_FINAL_EVENT);
         }
         return session;
     }
 
-    private void recordUsage(
-            VoiceSession session,
-            VoiceSegment segment,
-            long speechDurationMs
-    ) {
+    private void recordUsage(VoiceSession session, VoiceSegment segment, long speechDurationMs) {
         if (usageRepository.existsBySegmentId(segment.getId())) {
             return;
         }
 
-        usageRepository.save(
-                VoiceUsageLedger.create(session.getUser(), segment)
-        );
+        usageRepository.save(VoiceUsageLedger.create(session.getUser(), segment));
         session.addProcessedAudioMs(speechDurationMs);
     }
 
-    private void updateLockedLanguage(
-            VoiceStreamContext context,
-            JsonNode event
-    ) {
+    private void updateLockedLanguage(VoiceStreamContext context, JsonNode event) {
         String lockedLanguage = nullableText(event, "lockedLanguage");
         if (lockedLanguage != null) {
-            streamCommandService.updateLockedLanguage(
-                    context,
-                    lockedLanguage
-            );
+            streamCommandService.updateLockedLanguage(context, lockedLanguage);
         }
     }
 
     private void verifyIdentity(
-            VoiceSegment segment,
-            VoiceStreamContext context,
-            long globalSequence,
-            String sourceText
-    ) {
-        if (!segment.getSession().getId().equals(context.sessionId())
-                || segment.getChannel() != context.channel()
-                || segment.getUtteranceSequence() != globalSequence
-                || !segment.matchesSource(sourceText)) {
+            VoiceSegment segment, VoiceStreamContext context, long globalSequence, String sourceText) {
+        if (!segment.getSession().getId().equals(context.sessionId()) || segment.getChannel() != context.channel()
+                || segment.getUtteranceSequence() != globalSequence || !segment.matchesSource(sourceText)) {
             throw new BusinessException(
-                    "Conflicting idempotent Voice Final event.",
-                    VoiceErrorCode.FINAL_EVENT_CONFLICT
-            );
+                    "Conflicting idempotent Voice Final event.", VoiceErrorCode.FINAL_EVENT_CONFLICT);
         }
     }
 
     private String writeJson(JsonNode node) {
         try {
             return objectMapper.writeValueAsString(
-                    node.isMissingNode() || node.isNull()
-                            ? objectMapper.createArrayNode()
-                            : node
-            );
+                    node.isMissingNode() || node.isNull() ? objectMapper.createArrayNode() : node);
         } catch (Exception e) {
-            throw invalidEvent(
-                    "Invalid Voice Reading token payload."
-            );
+            throw invalidEvent("Invalid Voice Reading token payload.");
         }
     }
 
-    private String requiredText(
-            JsonNode node,
-            String field
-    ) {
+    private String requiredText(JsonNode node, String field) {
         String value = nullableText(node, field);
         if (value == null || value.isBlank()) {
-            throw invalidEvent(
-                    "Missing Voice event field: " + field
-            );
+            throw invalidEvent("Missing Voice event field: " + field);
         }
         return value;
     }
 
-    private String nullableText(
-            JsonNode node,
-            String field
-    ) {
+    private String nullableText(JsonNode node, String field) {
         JsonNode value = node.get(field);
-        return value == null || value.isNull()
-                ? null
-                : value.asText();
+        return value == null || value.isNull() ? null : value.asText();
     }
 
-    private Long nullableLong(
-            JsonNode node,
-            String field
-    ) {
+    private Long nullableLong(JsonNode node, String field) {
         JsonNode value = node.get(field);
-        return value == null || value.isNull()
-                ? null
-                : value.asLong();
+        return value == null || value.isNull() ? null : value.asLong();
     }
 
-    private Double nullableDouble(
-            JsonNode node,
-            String field
-    ) {
+    private Double nullableDouble(JsonNode node, String field) {
         JsonNode value = node.get(field);
-        return value == null || value.isNull()
-                ? null
-                : value.asDouble();
+        return value == null || value.isNull() ? null : value.asDouble();
     }
 
-    private long longValue(
-            JsonNode node,
-            String field
-    ) {
+    private long longValue(JsonNode node, String field) {
         JsonNode value = node.get(field);
         if (value == null || !value.canConvertToLong()) {
-            throw invalidEvent(
-                    "Invalid Voice event numeric field: " + field
-            );
+            throw invalidEvent("Invalid Voice event numeric field: " + field);
         }
         return value.asLong();
     }
 
     private BusinessException invalidEvent(String message) {
-        return new BusinessException(
-                message,
-                VoiceErrorCode.INVALID_EVENT_SCHEMA
-        );
+        return new BusinessException(message, VoiceErrorCode.INVALID_EVENT_SCHEMA);
     }
 
     private BusinessException notFound() {
-        return new BusinessException(
-                "Voice resource was not found.",
-                VoiceErrorCode.NOT_FOUND
-        );
+        return new BusinessException("Voice resource was not found.", VoiceErrorCode.NOT_FOUND);
     }
 }

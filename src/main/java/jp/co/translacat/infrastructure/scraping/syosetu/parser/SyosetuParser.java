@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class SyosetuParser {
-
     private final Pattern PAGE_NUMBER_PATTERN = Pattern.compile("p=(\\d+)");
 
     public NovelRankingContext parseNovelRanking(Element element) {
@@ -45,7 +44,6 @@ public class SyosetuParser {
     }
 
     public NovelContext parseNovelDetail(Element element) {
-
         // 1. 제목 및 소설 식별자 추출
         Element titleLink = Objects.requireNonNull(element.selectFirst(".p-infotop-title a"));
         String novelIdentifier = PathUtil.extractPath(titleLink.attr("href")).replaceAll("/", "");
@@ -82,9 +80,10 @@ public class SyosetuParser {
             String identifier = this.extractEpisodeId(href);
 
             episodes.add(RawEpisodeContext.builder()
-                    .sequence(Integer.parseInt(identifier))
-                    .identifier(identifier)
-                    .title(TranslationUnit.of(subtitle)).build());
+                            .sequence(Integer.parseInt(identifier))
+                            .identifier(identifier)
+                            .title(TranslationUnit.of(subtitle))
+                            .build());
         }
 
         return episodes;
@@ -94,24 +93,26 @@ public class SyosetuParser {
         Elements pagerCenterElements = element.select(".c-pager.c-pager--center");
 
         if (!pagerCenterElements.isEmpty()) {
-
             Element pagerCenterElement = pagerCenterElements.getFirst();
             Elements aElements = pagerCenterElement.select(".c-pager__item");
 
             // 이전 Identifier 추출.
             Element prevElement = aElements.select(".c-pager__item--before").first();
-            String prevIdentifier = Objects.isNull(prevElement) ?
-                    null : this.extractEpisodeId(prevElement.attr("href"));
+            String prevIdentifier =
+                    Objects.isNull(prevElement) ? null : this.extractEpisodeId(prevElement.attr("href"));
 
             // 다음 Identifier 추출.
             Element nextElement = aElements.select(".c-pager__item--next").first();
-            String nextIdentifier = Objects.isNull(nextElement) ?
-                    null : this.extractEpisodeId(nextElement.attr("href"));
+            String nextIdentifier =
+                    Objects.isNull(nextElement) ? null : this.extractEpisodeId(nextElement.attr("href"));
 
             // 목록 Identifier 추출.
-            Element listElement = aElements.stream()
-                    .filter(elem -> !elem.hasClass("c-pager__item--before") && !elem.hasClass("c-pager__item--next"))
-                    .findFirst().orElse(null);
+            Element listElement =
+                    aElements.stream()
+                            .filter(elem
+                                    -> !elem.hasClass("c-pager__item--before") && !elem.hasClass("c-pager__item--next"))
+                            .findFirst()
+                            .orElse(null);
             String listIdentifier = null;
             if (!Objects.isNull(listElement)) {
                 String listHref = listElement.attr("href");
@@ -131,13 +132,11 @@ public class SyosetuParser {
     public List<RawEpisodeContext> parseCurrentEpisodeInfo(Element element, String episodeId) {
         Element titleElement = element.selectFirst(".p-novel__title");
         String titleRawJa = Objects.requireNonNull(titleElement).text();
-        return Collections.singletonList(
-                RawEpisodeContext.builder()
+        return Collections.singletonList(RawEpisodeContext.builder()
                         .sequence(Integer.parseInt(episodeId))
                         .identifier(episodeId)
                         .title(TranslationUnit.of(titleRawJa))
-                        .build()
-        );
+                        .build());
     }
 
     public List<EpisodeContentContext> parseEpisodeContents(Element element) {
@@ -146,7 +145,6 @@ public class SyosetuParser {
         Elements lines = element.select(".js-novel-text p");
 
         for (Element line : lines) {
-
             // 1. id 속성값 가져오기 (예: "L1", "L5" 등)
             String idAttr = line.id();
 
@@ -179,9 +177,9 @@ public class SyosetuParser {
             String originalHtml = line.html().trim();
 
             episodeContentContexts.add(EpisodeContentContext.builder()
-                    .sequence(sequence)
-                    .content(TranslationUnit.of(pureText, originalHtml, ""))
-                    .build());
+                            .sequence(sequence)
+                            .content(TranslationUnit.of(pureText, originalHtml, ""))
+                            .build());
         }
 
         return episodeContentContexts;
@@ -208,7 +206,6 @@ public class SyosetuParser {
             // 1. 숫자가 발견된 경우 (예: /n1596lr/2/ -> "2")
             return matcher.group(1);
         } else {
-
             // 2. 숫자가 발견되지 않은 경우
             // 단편 소설 포맷(/n1596lr/)인지 한 번 더 검증하거나, 바로 "0" 세팅
             if (href.endsWith("/")) {
@@ -216,8 +213,7 @@ public class SyosetuParser {
             }
 
             // 이외에 정말 이상한 형식인 경우에만 예외 발생
-            throw new IllegalArgumentException(
-                    String.format("invalid episode id: href-[%s]", href));
+            throw new IllegalArgumentException(String.format("invalid episode id: href-[%s]", href));
         }
     }
 
@@ -237,7 +233,6 @@ public class SyosetuParser {
     }
 
     public Integer extractPageNumber(Element element) {
-
         if (Objects.isNull(element)) {
             return null;
         }
@@ -246,7 +241,8 @@ public class SyosetuParser {
         String href = element.attr("href");
 
         // 없으면 null.
-        if (href.isEmpty()) return null;
+        if (href.isEmpty())
+            return null;
 
         // Page 정규화로 번호 추출.
         Matcher matcher = PAGE_NUMBER_PATTERN.matcher(href);
@@ -258,17 +254,15 @@ public class SyosetuParser {
     }
 
     private PageNumberContext extractRankingPageNumbers(Element element) {
-
         // 페이지 번호 습득.
         Elements pages = element.select(".c-pager__item");
 
         if (!pages.isEmpty()) {
+            Element prev =
+                    pages.stream().filter(e -> e.attr("title").contains("前の50作品へ")).findFirst().orElse(null);
 
-            Element prev = pages.stream()
-                    .filter(e -> e.attr("title").contains("前の50作品へ")).findFirst().orElse(null);
-
-            Element next = pages.stream()
-                    .filter(e -> e.attr("title").contains("次の50作品へ")).findFirst().orElse(null);
+            Element next =
+                    pages.stream().filter(e -> e.attr("title").contains("次の50作品へ")).findFirst().orElse(null);
 
             return PageNumberContext.builder()
                     .first(this.extractPageNumber(prev))
@@ -301,8 +295,10 @@ public class SyosetuParser {
             String authorIdentify = PathUtil.extractPath(authorHref).replaceAll("/", "");
 
             // 소설 상태 추출.
-            String statusText = Objects.requireNonNull(
-                    item.select(".p-ranklist-item__infomation .p-ranklist-item__separator").first()).text();
+            String statusText =
+                    Objects.requireNonNull(
+                                   item.select(".p-ranklist-item__infomation .p-ranklist-item__separator").first())
+                            .text();
             statusText = statusText.contains("(") ? statusText.substring(0, statusText.indexOf("(")) : statusText;
             SyosetuNovelStatus status = SyosetuNovelStatus.of(statusText.trim());
 
@@ -310,14 +306,15 @@ public class SyosetuParser {
             String synopsis = item.select(".p-ranklist-item__synopsis").text();
 
             rankings.add(NovelContext.builder()
-                    .rank(Integer.parseInt(rank))
-                    .identifier(titleIdentify)
-                    .authorIdentifier(authorIdentify)
-                    .isShortStory(status.isShortStory())
-                    .title(TranslationUnit.of(title))
-                    .author(TranslationUnit.of(author))
-                    .status(TranslationUnit.of(status.getJa(), status.getRubyJa(), status.getKo()))
-                    .synopsis(TranslationUnit.of(synopsis)).build());
+                            .rank(Integer.parseInt(rank))
+                            .identifier(titleIdentify)
+                            .authorIdentifier(authorIdentify)
+                            .isShortStory(status.isShortStory())
+                            .title(TranslationUnit.of(title))
+                            .author(TranslationUnit.of(author))
+                            .status(TranslationUnit.of(status.getJa(), status.getRubyJa(), status.getKo()))
+                            .synopsis(TranslationUnit.of(synopsis))
+                            .build());
         }
 
         return rankings;
@@ -353,27 +350,23 @@ public class SyosetuParser {
         }
 
         // 모든 번호 추출.
-        List<Integer> pages = pagerDiv.select("a").stream()
-                .filter(a -> !a.hasClass(".backlink") && !a.hasClass(".nextlink"))
-                .map(a -> a.attr("href"))
-                .map(href -> {
-                    String p = PathUtil.getQueryParamFirst(href, "p");
-                    return Objects.nonNull(p) ? Integer.parseInt(p) : null;
-                })
-                .filter(Objects::nonNull)
-                .distinct()
-                .collect(Collectors.toList());
+        List<Integer> pages = pagerDiv.select("a")
+                                      .stream()
+                                      .filter(a -> !a.hasClass(".backlink") && !a.hasClass(".nextlink"))
+                                      .map(a -> a.attr("href"))
+                                      .map(href -> {
+                                          String p = PathUtil.getQueryParamFirst(href, "p");
+                                          return Objects.nonNull(p) ? Integer.parseInt(p) : null;
+                                      })
+                                      .filter(Objects::nonNull)
+                                      .distinct()
+                                      .collect(Collectors.toList());
         if (Objects.nonNull(current) && !pages.contains(current)) {
             pages.add(current);
             Collections.sort(pages);
         }
 
-        return PageNumberContext.builder()
-                .current(current)
-                .prev(prev)
-                .next(next)
-                .pages(pages)
-                .build();
+        return PageNumberContext.builder().current(current).prev(prev).next(next).pages(pages).build();
     }
 
     private List<NovelContext> extractSearchItems(Element element) {
@@ -415,21 +408,21 @@ public class SyosetuParser {
             }
 
             novelContexts.add(NovelContext.builder()
-                    .identifier(novelIdentifier)
-                    .authorIdentifier(authorIdentifier)
-                    .genreText(genreText)
-                    .isShortStory(status.isShortStory())
-                    .title(TranslationUnit.of(title))
-                    .author(TranslationUnit.of(author))
-                    .status(TranslationUnit.of(status.getJa(), status.getRubyJa(), status.getKo()))
-                    .synopsis(TranslationUnit.of(synopsis)).build());
+                            .identifier(novelIdentifier)
+                            .authorIdentifier(authorIdentifier)
+                            .genreText(genreText)
+                            .isShortStory(status.isShortStory())
+                            .title(TranslationUnit.of(title))
+                            .author(TranslationUnit.of(author))
+                            .status(TranslationUnit.of(status.getJa(), status.getRubyJa(), status.getKo()))
+                            .synopsis(TranslationUnit.of(synopsis))
+                            .build());
         }
 
         return novelContexts;
     }
 
-    private record NovelDetailData(String synopsis, String author, String authorIdentifier, String smallGenre) {
-    }
+    private record NovelDetailData(String synopsis, String author, String authorIdentifier, String smallGenre) {}
 
     private NovelDetailData extractNovelDetailData(Element element) {
         Elements dataList = element.select(".p-infotop-data dt");
@@ -443,7 +436,8 @@ public class SyosetuParser {
             String columnName = dt.text().trim();
             Element dd = dt.nextElementSibling(); // dt 바로 다음에 오는 dd 요소를 선택
 
-            if (dd == null) continue;
+            if (dd == null)
+                continue;
 
             switch (columnName) {
                 case "あらすじ":

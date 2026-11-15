@@ -14,7 +14,8 @@ import java.util.Locale;
 public class ReceiptBatchFingerprint {
     public String create(ReceiptBatchRequestDto request) {
         StringBuilder canonical = new StringBuilder();
-        if (request == null || request.receipts() == null) return digest("invalid");
+        if (request == null || request.receipts() == null)
+            return digest("invalid");
         canonical.append(request.receipts().size()).append('|');
         request.receipts().forEach(item -> {
             if (item == null) {
@@ -28,27 +29,31 @@ public class ReceiptBatchFingerprint {
             append(canonical, normalized(item.categoryName()));
             append(canonical, normalized(item.categorySource()));
             append(canonical, normalized(item.categoryReason()));
-            append(canonical, item.purchaseTotal() == null
-                    ? null : item.purchaseTotal().stripTrailingZeros().toPlainString());
-            if (item.paymentBreakdown() == null) append(canonical, null);
-            else item.paymentBreakdown().forEach(payment -> {
-                if (payment == null) append(canonical, null);
-                else {
-                    append(canonical, normalized(payment.paymentType()));
-                    append(canonical, payment.amount() == null ? null
-                            : payment.amount().stripTrailingZeros().toPlainString());
-                    append(canonical, normalized(payment.evidence()));
-                    append(canonical, normalized(payment.duplicateGroup()));
-                }
-            });
-            append(canonical, item.cashTendered() == null ? null
-                    : item.cashTendered().stripTrailingZeros().toPlainString());
-            append(canonical, item.change() == null ? null
-                    : item.change().stripTrailingZeros().toPlainString());
-            append(canonical, item.originalAmount() == null
-                    ? null : item.originalAmount().stripTrailingZeros().toPlainString());
-            append(canonical, item.originalCurrencyCode() == null
-                    ? null : item.originalCurrencyCode().trim().toUpperCase(Locale.ROOT));
+            append(canonical,
+                    item.purchaseTotal() == null ? null : item.purchaseTotal().stripTrailingZeros().toPlainString());
+            if (item.paymentBreakdown() == null)
+                append(canonical, null);
+            else
+                item.paymentBreakdown().forEach(payment -> {
+                    if (payment == null)
+                        append(canonical, null);
+                    else {
+                        append(canonical, normalized(payment.paymentType()));
+                        append(canonical,
+                                payment.amount() == null ? null
+                                                         : payment.amount().stripTrailingZeros().toPlainString());
+                        append(canonical, normalized(payment.evidence()));
+                        append(canonical, normalized(payment.duplicateGroup()));
+                    }
+                });
+            append(canonical,
+                    item.cashTendered() == null ? null : item.cashTendered().stripTrailingZeros().toPlainString());
+            append(canonical, item.change() == null ? null : item.change().stripTrailingZeros().toPlainString());
+            append(canonical,
+                    item.originalAmount() == null ? null : item.originalAmount().stripTrailingZeros().toPlainString());
+            append(canonical,
+                    item.originalCurrencyCode() == null ? null
+                                                        : item.originalCurrencyCode().trim().toUpperCase(Locale.ROOT));
             append(canonical, item.transactionDate());
             append(canonical, normalized(item.transactionTime()));
             append(canonical, normalized(item.memo()));
@@ -78,8 +83,8 @@ public class ReceiptBatchFingerprint {
 
     private static String digest(String value) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 is unavailable.", impossible);
         }

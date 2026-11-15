@@ -8,7 +8,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Setter
 @ConfigurationProperties(prefix = "translacat.storage")
 public class StorageProperties {
-
     private String type = "local";
     private Local local = new Local();
     private S3 s3 = new S3();
@@ -17,8 +16,7 @@ public class StorageProperties {
     @Setter
     public static class Local {
         private String rootPath = "./storage";
-        private String publicBaseUrl =
-                "http://localhost:8080/api/v1/public/storage";
+        private String publicBaseUrl = "http://localhost:8080/api/v1/public/storage";
     }
 
     @Getter

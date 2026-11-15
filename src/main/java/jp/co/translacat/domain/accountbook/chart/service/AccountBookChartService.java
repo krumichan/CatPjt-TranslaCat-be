@@ -23,27 +23,18 @@ import java.util.stream.IntStream;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AccountBookChartService {
-
     private final AccountBookAccessService accountBookAccessService;
     private final AccountBookTransactionRepository accountBookTransactionRepository;
     private final AccountBookMonthlyGoalQueryService accountBookMonthlyGoalQueryService;
 
-    public AccountBookMonthlyChartResponseDto getMonthlyChart(
-            Long accountBookId,
-            Integer year,
-            Long userId
-    ) {
+    public AccountBookMonthlyChartResponseDto getMonthlyChart(Long accountBookId, Integer year, Long userId) {
         accountBookAccessService.validateAccessible(accountBookId, userId);
 
         LocalDate startDate = Year.of(year).atMonth(1).atDay(1);
         LocalDate endDate = startDate.plusYears(1);
 
         List<AccountBookMonthlyTransactionAggregateDto> aggregates =
-                accountBookTransactionRepository.aggregateMonthlyAmounts(
-                        accountBookId,
-                        startDate,
-                        endDate
-                );
+                accountBookTransactionRepository.aggregateMonthlyAmounts(accountBookId, startDate, endDate);
 
         Map<Integer, BigDecimal> incomeAmountMap = new HashMap<>();
         Map<Integer, BigDecimal> expenseAmountMap = new HashMap<>();
@@ -57,36 +48,21 @@ public class AccountBookChartService {
         }
 
         Map<Integer, BigDecimal> goalAmountMap =
-                accountBookMonthlyGoalQueryService.getGoalAmountMap(
-                        accountBookId,
-                        year
-                );
+                accountBookMonthlyGoalQueryService.getGoalAmountMap(accountBookId, year);
 
         List<AccountBookMonthlyChartItemResponseDto> months =
                 IntStream.rangeClosed(1, 12)
                         .mapToObj(month -> {
-                            BigDecimal incomeAmount = incomeAmountMap.getOrDefault(
-                                    month,
-                                    BigDecimal.ZERO
-                            );
+                            BigDecimal incomeAmount = incomeAmountMap.getOrDefault(month, BigDecimal.ZERO);
 
-                            BigDecimal expenseAmount = expenseAmountMap.getOrDefault(
-                                    month,
-                                    BigDecimal.ZERO
-                            );
+                            BigDecimal expenseAmount = expenseAmountMap.getOrDefault(month, BigDecimal.ZERO);
 
                             BigDecimal balance = incomeAmount.subtract(expenseAmount);
 
                             BigDecimal expenseGoalAmount = goalAmountMap.get(month);
 
                             return new AccountBookMonthlyChartItemResponseDto(
-                                    year,
-                                    month,
-                                    incomeAmount,
-                                    expenseAmount,
-                                    balance,
-                                    expenseGoalAmount
-                            );
+                                    year, month, incomeAmount, expenseAmount, balance, expenseGoalAmount);
                         })
                         .toList();
 
@@ -94,89 +70,57 @@ public class AccountBookChartService {
     }
 
     public AccountBookRankingChartResponseDto getCategoryChart(
-            Long accountBookId,
-            Integer year,
-            Integer month,
-            Long userId
-    ) {
+            Long accountBookId, Integer year, Integer month, Long userId) {
         accountBookAccessService.validateAccessible(accountBookId, userId);
 
         ChartDateRange dateRange = resolveDateRange(year, month);
 
         List<AccountBookRankingChartAggregateDto> aggregates =
                 accountBookTransactionRepository.aggregateExpenseAmountsByCategory(
-                        accountBookId,
-                        dateRange.startDate(),
-                        dateRange.endDate()
-                );
+                        accountBookId, dateRange.startDate(), dateRange.endDate());
 
         return toRankingChartResponse(year, month, aggregates);
     }
 
     public AccountBookRankingChartResponseDto getStoreChart(
-            Long accountBookId,
-            Integer year,
-            Integer month,
-            Long userId
-    ) {
+            Long accountBookId, Integer year, Integer month, Long userId) {
         accountBookAccessService.validateAccessible(accountBookId, userId);
 
         ChartDateRange dateRange = resolveDateRange(year, month);
 
         List<AccountBookRankingChartAggregateDto> aggregates =
                 accountBookTransactionRepository.aggregateExpenseAmountsByStore(
-                        accountBookId,
-                        dateRange.startDate(),
-                        dateRange.endDate()
-                );
+                        accountBookId, dateRange.startDate(), dateRange.endDate());
 
         return toRankingChartResponse(year, month, aggregates);
     }
 
     private AccountBookRankingChartResponseDto toRankingChartResponse(
-            Integer year,
-            Integer month,
-            List<AccountBookRankingChartAggregateDto> aggregates
-    ) {
+            Integer year, Integer month, List<AccountBookRankingChartAggregateDto> aggregates) {
         BigDecimal totalAmount = aggregates.stream()
-                .map(AccountBookRankingChartAggregateDto::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                                         .map(AccountBookRankingChartAggregateDto::amount)
+                                         .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        List<AccountBookRankingChartItemResponseDto> items = aggregates.stream()
-                .map(aggregate -> new AccountBookRankingChartItemResponseDto(
-                        aggregate.name(),
-                        aggregate.amount(),
-                        aggregate.transactionCount(),
-                        calculatePercentage(aggregate.amount(), totalAmount),
-                        aggregate.groupKey()
-                ))
-                .toList();
+        List<AccountBookRankingChartItemResponseDto> items =
+                aggregates.stream()
+                        .map(aggregate
+                                -> new AccountBookRankingChartItemResponseDto(aggregate.name(), aggregate.amount(),
+                                        aggregate.transactionCount(),
+                                        calculatePercentage(aggregate.amount(), totalAmount), aggregate.groupKey()))
+                        .toList();
 
-        return new AccountBookRankingChartResponseDto(
-                year,
-                month,
-                totalAmount,
-                items
-        );
+        return new AccountBookRankingChartResponseDto(year, month, totalAmount, items);
     }
 
-    private BigDecimal calculatePercentage(
-            BigDecimal amount,
-            BigDecimal totalAmount
-    ) {
+    private BigDecimal calculatePercentage(BigDecimal amount, BigDecimal totalAmount) {
         if (totalAmount.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO;
         }
 
-        return amount
-                .multiply(BigDecimal.valueOf(100))
-                .divide(totalAmount, 2, RoundingMode.HALF_UP);
+        return amount.multiply(BigDecimal.valueOf(100)).divide(totalAmount, 2, RoundingMode.HALF_UP);
     }
 
-    private ChartDateRange resolveDateRange(
-            Integer year,
-            Integer month
-    ) {
+    private ChartDateRange resolveDateRange(Integer year, Integer month) {
         if (year == null && month == null) {
             return new ChartDateRange(null, null);
         }
@@ -187,15 +131,8 @@ public class AccountBookChartService {
 
         YearMonth yearMonth = YearMonth.of(year, month);
 
-        return new ChartDateRange(
-                yearMonth.atDay(1),
-                yearMonth.plusMonths(1).atDay(1)
-        );
+        return new ChartDateRange(yearMonth.atDay(1), yearMonth.plusMonths(1).atDay(1));
     }
 
-    private record ChartDateRange(
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
-    }
+    private record ChartDateRange(LocalDate startDate, LocalDate endDate) {}
 }

@@ -30,25 +30,31 @@ public class PushInstallationController {
 
     @PutMapping("/{installationId}")
     public ResponseEntity<?> put(@AuthenticationPrincipal UserPrincipal principal, @PathVariable String installationId,
-                                 HttpServletRequest request) {
+            HttpServletRequest request) {
         var actor = actor(principal, request);
-        var body = PushInstallationValidation.body(request, Set.of("provider", "expoPushToken", "platform",
-                "appEnvironment", "projectId", "installationProof", "generation"));
+        var body = PushInstallationValidation.body(request,
+                Set.of("provider", "expoPushToken", "platform", "appEnvironment", "projectId", "installationProof",
+                        "generation"));
         var input = new PushInstallationDtos.Put(PushInstallationValidation.text(body, "provider"),
-                PushInstallationValidation.text(body, "expoPushToken"), PushInstallationValidation.text(body, "platform"),
-                PushInstallationValidation.text(body, "appEnvironment"), PushInstallationValidation.text(body, "projectId"),
-                PushInstallationValidation.text(body, "installationProof"), PushInstallationValidation.number(body, "generation"));
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                PushInstallationValidation.text(body, "expoPushToken"),
+                PushInstallationValidation.text(body, "platform"),
+                PushInstallationValidation.text(body, "appEnvironment"),
+                PushInstallationValidation.text(body, "projectId"),
+                PushInstallationValidation.text(body, "installationProof"),
+                PushInstallationValidation.number(body, "generation"));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
                 .body(ResponseUtil.ok(service.put(actor, installationId, input)));
     }
 
     @DeleteMapping("/{installationId}")
-    public ResponseEntity<Void> delete(@AuthenticationPrincipal UserPrincipal principal, @PathVariable String installationId,
-                                       HttpServletRequest request) {
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String installationId, HttpServletRequest request) {
         var actor = actor(principal, request);
         var body = PushInstallationValidation.body(request, Set.of("installationProof", "generation"));
-        service.delete(actor, installationId, new PushInstallationDtos.Delete(PushInstallationValidation.text(body, "installationProof"),
-                PushInstallationValidation.number(body, "generation")));
+        service.delete(actor, installationId,
+                new PushInstallationDtos.Delete(PushInstallationValidation.text(body, "installationProof"),
+                        PushInstallationValidation.number(body, "generation")));
         return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
     }
 
@@ -62,7 +68,8 @@ public class PushInstallationController {
             String token = headers.getFirst().substring(7);
             Long id = jwt.getAccessId(token);
             String sid = jwt.getSessionId(token);
-            if (!principal.getId().equals(id) || !PushInstallationValidation.isUuid(sid)) throw PushInstallationException.unauthorized();
+            if (!principal.getId().equals(id) || !PushInstallationValidation.isUuid(sid))
+                throw PushInstallationException.unauthorized();
             return new PushInstallationDtos.Actor(id, sid);
         } catch (JwtException | IllegalArgumentException ignored) {
             throw PushInstallationException.unauthorized();

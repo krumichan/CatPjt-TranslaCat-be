@@ -20,60 +20,38 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserSearchService {
-
     private final UserRepository userRepository;
     private final UserProfileQueryService userProfileQueryService;
     private final FriendService friendService;
     private final FriendRequestRepository friendRequestRepository;
     private final UserBlockService userBlockService;
 
-    public UserSearchResponseDto searchByPublicId(
-            Long loginUserId,
-            String publicId
-    ) {
+    public UserSearchResponseDto searchByPublicId(Long loginUserId, String publicId) {
         validateLoginUser(loginUserId);
         validatePublicId(publicId);
 
-        User targetUser = userRepository.findByPublicId(publicId.trim())
-                .filter(User::isActiveAccount)
-                .orElseThrow(() -> new BusinessException(
-                        "사용자를 찾을 수 없습니다.",
-                        "PUBLIC_ID_NOT_FOUND"
-                ));
+        User targetUser =
+                userRepository.findByPublicId(publicId.trim())
+                        .filter(User::isActiveAccount)
+                        .orElseThrow(() -> new BusinessException("사용자를 찾을 수 없습니다.", "PUBLIC_ID_NOT_FOUND"));
 
-        UserSummaryProfileResponseDto profile =
-                userProfileQueryService.getSummaryByUser(targetUser);
+        UserSummaryProfileResponseDto profile = userProfileQueryService.getSummaryByUser(targetUser);
 
-        UserSearchFriendStatus friendStatus =
-                UserFriendStatusResolver.resolve(
-                        loginUserId,
-                        targetUser,
-                        userBlockService,
-                        friendService,
-                        friendRequestRepository
-                );
+        UserSearchFriendStatus friendStatus = UserFriendStatusResolver.resolve(
+                loginUserId, targetUser, userBlockService, friendService, friendRequestRepository);
 
-        return UserSearchResponseDto.of(
-                profile,
-                friendStatus
-        );
+        return UserSearchResponseDto.of(profile, friendStatus);
     }
 
     private void validateLoginUser(Long loginUserId) {
         if (loginUserId == null) {
-            throw new BusinessException(
-                    "로그인이 필요합니다.",
-                    "UNAUTHORIZED"
-            );
+            throw new BusinessException("로그인이 필요합니다.", "UNAUTHORIZED");
         }
     }
 
     private void validatePublicId(String publicId) {
         if (publicId == null || publicId.trim().isEmpty()) {
-            throw new BusinessException(
-                    "publicId는 필수입니다.",
-                    "PUBLIC_ID_REQUIRED"
-            );
+            throw new BusinessException("publicId는 필수입니다.", "PUBLIC_ID_REQUIRED");
         }
     }
 }

@@ -6,12 +6,7 @@ import lombok.Getter;
 
 @Getter
 public class DictionaryRegisterDto {
+    @NotBlank @Size(max = 20) private String surface;
 
-    @NotBlank
-    @Size(max = 20)
-    private String surface;
-
-    @NotBlank
-    @Size(max = 20)
-    private String reading;
+    @NotBlank @Size(max = 20) private String reading;
 }

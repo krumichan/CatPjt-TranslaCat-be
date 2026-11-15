@@ -54,8 +54,9 @@ public class LanguageLearningWebAiClient {
     }
 
     public JsonNode runs(Long userId, int limit) {
-        return read(userRequest(http.get().uri(uri -> uri.path(ROOT + "/runs")
-                .queryParam("limit", limit).build()), userId), "runs");
+        return read(
+                userRequest(http.get().uri(uri -> uri.path(ROOT + "/runs").queryParam("limit", limit).build()), userId),
+                "runs");
     }
 
     public JsonNode run(Long userId, String runId) {
@@ -67,8 +68,9 @@ public class LanguageLearningWebAiClient {
     }
 
     public JsonNode results(Long userId, int limit) {
-        return read(userRequest(http.get().uri(uri -> uri.path(ROOT + "/results")
-                .queryParam("limit", limit).build()), userId), "results");
+        return read(userRequest(http.get().uri(uri -> uri.path(ROOT + "/results").queryParam("limit", limit).build()),
+                            userId),
+                "results");
     }
 
     public JsonNode result(Long userId, String resultId) {
@@ -76,8 +78,7 @@ public class LanguageLearningWebAiClient {
     }
 
     public JsonNode retry(Long userId, String resultId) {
-        return write(http.post().uri(ROOT + "/results/" + id(resultId) + "/retry"), userId,
-                json.createObjectNode());
+        return write(http.post().uri(ROOT + "/results/" + id(resultId) + "/retry"), userId, json.createObjectNode());
     }
 
     public JsonNode externalPrompt(String token, JsonNode body) {
@@ -90,10 +91,12 @@ public class LanguageLearningWebAiClient {
 
     private JsonNode external(String path, String token, JsonNode body) {
         // 서비스 인증과 계획의 capability를 별도 헤더로 전달해 사용자 JWT와 혼용하지 않는다.
-        return read(http.post().uri(ROOT + path)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.issueWebAiServiceToken())
-                .header("X-Web-Ai-Token", token)
-                .body(object(body)), null);
+        return read(http.post()
+                            .uri(ROOT + path)
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.issueWebAiServiceToken())
+                            .header("X-Web-Ai-Token", token)
+                            .body(object(body)),
+                null);
     }
 
     private JsonNode write(RestClient.RequestBodySpec request, Long userId, JsonNode body) {
@@ -109,8 +112,8 @@ public class LanguageLearningWebAiClient {
 
     private JsonNode object(JsonNode body) {
         if (body == null || !body.isObject()) {
-            throw new LanguageLearningServiceException(HttpStatus.BAD_REQUEST, "WEB_AI_REQUEST_INVALID",
-                    "Web AI 요청 형식을 확인해 주세요.");
+            throw new LanguageLearningServiceException(
+                    HttpStatus.BAD_REQUEST, "WEB_AI_REQUEST_INVALID", "Web AI 요청 형식을 확인해 주세요.");
         }
         return body;
     }
@@ -153,8 +156,7 @@ public class LanguageLearningWebAiClient {
                 } catch (IOException invalid) {
                     throw contractFailure();
                 }
-                if (value == null || !value.isObject()
-                        || (arrayField != null && !value.path(arrayField).isArray())) {
+                if (value == null || !value.isObject() || (arrayField != null && !value.path(arrayField).isArray())) {
                     throw contractFailure();
                 }
                 return value;
@@ -181,8 +183,8 @@ public class LanguageLearningWebAiClient {
 
     private String id(String value) {
         if (value == null || !value.matches("[A-Za-z0-9_-]{1,100}")) {
-            throw new LanguageLearningServiceException(HttpStatus.BAD_REQUEST, "WEB_AI_ID_INVALID",
-                    "Web AI 학습 식별자를 확인해 주세요.");
+            throw new LanguageLearningServiceException(
+                    HttpStatus.BAD_REQUEST, "WEB_AI_ID_INVALID", "Web AI 학습 식별자를 확인해 주세요.");
         }
         return value;
     }

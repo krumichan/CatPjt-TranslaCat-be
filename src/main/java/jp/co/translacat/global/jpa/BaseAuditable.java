@@ -14,12 +14,9 @@ import java.time.LocalDateTime;
 @Getter
 @MappedSuperclass
 public class BaseAuditable extends Base {
-    @Column(length = 50)
-    protected String updatedBy;
+    @Column(length = 50) protected String updatedBy;
 
-    @Column(nullable = false)
-    @UpdateTimestamp
-    protected LocalDateTime updatedAt;
+    @Column(nullable = false) @UpdateTimestamp protected LocalDateTime updatedAt;
 
     @Override
     protected void prePersist() {

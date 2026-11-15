@@ -13,8 +13,7 @@ public class NovelRankingResponseDto {
 
     private String identifier;
 
-    @JsonProperty("isShortStory")
-    private boolean isShortStory;
+    @JsonProperty("isShortStory") private boolean isShortStory;
 
     private TranslationUnit title;
     private TranslationUnit status;

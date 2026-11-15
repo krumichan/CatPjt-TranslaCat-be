@@ -8,7 +8,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Setter
 @ConfigurationProperties(prefix = "language-learning")
 public class LanguageLearningClientProperties {
-
     private String url;
     private Remote remote = new Remote();
     private InternalJwt internalJwt = new InternalJwt();

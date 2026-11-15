@@ -15,19 +15,13 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/language-learning")
 @RequiredArgsConstructor
 public class ListeningDashboardController {
-
     private final ListeningDashboardFacade facade;
 
     @Operation(summary = "학습 추천 숨김")
     @PostMapping("/recommendations/{recommendationId}/dismiss")
     public ResponseDto<Void> dismiss(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long recommendationId
-    ) {
-        facade.dismiss(
-                SecurityUtil.getLoginUserId(principal),
-                recommendationId
-        );
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long recommendationId) {
+        facade.dismiss(SecurityUtil.getLoginUserId(principal), recommendationId);
         return ResponseUtil.noContent();
     }
 

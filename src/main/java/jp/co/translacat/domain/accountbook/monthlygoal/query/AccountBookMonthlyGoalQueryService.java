@@ -14,20 +14,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AccountBookMonthlyGoalQueryService {
-
     private final AccountBookMonthlyGoalRepository accountBookMonthlyGoalRepository;
 
-    public Map<Integer, BigDecimal> getGoalAmountMap(
-            Long accountBookId,
-            Integer year
-    ) {
-        return accountBookMonthlyGoalRepository
-                .findByAccountBookIdAndTargetYear(accountBookId, year)
+    public Map<Integer, BigDecimal> getGoalAmountMap(Long accountBookId, Integer year) {
+        return accountBookMonthlyGoalRepository.findByAccountBookIdAndTargetYear(accountBookId, year)
                 .stream()
-                .collect(Collectors.toMap(
-                        AccountBookMonthlyGoal::getTargetMonth,
-                        AccountBookMonthlyGoal::getGoalAmount,
-                        (current, replacement) -> replacement
-                ));
+                .collect(Collectors.toMap(AccountBookMonthlyGoal::getTargetMonth, AccountBookMonthlyGoal::getGoalAmount,
+                        (current, replacement) -> replacement));
     }
 }

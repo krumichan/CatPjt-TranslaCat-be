@@ -4,9 +4,5 @@ import jp.co.translacat.domain.languagelearning.profile.dto.response.UnifiedProf
 
 import java.util.List;
 
-public record DashboardInsightsResponseDto(
-        List<UnifiedProfileInsightResponseDto> strengths,
-        List<UnifiedProfileInsightResponseDto> weaknesses,
-        List<String> recommendedFocus
-) {
-}
+public record DashboardInsightsResponseDto(List<UnifiedProfileInsightResponseDto> strengths,
+        List<UnifiedProfileInsightResponseDto> weaknesses, List<String> recommendedFocus) {}

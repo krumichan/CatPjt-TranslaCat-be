@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class BaseContext<E> {
-
     @Getter
     @Builder
     public static class TranslationComparison {
@@ -38,9 +37,7 @@ public abstract class BaseContext<E> {
 
     public List<TranslationUnit> getAllUnit() {
         List<TranslationComparison> translationComparisons = this.getTranslationComparisons(null);
-        return translationComparisons.stream()
-                .map(TranslationComparison::getUnit)
-                .toList();
+        return translationComparisons.stream().map(TranslationComparison::getUnit).toList();
     }
 
     /**
@@ -60,7 +57,6 @@ public abstract class BaseContext<E> {
 
     // 헬퍼: 원문이 같으면 DB 값을 쓰고, 다르면 번역 큐에 추가
     private void syncOrCollect(List<TranslationUnit> dirtyUnits, TranslationComparison tc) {
-
         // 1. 원문이 애초에 공백이면 번역할 필요 없음 (그대로 유지)
         if (tc.isSourceEmpty()) {
             return;

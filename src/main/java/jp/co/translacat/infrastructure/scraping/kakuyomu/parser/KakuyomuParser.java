@@ -38,12 +38,12 @@ import java.util.TreeSet;
 @Component
 public class KakuyomuParser {
     private static final Safelist RUBY_TAGS = Safelist.none().addTags("ruby", "rb", "rt", "rp", "br", "em");
-    private static final Map<String, String> GENRES = Map.ofEntries(
-            Map.entry("FANTASY", "異世界ファンタジー"), Map.entry("ACTION", "現代ファンタジー"),
-            Map.entry("SF", "SF"), Map.entry("LOVE_STORY", "恋愛"), Map.entry("ROMANCE", "ラブコメ"),
-            Map.entry("DRAMA", "現代ドラマ"), Map.entry("HORROR", "ホラー"), Map.entry("MYSTERY", "ミステリー"),
-            Map.entry("NONFICTION", "エッセイ・ノンフィクション"), Map.entry("HISTORY", "歴史・時代・伝奇"),
-            Map.entry("CRITICISM", "創作論・評論"), Map.entry("OTHERS", "詩・童話・その他"));
+    private static final Map<String, String> GENRES =
+            Map.ofEntries(Map.entry("FANTASY", "異世界ファンタジー"), Map.entry("ACTION", "現代ファンタジー"),
+                    Map.entry("SF", "SF"), Map.entry("LOVE_STORY", "恋愛"), Map.entry("ROMANCE", "ラブコメ"),
+                    Map.entry("DRAMA", "現代ドラマ"), Map.entry("HORROR", "ホラー"), Map.entry("MYSTERY", "ミステリー"),
+                    Map.entry("NONFICTION", "エッセイ・ノンフィクション"), Map.entry("HISTORY", "歴史・時代・伝奇"),
+                    Map.entry("CRITICISM", "創作論・評論"), Map.entry("OTHERS", "詩・童話・その他"));
     private final ObjectMapper json;
 
     public KakuyomuParser() {
@@ -58,15 +58,19 @@ public class KakuyomuParser {
     public NovelRankingContext parseNovelRanking(Element document) {
         JsonNode state = state(document);
         JsonNode connection = connection(state, "rankedWorks(");
-        return NovelRankingContext.builder().pageNumberContext(pages(document, connection, false))
-                .novelContexts(catalog(document, state, connection, true)).build();
+        return NovelRankingContext.builder()
+                .pageNumberContext(pages(document, connection, false))
+                .novelContexts(catalog(document, state, connection, true))
+                .build();
     }
 
     public NovelSearchContext parseNovelSearch(Element document) {
         JsonNode state = state(document);
         JsonNode connection = connection(state, "searchWorks(");
-        return NovelSearchContext.builder().pageNumberContext(pages(document, connection, true))
-                .novelContexts(catalog(document, state, connection, false)).build();
+        return NovelSearchContext.builder()
+                .pageNumberContext(pages(document, connection, true))
+                .novelContexts(catalog(document, state, connection, false))
+                .build();
     }
 
     public NovelDetailContext parseNovelDetail(Element document, String workId) {
@@ -82,20 +86,25 @@ public class KakuyomuParser {
             JsonNode chapter = dereference(state, chapterRef);
             for (JsonNode episodeRef : chapter.path("episodeUnions")) {
                 JsonNode episode = dereference(state, episodeRef);
-                if (!"Episode".equals(episode.path("__typename").asText())) continue;
+                if (!"Episode".equals(episode.path("__typename").asText()))
+                    continue;
                 addEpisode(episodes, episode.path("id").asText(), episode.path("title").asText());
             }
         }
         if (episodes.isEmpty()) {
             for (Element link : document.select("a[class*=WorkTocSection_link], .widget-toc-episode a[href]")) {
                 String id = episodeLink(link.attr("href"), workId).orElse(null);
-                if (id == null) continue;
+                if (id == null)
+                    continue;
                 Element title = link.selectFirst("[class*=WorkTocSection_title], .widget-toc-episode-titleLabel");
                 addEpisode(episodes, id, plain(title == null ? link : title).trim());
             }
         }
-        return NovelDetailContext.builder().novelContext(novel).pageNumberContext(PageNumberContext.empty())
-                .rawEpisodeContexts(List.copyOf(episodes.values())).build();
+        return NovelDetailContext.builder()
+                .novelContext(novel)
+                .pageNumberContext(PageNumberContext.empty())
+                .rawEpisodeContexts(List.copyOf(episodes.values()))
+                .build();
     }
 
     public EpisodeDetailContext parseEpisode(Element document, String workId, String episodeId) {
@@ -104,23 +113,40 @@ public class KakuyomuParser {
         Element title = episodeTitle(document);
         List<EpisodeContentContext> contents = new ArrayList<>();
         for (Element paragraph : bodyParagraphs(document)) {
-            contents.add(EpisodeContentContext.builder().sequence(contents.size() + 1)
-                    .content(TranslationUnit.of(plain(paragraph), safeMarkup(paragraph), "")).build());
+            contents.add(EpisodeContentContext.builder()
+                            .sequence(contents.size() + 1)
+                            .content(TranslationUnit.of(plain(paragraph), safeMarkup(paragraph), ""))
+                            .build());
         }
         String workTitle = text(document.selectFirst("#contentMain-header-workTitle, #workTitle"));
         String author = text(document.selectFirst("#contentMain-header-author"));
-        NovelContext novel = NovelContext.builder().identifier(workId).authorIdentifier("").genreText("")
-                .title(TranslationUnit.of(workTitle)).author(TranslationUnit.of(author))
-                .synopsis(TranslationUnit.of("")).status(TranslationUnit.of("連載中", "", "연재 중")).build();
-        return EpisodeDetailContext.builder().episodeContentContexts(contents)
+        NovelContext novel = NovelContext.builder()
+                                     .identifier(workId)
+                                     .authorIdentifier("")
+                                     .genreText("")
+                                     .title(TranslationUnit.of(workTitle))
+                                     .author(TranslationUnit.of(author))
+                                     .synopsis(TranslationUnit.of(""))
+                                     .status(TranslationUnit.of("連載中", "", "연재 중"))
+                                     .build();
+        return EpisodeDetailContext.builder()
+                .episodeContentContexts(contents)
                 .episodePagerContext(pager(document, workId))
-                .novelDetailContext(NovelDetailContext.builder().novelContext(novel).pageNumberContext(PageNumberContext.empty())
-                        .rawEpisodeContexts(List.of(RawEpisodeContext.builder().identifier(episodeId).sequence(1)
-                                .title(TranslationUnit.of(plain(title).trim())).build())).build()).build();
+                .novelDetailContext(NovelDetailContext.builder()
+                                .novelContext(novel)
+                                .pageNumberContext(PageNumberContext.empty())
+                                .rawEpisodeContexts(List.of(RawEpisodeContext.builder()
+                                                .identifier(episodeId)
+                                                .sequence(1)
+                                                .title(TranslationUnit.of(plain(title).trim()))
+                                                .build()))
+                                .build())
+                .build();
     }
 
     public SourceEpisode parseSourceEpisode(Element document, EpisodeKey key, SentenceSegmenter segmenter) {
-        if (!"kakuyomu".equals(key.platform())) throw new NovelProblem("PLATFORM_NOT_SUPPORTED", 422);
+        if (!"kakuyomu".equals(key.platform()))
+            throw new NovelProblem("PLATFORM_NOT_SUPPORTED", 422);
         requireCanonical(document, key.novel(), key.episode());
         Element title = episodeTitle(document);
         List<String> paragraphs = new ArrayList<>();
@@ -135,14 +161,15 @@ public class KakuyomuParser {
             readings.add(ruby);
         }
         EpisodePagerContext navigation = pager(document, key.novel());
-        return segmenter.segment(key, plain(title).trim(), paragraphs,
-                navigation.getPrevIdentifier(), navigation.getNextIdentifier(), readings);
+        return segmenter.segment(key, plain(title).trim(), paragraphs, navigation.getPrevIdentifier(),
+                navigation.getNextIdentifier(), readings);
     }
 
     public String validatedNextPage(Element document, String currentUrl) {
         for (Element link : document.select("link[rel=next], a[rel=next], [class*=Pager_next] a, a[href*=page=]")) {
             Optional<String> next = KakuyomuUrls.pagination(currentUrl, link.attr("href"));
-            if (next.isPresent()) return next.get();
+            if (next.isPresent())
+                return next.get();
         }
         return null;
     }
@@ -152,10 +179,12 @@ public class KakuyomuParser {
         Map<String, Integer> ranks = ranks(document);
         int offset = (page(document) - 1) * 100;
         if (connection.path("nodes").isArray()) {
-            if (connection.path("nodes").size() > 1000) throw new NovelProblem("SOURCE_SIZE_INVALID", 413);
+            if (connection.path("nodes").size() > 1000)
+                throw new NovelProblem("SOURCE_SIZE_INVALID", 413);
             for (JsonNode ref : connection.path("nodes")) {
                 JsonNode work = dereference(state, ref);
-                if (!"Work".equals(work.path("__typename").asText())) throw unsupported();
+                if (!"Work".equals(work.path("__typename").asText()))
+                    throw unsupported();
                 int rank = ranking ? ranks.getOrDefault(work.path("id").asText(), offset + novels.size() + 1) : 0;
                 novels.add(novel(work, state, rank));
             }
@@ -166,19 +195,31 @@ public class KakuyomuParser {
         Map<String, NovelContext> unique = new LinkedHashMap<>();
         for (Element heading : document.select("h3, .widget-workCard-title")) {
             Element title = heading.selectFirst("a[href*=/works/]");
-            if (title == null) continue;
+            if (title == null)
+                continue;
             String id = workLink(title.attr("href")).orElse(null);
-            if (id == null || title.attr("href").contains("/episodes/")) continue;
+            if (id == null || title.attr("href").contains("/episodes/"))
+                continue;
             Element card = card(heading);
             Element author = card.selectFirst("a[href^=/users/]");
-            Element synopsis = card.selectFirst(".widget-workCard-introduction, [class*=TruncateMultipleLines], a.LinkAppearance_block__UJrud");
+            Element synopsis = card.selectFirst(
+                    ".widget-workCard-introduction, [class*=TruncateMultipleLines], a.LinkAppearance_block__UJrud");
             String status = card.text().contains("完結済") ? "完結済" : "連載中";
-            unique.putIfAbsent(id, NovelContext.builder().identifier(id).authorIdentifier(authorId(author))
-                    .title(unit(title)).author(unit(author)).synopsis(unit(synopsis)).status(status(status))
-                    .genreText(text(card.selectFirst("a[href^=/genres/]"))).isShortStory(false)
-                    .rank(ranking ? ranks.getOrDefault(id, offset + unique.size() + 1) : 0).build());
+            unique.putIfAbsent(id,
+                    NovelContext.builder()
+                            .identifier(id)
+                            .authorIdentifier(authorId(author))
+                            .title(unit(title))
+                            .author(unit(author))
+                            .synopsis(unit(synopsis))
+                            .status(status(status))
+                            .genreText(text(card.selectFirst("a[href^=/genres/]")))
+                            .isShortStory(false)
+                            .rank(ranking ? ranks.getOrDefault(id, offset + unique.size() + 1) : 0)
+                            .build());
         }
-        if (unique.isEmpty() && !document.text().contains("見つかりません") && !document.text().contains("検索結果")) throw unsupported();
+        if (unique.isEmpty() && !document.text().contains("見つかりません") && !document.text().contains("検索結果"))
+            throw unsupported();
         return List.copyOf(unique.values());
     }
 
@@ -186,42 +227,68 @@ public class KakuyomuParser {
         String id = work.path("id").asText();
         KakuyomuUrls.workUrl(id);
         String title = work.path("title").asText();
-        if (title.isBlank()) throw unsupported();
+        if (title.isBlank())
+            throw unsupported();
         JsonNode author = dereference(state, work.path("author"));
         String authorName = work.path("alternateAuthorName").asText("");
-        if (authorName.isBlank()) authorName = author.path("activityName").asText(author.path("name").asText());
+        if (authorName.isBlank())
+            authorName = author.path("activityName").asText(author.path("name").asText());
         String serial = "COMPLETED".equals(work.path("serialStatus").asText()) ? "完結済" : "連載中";
-        boolean shortStory = "完結済".equals(serial) && (work.has("totalCharacterCount")
-                ? work.path("totalCharacterCount").asLong(Long.MAX_VALUE) < 20000 : work.path("publicEpisodeCount").asInt(2) == 1);
-        return NovelContext.builder().identifier(id).authorIdentifier(author.path("name").asText())
-                .title(TranslationUnit.of(title)).author(TranslationUnit.of(authorName))
+        boolean shortStory = "完結済".equals(serial)
+                && (work.has("totalCharacterCount") ? work.path("totalCharacterCount").asLong(Long.MAX_VALUE) < 20000
+                                                    : work.path("publicEpisodeCount").asInt(2) == 1);
+        return NovelContext.builder()
+                .identifier(id)
+                .authorIdentifier(author.path("name").asText())
+                .title(TranslationUnit.of(title))
+                .author(TranslationUnit.of(authorName))
                 .synopsis(TranslationUnit.of(work.path("introduction").asText("")))
-                .status(status(serial)).genreText(GENRES.getOrDefault(work.path("genre").asText(), ""))
-                .isShortStory(shortStory).rank(rank).build();
+                .status(status(serial))
+                .genreText(GENRES.getOrDefault(work.path("genre").asText(), ""))
+                .isShortStory(shortStory)
+                .rank(rank)
+                .build();
     }
 
     private NovelContext detailFallback(Element document, String workId) {
         Element title = document.selectFirst("#workTitle, h1 a[href='/works/" + workId + "'], h1");
-        if (title == null || text(title).isBlank()) throw unsupported();
+        if (title == null || text(title).isBlank())
+            throw unsupported();
         Element author = document.selectFirst("#workAuthor-activityName a, [class*=WorkAuthorBox] a[href^=/users/]");
-        Element introduction = document.selectFirst("#introduction, [class*=CollapseTextWithKakuyomuLinks_collapseText]");
-        return NovelContext.builder().identifier(workId).title(unit(title)).author(unit(author))
-                .authorIdentifier(authorId(author)).synopsis(unit(introduction)).status(status("連載中"))
-                .genreText(text(document.selectFirst("a[href^=/genres/]"))).isShortStory(false).build();
+        Element introduction =
+                document.selectFirst("#introduction, [class*=CollapseTextWithKakuyomuLinks_collapseText]");
+        return NovelContext.builder()
+                .identifier(workId)
+                .title(unit(title))
+                .author(unit(author))
+                .authorIdentifier(authorId(author))
+                .synopsis(unit(introduction))
+                .status(status("連載中"))
+                .genreText(text(document.selectFirst("a[href^=/genres/]")))
+                .isShortStory(false)
+                .build();
     }
 
     private void addEpisode(Map<String, RawEpisodeContext> episodes, String id, String title) {
         KakuyomuUrls.episodeUrl("1", id);
-        if (title.isBlank()) throw unsupported();
-        episodes.putIfAbsent(id, RawEpisodeContext.builder().identifier(id).sequence(episodes.size() + 1)
-                .title(TranslationUnit.of(title)).build());
-        if (episodes.size() > 20000) throw new NovelProblem("SOURCE_SIZE_INVALID", 413);
+        if (title.isBlank())
+            throw unsupported();
+        episodes.putIfAbsent(id,
+                RawEpisodeContext.builder()
+                        .identifier(id)
+                        .sequence(episodes.size() + 1)
+                        .title(TranslationUnit.of(title))
+                        .build());
+        if (episodes.size() > 20000)
+            throw new NovelProblem("SOURCE_SIZE_INVALID", 413);
     }
 
     private JsonNode state(Element document) {
         Element script = document.selectFirst("script#__NEXT_DATA__");
-        if (script == null) return MissingNode.getInstance();
-        if (script.data().length() > 4_000_000) throw new NovelProblem("SOURCE_TOO_LARGE", 413);
+        if (script == null)
+            return MissingNode.getInstance();
+        if (script.data().length() > 4_000_000)
+            throw new NovelProblem("SOURCE_TOO_LARGE", 413);
         try {
             return json.readTree(script.data()).path("props").path("pageProps").path("__APOLLO_STATE__");
         } catch (Exception invalid) {
@@ -233,7 +300,8 @@ public class KakuyomuParser {
         var fields = state.path("ROOT_QUERY").fields();
         while (fields.hasNext()) {
             var field = fields.next();
-            if (field.getKey().startsWith(prefix)) return field.getValue();
+            if (field.getKey().startsWith(prefix))
+                return field.getValue();
         }
         return MissingNode.getInstance();
     }
@@ -247,7 +315,8 @@ public class KakuyomuParser {
         for (Element item : document.select("[class*=Rankings_item], .widget-workCard")) {
             Element number = item.selectFirst("[class*=RankingWorkBox_rank], .widget-workCard-rankLabel");
             Element link = item.selectFirst("h3 a[href*=/works/], .widget-workCard-title a[href]");
-            if (number == null || link == null || !number.text().trim().matches("[0-9]{1,7}")) continue;
+            if (number == null || link == null || !number.text().trim().matches("[0-9]{1,7}"))
+                continue;
             workLink(link.attr("href")).ifPresent(id -> ranks.put(id, Integer.parseInt(number.text().trim())));
         }
         return ranks;
@@ -256,7 +325,8 @@ public class KakuyomuParser {
     private Element card(Element heading) {
         Element current = heading;
         for (int depth = 0; depth < 7 && current.parent() != null; depth++, current = current.parent()) {
-            if (current.selectFirst("[class*=WorkMeta], .widget-workCard-introduction") != null) return current;
+            if (current.selectFirst("[class*=WorkMeta], .widget-workCard-introduction") != null)
+                return current;
         }
         return heading.parent() == null ? heading : heading.parent();
     }
@@ -267,13 +337,21 @@ public class KakuyomuParser {
         TreeSet<Integer> numbers = new TreeSet<>();
         numbers.add(current);
         for (Element link : document.select("a[href*=page=]")) {
-            KakuyomuUrls.samePage(currentUrl, link.attr("href")).ifPresent(url -> numbers.add(KakuyomuUrls.pageNumber(url)));
+            KakuyomuUrls.samePage(currentUrl, link.attr("href"))
+                    .ifPresent(url -> numbers.add(KakuyomuUrls.pageNumber(url)));
         }
         String next = validatedNextPage(document, currentUrl);
-        Integer last = search && connection.has("totalCount") ? Math.max(1, (connection.path("totalCount").asInt() + 19) / 20) : null;
-        return PageNumberContext.builder().current(current).pages(List.copyOf(numbers))
-                .first(current > 1 ? 1 : null).prev(current > 1 ? current - 1 : null)
-                .next(next == null ? null : current + 1).last(last).build();
+        Integer last = search && connection.has("totalCount")
+                ? Math.max(1, (connection.path("totalCount").asInt() + 19) / 20)
+                : null;
+        return PageNumberContext.builder()
+                .current(current)
+                .pages(List.copyOf(numbers))
+                .first(current > 1 ? 1 : null)
+                .prev(current > 1 ? current - 1 : null)
+                .next(next == null ? null : current + 1)
+                .last(last)
+                .build();
     }
 
     private int page(Element document) {
@@ -285,17 +363,20 @@ public class KakuyomuParser {
             return KakuyomuUrls.requirePublic(document.baseUri()).toString();
         } catch (IllegalArgumentException ignored) {
             Element canonical = document.selectFirst("link[rel=canonical]");
-            return canonical == null ? "https://kakuyomu.jp/search" : KakuyomuUrls.requirePublic(canonical.attr("href")).toString();
+            return canonical == null ? "https://kakuyomu.jp/search"
+                                     : KakuyomuUrls.requirePublic(canonical.attr("href")).toString();
         }
     }
 
     private void requireCanonical(Element document, String workId, String episodeId) {
         Element canonical = document.selectFirst("link[rel=canonical]");
-        if (canonical == null) return;
+        if (canonical == null)
+            return;
         try {
             String value = canonical.attr("href");
             if (!KakuyomuUrls.workId(value).equals(workId)
-                    || episodeId != null && !KakuyomuUrls.episodeId(value, workId).equals(episodeId)) throw unsupported();
+                    || episodeId != null && !KakuyomuUrls.episodeId(value, workId).equals(episodeId))
+                throw unsupported();
         } catch (IllegalArgumentException malformed) {
             throw unsupported();
         }
@@ -303,27 +384,33 @@ public class KakuyomuParser {
 
     private Element episodeTitle(Element document) {
         Element title = document.selectFirst(".widget-episodeTitle, #episodeTitle");
-        if (title == null || plain(title).isBlank()) throw unsupported();
+        if (title == null || plain(title).isBlank())
+            throw unsupported();
         return title;
     }
 
     private List<Element> bodyParagraphs(Element document) {
         Element body = document.selectFirst(".widget-episodeBody, #episodeBody");
-        if (body == null || body.select("p").isEmpty()) throw unsupported();
+        if (body == null || body.select("p").isEmpty())
+            throw unsupported();
         return List.copyOf(body.select("p"));
     }
 
     private EpisodePagerContext pager(Element document, String workId) {
-        Element prev = document.selectFirst("link[rel=prev], #contentMain-readPreviousEpisode, #contentMain-readPrevEpisode");
+        Element prev =
+                document.selectFirst("link[rel=prev], #contentMain-readPreviousEpisode, #contentMain-readPrevEpisode");
         Element next = document.selectFirst("link[rel=next], #contentMain-readNextEpisode");
-        return EpisodePagerContext.builder().listIdentifier(workId)
+        return EpisodePagerContext.builder()
+                .listIdentifier(workId)
                 .prevIdentifier(prev == null ? null : episodeLink(prev.attr("href"), workId).orElse(null))
-                .nextIdentifier(next == null ? null : episodeLink(next.attr("href"), workId).orElse(null)).build();
+                .nextIdentifier(next == null ? null : episodeLink(next.attr("href"), workId).orElse(null))
+                .build();
     }
 
     private Optional<String> episodeLink(String href, String workId) {
         try {
-            return Optional.of(KakuyomuUrls.episodeId(URI.create(KakuyomuUrls.workUrl(workId)).resolve(href).toString(), workId));
+            return Optional.of(
+                    KakuyomuUrls.episodeId(URI.create(KakuyomuUrls.workUrl(workId)).resolve(href).toString(), workId));
         } catch (IllegalArgumentException malformed) {
             return Optional.empty();
         }
@@ -338,7 +425,8 @@ public class KakuyomuParser {
     }
 
     private String authorId(Element author) {
-        if (author == null) return "";
+        if (author == null)
+            return "";
         String href = author.attr("href");
         return href.matches("/users/[^/?#]{1,100}/?") ? href.substring(7).replaceAll("/$", "") : "";
     }
@@ -348,7 +436,8 @@ public class KakuyomuParser {
     }
 
     private TranslationUnit unit(Element element) {
-        return element == null ? TranslationUnit.of("") : TranslationUnit.of(plain(element).trim(), safeMarkup(element), "");
+        return element == null ? TranslationUnit.of("")
+                               : TranslationUnit.of(plain(element).trim(), safeMarkup(element), "");
     }
 
     private String safeMarkup(Element element) {
@@ -372,7 +461,9 @@ public class KakuyomuParser {
             text.append(value.getWholeText());
             return;
         }
-        if (!(node instanceof Element element) || List.of("rt", "rp", "script", "style", "iframe", "object").contains(element.tagName())) return;
+        if (!(node instanceof Element element)
+                || List.of("rt", "rp", "script", "style", "iframe", "object").contains(element.tagName()))
+            return;
         if ("br".equals(element.tagName())) {
             text.append('\n');
             return;
@@ -380,7 +471,8 @@ public class KakuyomuParser {
         if ("ruby".equals(element.tagName())) {
             int start = text.length();
             element.childNodes().forEach(child -> append(child, text, new ArrayList<>()));
-            String reading = element.select("rt").stream().map(Element::text).collect(java.util.stream.Collectors.joining());
+            String reading =
+                    element.select("rt").stream().map(Element::text).collect(java.util.stream.Collectors.joining());
             if (text.length() > start && !reading.isBlank()) {
                 ruby.add(new SourceEpisode.RubyToken(start, text.length(), text.substring(start), reading));
             }

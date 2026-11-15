@@ -6,10 +6,5 @@ import jp.co.translacat.domain.voice.enums.VoiceChannel;
 import java.util.Optional;
 
 public interface VoiceSessionChannelRepositoryCustom {
-
-    Optional<VoiceSessionChannel> findOwnedForUpdate(
-            String sessionId,
-            VoiceChannel channel,
-            Long userId
-    );
+    Optional<VoiceSessionChannel> findOwnedForUpdate(String sessionId, VoiceChannel channel, Long userId);
 }

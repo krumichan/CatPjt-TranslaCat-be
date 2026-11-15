@@ -13,13 +13,11 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class QueryDslConfig {
-
     /**
      * JPA의 EntityManager를 주입받는다.
      * &#064;PersistenceContext는  JPA 표준 방식으로 EntityManager를 주입하는 애노테이션이다.
      */
-    @PersistenceContext
-    private EntityManager entityManager;
+    @PersistenceContext private EntityManager entityManager;
 
     /**
      * JPAQueryFactory 빈을 생성한다.

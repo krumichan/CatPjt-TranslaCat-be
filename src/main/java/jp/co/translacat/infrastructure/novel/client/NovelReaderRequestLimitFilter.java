@@ -20,9 +20,11 @@ import java.io.IOException;
 public class NovelReaderRequestLimitFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !request.getMethod().equals("POST") || !(request.getRequestURI().matches(
-                "/api/v1/[^/]+/[^/]+/episodes/[^/]+/(translations(?:/[^/]+/(?:cancel|repair))?|audio|glossary)")
-                || request.getRequestURI().matches("/api/v1/[^/]+/novels/catalog(?:/[^/]+(?:/cancel|/items/[^/]+/retry))?"));
+        return !request.getMethod().equals("POST")
+                || !(request.getRequestURI().matches(
+                             "/api/v1/[^/]+/[^/]+/episodes/[^/]+/(translations(?:/[^/]+/(?:cancel|repair))?|audio|glossary)")
+                        || request.getRequestURI().matches(
+                                "/api/v1/[^/]+/novels/catalog(?:/[^/]+(?:/cancel|/items/[^/]+/retry))?"));
     }
 
     @Override
@@ -43,9 +45,15 @@ public class NovelReaderRequestLimitFilter extends OncePerRequestFilter {
             public ServletInputStream getInputStream() {
                 var input = new ByteArrayInputStream(body);
                 return new ServletInputStream() {
-                    public int read() { return input.read(); }
-                    public boolean isFinished() { return input.available() == 0; }
-                    public boolean isReady() { return true; }
+                    public int read() {
+                        return input.read();
+                    }
+                    public boolean isFinished() {
+                        return input.available() == 0;
+                    }
+                    public boolean isReady() {
+                        return true;
+                    }
                     public void setReadListener(ReadListener listener) {
                         throw new UnsupportedOperationException("Asynchronous request bodies are not supported.");
                     }

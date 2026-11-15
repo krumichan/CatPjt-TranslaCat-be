@@ -14,25 +14,15 @@ import java.time.LocalDateTime;
 
 @Entity
 @Getter
-@Table(
-        name = "account_book_invitation",
-        indexes = {
-                @Index(
-                        name = "idx_account_book_invitation_invitee_status",
-                        columnList = "invitee_user_id,status"
-                ),
-                @Index(
-                        name = "idx_account_book_invitation_account_book_status",
-                        columnList = "account_book_id,status"
-                )
-        }
-)
+@Table(name = "account_book_invitation",
+        indexes =
+        {
+            @Index(name = "idx_account_book_invitation_invitee_status", columnList = "invitee_user_id,status")
+            , @Index(name = "idx_account_book_invitation_account_book_status", columnList = "account_book_id,status")
+        })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AccountBookInvitation extends BaseAuditable {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "account_book_id", nullable = false)
@@ -46,23 +36,13 @@ public class AccountBookInvitation extends BaseAuditable {
     @JoinColumn(name = "invitee_user_id", nullable = false)
     private User invitee;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private AccountBookMemberRole role;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private AccountBookMemberRole role;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private AccountBookInvitationStatus status;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private AccountBookInvitationStatus status;
 
-    @Column(name = "responded_at")
-    private LocalDateTime respondedAt;
+    @Column(name = "responded_at") private LocalDateTime respondedAt;
 
-    private AccountBookInvitation(
-            AccountBook accountBook,
-            User inviter,
-            User invitee,
-            AccountBookMemberRole role
-    ) {
+    private AccountBookInvitation(AccountBook accountBook, User inviter, User invitee, AccountBookMemberRole role) {
         this.accountBook = accountBook;
         this.inviter = inviter;
         this.invitee = invitee;
@@ -71,17 +51,8 @@ public class AccountBookInvitation extends BaseAuditable {
     }
 
     public static AccountBookInvitation createPending(
-            AccountBook accountBook,
-            User inviter,
-            User invitee,
-            AccountBookMemberRole role
-    ) {
-        return new AccountBookInvitation(
-                accountBook,
-                inviter,
-                invitee,
-                role
-        );
+            AccountBook accountBook, User inviter, User invitee, AccountBookMemberRole role) {
+        return new AccountBookInvitation(accountBook, inviter, invitee, role);
     }
 
     public boolean isPending() {

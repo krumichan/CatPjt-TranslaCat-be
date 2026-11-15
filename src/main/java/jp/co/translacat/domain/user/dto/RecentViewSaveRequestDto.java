@@ -12,37 +12,24 @@ import lombok.Getter;
 
 @Getter
 public class RecentViewSaveRequestDto {
-
-    @NotNull
-    @Schema(description = "플랫폼 식별 ID")
-    private PlatformCode platformCode;
+    @NotNull @Schema(description = "플랫폼 식별 ID") private PlatformCode platformCode;
 
     @NotNull
     @JsonFormat(with = JsonFormat.Feature.ACCEPT_CASE_INSENSITIVE_PROPERTIES)
     @Schema(description = "소설/에피소드 구분")
     private RecentViewType type;
 
-    @NotBlank
-    @Schema(description = "소설 식별 ID")
-    private String novelId;
+    @NotBlank @Schema(description = "소설 식별 ID") private String novelId;
 
-    @Schema(description = "에피소드 식별 ID")
-    private String episodeId;
+    @Schema(description = "에피소드 식별 ID") private String episodeId;
 
-    @NotBlank
-    @Schema(description = "제목 일본어 원본")
-    private String title;
+    @NotBlank @Schema(description = "제목 일본어 원본") private String title;
 
-    @NotBlank
-    @Schema(description = "제목 일본어 (후리가나)")
-    private String titleJa;
+    @NotBlank @Schema(description = "제목 일본어 (후리가나)") private String titleJa;
 
-    @Schema(description = "제목 한국어")
-    private String titleKo;
+    @Schema(description = "제목 한국어") private String titleKo;
 
-    @Size(max = 2000)
-    @Schema(description = "영어 번역 제목. 없으면 일본어 원제를 표시한다.")
-    private String titleEn;
+    @Size(max = 2000) @Schema(description = "영어 번역 제목. 없으면 일본어 원제를 표시한다.") private String titleEn;
 
     @Pattern(regexp = "ko|en")
     @Schema(description = "마지막 방문 번역 언어 (ko/en). 생략하면 기존 한국어 방문이다.", defaultValue = "ko")

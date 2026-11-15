@@ -17,65 +17,47 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/support/notices")
 public class SupportNoticeController {
-
     private final SupportNoticeService noticeService;
 
     @GetMapping("/urgent")
-    public ResponseDto<List<NoticeResponseDto>> pendingUrgent(
-            @AuthenticationPrincipal UserPrincipal principal
-    ) {
+    public ResponseDto<List<NoticeResponseDto>> pendingUrgent(@AuthenticationPrincipal UserPrincipal principal) {
         return ResponseUtil.ok(noticeService.pendingUrgent(principal.getId()));
     }
 
     @PutMapping("/{id}/dismiss")
-    public ResponseDto<Boolean> dismiss(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long id
-    ) {
+    public ResponseDto<Boolean> dismiss(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id) {
         return ResponseUtil.ok(noticeService.dismiss(principal.getId(), id));
     }
 
     @GetMapping
     public ResponseDto<SupportPageResponseDto<NoticeResponseDto>> list(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
         return ResponseUtil.ok(noticeService.list(page, size));
     }
 
     @GetMapping("/{id}")
     public ResponseDto<NoticeResponseDto> detail(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long id
-    ) {
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id) {
         return ResponseUtil.ok(noticeService.detail(principal.getId(), id));
     }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseDto<NoticeResponseDto> create(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @Valid @RequestBody NoticeWriteRequestDto request
-    ) {
+            @AuthenticationPrincipal UserPrincipal principal, @Valid @RequestBody NoticeWriteRequestDto request) {
         return ResponseUtil.created(noticeService.create(principal.getId(), request));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseDto<NoticeResponseDto> update(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long id,
-            @Valid @RequestBody NoticeWriteRequestDto request
-    ) {
+    public ResponseDto<NoticeResponseDto> update(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id, @Valid @RequestBody NoticeWriteRequestDto request) {
         return ResponseUtil.ok(noticeService.update(principal.getId(), id, request));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseDto<Boolean> delete(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long id
-    ) {
+    public ResponseDto<Boolean> delete(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id) {
         return ResponseUtil.ok(noticeService.delete(principal.getId(), id));
     }
 }

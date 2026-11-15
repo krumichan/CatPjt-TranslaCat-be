@@ -16,13 +16,8 @@ import java.net.URI;
 @Configuration
 @EnableConfigurationProperties(StorageProperties.class)
 public class StorageConfiguration {
-
     @Bean(destroyMethod = "close")
-    @ConditionalOnProperty(
-            prefix = "translacat.storage",
-            name = "type",
-            havingValue = "s3"
-    )
+    @ConditionalOnProperty(prefix = "translacat.storage", name = "type", havingValue = "s3")
     public S3Client s3Client(StorageProperties properties) {
         StorageProperties.S3 s3 = properties.getS3();
 
@@ -31,40 +26,26 @@ public class StorageConfiguration {
         requireText(s3.getBucket(), "STORAGE_S3_BUCKET");
         requireText(s3.getAccessKey(), "STORAGE_S3_ACCESS_KEY");
         requireText(s3.getSecretKey(), "STORAGE_S3_SECRET_KEY");
-        requireText(
-                s3.getPublicBaseUrl(),
-                "STORAGE_S3_PUBLIC_BASE_URL"
-        );
+        requireText(s3.getPublicBaseUrl(), "STORAGE_S3_PUBLIC_BASE_URL");
 
-        AwsBasicCredentials credentials = AwsBasicCredentials.create(
-                s3.getAccessKey(),
-                s3.getSecretKey()
-        );
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(s3.getAccessKey(), s3.getSecretKey());
 
         S3Configuration serviceConfiguration =
-                S3Configuration.builder()
-                        .pathStyleAccessEnabled(true)
-                        .chunkedEncodingEnabled(false)
-                        .build();
+                S3Configuration.builder().pathStyleAccessEnabled(true).chunkedEncodingEnabled(false).build();
 
         return S3Client.builder()
                 .endpointOverride(URI.create(s3.getEndpoint()))
-                .credentialsProvider(
-                        StaticCredentialsProvider.create(credentials)
-                )
+                .credentialsProvider(StaticCredentialsProvider.create(credentials))
                 .region(Region.of(s3.getRegion()))
                 .serviceConfiguration(serviceConfiguration)
                 // 타임아웃 attempt 뒤의 숨은 PUT이 삭제 이후 같은 객체를 되살리지 않게 외부 재시도는 영속 작업이 소유한다.
-                .overrideConfiguration(config -> config.retryPolicy(software.amazon.awssdk.core.retry.RetryPolicy.none()))
+                .overrideConfiguration(
+                        config -> config.retryPolicy(software.amazon.awssdk.core.retry.RetryPolicy.none()))
                 .build();
     }
 
     @Bean(destroyMethod = "close")
-    @ConditionalOnProperty(
-            prefix = "translacat.storage",
-            name = "type",
-            havingValue = "s3"
-    )
+    @ConditionalOnProperty(prefix = "translacat.storage", name = "type", havingValue = "s3")
     public S3Presigner s3Presigner(StorageProperties properties) {
         StorageProperties.S3 s3 = properties.getS3();
 
@@ -74,21 +55,13 @@ public class StorageConfiguration {
         requireText(s3.getAccessKey(), "STORAGE_S3_ACCESS_KEY");
         requireText(s3.getSecretKey(), "STORAGE_S3_SECRET_KEY");
 
-        AwsBasicCredentials credentials = AwsBasicCredentials.create(
-                s3.getAccessKey(),
-                s3.getSecretKey()
-        );
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(s3.getAccessKey(), s3.getSecretKey());
         S3Configuration serviceConfiguration =
-                S3Configuration.builder()
-                        .pathStyleAccessEnabled(true)
-                        .chunkedEncodingEnabled(false)
-                        .build();
+                S3Configuration.builder().pathStyleAccessEnabled(true).chunkedEncodingEnabled(false).build();
 
         return S3Presigner.builder()
                 .endpointOverride(URI.create(s3.getEndpoint()))
-                .credentialsProvider(
-                        StaticCredentialsProvider.create(credentials)
-                )
+                .credentialsProvider(StaticCredentialsProvider.create(credentials))
                 .region(Region.of(s3.getRegion()))
                 .serviceConfiguration(serviceConfiguration)
                 .build();
@@ -96,9 +69,7 @@ public class StorageConfiguration {
 
     private void requireText(String value, String environmentName) {
         if (value == null || value.isBlank()) {
-            throw new IllegalStateException(
-                    environmentName + " 설정이 필요합니다."
-            );
+            throw new IllegalStateException(environmentName + " 설정이 필요합니다.");
         }
     }
 }

@@ -9,18 +9,12 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface FriendRequestRepository
-        extends JpaRepository<FriendRequest, Long>, FriendRequestRepositoryCustom {
-
+public interface FriendRequestRepository extends JpaRepository<FriendRequest, Long>, FriendRequestRepositoryCustom {
     Optional<FriendRequest> findByIdAndDeletedFalse(Long id);
 
     List<FriendRequest> findAllByReceiverUserIdAndStatusAndDeletedFalseOrderByRequestedAtDesc(
-            Long receiverUserId,
-            FriendRequestStatus status
-    );
+            Long receiverUserId, FriendRequestStatus status);
 
     List<FriendRequest> findAllByRequesterUserIdAndStatusAndDeletedFalseOrderByRequestedAtDesc(
-            Long requesterUserId,
-            FriendRequestStatus status
-    );
+            Long requesterUserId, FriendRequestStatus status);
 }

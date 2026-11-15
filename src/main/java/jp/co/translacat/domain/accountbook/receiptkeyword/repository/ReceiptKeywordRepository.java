@@ -7,10 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
-public interface ReceiptKeywordRepository extends
-        JpaRepository<ReceiptKeyword, Long>,
-        ReceiptKeywordRepositoryCustom {
-
+public interface ReceiptKeywordRepository extends JpaRepository<ReceiptKeyword, Long>, ReceiptKeywordRepositoryCustom {
     List<ReceiptKeyword> findByCurrencyCodeIsNullAndEnabledTrueAndDeletedFalseOrderByDisplayOrderAscIdAsc();
 
     Optional<ReceiptKeyword> findByIdAndDeletedFalse(Long id);
@@ -18,9 +15,5 @@ public interface ReceiptKeywordRepository extends
     List<ReceiptKeyword> findAllByDeletedFalseOrderByOcrLanguageAscCurrencyCodeAscKeywordTypeAscDisplayOrderAscIdAsc();
 
     Optional<ReceiptKeyword> findFirstByCurrencyCodeAndOcrLanguageAndKeywordTypeAndKeywordAndDeletedFalse(
-            String currencyCode,
-            String ocrLanguage,
-            ReceiptKeywordType keywordType,
-            String keyword
-    );
+            String currencyCode, String ocrLanguage, ReceiptKeywordType keywordType, String keyword);
 }

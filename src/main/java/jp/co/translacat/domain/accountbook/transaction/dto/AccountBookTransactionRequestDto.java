@@ -9,19 +9,13 @@ import lombok.Getter;
 
 @Getter
 public class AccountBookTransactionRequestDto extends PageableDto {
+    @Min(2000) @Max(9999) private Integer year;
 
-    @Min(2000)
-    @Max(9999)
-    private Integer year;
-
-    @Min(1)
-    @Max(12)
-    private Integer month;
+    @Min(1) @Max(12) private Integer month;
 
     private AccountBookTransactionType type;
 
     private String keyword;
 
-    @Valid
-    private AccountBookChartTransactionFilterDto chartFilter;
+    @Valid private AccountBookChartTransactionFilterDto chartFilter;
 }

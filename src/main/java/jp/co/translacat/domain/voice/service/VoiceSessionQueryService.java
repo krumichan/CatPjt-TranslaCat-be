@@ -31,12 +31,8 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class VoiceSessionQueryService {
-
     private static final EnumSet<VoiceSessionStatus> HISTORY_STATUSES =
-            EnumSet.of(
-                    VoiceSessionStatus.COMPLETED,
-                    VoiceSessionStatus.FAILED
-            );
+            EnumSet.of(VoiceSessionStatus.COMPLETED, VoiceSessionStatus.FAILED);
 
     private final VoiceSessionRepository sessionRepository;
     private final VoiceSessionChannelRepository channelRepository;
@@ -44,127 +40,67 @@ public class VoiceSessionQueryService {
     private final VoiceResponseMapper responseMapper;
     private final VoicePolicyProperties policy;
 
-    public VoiceSessionResponseDto get(
-            Long userId,
-            String sessionId
-    ) {
+    public VoiceSessionResponseDto get(Long userId, String sessionId) {
         VoiceSession session = getOwnedEntity(userId, sessionId);
         return responseMapper.toSessionResponse(
-                session,
-                channelRepository.findBySession_IdOrderByChannelAsc(sessionId)
-        );
+                session, channelRepository.findBySession_IdOrderByChannelAsc(sessionId));
     }
 
-    public VoiceSessionListResponseDto listHistory(
-            Long userId,
-            LocalDateTime cursor,
-            Integer requestedSize
-    ) {
+    public VoiceSessionListResponseDto listHistory(Long userId, LocalDateTime cursor, Integer requestedSize) {
         int size = normalizePageSize(requestedSize);
-        List<VoiceSession> fetched = sessionRepository.findHistory(
-                userId,
-                HISTORY_STATUSES,
-                cursor,
-                size + 1
-        );
+        List<VoiceSession> fetched = sessionRepository.findHistory(userId, HISTORY_STATUSES, cursor, size + 1);
 
         boolean hasNext = fetched.size() > size;
-        List<VoiceSession> page = hasNext
-                ? new ArrayList<>(fetched.subList(0, size))
-                : new ArrayList<>(fetched);
+        List<VoiceSession> page = hasNext ? new ArrayList<>(fetched.subList(0, size)) : new ArrayList<>(fetched);
 
-        List<VoiceSessionResponseDto> items = page.stream()
-                .<VoiceSessionResponseDto>map(session -> responseMapper.toSessionResponse(
-                        session,
-                        channelRepository.findBySession_IdOrderByChannelAsc(
-                                session.getId()
-                        )
-                ))
-                .toList();
+        List<VoiceSessionResponseDto> items =
+                page.stream()
+                        .<VoiceSessionResponseDto>map(session
+                                -> responseMapper.toSessionResponse(
+                                        session, channelRepository.findBySession_IdOrderByChannelAsc(session.getId())))
+                        .toList();
 
-        LocalDateTime nextCursor = hasNext && !page.isEmpty()
-                ? page.get(page.size() - 1).getCreatedAt()
-                : null;
+        LocalDateTime nextCursor = hasNext && !page.isEmpty() ? page.get(page.size() - 1).getCreatedAt() : null;
 
-        return new VoiceSessionListResponseDto(
-                items,
-                nextCursor
-        );
+        return new VoiceSessionListResponseDto(items, nextCursor);
     }
 
-    public VoiceSegmentListResponseDto listSegments(
-            Long userId,
-            String sessionId,
-            Long cursor,
-            Integer requestedSize
-    ) {
+    public VoiceSegmentListResponseDto listSegments(Long userId, String sessionId, Long cursor, Integer requestedSize) {
         getOwnedEntity(userId, sessionId);
 
         int size = normalizePageSize(requestedSize);
-        List<VoiceSegment> fetched = segmentRepository.findPage(
-                sessionId,
-                cursor,
-                size + 1
-        );
+        List<VoiceSegment> fetched = segmentRepository.findPage(sessionId, cursor, size + 1);
 
         boolean hasNext = fetched.size() > size;
-        List<VoiceSegment> page = hasNext
-                ? new ArrayList<>(fetched.subList(0, size))
-                : new ArrayList<>(fetched);
-        List<VoiceSegmentResponseDto> items = page.stream()
-                .map(responseMapper::toSegmentResponse)
-                .toList();
+        List<VoiceSegment> page = hasNext ? new ArrayList<>(fetched.subList(0, size)) : new ArrayList<>(fetched);
+        List<VoiceSegmentResponseDto> items = page.stream().map(responseMapper::toSegmentResponse).toList();
 
-        Long nextCursor = hasNext && !page.isEmpty()
-                ? page.get(page.size() - 1).getId()
-                : null;
+        Long nextCursor = hasNext && !page.isEmpty() ? page.get(page.size() - 1).getId() : null;
 
-        return new VoiceSegmentListResponseDto(
-                items,
-                nextCursor
-        );
+        return new VoiceSegmentListResponseDto(items, nextCursor);
     }
 
-    public void validateStreamAccess(
-            Long userId,
-            String sessionId,
-            VoiceChannel channel
-    ) {
+    public void validateStreamAccess(Long userId, String sessionId, VoiceChannel channel) {
         VoiceSession session = getOwnedEntity(userId, sessionId);
         if (!session.getStatus().isOpen()) {
             throw new BusinessException(
-                    "Voice session is not open for streaming.",
-                    VoiceErrorCode.SESSION_NOT_STREAMABLE
-            );
+                    "Voice session is not open for streaming.", VoiceErrorCode.SESSION_NOT_STREAMABLE);
         }
 
-        channelRepository.findBySession_IdAndChannel(sessionId, channel)
-                .orElseThrow(this::notFound);
+        channelRepository.findBySession_IdAndChannel(sessionId, channel).orElseThrow(this::notFound);
     }
 
-    private VoiceSession getOwnedEntity(
-            Long userId,
-            String sessionId
-    ) {
-        return sessionRepository.findByIdAndUser_Id(sessionId, userId)
-                .orElseThrow(this::notFound);
+    private VoiceSession getOwnedEntity(Long userId, String sessionId) {
+        return sessionRepository.findByIdAndUser_Id(sessionId, userId).orElseThrow(this::notFound);
     }
 
     private int normalizePageSize(Integer requestedSize) {
-        int size = requestedSize == null
-                ? VoicePolicy.DEFAULT_PAGE_SIZE
-                : requestedSize;
+        int size = requestedSize == null ? VoicePolicy.DEFAULT_PAGE_SIZE : requestedSize;
 
-        return Math.max(
-                1,
-                Math.min(size, VoicePolicy.MAX_PAGE_SIZE)
-        );
+        return Math.max(1, Math.min(size, VoicePolicy.MAX_PAGE_SIZE));
     }
 
     private BusinessException notFound() {
-        return new BusinessException(
-                "Voice resource was not found.",
-                VoiceErrorCode.NOT_FOUND
-        );
+        return new BusinessException("Voice resource was not found.", VoiceErrorCode.NOT_FOUND);
     }
 }

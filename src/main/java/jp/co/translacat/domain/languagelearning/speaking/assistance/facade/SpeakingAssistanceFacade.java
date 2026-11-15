@@ -11,15 +11,10 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class SpeakingAssistanceFacade {
-
     private final SpeakingGateway gateway;
 
-    public SpeakingAssistanceResponseDto get(
-            Long userId,
-            Long sessionId,
-            SpeakingAssistanceRequestDto request
-    ) {
-        return gateway.post(userId, "/sessions/" + sessionId + "/assistance", request,
-                SpeakingAssistanceResponseDto.class);
+    public SpeakingAssistanceResponseDto get(Long userId, Long sessionId, SpeakingAssistanceRequestDto request) {
+        return gateway.post(
+                userId, "/sessions/" + sessionId + "/assistance", request, SpeakingAssistanceResponseDto.class);
     }
 }

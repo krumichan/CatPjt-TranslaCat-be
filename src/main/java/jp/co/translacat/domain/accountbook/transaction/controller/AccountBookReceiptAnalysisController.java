@@ -16,35 +16,21 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/account-books/{accountBookId}/transactions")
 public class AccountBookReceiptAnalysisController {
-
     private final AccountBookReceiptAnalysisFacade accountBookReceiptAnalysisFacade;
 
-    @PostMapping(
-            value = "/receipt-analysis",
-            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
-    )
-    public ResponseDto<ReceiptAnalysisResponseDto> analyzeReceipt(
-            @PathVariable Long accountBookId,
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestPart("file") MultipartFile file,
-            @RequestPart(value = "analysisMode", required = false) String analysisMode
-    ) {
-        ReceiptAnalysisResponseDto response = accountBookReceiptAnalysisFacade.analyze(
-                accountBookId,
-                userPrincipal.getId(),
-                file,
-                analysisMode
-        );
+    @PostMapping(value = "/receipt-analysis", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseDto<ReceiptAnalysisResponseDto> analyzeReceipt(@PathVariable Long accountBookId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @RequestPart("file") MultipartFile file,
+            @RequestPart(value = "analysisMode", required = false) String analysisMode) {
+        ReceiptAnalysisResponseDto response =
+                accountBookReceiptAnalysisFacade.analyze(accountBookId, userPrincipal.getId(), file, analysisMode);
 
         return ResponseUtil.ok(response);
     }
 
     @GetMapping("/receipt-runtime-preflight")
     public ResponseDto<ReceiptRuntimeIdentityResponseDto> receiptRuntimePreflight(
-            @PathVariable Long accountBookId,
-            @AuthenticationPrincipal UserPrincipal userPrincipal
-    ) {
-        return ResponseUtil.ok(accountBookReceiptAnalysisFacade.runtimeIdentity(
-                accountBookId, userPrincipal.getId()));
+            @PathVariable Long accountBookId, @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        return ResponseUtil.ok(accountBookReceiptAnalysisFacade.runtimeIdentity(accountBookId, userPrincipal.getId()));
     }
 }

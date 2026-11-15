@@ -17,34 +17,19 @@ import java.util.List;
 @RequestMapping("/api/v1/account-books/{accountBookId}/categories")
 @RequiredArgsConstructor
 public class AccountBookCategoryController {
-
     private final AccountBookCategoryService accountBookCategoryService;
 
     @GetMapping
     public ResponseDto<List<AccountBookCategoryResponseDto>> getCategories(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId
-    ) {
-        return ResponseUtil.ok(
-                accountBookCategoryService.getCategories(
-                        accountBookId,
-                        userPrincipal.getId()
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId) {
+        return ResponseUtil.ok(accountBookCategoryService.getCategories(accountBookId, userPrincipal.getId()));
     }
 
     @PostMapping
     public ResponseDto<AccountBookCategoryResponseDto> createCategory(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId,
-            @Valid @RequestBody AccountBookCategoryRequestDto request
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId,
+            @Valid @RequestBody AccountBookCategoryRequestDto request) {
         return ResponseUtil.ok(
-                accountBookCategoryService.createCategory(
-                        accountBookId,
-                        request,
-                        userPrincipal.getId()
-                )
-        );
+                accountBookCategoryService.createCategory(accountBookId, request, userPrincipal.getId()));
     }
 }

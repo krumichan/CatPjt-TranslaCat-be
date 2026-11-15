@@ -41,14 +41,11 @@ final class AiServerFailureClassifier {
                     return AiServerFailureCode.HTTP_5XX;
                 }
             }
-            if (current instanceof ConnectTimeoutException
-                    || current instanceof ReadTimeoutException
-                    || current instanceof SocketTimeoutException
-                    || current instanceof TimeoutException) {
+            if (current instanceof ConnectTimeoutException || current instanceof ReadTimeoutException
+                    || current instanceof SocketTimeoutException || current instanceof TimeoutException) {
                 return AiServerFailureCode.CONNECT_TIMEOUT;
             }
-            if (current instanceof ConnectException
-                    || current instanceof UnknownHostException
+            if (current instanceof ConnectException || current instanceof UnknownHostException
                     || current instanceof HttpRetryException) {
                 return AiServerFailureCode.CONNECT_FAILURE;
             }
@@ -63,8 +60,6 @@ final class AiServerFailureClassifier {
                 return AiServerFailureCode.CONFIGURATION;
             }
         }
-        return webClientRequestFailure
-                ? AiServerFailureCode.CONNECT_FAILURE
-                : AiServerFailureCode.UNKNOWN;
+        return webClientRequestFailure ? AiServerFailureCode.CONNECT_FAILURE : AiServerFailureCode.UNKNOWN;
     }
 }

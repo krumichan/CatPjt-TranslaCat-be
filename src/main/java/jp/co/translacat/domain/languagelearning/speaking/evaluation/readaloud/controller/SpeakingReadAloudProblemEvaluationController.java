@@ -16,46 +16,31 @@ import java.util.List;
 @RequestMapping("/api/v1/language-learning/speaking/sessions/{sessionId}/read-aloud/problems")
 @RequiredArgsConstructor
 public class SpeakingReadAloudProblemEvaluationController {
-
     private final SpeakingGateway gateway;
 
     @PostMapping("/{problemIndex}/evaluate")
     public ResponseDto<SpeakingReadAloudProblemEvaluationResponseDto> evaluate(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId,
-            @PathVariable int problemIndex
-    ) {
-        return ResponseUtil.ok(
-                gateway.post(
-                        SecurityUtil.getLoginUserId(principal),
-                        "/sessions/" + sessionId + "/read-aloud/problems/" + problemIndex + "/evaluate",
-                        null, SpeakingReadAloudProblemEvaluationResponseDto.class
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId,
+            @PathVariable int problemIndex) {
+        return ResponseUtil.ok(gateway.post(SecurityUtil.getLoginUserId(principal),
+                "/sessions/" + sessionId + "/read-aloud/problems/" + problemIndex + "/evaluate", null,
+                SpeakingReadAloudProblemEvaluationResponseDto.class));
     }
 
     @PostMapping("/{problemIndex}/evaluation/retry")
     public ResponseDto<SpeakingReadAloudProblemEvaluationResponseDto> retry(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId,
-            @PathVariable int problemIndex
-    ) {
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId,
+            @PathVariable int problemIndex) {
         return ResponseUtil.ok(gateway.post(SecurityUtil.getLoginUserId(principal),
-                "/sessions/" + sessionId + "/read-aloud/problems/" + problemIndex + "/evaluation/retry",
-                null, SpeakingReadAloudProblemEvaluationResponseDto.class));
+                "/sessions/" + sessionId + "/read-aloud/problems/" + problemIndex + "/evaluation/retry", null,
+                SpeakingReadAloudProblemEvaluationResponseDto.class));
     }
 
     @GetMapping
     public ResponseDto<List<SpeakingReadAloudProblemEvaluationResponseDto>> list(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId
-    ) {
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId) {
         return ResponseUtil.ok(
-                gateway.list(
-                        SecurityUtil.getLoginUserId(principal),
-                        "/sessions/" + sessionId + "/read-aloud/problems",
-                        SpeakingReadAloudProblemEvaluationResponseDto.class
-                )
-        );
+                gateway.list(SecurityUtil.getLoginUserId(principal), "/sessions/" + sessionId + "/read-aloud/problems",
+                        SpeakingReadAloudProblemEvaluationResponseDto.class));
     }
 }

@@ -10,5 +10,4 @@ public interface UserSettingsGateway {
     UserSettingResponseDto get(Long userId);
 
     UserSettingResponseDto update(Long userId, UserSettingUpdateRequestDto request);
-
 }

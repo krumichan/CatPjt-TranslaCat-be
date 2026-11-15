@@ -10,18 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AccountBookSummaryFacade {
-
     private final AccountBookSummaryQueryService accountBookSummaryQueryService;
 
-    public AccountBookSummaryResponseDto getSummary(
-            Long accountBookId,
-            Integer year,
-            Integer month
-    ) {
-        return accountBookSummaryQueryService.getSummary(
-                accountBookId,
-                year,
-                month
-        );
+    public AccountBookSummaryResponseDto getSummary(Long accountBookId, Integer year, Integer month) {
+        return accountBookSummaryQueryService.getSummary(accountBookId, year, month);
     }
 }

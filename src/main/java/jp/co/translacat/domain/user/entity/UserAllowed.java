@@ -13,24 +13,19 @@ import java.time.LocalDateTime;
 @Table(name = "user_allowed")
 @NoArgsConstructor
 public class UserAllowed {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String email;
+    @Column(nullable = false, unique = true) private String email;
 
-    @Column
-    private LocalDateTime startedAt;
+    @Column private LocalDateTime startedAt;
 
-    @Column
-    private LocalDateTime expiredAt;
+    @Column private LocalDateTime expiredAt;
 
-    @Column
-    private boolean isActive = true;
+    @Column private boolean isActive = true;
 
     public boolean isAccessible() {
-        if (!isActive) return false;
+        if (!isActive)
+            return false;
 
         LocalDateTime now = LocalDateTime.now();
 

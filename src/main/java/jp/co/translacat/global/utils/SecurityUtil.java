@@ -18,7 +18,6 @@ import java.util.Collection;
  */
 @UtilityClass
 public class SecurityUtil {
-
     /**
      * 현재 스레드(SecurityContext)에 있는 Authentication 객체 가져오기
      *
@@ -102,10 +101,7 @@ public class SecurityUtil {
 
     public static Long getLoginUserId(UserPrincipal userPrincipal) {
         if (userPrincipal == null) {
-            throw new BusinessException(
-                    "로그인이 필요합니다.",
-                    "UNAUTHORIZED"
-            );
+            throw new BusinessException("로그인이 필요합니다.", "UNAUTHORIZED");
         }
 
         return userPrincipal.getId();

@@ -19,7 +19,6 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class SwaggerConfig {
-
     /**
      * OpenAPI Bean 생성
      * <p>
@@ -29,8 +28,7 @@ public class SwaggerConfig {
      */
     @Bean
     public OpenAPI openAPI() {
-        SecurityRequirement securityRequirement =
-                new SecurityRequirement().addList("JWT");
+        SecurityRequirement securityRequirement = new SecurityRequirement().addList("JWT");
         return new OpenAPI()
                 .components(this.createComponents()) // SecurityScheme 등 Components 설정
                 .info(this.apiInfo())
@@ -44,8 +42,8 @@ public class SwaggerConfig {
      * 여기서는 JWT Bearer Token 방식으로 인증하도록 설정합니다.
      */
     private Components createComponents() {
-        return new Components().addSecuritySchemes("JWT"
-                , new SecurityScheme()
+        return new Components().addSecuritySchemes("JWT",
+                new SecurityScheme()
                         .type(SecurityScheme.Type.HTTP) // HTTP 인증 방식
                         .scheme("bearer")
                         .name("Authorization")

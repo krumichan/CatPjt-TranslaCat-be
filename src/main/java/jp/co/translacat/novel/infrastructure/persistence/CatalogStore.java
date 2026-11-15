@@ -31,7 +31,8 @@ public class CatalogStore {
     }
 
     @Autowired
-    public CatalogStore(JdbcTemplate jdbc, ObjectMapper mapper, PlatformTransactionManager manager, NovelAccountFence accountFence) {
+    public CatalogStore(JdbcTemplate jdbc, ObjectMapper mapper, PlatformTransactionManager manager,
+            NovelAccountFence accountFence) {
         this.accountFence = accountFence;
         this.jdbc = jdbc;
         this.mapper = mapper;
@@ -39,19 +40,20 @@ public class CatalogStore {
     }
 
     public record Prepared(String cacheKey, String revision, String policy, CatalogModels.SourceCard source,
-                           Map<String, String> glossary) {}
+            Map<String, String> glossary) {}
     public record Work(String cacheKey, long actor, String language, CatalogModels.SourceCard source,
-                       Map<String, String> glossary, String owner, long fence, String traceId) {}
+            Map<String, String> glossary, String owner, long fence, String traceId) {}
 
-    public Map<String, String> readyMetadata(String platform, String work, Map<String, String> raw,
-                                              Map<String, String> glossary, String policy) {
+    public Map<String, String> readyMetadata(
+            String platform, String work, Map<String, String> raw, Map<String, String> glossary, String policy) {
         // 상세 조회도 현재 정책·용어집·전체 요청 원문이 일치하는 완료 결과 하나만 공유한다.
         // 서로 다른 원문 revision의 필드를 조합하거나 조회에서 새 유료 작업을 시작하지 않는다.
         var saved = readyCandidates(platform, work, "en", policy, null);
         for (Saved candidate : saved) {
-            if (!candidate.glossary().equals(glossary) || !validResult(candidate.source(), candidate.result())) continue;
-            boolean sameSource = raw.entrySet().stream()
-                    .allMatch(field -> java.util.Objects.equals(field.getValue(), candidate.source().text().get(field.getKey())));
+            if (!candidate.glossary().equals(glossary) || !validResult(candidate.source(), candidate.result()))
+                continue;
+            boolean sameSource = raw.entrySet().stream().allMatch(
+                    field -> java.util.Objects.equals(field.getValue(), candidate.source().text().get(field.getKey())));
             if (sameSource) {
                 Map<String, String> result = new java.util.LinkedHashMap<>();
                 raw.keySet().forEach(field -> result.put(field, candidate.result().get(field)));
@@ -62,17 +64,18 @@ public class CatalogStore {
     }
     private record Saved(CatalogModels.SourceCard source, Map<String, String> glossary, Map<String, String> result) {}
     private record Page(String id, long actor, CatalogModels.Selector selector, CatalogModels.SourcePage source,
-                        boolean cancelled, long sequence, String traceId, String selectorHash) {}
+            boolean cancelled, long sequence, String traceId, String selectorHash) {}
 
     public synchronized String create(long actor, String platform, String requestKey, String selectorHash,
-                                      CatalogModels.Selector selector, CatalogModels.SourcePage source,
-                                      List<Prepared> prepared, String traceId) {
+            CatalogModels.Selector selector, CatalogModels.SourcePage source, List<Prepared> prepared, String traceId) {
         // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
         return withActiveActor(actor, () -> {
-            var existing = jdbc.query("SELECT snapshot_id,selector_hash FROM novel_catalog_snapshot WHERE actor_id=? AND request_key=?",
+            var existing = jdbc.query(
+                    "SELECT snapshot_id,selector_hash FROM novel_catalog_snapshot WHERE actor_id=? AND request_key=?",
                     (row, index) -> Map.entry(row.getString(1), row.getString(2)), actor, requestKey);
             if (!existing.isEmpty()) {
-                if (!existing.getFirst().getValue().equals(selectorHash)) throw new NovelProblem("IDEMPOTENCY_CONFLICT", 409);
+                if (!existing.getFirst().getValue().equals(selectorHash))
+                    throw new NovelProblem("IDEMPOTENCY_CONFLICT", 409);
                 return existing.getFirst().getKey();
             }
 
@@ -80,15 +83,18 @@ public class CatalogStore {
             String id = UUID.randomUUID().toString();
             try {
                 transaction.executeWithoutResult(status -> {
-                    jdbc.update("INSERT INTO novel_catalog_snapshot(snapshot_id,actor_id,platform,selector_hash,selector_json,source_json,request_key,cancelled,event_sequence,trace_id,created_at) VALUES(?,?,?,?,?,?,?,FALSE,0,?,?)",
-                            id, actor, platform, selectorHash, json(selector), json(source), requestKey, traceId, System.currentTimeMillis());
+                    jdbc.update(
+                            "INSERT INTO novel_catalog_snapshot(snapshot_id,actor_id,platform,selector_hash,selector_json,source_json,request_key,cancelled,event_sequence,trace_id,created_at) VALUES(?,?,?,?,?,?,?,FALSE,0,?,?)",
+                            id, actor, platform, selectorHash, json(selector), json(source), requestKey, traceId,
+                            System.currentTimeMillis());
                     if (selector.language().equals("ja")) {
                         createOriginalItems(id, actor, platform, prepared, traceId);
                         return;
                     }
                     for (Prepared item : prepared) {
-                        var states = jdbc.query("SELECT state FROM novel_catalog_translation WHERE cache_key=? FOR UPDATE",
-                                (row, index) -> row.getString(1), item.cacheKey());
+                        var states =
+                                jdbc.query("SELECT state FROM novel_catalog_translation WHERE cache_key=? FOR UPDATE",
+                                        (row, index) -> row.getString(1), item.cacheKey());
                         boolean cached = !states.isEmpty() && "READY".equals(states.getFirst());
                         if (states.isEmpty()) {
                             boolean original = selector.language().equals("ja");
@@ -96,24 +102,35 @@ public class CatalogStore {
                             Saved reusable = original ? null : reusable(platform, selector.language(), item);
                             cached = reusable != null;
                             try {
-                                jdbc.update("INSERT INTO novel_catalog_translation(cache_key,actor_id,platform,work_id,source_revision,language,policy_identity,source_json,glossary_json,state,result_json,trace_id,diagnostics_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                                        item.cacheKey(), actor, platform, item.source().identifier(), item.revision(), selector.language(),
-                                        item.policy(), json(item.source()), json(item.glossary()), original || reusable != null ? "READY" : "PENDING",
-                                        json(original ? item.source().text() : reusable == null ? Map.of() : reusable.result()), traceId,
-                                        reusable == null ? "{}" : json(Map.of("sharedCacheReuse", true)), System.currentTimeMillis());
+                                jdbc.update(
+                                        "INSERT INTO novel_catalog_translation(cache_key,actor_id,platform,work_id,source_revision,language,policy_identity,source_json,glossary_json,state,result_json,trace_id,diagnostics_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                                        item.cacheKey(), actor, platform, item.source().identifier(), item.revision(),
+                                        selector.language(), item.policy(), json(item.source()), json(item.glossary()),
+                                        original || reusable != null ? "READY" : "PENDING",
+                                        json(original ? item.source().text()
+                                                        : reusable == null ? Map.of()
+                                                                           : reusable.result()),
+                                        traceId, reusable == null ? "{}" : json(Map.of("sharedCacheReuse", true)),
+                                        System.currentTimeMillis());
                             } catch (DuplicateKeyException race) {
                                 // 계정이 달라도 공통 PK와 DB claim을 사용해 provider 중복 실행을 막는다.
-                                cached = "READY".equals(jdbc.queryForObject("SELECT state FROM novel_catalog_translation WHERE cache_key=?",
-                                        String.class, item.cacheKey()));
+                                cached = "READY".equals(jdbc.queryForObject(
+                                        "SELECT state FROM novel_catalog_translation WHERE cache_key=?", String.class,
+                                        item.cacheKey()));
                             }
                         }
-                        jdbc.update("INSERT INTO novel_catalog_item(snapshot_id,item_id,cache_key,actual_rank,source_position,cached) VALUES(?,?,?,?,?,?)",
-                                id, item.source().identifier(), item.cacheKey(), item.source().rank(), item.source().sourcePosition(), cached);
+                        jdbc.update(
+                                "INSERT INTO novel_catalog_item(snapshot_id,item_id,cache_key,actual_rank,source_position,cached) VALUES(?,?,?,?,?,?)",
+                                id, item.source().identifier(), item.cacheKey(), item.source().rank(),
+                                item.source().sourcePosition(), cached);
                     }
                     // 준비된 캐시는 작업 제출 전에 먼저 도착 처리한다. 실제 rank로 정렬하지 않는다.
                     for (Prepared item : prepared) {
-                        String state = jdbc.queryForObject("SELECT state FROM novel_catalog_translation WHERE cache_key=?", String.class, item.cacheKey());
-                        if (List.of("READY", "FAILED").contains(state)) publishToSnapshot(id, item.cacheKey());
+                        String state =
+                                jdbc.queryForObject("SELECT state FROM novel_catalog_translation WHERE cache_key=?",
+                                        String.class, item.cacheKey());
+                        if (List.of("READY", "FAILED").contains(state))
+                            publishToSnapshot(id, item.cacheKey());
                     }
                 });
             } catch (DuplicateKeyException race) {
@@ -124,25 +141,30 @@ public class CatalogStore {
     }
 
     private void createOriginalItems(String id, long actor, String platform, List<Prepared> prepared, String traceId) {
-        if (prepared.isEmpty()) return;
+        if (prepared.isEmpty())
+            return;
 
         // 공개 원문의 공유 행은 한 번에 조회한다. 다른 언어 번역의 claim·완료 순서 경로는 변경하지 않는다.
         Map<String, String> states = new java.util.HashMap<>();
         String placeholders = String.join(",", java.util.Collections.nCopies(prepared.size(), "?"));
-        jdbc.query("SELECT cache_key,state FROM novel_catalog_translation WHERE cache_key IN (" + placeholders + ") FOR UPDATE",
-                row -> { states.put(row.getString("cache_key"), row.getString("state")); },
+        jdbc.query("SELECT cache_key,state FROM novel_catalog_translation WHERE cache_key IN (" + placeholders
+                        + ") FOR UPDATE",
+                row
+                -> { states.put(row.getString("cache_key"), row.getString("state")); },
                 prepared.stream().map(Prepared::cacheKey).toArray());
         List<Object[]> translations = new ArrayList<>();
         long now = System.currentTimeMillis();
         for (Prepared item : prepared) {
-            if (states.containsKey(item.cacheKey())) continue;
-            translations.add(new Object[]{item.cacheKey(), actor, platform, item.source().identifier(), item.revision(),
-                    "ja", item.policy(), json(item.source()), json(item.glossary()), "READY", json(item.source().text()),
-                    traceId, "{}", now});
+            if (states.containsKey(item.cacheKey()))
+                continue;
+            translations.add(new Object[] {item.cacheKey(), actor, platform, item.source().identifier(),
+                    item.revision(), "ja", item.policy(), json(item.source()), json(item.glossary()), "READY",
+                    json(item.source().text()), traceId, "{}", now});
         }
         if (!translations.isEmpty()) {
             // 중복 삽입 경합은 외부 create의 트랜잭션 재시도로 처리하며 기존 행을 덮어쓰지 않는다.
-            jdbc.batchUpdate("INSERT INTO novel_catalog_translation(cache_key,actor_id,platform,work_id,source_revision,language,policy_identity,source_json,glossary_json,state,result_json,trace_id,diagnostics_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            jdbc.batchUpdate(
+                    "INSERT INTO novel_catalog_translation(cache_key,actor_id,platform,work_id,source_revision,language,policy_identity,source_json,glossary_json,state,result_json,trace_id,diagnostics_json,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     translations);
         }
 
@@ -152,19 +174,24 @@ public class CatalogStore {
         for (Prepared item : prepared) {
             String state = states.getOrDefault(item.cacheKey(), "READY");
             Long arrival = List.of("READY", "FAILED").contains(state) ? ++sequence : null;
-            items.add(new Object[]{id, item.source().identifier(), item.cacheKey(), item.source().rank(),
+            items.add(new Object[] {id, item.source().identifier(), item.cacheKey(), item.source().rank(),
                     item.source().sourcePosition(), arrival, "READY".equals(states.get(item.cacheKey()))});
         }
-        jdbc.batchUpdate("INSERT INTO novel_catalog_item(snapshot_id,item_id,cache_key,actual_rank,source_position,arrival_sequence,cached) VALUES(?,?,?,?,?,?,?)", items);
+        jdbc.batchUpdate(
+                "INSERT INTO novel_catalog_item(snapshot_id,item_id,cache_key,actual_rank,source_position,arrival_sequence,cached) VALUES(?,?,?,?,?,?,?)",
+                items);
         jdbc.update("UPDATE novel_catalog_snapshot SET event_sequence=? WHERE snapshot_id=?", sequence, id);
     }
 
     private Saved reusable(String platform, String language, Prepared item) {
-        return readyCandidates(platform, item.source().identifier(), language, item.policy(), item.revision()).stream()
-                .filter(candidate -> candidate.glossary().equals(item.glossary())
-                        && candidate.source().text().equals(item.source().text())
-                        && validResult(candidate.source(), candidate.result()))
-                .findFirst().orElse(null);
+        return readyCandidates(platform, item.source().identifier(), language, item.policy(), item.revision())
+                .stream()
+                .filter(candidate
+                        -> candidate.glossary().equals(item.glossary())
+                                && candidate.source().text().equals(item.source().text())
+                                && validResult(candidate.source(), candidate.result()))
+                .findFirst()
+                .orElse(null);
     }
 
     private List<Saved> readyCandidates(String platform, String work, String language, String policy, String revision) {
@@ -173,27 +200,38 @@ public class CatalogStore {
                 + "WHERE platform=? AND work_id=? AND language=? AND policy_identity=? AND state='READY'"
                 + (revision == null ? "" : " AND source_revision=?") + " ORDER BY updated_at DESC";
         List<Object> arguments = new ArrayList<>(List.of(platform, work, language, policy));
-        if (revision != null) arguments.add(revision);
-        return jdbc.query(sql, (row, index) -> {
-            try {
-                return new Saved(read(row.getString("source_json"), CatalogModels.SourceCard.class),
-                        strings(row.getString("glossary_json")), strings(row.getString("result_json")));
-            } catch (IllegalStateException invalidStoredValue) {
-                // 과거 직렬화 오류는 캐시에서 제외한다. DB 연결/권한 오류까지 miss로 삼지 않는다.
-                return null;
-            }
-        }, arguments.toArray()).stream().filter(java.util.Objects::nonNull).toList();
+        if (revision != null)
+            arguments.add(revision);
+        return jdbc
+                .query(sql,
+                        (row, index)
+                                -> {
+                            try {
+                                return new Saved(read(row.getString("source_json"), CatalogModels.SourceCard.class),
+                                        strings(row.getString("glossary_json")), strings(row.getString("result_json")));
+                            } catch (IllegalStateException invalidStoredValue) {
+                                // 과거 직렬화 오류는 캐시에서 제외한다. DB 연결/권한 오류까지 miss로 삼지 않는다.
+                                return null;
+                            }
+                        },
+                        arguments.toArray())
+                .stream()
+                .filter(java.util.Objects::nonNull)
+                .toList();
     }
 
     private boolean validResult(CatalogModels.SourceCard source, Map<String, String> result) {
-        if (!result.keySet().equals(source.text().keySet())) return false;
-        return source.text().entrySet().stream().allMatch(field -> result.get(field.getKey()) != null
-                && (field.getValue().isBlank() || !result.get(field.getKey()).isBlank()));
+        if (!result.keySet().equals(source.text().keySet()))
+            return false;
+        return source.text().entrySet().stream().allMatch(field
+                -> result.get(field.getKey()) != null
+                        && (field.getValue().isBlank() || !result.get(field.getKey()).isBlank()));
     }
 
     public List<String> pending(long actor, String snapshotId) {
         page(actor, snapshotId);
-        return jdbc.query("SELECT t.cache_key FROM novel_catalog_item i JOIN novel_catalog_translation t ON t.cache_key=i.cache_key JOIN novel_catalog_snapshot s ON s.snapshot_id=i.snapshot_id WHERE i.snapshot_id=? AND s.cancelled=FALSE AND t.state='PENDING' ORDER BY i.source_position",
+        return jdbc.query(
+                "SELECT t.cache_key FROM novel_catalog_item i JOIN novel_catalog_translation t ON t.cache_key=i.cache_key JOIN novel_catalog_snapshot s ON s.snapshot_id=i.snapshot_id WHERE i.snapshot_id=? AND s.cancelled=FALSE AND t.state='PENDING' ORDER BY i.source_position",
                 (row, index) -> row.getString(1), snapshotId);
     }
 
@@ -203,42 +241,60 @@ public class CatalogStore {
 
     private Work claimInTransaction(String key, long deadlineMs) {
         // 소비자가 없어진 대기 작업은 provider를 시작하지 않는다.
-        if (subscribers(key) == 0) return null;
+        if (subscribers(key) == 0)
+            return null;
         String owner = UUID.randomUUID().toString();
-        int changed = jdbc.update("UPDATE novel_catalog_translation SET state='RUNNING',owner_token=?,fence=fence+1,lease_until=?,attempt_count=attempt_count+1,updated_at=? WHERE cache_key=? AND state='PENDING' AND attempt_count<3",
+        int changed = jdbc.update(
+                "UPDATE novel_catalog_translation SET state='RUNNING',owner_token=?,fence=fence+1,lease_until=?,attempt_count=attempt_count+1,updated_at=? WHERE cache_key=? AND state='PENDING' AND attempt_count<3",
                 owner, System.currentTimeMillis() + deadlineMs, System.currentTimeMillis(), key);
-        if (changed == 0) return null;
+        if (changed == 0)
+            return null;
         publish(key);
-        return jdbc.queryForObject("SELECT * FROM novel_catalog_translation WHERE cache_key=?", (row, index) ->
-                new Work(key, row.getLong("actor_id"), row.getString("language"), read(row.getString("source_json"), CatalogModels.SourceCard.class),
-                        strings(row.getString("glossary_json")), owner, row.getLong("fence"), row.getString("trace_id")), key);
+        return jdbc.queryForObject("SELECT * FROM novel_catalog_translation WHERE cache_key=?",
+                (row, index)
+                        -> new Work(key, row.getLong("actor_id"), row.getString("language"),
+                                read(row.getString("source_json"), CatalogModels.SourceCard.class),
+                                strings(row.getString("glossary_json")), owner, row.getLong("fence"),
+                                row.getString("trace_id")),
+                key);
     }
 
     public int subscribers(String key) {
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM novel_catalog_item i JOIN novel_catalog_snapshot s ON s.snapshot_id=i.snapshot_id WHERE i.cache_key=? AND s.cancelled=FALSE", Integer.class, key);
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM novel_catalog_item i JOIN novel_catalog_snapshot s ON s.snapshot_id=i.snapshot_id WHERE i.cache_key=? AND s.cancelled=FALSE",
+                Integer.class, key);
         return count == null ? 0 : count;
     }
 
     public synchronized boolean ready(Work work, Map<String, String> result, Map<String, Object> diagnostics) {
         return Boolean.TRUE.equals(transaction.execute(status -> {
-            int changed = jdbc.update("UPDATE novel_catalog_translation SET state='READY',result_json=?,error_code=NULL,owner_token=NULL,lease_until=0,diagnostics_json=?,updated_at=? WHERE cache_key=? AND state='RUNNING' AND owner_token=? AND fence=? AND actor_id=?",
-                    json(result), json(diagnostics), System.currentTimeMillis(), work.cacheKey(), work.owner(), work.fence(), work.actor());
-            if (changed == 1) publish(work.cacheKey());
+            int changed = jdbc.update(
+                    "UPDATE novel_catalog_translation SET state='READY',result_json=?,error_code=NULL,owner_token=NULL,lease_until=0,diagnostics_json=?,updated_at=? WHERE cache_key=? AND state='RUNNING' AND owner_token=? AND fence=? AND actor_id=?",
+                    json(result), json(diagnostics), System.currentTimeMillis(), work.cacheKey(), work.owner(),
+                    work.fence(), work.actor());
+            if (changed == 1)
+                publish(work.cacheKey());
             return changed == 1;
         }));
     }
 
     public synchronized void failed(Work work, String code) {
         transaction.executeWithoutResult(status -> {
-            int changed = jdbc.update("UPDATE novel_catalog_translation SET state='FAILED',error_code=?,owner_token=NULL,lease_until=0,updated_at=? WHERE cache_key=? AND state='RUNNING' AND owner_token=? AND fence=? AND actor_id=?",
+            int changed = jdbc.update(
+                    "UPDATE novel_catalog_translation SET state='FAILED',error_code=?,owner_token=NULL,lease_until=0,updated_at=? WHERE cache_key=? AND state='RUNNING' AND owner_token=? AND fence=? AND actor_id=?",
                     code, System.currentTimeMillis(), work.cacheKey(), work.owner(), work.fence(), work.actor());
-            if (changed == 1) publish(work.cacheKey());
+            if (changed == 1)
+                publish(work.cacheKey());
         });
     }
 
     public synchronized void rejectPending(String key, String code) {
         transaction.executeWithoutResult(status -> {
-            if (jdbc.update("UPDATE novel_catalog_translation SET state='FAILED',error_code=? WHERE cache_key=? AND state='PENDING'", code, key) == 1) publish(key);
+            if (jdbc.update(
+                        "UPDATE novel_catalog_translation SET state='FAILED',error_code=? WHERE cache_key=? AND state='PENDING'",
+                        code, key)
+                    == 1)
+                publish(key);
         });
     }
 
@@ -246,23 +302,35 @@ public class CatalogStore {
         // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
         return withActiveActor(actor, () -> {
             Page page = page(actor, id);
-            if (page.cancelled()) throw new NovelProblem("CATALOG_CANCELLED", 409);
-            var keys = jdbc.query("SELECT cache_key FROM novel_catalog_item WHERE snapshot_id=? AND item_id=?", (row, index) -> row.getString(1), id, itemId);
-            if (keys.isEmpty()) throw new NovelProblem("CATALOG_ITEM_NOT_FOUND", 404);
+            if (page.cancelled())
+                throw new NovelProblem("CATALOG_CANCELLED", 409);
+            var keys = jdbc.query("SELECT cache_key FROM novel_catalog_item WHERE snapshot_id=? AND item_id=?",
+                    (row, index) -> row.getString(1), id, itemId);
+            if (keys.isEmpty())
+                throw new NovelProblem("CATALOG_ITEM_NOT_FOUND", 404);
             String key = keys.getFirst();
             String target = id + ":" + itemId;
             transaction.executeWithoutResult(status -> {
-                var prior = jdbc.query("SELECT target_key FROM novel_catalog_retry WHERE actor_id=? AND request_key=?", (row, index) -> row.getString(1), actor, requestKey);
+                var prior = jdbc.query("SELECT target_key FROM novel_catalog_retry WHERE actor_id=? AND request_key=?",
+                        (row, index) -> row.getString(1), actor, requestKey);
                 if (!prior.isEmpty()) {
-                    if (!prior.getFirst().equals(target)) throw new NovelProblem("IDEMPOTENCY_CONFLICT", 409);
+                    if (!prior.getFirst().equals(target))
+                        throw new NovelProblem("IDEMPOTENCY_CONFLICT", 409);
                     return;
                 }
-                Integer exhausted = jdbc.queryForObject("SELECT COUNT(*) FROM novel_catalog_translation WHERE cache_key=? AND state='FAILED' AND attempt_count>=3", Integer.class, key);
-                if (exhausted != null && exhausted > 0) throw new NovelProblem("CATALOG_RETRY_LIMIT", 409);
-                jdbc.update("INSERT INTO novel_catalog_retry(actor_id,request_key,target_key) VALUES(?,?,?)", actor, requestKey, target);
+                Integer exhausted = jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM novel_catalog_translation WHERE cache_key=? AND state='FAILED' AND attempt_count>=3",
+                        Integer.class, key);
+                if (exhausted != null && exhausted > 0)
+                    throw new NovelProblem("CATALOG_RETRY_LIMIT", 409);
+                jdbc.update("INSERT INTO novel_catalog_retry(actor_id,request_key,target_key) VALUES(?,?,?)", actor,
+                        requestKey, target);
                 // READY와 RUNNING은 그대로 반환한다. 실패 카드 하나만 명시 명령으로 재개한다.
-                int changed = jdbc.update("UPDATE novel_catalog_translation SET state='PENDING',error_code=NULL,updated_at=? WHERE cache_key=? AND state='FAILED' AND attempt_count<3", System.currentTimeMillis(), key);
-                if (changed == 1) publish(key);
+                int changed = jdbc.update(
+                        "UPDATE novel_catalog_translation SET state='PENDING',error_code=NULL,updated_at=? WHERE cache_key=? AND state='FAILED' AND attempt_count<3",
+                        System.currentTimeMillis(), key);
+                if (changed == 1)
+                    publish(key);
             });
             return key;
         });
@@ -272,7 +340,9 @@ public class CatalogStore {
         // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
         return withActiveActor(actor, () -> {
             page(actor, id);
-            jdbc.update("UPDATE novel_catalog_snapshot SET cancelled=TRUE,event_sequence=event_sequence+1 WHERE snapshot_id=? AND cancelled=FALSE", id);
+            jdbc.update(
+                    "UPDATE novel_catalog_snapshot SET cancelled=TRUE,event_sequence=event_sequence+1 WHERE snapshot_id=? AND cancelled=FALSE",
+                    id);
             return snapshot(actor, id);
         });
     }
@@ -281,17 +351,25 @@ public class CatalogStore {
         page(actor, id);
         // 프로세스 중단으로 끝나지 않은 lease를 실패로 노출한다. GET에서는 새 유료 작업을 제출하지 않는다.
         transaction.executeWithoutResult(status -> {
-            var queued = jdbc.query("SELECT t.cache_key FROM novel_catalog_translation t JOIN novel_catalog_item i ON i.cache_key=t.cache_key WHERE i.snapshot_id=? AND t.state='PENDING' AND t.updated_at<?",
+            var queued = jdbc.query(
+                    "SELECT t.cache_key FROM novel_catalog_translation t JOIN novel_catalog_item i ON i.cache_key=t.cache_key WHERE i.snapshot_id=? AND t.state='PENDING' AND t.updated_at<?",
                     (row, index) -> row.getString(1), id, System.currentTimeMillis() - CatalogExecutionBudget.QUEUE_MS);
             for (String key : queued) {
-                int changed = jdbc.update("UPDATE novel_catalog_translation SET state='FAILED',error_code='CATALOG_QUEUE_INTERRUPTED' WHERE cache_key=? AND state='PENDING' AND updated_at<?", key, System.currentTimeMillis() - CatalogExecutionBudget.QUEUE_MS);
-                if (changed == 1) publish(key);
+                int changed = jdbc.update(
+                        "UPDATE novel_catalog_translation SET state='FAILED',error_code='CATALOG_QUEUE_INTERRUPTED' WHERE cache_key=? AND state='PENDING' AND updated_at<?",
+                        key, System.currentTimeMillis() - CatalogExecutionBudget.QUEUE_MS);
+                if (changed == 1)
+                    publish(key);
             }
-            var abandoned = jdbc.query("SELECT t.cache_key FROM novel_catalog_translation t JOIN novel_catalog_item i ON i.cache_key=t.cache_key WHERE i.snapshot_id=? AND t.state='RUNNING' AND t.lease_until<?",
+            var abandoned = jdbc.query(
+                    "SELECT t.cache_key FROM novel_catalog_translation t JOIN novel_catalog_item i ON i.cache_key=t.cache_key WHERE i.snapshot_id=? AND t.state='RUNNING' AND t.lease_until<?",
                     (row, index) -> row.getString(1), id, System.currentTimeMillis());
             for (String key : abandoned) {
-                int changed = jdbc.update("UPDATE novel_catalog_translation SET state='FAILED',error_code='CATALOG_EXECUTION_INTERRUPTED',owner_token=NULL,fence=fence+1,lease_until=0 WHERE cache_key=? AND state='RUNNING' AND lease_until<?", key, System.currentTimeMillis());
-                if (changed == 1) publish(key);
+                int changed = jdbc.update(
+                        "UPDATE novel_catalog_translation SET state='FAILED',error_code='CATALOG_EXECUTION_INTERRUPTED',owner_token=NULL,fence=fence+1,lease_until=0 WHERE cache_key=? AND state='RUNNING' AND lease_until<?",
+                        key, System.currentTimeMillis());
+                if (changed == 1)
+                    publish(key);
             }
         });
         return transaction.execute(status -> snapshotInTransaction(actor, id));
@@ -299,51 +377,77 @@ public class CatalogStore {
 
     private CatalogModels.Snapshot snapshotInTransaction(long actor, String id) {
         // 도착 번호와 본문을 같은 snapshot lock 아래 읽어 cursor보다 새로운 본문이 앞서가지 않게 한다.
-        jdbc.queryForObject("SELECT snapshot_id FROM novel_catalog_snapshot WHERE snapshot_id=? AND actor_id=? FOR UPDATE", String.class, id, actor);
+        jdbc.queryForObject(
+                "SELECT snapshot_id FROM novel_catalog_snapshot WHERE snapshot_id=? AND actor_id=? FOR UPDATE",
+                String.class, id, actor);
         Page page = page(actor, id);
         List<CatalogModels.Item> items = new ArrayList<>();
         int[] counts = new int[3];
-        jdbc.query("SELECT i.*,t.state,t.source_json,t.result_json,t.error_code FROM novel_catalog_item i JOIN novel_catalog_translation t ON t.cache_key=i.cache_key WHERE i.snapshot_id=? ORDER BY CASE WHEN i.arrival_sequence IS NULL THEN 1 ELSE 0 END,i.arrival_sequence,i.source_position", row -> {
-            counts[0]++;
-            String state = row.getString("state");
-            if (state.equals("READY")) counts[1]++;
-            if (state.equals("FAILED")) counts[2]++;
-            long arrival = row.getLong("arrival_sequence");
-            if (row.wasNull()) return;
-            var source = read(row.getString("source_json"), CatalogModels.SourceCard.class);
-            Map<String, String> result = strings(row.getString("result_json"));
-            items.add(new CatalogModels.Item(row.getString("item_id"), source.identifier(), row.getInt("actual_rank"),
-                    row.getInt("source_position"), state, text(source.title(), result.get("title"), page.selector().language()),
-                    text(source.author(), result.get("author"), page.selector().language()), text(source.synopsis(), result.get("synopsis"), page.selector().language()),
-                    text(source.statusText(), result.get("statusText"), page.selector().language()), source.genreText(), source.isShortStory(),
-                    arrival, row.getString("error_code"), row.getBoolean("cached")));
-        }, id);
-        String state = page.cancelled() ? "CANCELLED" : counts[1] == counts[0] ? "SUCCEEDED"
-                : counts[1] + counts[2] == counts[0] ? "PARTIAL" : "RUNNING";
+        jdbc.query(
+                "SELECT i.*,t.state,t.source_json,t.result_json,t.error_code FROM novel_catalog_item i JOIN novel_catalog_translation t ON t.cache_key=i.cache_key WHERE i.snapshot_id=? ORDER BY CASE WHEN i.arrival_sequence IS NULL THEN 1 ELSE 0 END,i.arrival_sequence,i.source_position",
+                row
+                -> {
+                    counts[0]++;
+                    String state = row.getString("state");
+                    if (state.equals("READY"))
+                        counts[1]++;
+                    if (state.equals("FAILED"))
+                        counts[2]++;
+                    long arrival = row.getLong("arrival_sequence");
+                    if (row.wasNull())
+                        return;
+                    var source = read(row.getString("source_json"), CatalogModels.SourceCard.class);
+                    Map<String, String> result = strings(row.getString("result_json"));
+                    items.add(new CatalogModels.Item(row.getString("item_id"), source.identifier(),
+                            row.getInt("actual_rank"), row.getInt("source_position"), state,
+                            text(source.title(), result.get("title"), page.selector().language()),
+                            text(source.author(), result.get("author"), page.selector().language()),
+                            text(source.synopsis(), result.get("synopsis"), page.selector().language()),
+                            text(source.statusText(), result.get("statusText"), page.selector().language()),
+                            source.genreText(), source.isShortStory(), arrival, row.getString("error_code"),
+                            row.getBoolean("cached")));
+                },
+                id);
+        String state = page.cancelled()              ? "CANCELLED"
+                : counts[1] == counts[0]             ? "SUCCEEDED"
+                : counts[1] + counts[2] == counts[0] ? "PARTIAL"
+                                                     : "RUNNING";
         return new CatalogModels.Snapshot(id, page.sequence(), state, counts[0], counts[1], counts[2],
-                page.source().pageInfo(), page.selector(), List.copyOf(items), page.traceId(), page.source().sourceFetchMs());
+                page.source().pageInfo(), page.selector(), List.copyOf(items), page.traceId(),
+                page.source().sourceFetchMs());
     }
 
     private Page page(long actor, String id) {
-        var pages = jdbc.query("SELECT * FROM novel_catalog_snapshot WHERE snapshot_id=? AND actor_id=?", (row, index) ->
-                new Page(id, actor, read(row.getString("selector_json"), CatalogModels.Selector.class), read(row.getString("source_json"), CatalogModels.SourcePage.class),
-                        row.getBoolean("cancelled"), row.getLong("event_sequence"), row.getString("trace_id"), row.getString("selector_hash")), id, actor);
-        if (pages.isEmpty()) throw new NovelProblem("CATALOG_NOT_FOUND", 404);
+        var pages = jdbc.query("SELECT * FROM novel_catalog_snapshot WHERE snapshot_id=? AND actor_id=?",
+                (row, index)
+                        -> new Page(id, actor, read(row.getString("selector_json"), CatalogModels.Selector.class),
+                                read(row.getString("source_json"), CatalogModels.SourcePage.class),
+                                row.getBoolean("cancelled"), row.getLong("event_sequence"), row.getString("trace_id"),
+                                row.getString("selector_hash")),
+                id, actor);
+        if (pages.isEmpty())
+            throw new NovelProblem("CATALOG_NOT_FOUND", 404);
         return pages.getFirst();
     }
 
     private void publish(String key) {
-        var snapshots = jdbc.query("SELECT snapshot_id FROM novel_catalog_item WHERE cache_key=?", (row, index) -> row.getString(1), key);
-        for (String id : snapshots) publishToSnapshot(id, key);
+        var snapshots = jdbc.query(
+                "SELECT snapshot_id FROM novel_catalog_item WHERE cache_key=?", (row, index) -> row.getString(1), key);
+        for (String id : snapshots)
+            publishToSnapshot(id, key);
     }
 
     private void publishToSnapshot(String id, String key) {
         // row update가 snapshot의 도착 번호 할당을 직렬화한다. retry는 기존 번호를 유지한다.
         jdbc.update("UPDATE novel_catalog_snapshot SET event_sequence=event_sequence+1 WHERE snapshot_id=?", id);
-        Long next = jdbc.queryForObject("SELECT event_sequence FROM novel_catalog_snapshot WHERE snapshot_id=?", Long.class, id);
-        String state = jdbc.queryForObject("SELECT state FROM novel_catalog_translation WHERE cache_key=?", String.class, key);
+        Long next = jdbc.queryForObject(
+                "SELECT event_sequence FROM novel_catalog_snapshot WHERE snapshot_id=?", Long.class, id);
+        String state =
+                jdbc.queryForObject("SELECT state FROM novel_catalog_translation WHERE cache_key=?", String.class, key);
         if (List.of("READY", "FAILED").contains(state)) {
-            jdbc.update("UPDATE novel_catalog_item SET arrival_sequence=COALESCE(arrival_sequence,?) WHERE snapshot_id=? AND cache_key=?", next, id, key);
+            jdbc.update(
+                    "UPDATE novel_catalog_item SET arrival_sequence=COALESCE(arrival_sequence,?) WHERE snapshot_id=? AND cache_key=?",
+                    next, id, key);
         }
     }
 
@@ -353,16 +457,25 @@ public class CatalogStore {
     }
 
     private String json(Object value) {
-        try { return mapper.writeValueAsString(value); }
-        catch (Exception failure) { throw new IllegalStateException("Catalog serialization failed", failure); }
+        try {
+            return mapper.writeValueAsString(value);
+        } catch (Exception failure) {
+            throw new IllegalStateException("Catalog serialization failed", failure);
+        }
     }
     private <T> T read(String value, Class<T> type) {
-        try { return mapper.readValue(value, type); }
-        catch (Exception failure) { throw new IllegalStateException("Catalog stored value invalid", failure); }
+        try {
+            return mapper.readValue(value, type);
+        } catch (Exception failure) {
+            throw new IllegalStateException("Catalog stored value invalid", failure);
+        }
     }
     private Map<String, String> strings(String value) {
-        try { return mapper.readValue(value, STRINGS); }
-        catch (Exception failure) { throw new IllegalStateException("Catalog stored translation invalid", failure); }
+        try {
+            return mapper.readValue(value, STRINGS);
+        } catch (Exception failure) {
+            throw new IllegalStateException("Catalog stored translation invalid", failure);
+        }
     }
 
     private <T> T withActiveActor(long actor, java.util.function.Supplier<T> action) {
@@ -370,8 +483,9 @@ public class CatalogStore {
     }
 
     private void withActiveActor(long actor, Runnable action) {
-        if (accountFence == null) action.run();
-        else accountFence.active(actor, action);
+        if (accountFence == null)
+            action.run();
+        else
+            accountFence.active(actor, action);
     }
-
 }

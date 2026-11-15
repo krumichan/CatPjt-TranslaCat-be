@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class UserProfileImageUrlResolver {
-
     private final ImageStoragePort imageStoragePort;
 
     public String resolveProfileImageUrl(UserProfile userProfile) {

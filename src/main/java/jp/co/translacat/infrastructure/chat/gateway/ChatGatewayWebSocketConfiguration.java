@@ -21,8 +21,7 @@ import java.util.Map;
 public class ChatGatewayWebSocketConfiguration {
     @Bean
     ChatGatewayWebSocketHandler chatGatewayWebSocketHandler(ChatGatewayProperties properties, ChatGatewayTarget target,
-                                                            ChatGatewayTokenIssuer tokens,
-                                                            ChatGatewayUserAuthenticator users) {
+            ChatGatewayTokenIssuer tokens, ChatGatewayUserAuthenticator users) {
         return new ChatGatewayWebSocketHandler(properties, target, tokens, users);
     }
 
@@ -33,15 +32,13 @@ public class ChatGatewayWebSocketConfiguration {
     }
 
     private static void register(WebSocketHandlerRegistry registry, ChatGatewayWebSocketHandler handler) {
-        registry.addHandler(handler, "/ws/chat")
-                .addInterceptors(new IngressHandshake())
-                .setAllowedOriginPatterns("*");
+        registry.addHandler(handler, "/ws/chat").addInterceptors(new IngressHandshake()).setAllowedOriginPatterns("*");
     }
 
     static final class IngressHandshake implements HandshakeInterceptor {
         @Override
-        public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
-                                       WebSocketHandler handler, Map<String, Object> attributes) {
+        public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler handler,
+                Map<String, Object> attributes) {
             // 외부 서비스 인증 헤더는 거부하고, 임의 subprotocol을 협상 없이 통과시키지 않는다.
             var headers = request.getHeaders();
             if (headers.containsKey(ChatGatewayWebSocketHandler.SERVICE_HEADER)
@@ -49,8 +46,11 @@ public class ChatGatewayWebSocketConfiguration {
                 response.setStatusCode(HttpStatus.FORBIDDEN);
                 return false;
             }
-            List<String> offered = headers.getOrEmpty("Sec-WebSocket-Protocol").stream()
-                    .flatMap(value -> Arrays.stream(value.split(","))).map(String::trim).toList();
+            List<String> offered = headers.getOrEmpty("Sec-WebSocket-Protocol")
+                                           .stream()
+                                           .flatMap(value -> Arrays.stream(value.split(",")))
+                                           .map(String::trim)
+                                           .toList();
             if (!offered.isEmpty() && offered.stream().noneMatch(List.of("v12.stomp", "v11.stomp")::contains)) {
                 response.setStatusCode(HttpStatus.BAD_REQUEST);
                 return false;
@@ -59,8 +59,8 @@ public class ChatGatewayWebSocketConfiguration {
         }
 
         @Override
-        public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response,
-                                   WebSocketHandler handler, Exception exception) {
+        public void afterHandshake(
+                ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler handler, Exception exception) {
         }
     }
 }

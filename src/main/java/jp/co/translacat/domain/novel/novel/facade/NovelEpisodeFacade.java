@@ -23,25 +23,21 @@ public class NovelEpisodeFacade {
     private final EpisodeService episodeService;
 
     @Transactional
-    public EpisodeResponseDto getTranslatedEpisode(
-            PlatformCode platformCode,
-            String novelIdentifier) {
+    public EpisodeResponseDto getTranslatedEpisode(PlatformCode platformCode, String novelIdentifier) {
         // 1. 플랫폼 정보 및 전략 준비 (기존 EpisodeService의 앞부분 로직)
         Platform platform = platformService.getPlatformByCode(platformCode);
         PlatformUrlTemplate urlTemplate = platformService.getUrlTemplate(platform.getId(), PlatformUrlType.SHORT);
 
         // 2. 스크래핑 수행 (EpisodeService에서 추출한 전용 메서드 호출)
-        EpisodeDetailContext scrappedEpisodeDetail = episodeService.scrapeEpisodeDetail(
-                platformCode, urlTemplate.getUrlPattern(), novelIdentifier);
+        EpisodeDetailContext scrappedEpisodeDetail =
+                episodeService.scrapeEpisodeDetail(platformCode, urlTemplate.getUrlPattern(), novelIdentifier);
 
         return this.processTranslatedEpisode(platform, novelIdentifier, scrappedEpisodeDetail);
     }
 
     @Transactional
     public EpisodeResponseDto getTranslatedEpisode(
-            PlatformCode platformCode,
-            String novelIdentifier,
-            String episodeId) {
+            PlatformCode platformCode, String novelIdentifier, String episodeId) {
         // 1. 플랫폼 정보 및 전략 준비 (기존 EpisodeService의 앞부분 로직)
         Platform platform = platformService.getPlatformByCode(platformCode);
         PlatformUrlTemplate urlTemplate = platformService.getUrlTemplate(platform.getId(), PlatformUrlType.EPISODE);
@@ -54,10 +50,7 @@ public class NovelEpisodeFacade {
     }
 
     private EpisodeResponseDto processTranslatedEpisode(
-            Platform platform,
-            String novelIdentifier,
-            EpisodeDetailContext scrappedEpisodeDetail) {
-
+            Platform platform, String novelIdentifier, EpisodeDetailContext scrappedEpisodeDetail) {
         // 1. 소설 정보 검증
         NovelContext scrappedNovel = scrappedEpisodeDetail.getNovelDetailContext().getNovelContext();
         if (!novelIdentifier.equals(scrappedNovel.getIdentifier())) {

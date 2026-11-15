@@ -24,7 +24,6 @@ import java.util.concurrent.Semaphore;
 @Component
 @RequiredArgsConstructor
 public class GeminiTranslationExecutor extends AbstractTranslationExecutor {
-
     private final AiGeminiClient aiGeminiClient;
     private final JsonParser jsonParser;
     private final BatchProcessor batchProcessor;
@@ -32,36 +31,24 @@ public class GeminiTranslationExecutor extends AbstractTranslationExecutor {
     private final Semaphore geminiSemaphore = new Semaphore(10);
 
     @Override
-    @Retryable(
-            retryFor = {Exception.class},
-            maxAttempts = 3,
-            backoff = @Backoff(delay = 100, multiplier = 1.5, maxDelay = 500),
-            recover = "recoverTranslation"
-    )
+    @Retryable(retryFor = {Exception.class}, maxAttempts = 3,
+            backoff = @Backoff(delay = 100, multiplier = 1.5, maxDelay = 500), recover = "recoverTranslation")
     public <T extends Translatable> List<T> executeTranslation(List<T> sourceList, AiRuleType rule) {
         return this.executeTranslation(sourceList, rule, null);
     }
 
     @Override
     public <T extends Translatable> List<T> executeTranslation(
-            List<T> sourceList,
-            AiRuleType rule,
-            Comparator<T> comparator
-    ) {
+            List<T> sourceList, AiRuleType rule, Comparator<T> comparator) {
         log.info("[Gemini-Direct] Internal parallel processing with sorting. Size: {}", sourceList.size());
         AiGeminiConstant.InternalInfo info = AiGeminiConstant.internalMap.get(rule);
-        return batchProcessor.processParallel(
-                sourceList,
-                info.batchSize(),
-                batch -> {
-                    try {
-                        return super.executeTranslation(batch, rule);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                },
-                comparator
-        );
+        return batchProcessor.processParallel(sourceList, info.batchSize(), batch -> {
+            try {
+                return super.executeTranslation(batch, rule);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }, comparator);
     }
 
     @Override

@@ -7,12 +7,6 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 public record AccountBookChartTransactionFilterDto(
-        @NotNull Type type,
-        @NotEmpty @Size(max = 500) List<@Size(max = 120) String> keys,
-        boolean exclude
-) {
-    public enum Type {
-        CATEGORY,
-        STORE
-    }
+        @NotNull Type type, @NotEmpty @Size(max = 500) List<@Size(max = 120) String> keys, boolean exclude) {
+    public enum Type { CATEGORY, STORE }
 }

@@ -21,16 +21,17 @@ public class WebAiExceptionAdvice {
         String message = failure.getMessage();
 
         // 계획 토큰 거부는 외부 401을 유지하고 서비스 JWT 오류만 내부 연결 실패로 변환한다.
-        boolean internalAuthenticationFailure = status == HttpStatus.UNAUTHORIZED
-                && (code == null || !code.startsWith("WEB_AI_"));
-        boolean internalAuthorizationFailure = status == HttpStatus.FORBIDDEN
-                && code != null && code.startsWith("INTERNAL_");
+        boolean internalAuthenticationFailure =
+                status == HttpStatus.UNAUTHORIZED && (code == null || !code.startsWith("WEB_AI_"));
+        boolean internalAuthorizationFailure =
+                status == HttpStatus.FORBIDDEN && code != null && code.startsWith("INTERNAL_");
         if (internalAuthenticationFailure || internalAuthorizationFailure) {
             status = HttpStatus.BAD_GATEWAY;
             code = "LL_INTERNAL_AUTH_FAILED";
             message = "언어학습 내부 인증 설정을 확인해 주세요.";
         }
-        return ResponseEntity.status(status).header("Cache-Control", "no-store")
+        return ResponseEntity.status(status)
+                .header("Cache-Control", "no-store")
                 .body(ResponseUtil.error(status.value(), message, code, null, false));
     }
 }

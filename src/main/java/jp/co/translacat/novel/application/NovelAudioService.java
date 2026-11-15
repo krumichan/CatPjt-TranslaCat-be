@@ -45,9 +45,8 @@ public class NovelAudioService {
     private final ConcurrentHashMap<String, CompletableFuture<Obtained>> pending = new ConcurrentHashMap<>();
 
     public NovelAudioService(NovelRepository store, NovelQueryService query, NovelPorts.Ai ai,
-                             FairAiScheduler scheduler, NovelAudioAssetStore assets,
-                             NovelAudioObjectStore objects,
-                             @Value("${novel.audio.spool-dir:./data/novel-audio-spool}") String spoolDirectory) {
+            FairAiScheduler scheduler, NovelAudioAssetStore assets, NovelAudioObjectStore objects,
+            @Value("${novel.audio.spool-dir:./data/novel-audio-spool}") String spoolDirectory) {
         this.store = store;
         this.query = query;
         this.ai = ai;
@@ -58,25 +57,25 @@ public class NovelAudioService {
     }
 
     public record Audio(String revision, String segmentId, String language, int partIndex, int partCount,
-                        String audioBase64, String contentType, Double durationSeconds, String provider,
-                        String model, String audioPolicyVersion, String traceId,
-                        String cacheDisposition, Map<String, Object> timings) {}
+            String audioBase64, String contentType, Double durationSeconds, String provider, String model,
+            String audioPolicyVersion, String traceId, String cacheDisposition, Map<String, Object> timings) {}
 
     private record Obtained(Asset asset, byte[] bytes, String disposition) {}
     private record Persisted(Obtained value, NovelProblem failure) {
         Obtained requireValue() {
-            if (failure != null) throw failure;
+            if (failure != null)
+                throw failure;
             return value;
         }
     }
 
-    public Audio synthesize(EpisodeKey key, long actor, String revision, String segmentId,
-                            String language, int partIndex) {
+    public Audio synthesize(
+            EpisodeKey key, long actor, String revision, String segmentId, String language, int partIndex) {
         return synthesize(key, actor, revision, segmentId, language, partIndex, "ko");
     }
 
-    public Audio synthesize(EpisodeKey key, long actor, String revision, String segmentId,
-                            String language, int partIndex, String targetLanguage) {
+    public Audio synthesize(EpisodeKey key, long actor, String revision, String segmentId, String language,
+            int partIndex, String targetLanguage) {
         assets.withActiveActor(actor, () -> null);
         String target = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
         long started = System.nanoTime();
@@ -84,9 +83,11 @@ public class NovelAudioService {
 
         // 현재 원문과 actor의 확정 번역만 낭독 대상으로 삼는다. 목록·제목은 이 경로가 없다.
         SourceEpisode source = query.requireCurrentRevision(key, revision);
-        SourceEpisode.Segment segment = source.segments().stream()
-                .filter(item -> item.id().equals(segmentId)).findFirst()
-                .orElseThrow(() -> new NovelProblem("SEGMENT_NOT_FOUND", 404));
+        SourceEpisode.Segment segment = source.segments()
+                                                .stream()
+                                                .filter(item -> item.id().equals(segmentId))
+                                                .findFirst()
+                                                .orElseThrow(() -> new NovelProblem("SEGMENT_NOT_FOUND", 404));
         String translationKey = null;
         String text;
         if ("ja".equals(language)) {
@@ -96,33 +97,32 @@ public class NovelAudioService {
             translationKey = query.cacheKey(key, source, actor, glossary, query.resolve(source), target);
             query.share(key, source, actor, glossary, target, store.byCache(translationKey).orElse(null));
             String finalKey = translationKey;
-            text = store.byCache(finalKey).map(job -> job.results().get(segmentId))
-                    .orElseThrow(() -> new NovelProblem("TRANSLATION_NOT_READY", 409));
+            text = store.byCache(finalKey)
+                           .map(job -> job.results().get(segmentId))
+                           .orElseThrow(() -> new NovelProblem("TRANSLATION_NOT_READY", 409));
         } else {
             throw new NovelProblem("AUDIO_LANGUAGE_INVALID", 400);
         }
         List<String> parts = speechParts(text);
-        if (partIndex < 0 || partIndex >= parts.size()) throw new NovelProblem("AUDIO_PART_INVALID", 400);
+        if (partIndex < 0 || partIndex >= parts.size())
+            throw new NovelProblem("AUDIO_PART_INVALID", 400);
 
         // 회차 revision·재생 속도는 음성을 바꾸지 않는다. 동일 actor의 바뀌지 않은 문장은 재사용한다.
         String spoken = parts.get(partIndex);
         String textHash = SentenceSegmenter.hash(spoken);
-        String identity = SentenceSegmenter.hash(String.join("|", key.value(), Long.toString(actor),
-                language, Integer.toString(partIndex), textHash, POLICY_VERSION, ai.speechModel(), "wav"));
-        Obtained result = getOrCreate(identity, key.value(), actor, language, partIndex,
-                spoken, textHash, traceId);
-        assets.link(key.value(), revision, actor, segmentId, language, partIndex,
-                result.asset().id(), translationKey);
+        String identity = SentenceSegmenter.hash(String.join("|", key.value(), Long.toString(actor), language,
+                Integer.toString(partIndex), textHash, POLICY_VERSION, ai.speechModel(), "wav"));
+        Obtained result = getOrCreate(identity, key.value(), actor, language, partIndex, spoken, textHash, traceId);
+        assets.link(key.value(), revision, actor, segmentId, language, partIndex, result.asset().id(), translationKey);
 
         return new Audio(revision, segmentId, language, partIndex, parts.size(),
                 Base64.getEncoder().encodeToString(result.bytes()), result.asset().contentType(),
-                result.asset().duration(), "openai", result.asset().model(),
-                POLICY_VERSION + "|" + ai.speechModel(), traceId, result.disposition(),
-                Map.of("requestMs", RequestTrace.elapsed(started)));
+                result.asset().duration(), "openai", result.asset().model(), POLICY_VERSION + "|" + ai.speechModel(),
+                traceId, result.disposition(), Map.of("requestMs", RequestTrace.elapsed(started)));
     }
 
-    private Obtained getOrCreate(String identity, String sourceKey, long actor, String language,
-                                 int partIndex, String spoken, String textHash, String traceId) {
+    private Obtained getOrCreate(String identity, String sourceKey, long actor, String language, int partIndex,
+            String spoken, String textHash, String traceId) {
         // DB/R2 READY는 프로세스 cache보다 우선한다. 404만 현재 클릭의 재생성 대상으로 바꾼다.
         Asset current = assets.find(identity).orElse(null);
         if (current != null && "READY".equals(current.state())) {
@@ -137,7 +137,8 @@ public class NovelAudioService {
         CompletableFuture<Obtained> other = pending.putIfAbsent(identity, future);
         if (other != null) {
             // 동일 음성 클릭도 대기 중인 BE 요청 수를 제한한다. 소유자의 합성 슬롯과 별도로 센다.
-            if (!waitingSlots.tryAcquire()) throw new NovelProblem("AUDIO_QUEUE_FULL", 429, true, 1000);
+            if (!waitingSlots.tryAcquire())
+                throw new NovelProblem("AUDIO_QUEUE_FULL", 429, true, 1000);
             try {
                 Obtained shared = other.get(31, TimeUnit.SECONDS);
                 return new Obtained(shared.asset(), shared.bytes(), "COALESCED");
@@ -145,7 +146,8 @@ public class NovelAudioService {
                 Thread.currentThread().interrupt();
                 throw new NovelProblem("AUDIO_INTERRUPTED", 503);
             } catch (Exception failure) {
-                if (failure.getCause() instanceof NovelProblem problem) throw problem;
+                if (failure.getCause() instanceof NovelProblem problem)
+                    throw problem;
                 throw new NovelProblem("AUDIO_GENERATION_FAILED", 502);
             } finally {
                 waitingSlots.release();
@@ -153,8 +155,7 @@ public class NovelAudioService {
         }
 
         try {
-            Obtained obtained = ownedOrWait(identity, sourceKey, actor, language, partIndex,
-                    spoken, textHash, traceId);
+            Obtained obtained = ownedOrWait(identity, sourceKey, actor, language, partIndex, spoken, textHash, traceId);
             future.complete(obtained);
             return obtained;
         } catch (RuntimeException failure) {
@@ -165,31 +166,37 @@ public class NovelAudioService {
         }
     }
 
-    private Obtained ownedOrWait(String identity, String sourceKey, long actor, String language,
-                                 int partIndex, String spoken, String textHash, String traceId) {
-        var claim = assets.claim(identity, sourceKey, actor, language, partIndex, textHash,
-                ai.speechModel(), POLICY_VERSION, LEASE_MILLIS);
+    private Obtained ownedOrWait(String identity, String sourceKey, long actor, String language, int partIndex,
+            String spoken, String textHash, String traceId) {
+        var claim = assets.claim(identity, sourceKey, actor, language, partIndex, textHash, ai.speechModel(),
+                POLICY_VERSION, LEASE_MILLIS);
         Asset asset = claim.asset();
         if (!claim.owner()) {
-            if ("READY".equals(asset.state())) return read(asset, "HIT");
-            if ("UNCERTAIN".equals(asset.state())) throw new NovelProblem("AUDIO_OUTCOME_UNCERTAIN", 409);
+            if ("READY".equals(asset.state()))
+                return read(asset, "HIT");
+            if ("UNCERTAIN".equals(asset.state()))
+                throw new NovelProblem("AUDIO_OUTCOME_UNCERTAIN", 409);
             return waitForOwner(identity);
         }
-        if ("UPLOADING".equals(asset.state())) return recoverUpload(asset);
+        if ("UPLOADING".equals(asset.state()))
+            return recoverUpload(asset);
         return generate(asset, spoken, language, traceId);
     }
 
     private Obtained waitForOwner(String identity) {
-        if (!waitingSlots.tryAcquire()) throw new NovelProblem("AUDIO_QUEUE_FULL", 429, true, 1000);
+        if (!waitingSlots.tryAcquire())
+            throw new NovelProblem("AUDIO_QUEUE_FULL", 429, true, 1000);
         try {
             for (int i = 0; i < 150; i++) {
                 Asset current = assets.find(identity).orElseThrow();
-                if ("READY".equals(current.state())) return read(current, "COALESCED");
+                if ("READY".equals(current.state()))
+                    return read(current, "COALESCED");
                 if ("UNCERTAIN".equals(current.state()) || "UPLOAD_FAILED".equals(current.state())) {
                     throw new NovelProblem("AUDIO_GENERATION_FAILED", 503, true, 1000);
                 }
-                try { Thread.sleep(200); }
-                catch (InterruptedException failure) {
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException failure) {
                     Thread.currentThread().interrupt();
                     throw new NovelProblem("AUDIO_INTERRUPTED", 503);
                 }
@@ -208,28 +215,35 @@ public class NovelAudioService {
         boolean providerStarted = false;
         try {
             // DB lease와 짧은 쓰기 트랜잭션만 사용하며 유료 AI 호출 동안 connection을 잡지 않는다.
-            var running = scheduler.submitImmediate("audio", 2,
-                    System.nanoTime() + TimeUnit.SECONDS.toNanos(30), ignored -> {},
+            var running = scheduler.submitImmediate("audio", 2, System.nanoTime() + TimeUnit.SECONDS.toNanos(30),
+                    ignored
+                    -> {},
                     () -> ai.synthesize(traceId, UUID.randomUUID().toString(), spoken, language, 30_000));
             providerStarted = true;
             NovelPorts.Speech speech;
-            try { speech = running.get(30, TimeUnit.SECONDS); }
-            catch (Exception failure) {
+            try {
+                speech = running.get(30, TimeUnit.SECONDS);
+            } catch (Exception failure) {
                 running.cancel(true);
-                if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
+                if (failure instanceof InterruptedException)
+                    Thread.currentThread().interrupt();
                 throw new NovelProblem("AUDIO_GENERATION_FAILED", 502);
             }
             return persistGenerated(owner, speech);
         } catch (NovelProblem failure) {
-            if (assets.find(owner.identity()).map(Asset::state).filter("GENERATING"::equals).isPresent()) {
-                if (providerStarted) assets.failed(owner, "UNCERTAIN");
-                else assets.abandon(owner);
+            if (assets.find(owner.identity()).map(Asset::state).filter("GENERATING" ::equals).isPresent()) {
+                if (providerStarted)
+                    assets.failed(owner, "UNCERTAIN");
+                else
+                    assets.abandon(owner);
             }
             throw failure;
         } catch (Exception failure) {
-            if (assets.find(owner.identity()).map(Asset::state).filter("GENERATING"::equals).isPresent()) {
-                if (providerStarted) assets.failed(owner, "UNCERTAIN");
-                else assets.abandon(owner);
+            if (assets.find(owner.identity()).map(Asset::state).filter("GENERATING" ::equals).isPresent()) {
+                if (providerStarted)
+                    assets.failed(owner, "UNCERTAIN");
+                else
+                    assets.abandon(owner);
             }
             throw new NovelProblem("AUDIO_GENERATION_FAILED", 502);
         } finally {
@@ -239,72 +253,81 @@ public class NovelAudioService {
 
     private Obtained persistGenerated(Asset owner, NovelPorts.Speech speech) {
         // provider 응답을 받은 뒤에만 사용자 잠금을 얻는다. spool/객체/READY 확정은 삭제 접수와 직렬화한다.
-        return assets.withActiveActor(owner.actor(), () -> {
-            try {
-                byte[] bytes = decode(speech);
-                String checksum = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-                String objectKey = objectKey(owner);
-                Path spool = spool(owner);
+        return assets
+                .withActiveActor(owner.actor(),
+                        () -> {
+                            try {
+                                byte[] bytes = decode(speech);
+                                String checksum =
+                                        HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+                                String objectKey = objectKey(owner);
+                                Path spool = spool(owner);
 
-                // 합성된 동일 바이트를 디스크에 먼저 고정해 업로드 실패 시 provider를 반복하지 않는다.
-                reserveSpool(bytes.length);
-                Files.write(spool, bytes, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
-                Asset uploading = assets.uploading(owner, objectKey, checksum, bytes.length,
-                        speech.contentType(), speech.durationSeconds(), LEASE_MILLIS);
-                try {
-                    putWithDurableIntent(uploading, spool);
-                    verifyObject(uploading);
-                } catch (RuntimeException failure) {
-                    assets.failed(uploading, "UPLOAD_FAILED");
-                    throw failure;
-                }
-                assets.ready(uploading);
-                Files.deleteIfExists(spool);
-                return new Persisted(read(assets.find(owner.identity()).orElseThrow(), "MISS"), null);
-            } catch (NovelProblem failure) {
-                // 저장 실패 상태를 commit한 뒤 호출자에게 오류를 돌려 같은 바이트의 업로드 복구를 유지한다.
-                return new Persisted(null, failure);
-            } catch (org.springframework.dao.DataAccessException failure) {
-                throw failure;
-            } catch (Exception failure) {
-                return new Persisted(null, new NovelProblem("AUDIO_STORAGE_UNAVAILABLE", 503, true, 1000));
-            }
-        }).requireValue();
+                                // 합성된 동일 바이트를 디스크에 먼저 고정해 업로드 실패 시 provider를 반복하지 않는다.
+                                reserveSpool(bytes.length);
+                                Files.write(spool, bytes, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+                                Asset uploading = assets.uploading(owner, objectKey, checksum, bytes.length,
+                                        speech.contentType(), speech.durationSeconds(), LEASE_MILLIS);
+                                try {
+                                    putWithDurableIntent(uploading, spool);
+                                    verifyObject(uploading);
+                                } catch (RuntimeException failure) {
+                                    assets.failed(uploading, "UPLOAD_FAILED");
+                                    throw failure;
+                                }
+                                assets.ready(uploading);
+                                Files.deleteIfExists(spool);
+                                return new Persisted(read(assets.find(owner.identity()).orElseThrow(), "MISS"), null);
+                            } catch (NovelProblem failure) {
+                                // 저장 실패 상태를 commit한 뒤 호출자에게 오류를 돌려 같은 바이트의 업로드 복구를 유지한다.
+                                return new Persisted(null, failure);
+                            } catch (org.springframework.dao.DataAccessException failure) {
+                                throw failure;
+                            } catch (Exception failure) {
+                                return new Persisted(
+                                        null, new NovelProblem("AUDIO_STORAGE_UNAVAILABLE", 503, true, 1000));
+                            }
+                        })
+                .requireValue();
     }
 
     private Obtained recoverUpload(Asset owner) {
-        return assets.withActiveActor(owner.actor(), () -> {
-            Path spool = spool(owner);
-            try {
-                // DB 확정 실패 뒤 R2 객체가 이미 있다면 HEAD의 크기/실제 저장 checksum으로 같은 자산을 확정한다.
-                try {
-                    verifyObject(owner);
-                } catch (NovelAudioObjectStore.Missing missing) {
-                    if (!Files.isRegularFile(spool) || Files.size(spool) != owner.bytes()
-                            || !checksum(Files.readAllBytes(spool)).equals(owner.checksum())) {
-                        assets.failed(owner, "UNCERTAIN");
-                        throw new NovelProblem("AUDIO_BYTES_UNAVAILABLE", 409);
-                    }
-                    putWithDurableIntent(owner, spool);
-                    verifyObject(owner);
-                }
-                assets.ready(owner);
-                Files.deleteIfExists(spool);
-                return new Persisted(read(assets.find(owner.identity()).orElseThrow(), "RECOVERED"), null);
-            } catch (NovelProblem failure) {
-                return new Persisted(null, failure);
-            } catch (org.springframework.dao.DataAccessException failure) {
-                throw failure;
-            } catch (Exception failure) {
-                return new Persisted(null, new NovelProblem("AUDIO_STORAGE_UNAVAILABLE", 503, true, 1000));
-            }
-        }).requireValue();
+        return assets
+                .withActiveActor(owner.actor(),
+                        () -> {
+                            Path spool = spool(owner);
+                            try {
+                                // DB 확정 실패 뒤 R2 객체가 이미 있다면 HEAD의 크기/실제 저장 checksum으로 같은 자산을 확정한다.
+                                try {
+                                    verifyObject(owner);
+                                } catch (NovelAudioObjectStore.Missing missing) {
+                                    if (!Files.isRegularFile(spool) || Files.size(spool) != owner.bytes()
+                                            || !checksum(Files.readAllBytes(spool)).equals(owner.checksum())) {
+                                        assets.failed(owner, "UNCERTAIN");
+                                        throw new NovelProblem("AUDIO_BYTES_UNAVAILABLE", 409);
+                                    }
+                                    putWithDurableIntent(owner, spool);
+                                    verifyObject(owner);
+                                }
+                                assets.ready(owner);
+                                Files.deleteIfExists(spool);
+                                return new Persisted(
+                                        read(assets.find(owner.identity()).orElseThrow(), "RECOVERED"), null);
+                            } catch (NovelProblem failure) {
+                                return new Persisted(null, failure);
+                            } catch (org.springframework.dao.DataAccessException failure) {
+                                throw failure;
+                            } catch (Exception failure) {
+                                return new Persisted(
+                                        null, new NovelProblem("AUDIO_STORAGE_UNAVAILABLE", 503, true, 1000));
+                            }
+                        })
+                .requireValue();
     }
 
     private void verifyObject(Asset asset) {
         var info = objects.head(asset.objectKey());
-        if (asset.bytes() == null || info.bytes() != asset.bytes()
-                || !asset.checksum().equals(info.sha256())
+        if (asset.bytes() == null || info.bytes() != asset.bytes() || !asset.checksum().equals(info.sha256())
                 || !asset.contentType().equals(info.contentType())) {
             throw new NovelProblem("AUDIO_OBJECT_INVALID", 502);
         }
@@ -334,7 +357,8 @@ public class NovelAudioService {
 
     private Path spool(Asset asset) {
         Path path = spoolRoot.resolve(asset.identity() + "-" + asset.attempts() + ".wav").normalize();
-        if (!path.startsWith(spoolRoot)) throw new NovelProblem("AUDIO_SPOOL_INVALID", 503);
+        if (!path.startsWith(spoolRoot))
+            throw new NovelProblem("AUDIO_SPOOL_INVALID", 503);
         return path;
     }
 
@@ -343,7 +367,8 @@ public class NovelAudioService {
         try (var entries = Files.list(spoolRoot)) {
             var files = entries.filter(Files::isRegularFile).toList();
             long bytes = 0;
-            for (Path file : files) bytes += Files.size(file);
+            for (Path file : files)
+                bytes += Files.size(file);
             if (files.size() >= 128 || bytes + newBytes > 32_000_000L) {
                 throw new NovelProblem("AUDIO_SPOOL_FULL", 503);
             }
@@ -360,9 +385,9 @@ public class NovelAudioService {
                 throw new NovelProblem("AUDIO_RESPONSE_INVALID", 502);
             }
             byte[] data = Base64.getDecoder().decode(speech.audioBase64());
-            if (data.length < 44 || data.length > MAX_AUDIO_BYTES || data[0] != 'R' || data[1] != 'I'
-                    || data[2] != 'F' || data[3] != 'F' || data[8] != 'W' || data[9] != 'A'
-                    || data[10] != 'V' || data[11] != 'E') throw new NovelProblem("AUDIO_RESPONSE_INVALID", 502);
+            if (data.length < 44 || data.length > MAX_AUDIO_BYTES || data[0] != 'R' || data[1] != 'I' || data[2] != 'F'
+                    || data[3] != 'F' || data[8] != 'W' || data[9] != 'A' || data[10] != 'V' || data[11] != 'E')
+                throw new NovelProblem("AUDIO_RESPONSE_INVALID", 502);
             return data;
         } catch (IllegalArgumentException failure) {
             throw new NovelProblem("AUDIO_RESPONSE_INVALID", 502);
@@ -370,8 +395,11 @@ public class NovelAudioService {
     }
 
     private static String checksum(byte[] data) {
-        try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data)); }
-        catch (Exception failure) { throw new IllegalStateException("SHA256_UNAVAILABLE"); }
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));
+        } catch (Exception failure) {
+            throw new IllegalStateException("SHA256_UNAVAILABLE");
+        }
     }
 
     public static List<String> speechParts(String text) {
@@ -393,7 +421,8 @@ public class NovelAudioService {
             offset += Character.charCount(codepoint);
         }
         parts.add(text.substring(start));
-        if (parts.size() > 32) throw new NovelProblem("AUDIO_PART_LIMIT", 413);
+        if (parts.size() > 32)
+            throw new NovelProblem("AUDIO_PART_LIMIT", 413);
         return parts;
     }
 }

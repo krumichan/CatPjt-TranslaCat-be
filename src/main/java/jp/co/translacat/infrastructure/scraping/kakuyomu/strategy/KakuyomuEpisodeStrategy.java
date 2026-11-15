@@ -32,16 +32,25 @@ public class KakuyomuEpisodeStrategy implements EpisodeStrategy {
         String sourceUrl = KakuyomuUrls.requirePublic(url).toString();
         String workId = KakuyomuUrls.workId(sourceUrl);
         String episodeId = KakuyomuUrls.episodeId(sourceUrl, workId);
-        var episode = kakuyomuParser.parseEpisode(Jsoup.parse(legacyApiClientFacade.get(sourceUrl, String.class), sourceUrl), workId, episodeId);
+        var episode = kakuyomuParser.parseEpisode(
+                Jsoup.parse(legacyApiClientFacade.get(sourceUrl, String.class), sourceUrl), workId, episodeId);
 
         // 기존 저장 경로에 정확한 작가 ID와 전체 작품 정보를 제공한다. 추가 AI 호출은 없다.
         String workUrl = KakuyomuUrls.workUrl(workId);
-        var work = kakuyomuParser.parseNovelDetail(Jsoup.parse(legacyApiClientFacade.get(workUrl, String.class), workUrl), workId);
-        var current = work.getRawEpisodeContexts().stream().filter(item -> episodeId.equals(item.getIdentifier())).toList();
-        return EpisodeDetailContext.builder().episodePagerContext(episode.getEpisodePagerContext())
+        var work = kakuyomuParser.parseNovelDetail(
+                Jsoup.parse(legacyApiClientFacade.get(workUrl, String.class), workUrl), workId);
+        var current =
+                work.getRawEpisodeContexts().stream().filter(item -> episodeId.equals(item.getIdentifier())).toList();
+        return EpisodeDetailContext.builder()
+                .episodePagerContext(episode.getEpisodePagerContext())
                 .episodeContentContexts(episode.getEpisodeContentContexts())
-                .novelDetailContext(NovelDetailContext.builder().novelContext(work.getNovelContext())
-                        .pageNumberContext(work.getPageNumberContext())
-                        .rawEpisodeContexts(current.isEmpty() ? episode.getNovelDetailContext().getRawEpisodeContexts() : current).build()).build();
+                .novelDetailContext(NovelDetailContext.builder()
+                                .novelContext(work.getNovelContext())
+                                .pageNumberContext(work.getPageNumberContext())
+                                .rawEpisodeContexts(current.isEmpty()
+                                                ? episode.getNovelDetailContext().getRawEpisodeContexts()
+                                                : current)
+                                .build())
+                .build();
     }
 }

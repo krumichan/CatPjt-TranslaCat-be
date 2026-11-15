@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 @Getter
 @Component
 public class VoicePolicyProperties {
-
     private final long maxSessionMs;
     private final long dailyLimitMs;
     private final int maxAudioFrameBytes;
@@ -27,42 +26,23 @@ public class VoicePolicyProperties {
     private final double languageSwitchConfidence;
     private final int languageSwitchConsecutiveCount;
 
-    public VoicePolicyProperties(
-            @Value("${translacat.voice.max-session-ms:3600000}")
-            long maxSessionMs,
-            @Value("${translacat.voice.daily-limit-ms:7200000}")
-            long dailyLimitMs,
-            @Value("${translacat.voice.max-audio-frame-bytes:6400}")
-            int maxAudioFrameBytes,
-            @Value("${translacat.voice.max-relay-buffered-audio-ms:3000}")
-            int maxRelayBufferedAudioMs,
-            @Value("${translacat.voice.frame-duration-ms:100}")
-            int frameDurationMs,
-            @Value("${translacat.voice.websocket-ticket-ttl-seconds:30}")
-            int websocketTicketTtlSeconds,
-            @Value("${translacat.voice.ai-connect-timeout-ms:3000}")
-            int aiConnectTimeoutMs,
-            @Value("${translacat.voice.ai-circuit-open-seconds:10}")
-            int aiCircuitOpenSeconds,
-            @Value("${translacat.voice.ai-circuit-failure-threshold:3}")
-            int aiCircuitFailureThreshold,
-            @Value("${translacat.voice.session-complete-timeout-ms:25000}")
-            int sessionCompleteTimeoutMs,
-            @Value("${translacat.voice.stale-session-minutes:90}")
-            int staleSessionMinutes,
-            @Value("${translacat.voice.endpointing-silence-ms:300}")
-            int endpointingSilenceMs,
-            @Value("${translacat.voice.min-utterance-duration-ms:250}")
-            int minUtteranceDurationMs,
-            @Value("${translacat.voice.max-utterance-duration-ms:10000}")
-            int maxUtteranceDurationMs,
-            @Value("${translacat.voice.language-lock-confidence:0.80}")
-            double languageLockConfidence,
-            @Value("${translacat.voice.language-switch-confidence:0.85}")
-            double languageSwitchConfidence,
-            @Value("${translacat.voice.language-switch-consecutive-count:3}")
-            int languageSwitchConsecutiveCount
-    ) {
+    public VoicePolicyProperties(@Value("${translacat.voice.max-session-ms:3600000}") long maxSessionMs,
+            @Value("${translacat.voice.daily-limit-ms:7200000}") long dailyLimitMs,
+            @Value("${translacat.voice.max-audio-frame-bytes:6400}") int maxAudioFrameBytes,
+            @Value("${translacat.voice.max-relay-buffered-audio-ms:3000}") int maxRelayBufferedAudioMs,
+            @Value("${translacat.voice.frame-duration-ms:100}") int frameDurationMs,
+            @Value("${translacat.voice.websocket-ticket-ttl-seconds:30}") int websocketTicketTtlSeconds,
+            @Value("${translacat.voice.ai-connect-timeout-ms:3000}") int aiConnectTimeoutMs,
+            @Value("${translacat.voice.ai-circuit-open-seconds:10}") int aiCircuitOpenSeconds,
+            @Value("${translacat.voice.ai-circuit-failure-threshold:3}") int aiCircuitFailureThreshold,
+            @Value("${translacat.voice.session-complete-timeout-ms:25000}") int sessionCompleteTimeoutMs,
+            @Value("${translacat.voice.stale-session-minutes:90}") int staleSessionMinutes,
+            @Value("${translacat.voice.endpointing-silence-ms:300}") int endpointingSilenceMs,
+            @Value("${translacat.voice.min-utterance-duration-ms:250}") int minUtteranceDurationMs,
+            @Value("${translacat.voice.max-utterance-duration-ms:10000}") int maxUtteranceDurationMs,
+            @Value("${translacat.voice.language-lock-confidence:0.80}") double languageLockConfidence,
+            @Value("${translacat.voice.language-switch-confidence:0.85}") double languageSwitchConfidence,
+            @Value("${translacat.voice.language-switch-consecutive-count:3}") int languageSwitchConsecutiveCount) {
         this.maxSessionMs = maxSessionMs;
         this.dailyLimitMs = dailyLimitMs;
         this.maxAudioFrameBytes = maxAudioFrameBytes;

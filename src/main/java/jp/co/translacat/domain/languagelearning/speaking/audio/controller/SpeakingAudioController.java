@@ -20,48 +20,27 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/language-learning/speaking/sessions/{sessionId}")
 @RequiredArgsConstructor
 public class SpeakingAudioController {
-
     private final SpeakingGateway gateway;
 
     @GetMapping("/audio/opening")
     public ResponseEntity<byte[]> getOpening(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId
-    ) {
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId) {
         return response(
-                gateway.audio(
-                        SecurityUtil.getLoginUserId(principal),
-                        "/sessions/" + sessionId + "/audio/opening"
-                )
-        );
+                gateway.audio(SecurityUtil.getLoginUserId(principal), "/sessions/" + sessionId + "/audio/opening"));
     }
 
     @GetMapping("/turns/{turnId}/audio/user")
     public ResponseEntity<byte[]> getUser(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId,
-            @PathVariable Long turnId
-    ) {
-        return response(
-                gateway.audio(
-                        SecurityUtil.getLoginUserId(principal),
-                        "/sessions/" + sessionId + "/turns/" + turnId + "/audio/user"
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId, @PathVariable Long turnId) {
+        return response(gateway.audio(
+                SecurityUtil.getLoginUserId(principal), "/sessions/" + sessionId + "/turns/" + turnId + "/audio/user"));
     }
 
     @GetMapping("/turns/{turnId}/audio")
     public ResponseEntity<byte[]> getAssistant(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId,
-            @PathVariable Long turnId
-    ) {
-        return response(
-                gateway.audio(
-                        SecurityUtil.getLoginUserId(principal),
-                        "/sessions/" + sessionId + "/turns/" + turnId + "/audio"
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId, @PathVariable Long turnId) {
+        return response(gateway.audio(
+                SecurityUtil.getLoginUserId(principal), "/sessions/" + sessionId + "/turns/" + turnId + "/audio"));
     }
 
     private ResponseEntity<byte[]> response(SpeakingAudioObject audio) {
@@ -71,9 +50,6 @@ public class SpeakingAudioController {
         } catch (Exception e) {
             mediaType = MediaType.APPLICATION_OCTET_STREAM;
         }
-        return ResponseEntity.ok()
-                .cacheControl(CacheControl.noStore())
-                .contentType(mediaType)
-                .body(audio.bytes());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).contentType(mediaType).body(audio.bytes());
     }
 }

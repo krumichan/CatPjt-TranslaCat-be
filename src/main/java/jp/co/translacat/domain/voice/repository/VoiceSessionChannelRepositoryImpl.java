@@ -15,26 +15,17 @@ import static jp.co.translacat.domain.voice.entity.QVoiceSessionChannel.voiceSes
 
 @Repository
 @RequiredArgsConstructor
-public class VoiceSessionChannelRepositoryImpl
-        implements VoiceSessionChannelRepositoryCustom {
-
+public class VoiceSessionChannelRepositoryImpl implements VoiceSessionChannelRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Optional<VoiceSessionChannel> findOwnedForUpdate(
-            String sessionId,
-            VoiceChannel channel,
-            Long userId
-    ) {
-        VoiceSessionChannel result = queryFactory
-                .selectFrom(voiceSessionChannel)
-                .where(
-                        voiceSessionChannel.session.id.eq(sessionId),
-                        voiceSessionChannel.channel.eq(channel),
-                        voiceSessionChannel.session.user.id.eq(userId)
-                )
-                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
-                .fetchOne();
+    public Optional<VoiceSessionChannel> findOwnedForUpdate(String sessionId, VoiceChannel channel, Long userId) {
+        VoiceSessionChannel result =
+                queryFactory.selectFrom(voiceSessionChannel)
+                        .where(voiceSessionChannel.session.id.eq(sessionId), voiceSessionChannel.channel.eq(channel),
+                                voiceSessionChannel.session.user.id.eq(userId))
+                        .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                        .fetchOne();
 
         return Optional.ofNullable(result);
     }

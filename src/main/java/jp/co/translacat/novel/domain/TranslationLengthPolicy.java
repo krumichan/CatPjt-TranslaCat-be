@@ -6,12 +6,14 @@ public final class TranslationLengthPolicy {
     public static final String PROFILE = "gpt-6.1-sol|sol-6.1-low-v1|2026-10-04.1|low|32768|default";
 
     public record Resolution(String sourceRevision, TranslationOptions options, int sourceCodePoints,
-                             String policyVersion, String band) {}
+            String policyVersion, String band) {}
 
-    private TranslationLengthPolicy() {}
+    private TranslationLengthPolicy() {
+    }
 
     public static Resolution resolve(SourceEpisode source, TranslationOptions base) {
-        int size = source.segments().stream().mapToInt(segment -> SourceText.eligibleCodePoints(segment.plainJa())).sum();
+        int size =
+                source.segments().stream().mapToInt(segment -> SourceText.eligibleCodePoints(segment.plainJa())).sum();
         if (base.lengthPolicy() == TranslationOptions.LengthPolicy.FIXED) {
             return new Resolution(source.revision(), base, size, "fixed-v1", "FIXED");
         }

@@ -38,27 +38,24 @@ public class EpisodeSafeSaver {
         List<Episode> processedList = new ArrayList<>();
 
         // 에피소드 존재 여부 확인.
-        List<Episode> existingEpisodes = episodeRepository
-                .findAllByNovelIdAndIdentifierInOrderByIdentifierAsc(
-                        novel.getId(), contextList.stream().map(RawEpisodeContext::getIdentifier).toList());
-        Map<String, Episode> existingEpisodeMap = existingEpisodes.stream()
-                .collect(Collectors.toMap(Episode::getIdentifier, r -> r, (oldValue, newValue) -> oldValue));
+        List<Episode> existingEpisodes = episodeRepository.findAllByNovelIdAndIdentifierInOrderByIdentifierAsc(
+                novel.getId(), contextList.stream().map(RawEpisodeContext::getIdentifier).toList());
+        Map<String, Episode> existingEpisodeMap = existingEpisodes.stream().collect(
+                Collectors.toMap(Episode::getIdentifier, r -> r, (oldValue, newValue) -> oldValue));
 
         for (RawEpisodeContext context : contextList) {
             Episode maybeEpisode = existingEpisodeMap.get(context.getIdentifier());
 
             if (!Objects.isNull(maybeEpisode)) {
                 // [UPDATE] 이미 있다면 가져와서 정보 갱신
-                maybeEpisode.updateIfChanged(novel,
-                        context.getTitle().getRawJa(), context.getTitle().getJa(), context.getTitle().getKo());
+                maybeEpisode.updateIfChanged(
+                        novel, context.getTitle().getRawJa(), context.getTitle().getJa(), context.getTitle().getKo());
                 // 변경이 없는 캐시 적중도 입력에 대응하는 회차를 반드시 반환한다.
                 processedList.add(maybeEpisode);
             } else {
                 // [INSERT] 없다면 새로 생성
-                processedList.add(this.episodeRepository.save(
-                        Episode.create(novel, context.getIdentifier(),
-                                context.getTitle().getRawJa(), context.getTitle().getJa(),
-                                context.getTitle().getKo())));
+                processedList.add(this.episodeRepository.save(Episode.create(novel, context.getIdentifier(),
+                        context.getTitle().getRawJa(), context.getTitle().getJa(), context.getTitle().getKo())));
             }
         }
 

@@ -12,86 +12,36 @@ import java.time.LocalDate;
 
 @Entity
 @Getter
-@Table(
-        name = "voice_usage_ledger",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_voice_usage_segment",
-                        columnNames = "segment_id"
-                ),
-                @UniqueConstraint(
-                        name = "uk_voice_usage_idempotency",
-                        columnNames = "idempotency_key"
-                )
+@Table(name = "voice_usage_ledger",
+        uniqueConstraints =
+        {
+            @UniqueConstraint(name = "uk_voice_usage_segment", columnNames = "segment_id")
+            , @UniqueConstraint(name = "uk_voice_usage_idempotency", columnNames = "idempotency_key")
         },
-        indexes = {
-                @Index(
-                        name = "idx_voice_usage_user_date",
-                        columnList = "user_id,usage_date"
-                )
-        }
-)
+        indexes = { @Index(name = "idx_voice_usage_user_date", columnList = "user_id,usage_date") })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class VoiceUsageLedger extends Base {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @ManyToOne(
-            fetch = FetchType.LAZY,
-            optional = false
-    )
-    @JoinColumn(
-            name = "user_id",
-            nullable = false
-    )
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(
-            name = "session_id",
-            nullable = false,
-            length = 36
-    )
-    private String sessionId;
+    @Column(name = "session_id", nullable = false, length = 36) private String sessionId;
 
-    @Column(
-            name = "segment_id",
-            nullable = false
-    )
-    private Long segmentId;
+    @Column(name = "segment_id", nullable = false) private Long segmentId;
 
-    @Column(
-            name = "usage_date",
-            nullable = false
-    )
-    private LocalDate usageDate;
+    @Column(name = "usage_date", nullable = false) private LocalDate usageDate;
 
-    @Column(
-            name = "processed_audio_ms",
-            nullable = false
-    )
-    private long processedAudioMs;
+    @Column(name = "processed_audio_ms", nullable = false) private long processedAudioMs;
 
     @Enumerated(EnumType.STRING)
-    @Column(
-            name = "usage_type",
-            nullable = false,
-            length = 24
-    )
+    @Column(name = "usage_type", nullable = false, length = 24)
     private VoiceUsageType usageType;
 
-    @Column(
-            name = "idempotency_key",
-            nullable = false,
-            length = 160
-    )
-    private String idempotencyKey;
+    @Column(name = "idempotency_key", nullable = false, length = 160) private String idempotencyKey;
 
-    private VoiceUsageLedger(
-            User user,
-            VoiceSegment segment
-    ) {
+    private VoiceUsageLedger(User user, VoiceSegment segment) {
         this.user = user;
         sessionId = segment.getSession().getId();
         segmentId = segment.getId();
@@ -101,13 +51,7 @@ public class VoiceUsageLedger extends Base {
         idempotencyKey = "voice-segment:" + segment.getId();
     }
 
-    public static VoiceUsageLedger create(
-            User user,
-            VoiceSegment segment
-    ) {
-        return new VoiceUsageLedger(
-                user,
-                segment
-        );
+    public static VoiceUsageLedger create(User user, VoiceSegment segment) {
+        return new VoiceUsageLedger(user, segment);
     }
 }

@@ -19,26 +19,28 @@ public class ChatGatewaySecurity {
     @Bean
     @Order(2)
     SecurityFilterChain chatGatewaySecurityFilterChain(HttpSecurity http, ChatGatewayProperties properties,
-                                                       ChatGatewayTarget target, ChatGatewayTokenIssuer issuer,
-                                                       ChatGatewayUserAuthenticator authenticator,
-                                                       @Qualifier(
-                                                               "corsConfigurationSource") CorsConfigurationSource corsConfigurationSource,
-                                                       ApiLoggingFilter logging) throws Exception {
-        return http.securityMatcher("/api/v1/chat/**", "/api/v1/admin/chat/**",
-                        "/api/v1/users/me/chat-language-settings", "/ws/chat", "/ws/chat/**")
+            ChatGatewayTarget target, ChatGatewayTokenIssuer issuer, ChatGatewayUserAuthenticator authenticator,
+            @Qualifier("corsConfigurationSource") CorsConfigurationSource corsConfigurationSource,
+            ApiLoggingFilter logging) throws Exception {
+        return http
+                .securityMatcher("/api/v1/chat/**", "/api/v1/admin/chat/**", "/api/v1/users/me/chat-language-settings",
+                        "/ws/chat", "/ws/chat/**")
                 .csrf(AbstractHttpConfigurer::disable)
                 .requestCache(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/ws/chat", "/ws/chat/**").permitAll()
-                        .requestMatchers("/api/v1/admin/chat/**").hasRole("ADMIN")
-                        .anyRequest().authenticated())
-                .exceptionHandling(errors -> errors
-                        .authenticationEntryPoint((request, response, error) -> response.setStatus(401))
-                        .accessDeniedHandler((request, response, error) -> response.setStatus(403)))
-                .addFilterBefore(new ChatGatewayAuthenticationFilter(authenticator),
-                        UsernamePasswordAuthenticationFilter.class)
+                .authorizeHttpRequests(requests
+                        -> requests.requestMatchers("/ws/chat", "/ws/chat/**")
+                                .permitAll()
+                                .requestMatchers("/api/v1/admin/chat/**")
+                                .hasRole("ADMIN")
+                                .anyRequest()
+                                .authenticated())
+                .exceptionHandling(errors
+                        -> errors.authenticationEntryPoint((request, response, error) -> response.setStatus(401))
+                                .accessDeniedHandler((request, response, error) -> response.setStatus(403)))
+                .addFilterBefore(
+                        new ChatGatewayAuthenticationFilter(authenticator), UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(logging, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(new ChatGatewayForwardingFilter(properties, target, issuer), AuthorizationFilter.class)
                 .build();

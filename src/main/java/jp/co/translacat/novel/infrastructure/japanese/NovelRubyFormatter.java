@@ -29,7 +29,8 @@ public class NovelRubyFormatter {
     }
 
     public String markup(String raw) {
-        if (raw == null || raw.isEmpty()) return raw == null ? "" : raw;
+        if (raw == null || raw.isEmpty())
+            return raw == null ? "" : raw;
         List<SourceEpisode.RubyToken> tokens = tokens(raw);
         StringBuilder result = new StringBuilder(raw.length() + tokens.size() * 30);
         int offset = 0;
@@ -48,16 +49,18 @@ public class NovelRubyFormatter {
     }
 
     public List<SourceEpisode.RubyToken> tokens(String raw, List<SourceEpisode.RubyToken> authored) {
-        if (raw == null || raw.isEmpty()) return List.of();
-        if (authored == null || authored.isEmpty()) return tokens(raw);
+        if (raw == null || raw.isEmpty())
+            return List.of();
+        if (authored == null || authored.isEmpty())
+            return tokens(raw);
 
         // 출처가 직접 지정한 발음은 유지하고 빈 구간만 Sudachi로 보충한다.
         List<SourceEpisode.RubyToken> result = new ArrayList<>();
         int offset = 0;
         for (var token : authored) {
             if (token == null || token.startOffset() < offset || token.endOffset() > raw.length()
-                    || token.endOffset() <= token.startOffset() || token.reading() == null
-                    || token.reading().isEmpty() || token.reading().length() > 500
+                    || token.endOffset() <= token.startOffset() || token.reading() == null || token.reading().isEmpty()
+                    || token.reading().length() > 500
                     || !raw.substring(token.startOffset(), token.endOffset()).equals(token.text())) {
                 return tokens(raw);
             }
@@ -70,19 +73,23 @@ public class NovelRubyFormatter {
     }
 
     public List<SourceEpisode.RubyToken> tokens(String raw) {
-        if (raw == null || raw.isEmpty()) return List.of();
+        if (raw == null || raw.isEmpty())
+            return List.of();
         CacheKey key = new CacheKey(processor.dictionaryRevision(), raw);
         synchronized (cache) {
             Cached cached = cache.get(key);
-            if (cached != null) return cached.tokens();
+            if (cached != null)
+                return cached.tokens();
         }
 
         List<SourceEpisode.RubyToken> generated = new ArrayList<>();
         appendGap(generated, raw, 0);
-        List<SourceEpisode.RubyToken> result = generated.size() <= MAX_RESPONSE_TOKENS
-                ? List.copyOf(generated) : List.of();
-        int weight = raw.length() + result.stream().mapToInt(token -> 48 + token.text().length() + token.reading().length()).sum();
-        if (weight > MAX_CACHE_WEIGHT || processor.dictionaryRevision() != key.dictionaryRevision()) return result;
+        List<SourceEpisode.RubyToken> result =
+                generated.size() <= MAX_RESPONSE_TOKENS ? List.copyOf(generated) : List.of();
+        int weight = raw.length()
+                + result.stream().mapToInt(token -> 48 + token.text().length() + token.reading().length()).sum();
+        if (weight > MAX_CACHE_WEIGHT || processor.dictionaryRevision() != key.dictionaryRevision())
+            return result;
         synchronized (cache) {
             // 최대 보유량을 넘으면 오래된 화면 표기를 버린다. 원문/번역 저장소에는 영향이 없다.
             while (cacheWeight + weight > MAX_CACHE_WEIGHT && !cache.isEmpty()) {
@@ -99,12 +106,14 @@ public class NovelRubyFormatter {
     }
 
     private void appendGap(List<SourceEpisode.RubyToken> output, String text, int baseOffset) {
-        if (text.isEmpty()) return;
+        if (text.isEmpty())
+            return;
         // 외부 원문 속 HTML처럼 보이는 글자는 Sudachi의 ruby 태그와 절대 섞지 않는다.
         int start = 0;
         for (int i = 0; i <= text.length(); i++) {
             if (i == text.length() || isBoundary(text.charAt(i))) {
-                if (i > start) output.addAll(generated(text.substring(start, i), baseOffset + start));
+                if (i > start)
+                    output.addAll(generated(text.substring(start, i), baseOffset + start));
                 start = i + 1;
             }
         }

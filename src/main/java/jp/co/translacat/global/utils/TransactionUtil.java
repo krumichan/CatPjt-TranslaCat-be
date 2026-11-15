@@ -8,7 +8,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Slf4j
 @UtilityClass
 public class TransactionUtil {
-
     public static void runAfterCompletion(Runnable runnable) {
         registerSync(null, runnable);
     }

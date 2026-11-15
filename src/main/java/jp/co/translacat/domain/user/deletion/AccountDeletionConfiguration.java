@@ -5,4 +5,4 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @EnableConfigurationProperties(AccountDeletionProperties.class)
-class AccountDeletionConfiguration { }
+class AccountDeletionConfiguration {}

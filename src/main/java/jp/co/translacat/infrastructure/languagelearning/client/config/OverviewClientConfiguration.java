@@ -13,8 +13,8 @@ public class OverviewClientConfiguration {
     @Bean
 
     public LanguageLearningOverviewClient languageLearningOverviewClient(
-            @Qualifier("languageLearningRestClient") RestClient client,
-            LanguageLearningInternalJwtProvider jwt, ObjectMapper json) {
+            @Qualifier("languageLearningRestClient") RestClient client, LanguageLearningInternalJwtProvider jwt,
+            ObjectMapper json) {
         return new LanguageLearningOverviewClient(client, jwt, json);
     }
 }

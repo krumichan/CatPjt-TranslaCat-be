@@ -23,20 +23,14 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SupportNotificationService {
-
     private final SupportNotificationRepository notificationRepository;
     private final SupportRecipientRepository recipientRepository;
     private final SupportAccessService accessService;
 
-    public SupportPageResponseDto<NotificationResponseDto> list(
-            Long actorId, boolean unreadOnly, int page, int size
-    ) {
-        return SupportPageResponseDto.from(
-                notificationRepository.search(
-                        actorId, unreadOnly, accessService.page(page, size, Sort.by("id").descending())
-                ),
-                NotificationResponseDto::from
-        );
+    public SupportPageResponseDto<NotificationResponseDto> list(Long actorId, boolean unreadOnly, int page, int size) {
+        return SupportPageResponseDto.from(notificationRepository.search(actorId, unreadOnly,
+                                                   accessService.page(page, size, Sort.by("id").descending())),
+                NotificationResponseDto::from);
     }
 
     public NotificationCountResponseDto unreadCount(Long actorId) {
@@ -74,45 +68,39 @@ public class SupportNotificationService {
     }
 
     @Transactional
-    public void notifyUser(
-            User recipient, Long actorId, SupportNotificationType type, SupportTargetType targetType,
-            Long targetId, Long replyId, String title
-    ) {
+    public void notifyUser(User recipient, Long actorId, SupportNotificationType type, SupportTargetType targetType,
+            Long targetId, Long replyId, String title) {
         if (recipient.getId().equals(actorId)) {
             return;
         }
 
-        notificationRepository.save(
-                SupportNotification.create(recipient, type, targetType, targetId, replyId, title)
-        );
+        notificationRepository.save(SupportNotification.create(recipient, type, targetType, targetId, replyId, title));
     }
 
     @Transactional
-    public void notifySpendingAnalysisCompleted(Long recipientId, Long bookId, Long jobId,
-                                                 LocalDate periodStart, LocalDate periodEndExclusive) {
+    public void notifySpendingAnalysisCompleted(
+            Long recipientId, Long bookId, Long jobId, LocalDate periodStart, LocalDate periodEndExclusive) {
         // 가계부와 하위 작업을 함께 연결하되 알림에는 날짜만 담는다.
         String title = periodStart + " – " + periodEndExclusive.minusDays(1);
-        notificationRepository.save(SupportNotification.create(recipientRepository.findNotificationRecipient(recipientId),
-                SupportNotificationType.SPENDING_ANALYSIS_COMPLETED, SupportTargetType.ACCOUNT_BOOK, bookId, jobId, title));
+        notificationRepository.save(
+                SupportNotification.create(recipientRepository.findNotificationRecipient(recipientId),
+                        SupportNotificationType.SPENDING_ANALYSIS_COMPLETED, SupportTargetType.ACCOUNT_BOOK, bookId,
+                        jobId, title));
     }
 
     @Transactional
     public void notifyAdmins(Long actorId, Long inquiryId, Long replyId, String title) {
         // 문의 접수와 추가 질문은 현재 ADMIN인 운영자에게만 전달한다.
         for (User admin : recipientRepository.findByAuthority(Role.ADMIN)) {
-            notifyUser(
-                    admin, actorId, SupportNotificationType.SUPPORT_INQUIRY,
-                    SupportTargetType.INQUIRY, inquiryId, replyId, title
-            );
+            notifyUser(admin, actorId, SupportNotificationType.SUPPORT_INQUIRY, SupportTargetType.INQUIRY, inquiryId,
+                    replyId, title);
         }
     }
 
     @Transactional
     public void broadcastNotice(Long actorId, Long noticeId, String title) {
         // 전체 사용자 엔티티를 메모리에 올리지 않고 공지 저장과 같은 트랜잭션에서 생성한다.
-        notificationRepository.broadcastNotice(
-                noticeId, title, actorId, LocalDateTime.now(), actorId.toString()
-        );
+        notificationRepository.broadcastNotice(noticeId, title, actorId, LocalDateTime.now(), actorId.toString());
     }
 
     @Transactional

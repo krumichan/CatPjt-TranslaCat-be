@@ -29,11 +29,21 @@ public class VoiceTranslationRetryQueryService {
 
     private final VoiceSegmentRepository segmentRepository;
 
+    /**
+     * 요청자의 발화에서 번역 재시도에 필요한 원문과 언어를 가져온다.
+     *
+     * @param userId 세션 소유자 ID
+     * @param sessionId 발화가 속한 세션 ID
+     * @param segmentId 번역할 발화 ID
+     * @return 원문과 확정한 원본·대상 언어
+     * @throws BusinessException 발화가 없거나 재시도 조건을 충족하지 않는 경우
+     */
     public VoiceTranslationRetryContext prepare(
             Long userId,
             String sessionId,
             Long segmentId
     ) {
+        // 요청자 소유의 세션과 발화가 함께 일치할 때만 가져온다.
         VoiceSegment segment = segmentRepository
                 .findByIdAndSession_IdAndSession_User_Id(
                         segmentId,
@@ -97,6 +107,7 @@ public class VoiceTranslationRetryQueryService {
             );
         }
 
+        // 저장된 원문과 판정에 사용한 언어로 텍스트 번역 문맥을 구성한다.
         return new VoiceTranslationRetryContext(
                 segment.getSourceText(),
                 sourceLanguage,
@@ -104,6 +115,7 @@ public class VoiceTranslationRetryQueryService {
         );
     }
 
+    // 지원하는 기본 언어 코드만 남기고 비어 있거나 미지원이면 null을 반환한다.
     private String normalizeLanguage(String language) {
         if (language == null || language.isBlank()) {
             return null;
@@ -112,6 +124,7 @@ public class VoiceTranslationRetryQueryService {
         return VoicePolicy.SUPPORTED_LANGUAGES.contains(normalized) ? normalized : null;
     }
 
+    // 존재하지 않거나 요청자의 소유가 아닌 발화에 동일한 오류를 사용한다.
     private BusinessException notFound() {
         return new BusinessException(
                 "Voice segment was not found.",

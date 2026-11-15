@@ -23,15 +23,17 @@ public class AccountAuthController {
     }
 
     @PostMapping("/google/start")
-    public ResponseDto<AccountAuthService.IntentResponse> start(@AuthenticationPrincipal UserPrincipal principal,
-                                                                @RequestBody StartGoogleRequest request) {
-        return ResponseUtil.ok(accounts.startGoogle(SecurityUtil.getLoginUserId(principal), request.purpose(), request.currentPassword()));
+    public ResponseDto<AccountAuthService.IntentResponse> start(
+            @AuthenticationPrincipal UserPrincipal principal, @RequestBody StartGoogleRequest request) {
+        return ResponseUtil.ok(accounts.startGoogle(
+                SecurityUtil.getLoginUserId(principal), request.purpose(), request.currentPassword()));
     }
 
     @PostMapping("/google/complete")
-    public ResponseDto<Map<String, Object>> complete(@AuthenticationPrincipal UserPrincipal principal,
-                                                    @RequestBody CompleteGoogleRequest request) {
-        return ResponseUtil.ok(accounts.completeGoogle(SecurityUtil.getLoginUserId(principal), request.intentToken(), request.idToken()));
+    public ResponseDto<Map<String, Object>> complete(
+            @AuthenticationPrincipal UserPrincipal principal, @RequestBody CompleteGoogleRequest request) {
+        return ResponseUtil.ok(accounts.completeGoogle(
+                SecurityUtil.getLoginUserId(principal), request.intentToken(), request.idToken()));
     }
 
     @PostMapping("/email/challenges")
@@ -40,18 +42,16 @@ public class AccountAuthController {
     }
 
     @PostMapping("/password")
-    public ResponseDto<Map<String, Boolean>> addPassword(@AuthenticationPrincipal UserPrincipal principal,
-                                                       @RequestBody AddPasswordRequest request) {
-        accounts.addPassword(SecurityUtil.getLoginUserId(principal), request.password(), request.verificationToken(), request.reauthToken());
+    public ResponseDto<Map<String, Boolean>> addPassword(
+            @AuthenticationPrincipal UserPrincipal principal, @RequestBody AddPasswordRequest request) {
+        accounts.addPassword(SecurityUtil.getLoginUserId(principal), request.password(), request.verificationToken(),
+                request.reauthToken());
         return ResponseUtil.ok(Map.of("success", true));
     }
 
-    public record StartGoogleRequest(GoogleAuthPurpose purpose, String currentPassword) {
-    }
+    public record StartGoogleRequest(GoogleAuthPurpose purpose, String currentPassword) {}
 
-    public record CompleteGoogleRequest(String intentToken, String idToken) {
-    }
+    public record CompleteGoogleRequest(String intentToken, String idToken) {}
 
-    public record AddPasswordRequest(String password, String verificationToken, String reauthToken) {
-    }
+    public record AddPasswordRequest(String password, String verificationToken, String reauthToken) {}
 }

@@ -10,18 +10,15 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface SupportRecipientRepository extends Repository<User, Long> {
-
     @Query("""
             select u from User u
             where lower(u.username) like :query escape '!'
                or lower(u.email) like :query escape '!'
                or lower(u.publicId) like :query escape '!'
             order by u.id
-            """)
-    List<User> search(@Param("query") String query, Pageable pageable);
+            """) List<User> search(@Param("query") String query, Pageable pageable);
 
     List<User> findByAuthority(Role authority);
 
-    @Query("select u from User u where u.id = :id")
-    User findNotificationRecipient(@Param("id") Long id);
+    @Query("select u from User u where u.id = :id") User findNotificationRecipient(@Param("id") Long id);
 }

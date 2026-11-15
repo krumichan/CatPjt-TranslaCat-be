@@ -7,27 +7,17 @@ import lombok.Getter;
 
 @Entity
 @Getter
-@Table(name = "genre", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"platform_id", "identifier"})
-})
+@Table(name = "genre", uniqueConstraints = { @UniqueConstraint(columnNames = {"platform_id", "identifier"}) })
 public class Genre extends BaseAuditable {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "platform_id", nullable = false)
-    private Platform platform;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "platform_id", nullable = false) private Platform platform;
 
-    @Column(length = 50, nullable = false, unique = true)
-    private String identifier;
+    @Column(length = 50, nullable = false, unique = true) private String identifier;
 
-    @Column(length = 200)
-    private String name;
+    @Column(length = 200) private String name;
 
-    @Column(length = 200)
-    private String nameJa;
+    @Column(length = 200) private String nameJa;
 
-    @Column(length = 200)
-    private String nameKo;
+    @Column(length = 200) private String nameKo;
 }

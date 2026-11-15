@@ -31,39 +31,57 @@ public class LanguageLearningSettingsClient {
     private final LanguageLearningInternalJwtProvider jwtProvider;
     private final ObjectMapper objectMapper;
 
-    public LanguageLearningSettingsClient(RestClient restClient, LanguageLearningInternalJwtProvider jwtProvider,
-                                          ObjectMapper objectMapper) {
+    public LanguageLearningSettingsClient(
+            RestClient restClient, LanguageLearningInternalJwtProvider jwtProvider, ObjectMapper objectMapper) {
         this.restClient = restClient;
         this.jwtProvider = jwtProvider;
         // 다른 BE API의 JSON 정책을 변경하지 않는다. 누락된 primitive를 0/false로 받아들이지 않는다.
         this.objectMapper = objectMapper.copy()
-                .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
-                .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
-                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+                                    .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
+                                    .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
+                                    .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     }
 
     public UserSettingResponseDto getUserSettings(Long userId) {
-        return read(() -> restClient.get().uri(USER_SETTINGS_PATH)
-                .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueUserToken(userId)))
-                .retrieve().body(byte[].class), UserSettingResponseDto.class);
+        return read(()
+                            -> restClient.get()
+                                    .uri(USER_SETTINGS_PATH)
+                                    .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueUserToken(userId)))
+                                    .retrieve()
+                                    .body(byte[].class),
+                UserSettingResponseDto.class);
     }
 
     public UserSettingResponseDto updateUserSettings(Long userId, UserSettingUpdateRequestDto request) {
-        return read(() -> restClient.patch().uri(USER_SETTINGS_PATH)
-                .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueUserToken(userId)))
-                .body(request).retrieve().body(byte[].class), UserSettingResponseDto.class);
+        return read(()
+                            -> restClient.patch()
+                                    .uri(USER_SETTINGS_PATH)
+                                    .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueUserToken(userId)))
+                                    .body(request)
+                                    .retrieve()
+                                    .body(byte[].class),
+                UserSettingResponseDto.class);
     }
 
     public AdminSettingResponseDto getAdminSettings(Long adminUserId) {
-        return read(() -> restClient.get().uri(ADMIN_SETTINGS_PATH)
-                .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueAdminToken(adminUserId)))
-                .retrieve().body(byte[].class), AdminSettingResponseDto.class);
+        return read(()
+                            -> restClient.get()
+                                    .uri(ADMIN_SETTINGS_PATH)
+                                    .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueAdminToken(adminUserId)))
+                                    .retrieve()
+                                    .body(byte[].class),
+                AdminSettingResponseDto.class);
     }
 
     public AdminSettingResponseDto updateAdminSettings(Long adminUserId, AdminSettingUpdateRequestDto request) {
-        return read(() -> restClient.patch().uri(ADMIN_SETTINGS_PATH)
-                .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueAdminToken(adminUserId)))
-                .body(request).retrieve().body(byte[].class), AdminSettingResponseDto.class);
+        return read(()
+                            -> restClient.patch()
+                                    .uri(ADMIN_SETTINGS_PATH)
+                                    .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueAdminToken(adminUserId)))
+                                    .body(request)
+                                    .retrieve()
+                                    .body(byte[].class),
+                AdminSettingResponseDto.class);
     }
 
     public ListeningPolicySnapshot getListeningPolicy() {
@@ -71,9 +89,13 @@ public class LanguageLearningSettingsClient {
     }
 
     private <T> T serviceGet(String path, Class<T> type) {
-        return read(() -> restClient.get().uri(SERVICE_SETTINGS_PATH + path)
-                .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueSettingsServiceToken()))
-                .retrieve().body(byte[].class), type);
+        return read(()
+                            -> restClient.get()
+                                    .uri(SERVICE_SETTINGS_PATH + path)
+                                    .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.issueSettingsServiceToken()))
+                                    .retrieve()
+                                    .body(byte[].class),
+                type);
     }
 
     private <T> T read(ClientCall call, Class<T> type) {
@@ -84,7 +106,8 @@ public class LanguageLearningSettingsClient {
             if (bytes.length > 1_048_576)
                 throw failure("LL_SETTINGS_CONTRACT_ERROR", "Language Learning 설정 응답이 너무 큽니다.");
             T value = readResponse(bytes, type);
-            if (value == null) throw failure("LL_EMPTY_RESPONSE", "Language Learning 서비스가 빈 응답을 반환했습니다.");
+            if (value == null)
+                throw failure("LL_EMPTY_RESPONSE", "Language Learning 서비스가 빈 응답을 반환했습니다.");
             validateResponse(value);
             return value;
         } catch (RestClientResponseException e) {
@@ -124,8 +147,8 @@ public class LanguageLearningSettingsClient {
                     || dto.configured() != (dto.originLanguage() != null && dto.learningLanguage() != null)) {
                 throw failure("LL_SETTINGS_CONTRACT_ERROR", "사용자 설정 응답이 유효하지 않습니다.");
             }
-        } else if (value instanceof ListeningPolicySnapshot dto && (dto.profilePolicyVersion() == null
-                || dto.modelConfigVersion() == null)) {
+        } else if (value instanceof ListeningPolicySnapshot dto
+                && (dto.profilePolicyVersion() == null || dto.modelConfigVersion() == null)) {
             throw failure("LL_SETTINGS_CONTRACT_ERROR", "Listening 정책 버전이 없습니다.");
         }
     }
@@ -133,13 +156,14 @@ public class LanguageLearningSettingsClient {
     private LanguageLearningServiceException responseException(RestClientResponseException e) {
         InternalApiErrorDto error = readError(e.getResponseBodyAsByteArray());
         String code = error == null || error.code() == null ? "LL_SERVICE_ERROR" : error.code();
-        String message =
-                error == null || error.message() == null ? "Language Learning 서비스 요청에 실패했습니다." : error.message();
+        String message = error == null || error.message() == null ? "Language Learning 서비스 요청에 실패했습니다."
+                                                                  : error.message();
         return new LanguageLearningServiceException(resolveStatus(e.getStatusCode()), code, message, e);
     }
 
     private InternalApiErrorDto readError(byte[] bytes) {
-        if (bytes == null || bytes.length == 0 || bytes.length > 65536) return null;
+        if (bytes == null || bytes.length == 0 || bytes.length > 65536)
+            return null;
         try {
             return objectMapper.readValue(bytes, InternalApiErrorDto.class);
         } catch (IOException | IllegalArgumentException ignored) {

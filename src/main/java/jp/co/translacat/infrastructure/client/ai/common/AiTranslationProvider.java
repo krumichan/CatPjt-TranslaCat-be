@@ -11,8 +11,8 @@ public interface AiTranslationProvider {
 
     TranslationType getSupportedType();
 
-    default <T extends Translatable> List<T> executeTranslation(List<T> batch, AiRuleType rule,
-                                                                Comparator<T> comparator) {
+    default<T extends Translatable> List<T> executeTranslation(
+            List<T> batch, AiRuleType rule, Comparator<T> comparator) {
         if (comparator != null) {
             batch.sort(comparator);
         }

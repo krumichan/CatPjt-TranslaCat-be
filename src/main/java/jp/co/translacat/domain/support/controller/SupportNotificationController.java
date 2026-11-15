@@ -13,31 +13,22 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/support/notifications")
 public class SupportNotificationController {
-
     private final SupportNotificationService notificationService;
 
     @GetMapping
     public ResponseDto<SupportPageResponseDto<NotificationResponseDto>> list(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(defaultValue = "false") boolean unreadOnly,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
+            @AuthenticationPrincipal UserPrincipal principal, @RequestParam(defaultValue = "false") boolean unreadOnly,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
         return ResponseUtil.ok(notificationService.list(principal.getId(), unreadOnly, page, size));
     }
 
     @GetMapping("/unread-count")
-    public ResponseDto<NotificationCountResponseDto> unreadCount(
-            @AuthenticationPrincipal UserPrincipal principal
-    ) {
+    public ResponseDto<NotificationCountResponseDto> unreadCount(@AuthenticationPrincipal UserPrincipal principal) {
         return ResponseUtil.ok(notificationService.unreadCount(principal.getId()));
     }
 
     @PatchMapping("/{id}/read")
-    public ResponseDto<Boolean> markRead(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long id
-    ) {
+    public ResponseDto<Boolean> markRead(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id) {
         return ResponseUtil.ok(notificationService.markRead(principal.getId(), id));
     }
 

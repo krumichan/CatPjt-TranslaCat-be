@@ -37,11 +37,16 @@ public class GrowthHttpClient {
 
         // 다른 사용자의 응답과 잘못된 본문은 외부 Profile로 반환하지 않는다.
         try {
-            var result = decode(client.post().uri("/internal/v1/language-learning/growth/snapshot")
-                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.issueUserToken(userId))
-                            .contentType(MediaType.APPLICATION_JSON).body(payload).retrieve().body(byte[].class),
+            var result = decode(client.post()
+                                        .uri("/internal/v1/language-learning/growth/snapshot")
+                                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.issueUserToken(userId))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .body(payload)
+                                        .retrieve()
+                                        .body(byte[].class),
                     GrowthSnapshot.class);
-            if (result.userId() != userId) throw invalid();
+            if (result.userId() != userId)
+                throw invalid();
             return result;
         } catch (RestClientResponseException failure) {
             throw readFailure(failure);
@@ -50,23 +55,21 @@ public class GrowthHttpClient {
         }
     }
 
-    public ActivityPage activities(long userId, LearningSource source, LocalDate from,
-                                   LocalDate to, long after) {
+    public ActivityPage activities(long userId, LearningSource source, LocalDate from, LocalDate to, long after) {
         try {
-            var result =
-                    decode(client.get()
-                            .uri(builder -> builder.path("/internal/v1/language-learning/growth/activities")
-                                    .queryParam("source", source == null ? "" : source.name())
-                                    .queryParam("from", from)
-                                    .queryParam("to", to)
-                                    .queryParam("afterId", after)
-                                    .build())
-                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.issueUserToken(userId))
-                            .retrieve()
-                            .body(byte[].class), ActivityPage.class);
-            if (result.userId() != userId
-                    || result.activities() == null
-                    || result.projectionRevision() == null)
+            var result = decode(client.get()
+                                        .uri(builder
+                                                -> builder.path("/internal/v1/language-learning/growth/activities")
+                                                        .queryParam("source", source == null ? "" : source.name())
+                                                        .queryParam("from", from)
+                                                        .queryParam("to", to)
+                                                        .queryParam("afterId", after)
+                                                        .build())
+                                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.issueUserToken(userId))
+                                        .retrieve()
+                                        .body(byte[].class),
+                    ActivityPage.class);
+            if (result.userId() != userId || result.activities() == null || result.projectionRevision() == null)
                 throw invalid();
             return result;
         } catch (RestClientResponseException failure) {
@@ -78,7 +81,8 @@ public class GrowthHttpClient {
 
     private <T> T decode(byte[] bytes, Class<T> type) {
         try {
-            if (bytes == null || bytes.length == 0 || bytes.length > 4_194_304) throw invalid();
+            if (bytes == null || bytes.length == 0 || bytes.length > 4_194_304)
+                throw invalid();
             return Objects.requireNonNull(mapper.readValue(bytes, type));
         } catch (java.io.IOException | NullPointerException failure) {
             throw invalid();
@@ -90,23 +94,24 @@ public class GrowthHttpClient {
         try {
             var body = mapper.readTree(failure.getResponseBodyAsByteArray());
             String value = body.path("code").asText();
-            if ("LEVEL_TEST_REQUIRED".equals(value)) code = value;
-        } catch (Exception ignored) { /* 원문 오류는 로그/외부 응답에 노출하지 않는다. */ }
-        return new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, code,
-                "언어학습 성장 데이터 조회가 실패했습니다.");
+            if ("LEVEL_TEST_REQUIRED".equals(value))
+                code = value;
+        } catch (Exception ignored) { /* 원문 오류는 로그/외부 응답에 노출하지 않는다. */
+        }
+        return new LanguageLearningServiceException(
+                HttpStatus.SERVICE_UNAVAILABLE, code, "언어학습 성장 데이터 조회가 실패했습니다.");
     }
 
     private static LanguageLearningServiceException invalid() {
-        return new LanguageLearningServiceException(HttpStatus.BAD_GATEWAY, "LL_GROWTH_CONTRACT_ERROR",
-                "성장 서비스 응답이 계약과 다릅니다.");
+        return new LanguageLearningServiceException(
+                HttpStatus.BAD_GATEWAY, "LL_GROWTH_CONTRACT_ERROR", "성장 서비스 응답이 계약과 다릅니다.");
     }
 
     private static LanguageLearningServiceException unavailable() {
-        return new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, "LL_GROWTH_UNAVAILABLE",
-                "성장 서비스에 연결할 수 없습니다.");
+        return new LanguageLearningServiceException(
+                HttpStatus.SERVICE_UNAVAILABLE, "LL_GROWTH_UNAVAILABLE", "성장 서비스에 연결할 수 없습니다.");
     }
 
-    public record ActivityPage(long userId,
-                               List<GrowthActivitySnapshot> activities, Long nextAfterId, String projectionRevision) {
-    }
+    public record ActivityPage(
+            long userId, List<GrowthActivitySnapshot> activities, Long nextAfterId, String projectionRevision) {}
 }

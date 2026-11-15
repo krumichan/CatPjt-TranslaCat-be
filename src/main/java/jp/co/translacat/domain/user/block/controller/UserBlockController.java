@@ -17,31 +17,25 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/blocks")
 public class UserBlockController {
-
     private final UserBlockService userBlockService;
 
     @PostMapping
     public ResponseDto<UserBlockResponseDto> blockUser(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestBody UserBlockRequestDto request
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @RequestBody UserBlockRequestDto request) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
         return ResponseUtil.ok(userBlockService.blockUser(loginUserId, request));
     }
 
     @GetMapping
     public ResponseDto<List<UserBlockResponseDto>> getBlockedUsers(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
         return ResponseUtil.ok(userBlockService.getBlockedUsers(loginUserId));
     }
 
     @DeleteMapping("/{blockedUserId}")
     public ResponseDto<Boolean> unblockUser(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long blockedUserId
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long blockedUserId) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
         userBlockService.unblockUser(loginUserId, blockedUserId);
         return ResponseUtil.ok(true);

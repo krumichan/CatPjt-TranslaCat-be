@@ -17,11 +17,13 @@ public class OAuth2AuthenticationService {
     private final UserService userService;
 
     public UserLoginResponseDto loginViaSocial(String providerName, String idToken) {
-        OAuth2Strategy strategy = strategies.stream()
-                .filter(p -> p.getProviderType().name().equalsIgnoreCase(providerName))
-                .findFirst()
-                .orElseThrow(() -> new AuthException(HttpStatus.BAD_REQUEST, "AUTH_PROVIDER_UNSUPPORTED",
-                        "지원하지 않는 로그인 방식입니다."));
+        OAuth2Strategy strategy =
+                strategies.stream()
+                        .filter(p -> p.getProviderType().name().equalsIgnoreCase(providerName))
+                        .findFirst()
+                        .orElseThrow(()
+                                             -> new AuthException(HttpStatus.BAD_REQUEST, "AUTH_PROVIDER_UNSUPPORTED",
+                                                     "지원하지 않는 로그인 방식입니다."));
 
         User user = strategy.authenticate(idToken);
 

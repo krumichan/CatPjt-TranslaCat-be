@@ -23,70 +23,44 @@ public class ReadingVocabularyPracticeController {
     private final VocabularyMasteryQueryService masteryQueryService;
 
     @GetMapping("/today")
-    public ResponseDto<PracticeSetResponseDto> getToday(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam PracticeDomain domain,
-            @RequestParam String mode
-    ) {
-        return ResponseUtil.ok(practiceFacade.getToday(
-                SecurityUtil.getLoginUserId(principal), domain, mode
-        ));
+    public ResponseDto<PracticeSetResponseDto> getToday(@AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam PracticeDomain domain, @RequestParam String mode) {
+        return ResponseUtil.ok(practiceFacade.getToday(SecurityUtil.getLoginUserId(principal), domain, mode));
     }
 
     @GetMapping("/today/status")
     public ResponseDto<List<PracticeTodayModeStatusResponseDto>> getTodayStatus(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam PracticeDomain domain
-    ) {
-        return ResponseUtil.ok(practiceFacade.getTodayStatus(
-                SecurityUtil.getLoginUserId(principal), domain
-        ));
+            @AuthenticationPrincipal UserPrincipal principal, @RequestParam PracticeDomain domain) {
+        return ResponseUtil.ok(practiceFacade.getTodayStatus(SecurityUtil.getLoginUserId(principal), domain));
     }
 
     @GetMapping("/today/availability")
     public ResponseDto<List<PracticeModeAvailabilityResponseDto>> availability(
-            @AuthenticationPrincipal UserPrincipal principal
-    ) {
+            @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseUtil.ok(practiceFacade.availability(SecurityUtil.getLoginUserId(principal)));
     }
 
     @GetMapping("/sets/{setId}")
     public ResponseDto<PracticeSetResponseDto> getSet(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long setId
-    ) {
-        return ResponseUtil.ok(practiceFacade.get(
-                SecurityUtil.getLoginUserId(principal), setId
-        ));
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long setId) {
+        return ResponseUtil.ok(practiceFacade.get(SecurityUtil.getLoginUserId(principal), setId));
     }
 
     @PostMapping("/sets/{setId}/retry-generation")
     public ResponseDto<PracticeSetResponseDto> retryGeneration(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long setId
-    ) {
-        return ResponseUtil.ok(practiceFacade.retryGeneration(
-                SecurityUtil.getLoginUserId(principal), setId
-        ));
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long setId) {
+        return ResponseUtil.ok(practiceFacade.retryGeneration(SecurityUtil.getLoginUserId(principal), setId));
     }
 
     @PostMapping("/questions/{questionId}/answers")
-    public ResponseDto<PracticeAnswerResultResponseDto> submit(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long questionId,
-            @RequestBody PracticeAnswerSubmitRequestDto request
-    ) {
-        return ResponseUtil.ok(practiceFacade.submit(
-                SecurityUtil.getLoginUserId(principal), questionId, request
-        ));
+    public ResponseDto<PracticeAnswerResultResponseDto> submit(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long questionId, @RequestBody PracticeAnswerSubmitRequestDto request) {
+        return ResponseUtil.ok(practiceFacade.submit(SecurityUtil.getLoginUserId(principal), questionId, request));
     }
 
     @GetMapping("/vocabulary/mastery")
     public ResponseDto<VocabularyMasterySummaryResponseDto> vocabularyMastery(
-            @AuthenticationPrincipal UserPrincipal principal
-    ) {
-        return ResponseUtil.ok(masteryQueryService.get(
-                SecurityUtil.getLoginUserId(principal)
-        ));
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseUtil.ok(masteryQueryService.get(SecurityUtil.getLoginUserId(principal)));
     }
 }

@@ -20,81 +20,45 @@ import java.io.IOException;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/users/me")
 public class UserProfileImageController {
-
     private final UserProfileImageService userProfileImageService;
 
-    @PostMapping(
-            value = "/profile-image",
-            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
-    )
+    @PostMapping(value = "/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseDto<UserProfileResponseDto> uploadProfileImage(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestPart("file") MultipartFile file
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @RequestPart("file") MultipartFile file) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
 
-        return ResponseUtil.ok(
-                userProfileImageService.uploadProfileImage(
-                        loginUserId,
-                        toUploadFile(file)
-                )
-        );
+        return ResponseUtil.ok(userProfileImageService.uploadProfileImage(loginUserId, toUploadFile(file)));
     }
 
     @DeleteMapping("/profile-image")
     public ResponseDto<UserProfileResponseDto> deleteProfileImage(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
 
-        return ResponseUtil.ok(
-                userProfileImageService.deleteProfileImage(loginUserId)
-        );
+        return ResponseUtil.ok(userProfileImageService.deleteProfileImage(loginUserId));
     }
 
-    @PostMapping(
-            value = "/profile-background-image",
-            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
-    )
+    @PostMapping(value = "/profile-background-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseDto<UserProfileResponseDto> uploadProfileBackgroundImage(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestPart("file") MultipartFile file
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @RequestPart("file") MultipartFile file) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
 
-        return ResponseUtil.ok(
-                userProfileImageService.uploadProfileBackgroundImage(
-                        loginUserId,
-                        toUploadFile(file)
-                )
-        );
+        return ResponseUtil.ok(userProfileImageService.uploadProfileBackgroundImage(loginUserId, toUploadFile(file)));
     }
 
     @DeleteMapping("/profile-background-image")
     public ResponseDto<UserProfileResponseDto> deleteProfileBackgroundImage(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
 
-        return ResponseUtil.ok(
-                userProfileImageService.deleteProfileBackgroundImage(
-                        loginUserId
-                )
-        );
+        return ResponseUtil.ok(userProfileImageService.deleteProfileBackgroundImage(loginUserId));
     }
 
     private ProfileImageUploadFile toUploadFile(MultipartFile file) {
         try {
-            return new ProfileImageUploadFile(
-                    file.getOriginalFilename(),
-                    file.getContentType(),
-                    file.getBytes()
-            );
+            return new ProfileImageUploadFile(file.getOriginalFilename(), file.getContentType(), file.getBytes());
         } catch (IOException e) {
-            throw new BusinessException(
-                    "이미지 파일을 읽을 수 없습니다.",
-                    "PROFILE_IMAGE_READ_FAILED"
-            );
+            throw new BusinessException("이미지 파일을 읽을 수 없습니다.", "PROFILE_IMAGE_READ_FAILED");
         }
     }
 }

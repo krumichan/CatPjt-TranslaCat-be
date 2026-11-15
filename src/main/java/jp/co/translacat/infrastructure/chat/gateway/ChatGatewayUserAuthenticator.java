@@ -14,19 +14,22 @@ public final class ChatGatewayUserAuthenticator {
     }
 
     public UserPrincipal authenticate(String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() > 8200) return null;
+        if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() > 8200)
+            return null;
 
         try {
             // 기존 서명·email 조회를 사용하되 현재 DB ID까지 대조한다. 공개 JWT 형식/발급은 변경하지 않는다.
             String token = authorization.substring(7);
             String email = jwt.extractUsername(token);
-            if (email == null || email.isBlank()) return null;
+            if (email == null || email.isBlank())
+                return null;
             var current = users.loadUserByUsername(email);
             if (!(current instanceof UserPrincipal principal) || !jwt.validateToken(token, principal)
                     || principal.getId() == null || principal.getId() <= 0
                     || !principal.getId().equals(jwt.getId(token)) || !principal.isEnabled()
                     || !principal.isAccountNonExpired() || !principal.isAccountNonLocked()
-                    || !principal.isCredentialsNonExpired()) return null;
+                    || !principal.isCredentialsNonExpired())
+                return null;
             return principal;
         } catch (Exception ignored) {
             // 원본 토큰, 계정 식별자, 라이브러리 예외를 외부로 노출하지 않는다.
@@ -35,7 +38,8 @@ public final class ChatGatewayUserAuthenticator {
     }
 
     public boolean isSessionActive(String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() > 8200) return false;
+        if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() > 8200)
+            return false;
         try {
             // 연결 이후에도 같은 access의 서명·만료·sid 폐기 상태를 확인한다.
             return jwt.getAccessId(authorization.substring(7)) != null;

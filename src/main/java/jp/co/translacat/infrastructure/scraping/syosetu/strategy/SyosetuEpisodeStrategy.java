@@ -36,7 +36,6 @@ public class SyosetuEpisodeStrategy implements EpisodeStrategy {
 
     @Override
     public EpisodeDetailContext scrape(String url) {
-
         // 1. 원문 데이터 가져오기 및 파싱
         String response = this.legacyApiClientFacade.get(url, String.class);
         Document document = Jsoup.parse(response);
@@ -55,16 +54,12 @@ public class SyosetuEpisodeStrategy implements EpisodeStrategy {
         return EpisodeDetailContext.builder()
                 .episodePagerContext(pager)
                 .novelDetailContext(
-                        NovelDetailContext.builder()
-                                .novelContext(novelContext)
-                                .rawEpisodeContexts(rawEpisodes)
-                                .build())
+                        NovelDetailContext.builder().novelContext(novelContext).rawEpisodeContexts(rawEpisodes).build())
                 .episodeContentContexts(contents)
                 .build();
     }
 
     private NovelContext fetchNovelContextFromHeader(Document document) {
-
         // 소설 작품 정보 URL 취득.
         String detailUrl = this.syosetuParser.extractNovelDetailUrlFromHeader(document);
 

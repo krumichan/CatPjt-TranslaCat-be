@@ -7,7 +7,6 @@ import org.springframework.util.StringUtils;
 @Getter
 @Setter
 public class AccountBookSearchRequestDto {
-
     /**
      * 가계부명 / 설명 검색용 키워드
      */

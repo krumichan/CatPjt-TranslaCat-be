@@ -16,23 +16,17 @@ public class ReceiptRegistrationException extends RuntimeException {
     }
 
     public static ReceiptRegistrationException invalidKey() {
-        return new ReceiptRegistrationException(
-                "RECEIPT_IDEMPOTENCY_KEY_INVALID",
-                HttpStatus.BAD_REQUEST,
+        return new ReceiptRegistrationException("RECEIPT_IDEMPOTENCY_KEY_INVALID", HttpStatus.BAD_REQUEST,
                 "A valid Idempotency-Key header is required.");
     }
 
     public static ReceiptRegistrationException idempotencyConflict() {
-        return new ReceiptRegistrationException(
-                "RECEIPT_IDEMPOTENCY_CONFLICT",
-                HttpStatus.CONFLICT,
+        return new ReceiptRegistrationException("RECEIPT_IDEMPOTENCY_CONFLICT", HttpStatus.CONFLICT,
                 "The idempotency key was already used with a different receipt batch.");
     }
 
     public static ReceiptRegistrationException quoteChanged(String receiptId) {
-        return new ReceiptRegistrationException(
-                "RECEIPT_QUOTE_CHANGED",
-                HttpStatus.CONFLICT,
+        return new ReceiptRegistrationException("RECEIPT_QUOTE_CHANGED", HttpStatus.CONFLICT,
                 "Receipt conversion changed and must be reviewed again: " + receiptId);
     }
 }

@@ -28,7 +28,6 @@ import java.io.IOException;
 @Component
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
-
     private final JWTService jwtService;
 
     private final ApplicationContext context;
@@ -38,12 +37,12 @@ public class JwtFilter extends OncePerRequestFilter {
         // Web AI capability는 LL이 검증하고 Chat JWT는 전용 체인이 검증한다. 계정 JWT 키와 혼용하지 않는다.
         String path = request.getServletPath();
         return path.equals("/api/v1/language-learning/web-ai/external/prompt")
-                || path.equals("/api/v1/language-learning/web-ai/external/results")
-                || path.equals("/internal/v1/chat") || path.startsWith("/internal/v1/chat/")
-                || (path.equals("/ws/chat") || path.startsWith("/ws/chat/")
-                || path.equals("/api/v1/chat") || path.startsWith("/api/v1/chat/")
-                || path.equals("/api/v1/admin/chat") || path.startsWith("/api/v1/admin/chat/")
-                || path.equals("/api/v1/users/me/chat-language-settings"));
+                || path.equals("/api/v1/language-learning/web-ai/external/results") || path.equals("/internal/v1/chat")
+                || path.startsWith("/internal/v1/chat/")
+                || (path.equals("/ws/chat") || path.startsWith("/ws/chat/") || path.equals("/api/v1/chat")
+                        || path.startsWith("/api/v1/chat/") || path.equals("/api/v1/admin/chat")
+                        || path.startsWith("/api/v1/admin/chat/")
+                        || path.equals("/api/v1/users/me/chat-language-settings"));
     }
 
     /**
@@ -54,9 +53,8 @@ public class JwtFilter extends OncePerRequestFilter {
      * @param filterChain 필터 체인
      */
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
-
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
         // 1. Authorization 헤더에서 JWT 토큰 추출
         String authorizationHeader = request.getHeader("Authorization");
         String token = null;

@@ -23,7 +23,6 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AccountBookInvitationService {
-
     private final AccountBookAccessService accountBookAccessService;
     private final AccountBookInvitationRepository accountBookInvitationRepository;
     private final AccountBookMemberRepository accountBookMemberRepository;
@@ -31,14 +30,8 @@ public class AccountBookInvitationService {
 
     @Transactional
     public AccountBookInvitationResponseDto createInvitation(
-            Long accountBookId,
-            AccountBookInvitationCreateRequestDto request,
-            Long inviterUserId
-    ) {
-        AccountBook accountBook = accountBookAccessService.getOwnerAccountBook(
-                accountBookId,
-                inviterUserId
-        );
+            Long accountBookId, AccountBookInvitationCreateRequestDto request, Long inviterUserId) {
+        AccountBook accountBook = accountBookAccessService.getOwnerAccountBook(accountBookId, inviterUserId);
 
         User inviter = userService.getById(inviterUserId);
 
@@ -52,53 +45,33 @@ public class AccountBookInvitationService {
             throw new IllegalArgumentException("자기 자신은 초대할 수 없습니다.");
         }
 
-        boolean alreadyMember = accountBookMemberRepository
-                .existsByAccountBook_IdAndUser_IdAndDeletedFalse(
-                        accountBookId,
-                        invitee.getId()
-                );
+        boolean alreadyMember = accountBookMemberRepository.existsByAccountBook_IdAndUser_IdAndDeletedFalse(
+                accountBookId, invitee.getId());
 
         if (alreadyMember) {
             throw new IllegalArgumentException("이미 가계부 멤버입니다.");
         }
 
-        boolean alreadyPending = accountBookInvitationRepository
-                .existsByAccountBook_IdAndInvitee_IdAndStatus(
-                        accountBookId,
-                        invitee.getId(),
-                        AccountBookInvitationStatus.PENDING
-                );
+        boolean alreadyPending = accountBookInvitationRepository.existsByAccountBook_IdAndInvitee_IdAndStatus(
+                accountBookId, invitee.getId(), AccountBookInvitationStatus.PENDING);
 
         if (alreadyPending) {
             throw new IllegalArgumentException("이미 대기 중인 초대가 있습니다.");
         }
 
-        AccountBookInvitation invitation = AccountBookInvitation.createPending(
-                accountBook,
-                inviter,
-                invitee,
-                AccountBookMemberRole.MEMBER
-        );
+        AccountBookInvitation invitation =
+                AccountBookInvitation.createPending(accountBook, inviter, invitee, AccountBookMemberRole.MEMBER);
 
-        return AccountBookInvitationResponseDto.from(
-                accountBookInvitationRepository.save(invitation)
-        );
+        return AccountBookInvitationResponseDto.from(accountBookInvitationRepository.save(invitation));
     }
 
     @Transactional
-    public Boolean cancelInvitation(
-            Long accountBookId,
-            Long invitationId,
-            Long ownerUserId
-    ) {
-        accountBookAccessService.getOwnerAccountBook(
-                accountBookId,
-                ownerUserId
-        );
+    public Boolean cancelInvitation(Long accountBookId, Long invitationId, Long ownerUserId) {
+        accountBookAccessService.getOwnerAccountBook(accountBookId, ownerUserId);
 
-        AccountBookInvitation invitation = accountBookInvitationRepository
-                .findByIdAndAccountBook_Id(invitationId, accountBookId)
-                .orElseThrow(() -> new IllegalArgumentException("초대를 찾을 수 없습니다."));
+        AccountBookInvitation invitation =
+                accountBookInvitationRepository.findByIdAndAccountBook_Id(invitationId, accountBookId)
+                        .orElseThrow(() -> new IllegalArgumentException("초대를 찾을 수 없습니다."));
 
         invitation.cancel();
 
@@ -106,55 +79,34 @@ public class AccountBookInvitationService {
     }
 
     public List<AccountBookInvitationResponseDto> getPendingInvitationsByAccountBook(
-            Long accountBookId,
-            Long ownerUserId
-    ) {
-        accountBookAccessService.getOwnerAccountBook(
-                accountBookId,
-                ownerUserId
-        );
+            Long accountBookId, Long ownerUserId) {
+        accountBookAccessService.getOwnerAccountBook(accountBookId, ownerUserId);
 
         return accountBookInvitationRepository
-                .findByAccountBook_IdAndStatusOrderByIdDesc(
-                        accountBookId,
-                        AccountBookInvitationStatus.PENDING
-                )
+                .findByAccountBook_IdAndStatusOrderByIdDesc(accountBookId, AccountBookInvitationStatus.PENDING)
                 .stream()
                 .map(AccountBookInvitationResponseDto::from)
                 .toList();
     }
 
-    public List<AccountBookInvitationResponseDto> getReceivedPendingInvitations(
-            Long inviteeUserId
-    ) {
+    public List<AccountBookInvitationResponseDto> getReceivedPendingInvitations(Long inviteeUserId) {
         return accountBookInvitationRepository
-                .findByInvitee_IdAndStatusOrderByIdDesc(
-                        inviteeUserId,
-                        AccountBookInvitationStatus.PENDING
-                )
+                .findByInvitee_IdAndStatusOrderByIdDesc(inviteeUserId, AccountBookInvitationStatus.PENDING)
                 .stream()
                 .map(AccountBookInvitationResponseDto::from)
                 .toList();
     }
 
     @Transactional
-    public AccountBookInvitationResponseDto acceptInvitation(
-            Long invitationId,
-            Long inviteeUserId
-    ) {
-        AccountBookInvitation invitation = accountBookInvitationRepository
-                .findByIdAndInvitee_IdAndStatus(
-                        invitationId,
-                        inviteeUserId,
-                        AccountBookInvitationStatus.PENDING
-                )
-                .orElseThrow(() -> new IllegalArgumentException("수락 가능한 초대를 찾을 수 없습니다."));
+    public AccountBookInvitationResponseDto acceptInvitation(Long invitationId, Long inviteeUserId) {
+        AccountBookInvitation invitation =
+                accountBookInvitationRepository
+                        .findByIdAndInvitee_IdAndStatus(
+                                invitationId, inviteeUserId, AccountBookInvitationStatus.PENDING)
+                        .orElseThrow(() -> new IllegalArgumentException("수락 가능한 초대를 찾을 수 없습니다."));
 
-        Optional<AccountBookMember> existingMember =
-                accountBookMemberRepository.findByAccountBook_IdAndUser_Id(
-                        invitation.getAccountBook().getId(),
-                        inviteeUserId
-                );
+        Optional<AccountBookMember> existingMember = accountBookMemberRepository.findByAccountBook_IdAndUser_Id(
+                invitation.getAccountBook().getId(), inviteeUserId);
 
         if (existingMember.isPresent()) {
             AccountBookMember member = existingMember.get();
@@ -165,13 +117,8 @@ public class AccountBookInvitationService {
 
             member.restoreAsRole(invitation.getRole());
         } else {
-            accountBookMemberRepository.save(
-                    AccountBookMember.createMember(
-                            invitation.getAccountBook(),
-                            invitation.getInvitee(),
-                            invitation.getRole()
-                    )
-            );
+            accountBookMemberRepository.save(AccountBookMember.createMember(
+                    invitation.getAccountBook(), invitation.getInvitee(), invitation.getRole()));
         }
 
         invitation.accept();
@@ -180,17 +127,12 @@ public class AccountBookInvitationService {
     }
 
     @Transactional
-    public AccountBookInvitationResponseDto rejectInvitation(
-            Long invitationId,
-            Long inviteeUserId
-    ) {
-        AccountBookInvitation invitation = accountBookInvitationRepository
-                .findByIdAndInvitee_IdAndStatus(
-                        invitationId,
-                        inviteeUserId,
-                        AccountBookInvitationStatus.PENDING
-                )
-                .orElseThrow(() -> new IllegalArgumentException("거절 가능한 초대를 찾을 수 없습니다."));
+    public AccountBookInvitationResponseDto rejectInvitation(Long invitationId, Long inviteeUserId) {
+        AccountBookInvitation invitation =
+                accountBookInvitationRepository
+                        .findByIdAndInvitee_IdAndStatus(
+                                invitationId, inviteeUserId, AccountBookInvitationStatus.PENDING)
+                        .orElseThrow(() -> new IllegalArgumentException("거절 가능한 초대를 찾을 수 없습니다."));
 
         invitation.reject();
 

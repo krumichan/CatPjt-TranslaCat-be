@@ -23,8 +23,8 @@ public class NovelMetadataQueryService {
     private final NovelPorts.Ai ai;
 
     @Autowired
-    public NovelMetadataQueryService(CatalogStore catalogs, NovelRepository repository,
-                                    RecentViewService recentViews, NovelExecutionSettings settings, NovelPorts.Ai ai) {
+    public NovelMetadataQueryService(CatalogStore catalogs, NovelRepository repository, RecentViewService recentViews,
+            NovelExecutionSettings settings, NovelPorts.Ai ai) {
         this.catalogs = catalogs;
         this.repository = repository;
         this.recentViews = recentViews;
@@ -33,7 +33,8 @@ public class NovelMetadataQueryService {
     }
 
     public NovelPageResponseDto english(NovelPageResponseDto source, String platform, String work, Long actor) {
-        if (actor == null || actor <= 0) return source;
+        if (actor == null || actor <= 0)
+            return source;
         if (!java.util.Set.of("syosetu", "syosyetu", "kakuyomu").contains(platform)) {
             recordVisit(source, platform, work);
             return source;
@@ -48,18 +49,21 @@ public class NovelMetadataQueryService {
         var ready = catalogs.readyMetadata(key.platform(), work, raw, repository.glossary(key, actor, "en").terms(),
                 CatalogCommandService.policyIdentity(settings, ai));
         var result = new NovelPageResponseDto(source.pageInfo(), source.title().forTarget("en", ready.get("title")),
-                source.author().forTarget("en", ready.get("author")), source.synopsis().forTarget("en", ready.get("synopsis")),
-                source.episodes(), source.isShortStory());
+                source.author().forTarget("en", ready.get("author")),
+                source.synopsis().forTarget("en", ready.get("synopsis")), source.episodes(), source.isShortStory());
         recordVisit(result, platform, work);
         return result;
     }
 
     private void recordVisit(NovelPageResponseDto page, String platform, String work) {
-        if (recentViews == null) return;
-        var code = java.util.Set.of("syosetu", "syosyetu").contains(platform)
-                ? PlatformCode.SYOSETU : PlatformCode.fromString(platform);
+        if (recentViews == null)
+            return;
+        var code = java.util.Set.of("syosetu", "syosyetu").contains(platform) ? PlatformCode.SYOSETU
+                                                                              : PlatformCode.fromString(platform);
         // 응답에 사용한 같은 원문과 영어만 기록한다. 기존 한국어 제목은 새 영어 방문으로 덮지 않는다.
-        recentViews.save(code, code != PlatformCode.KAKUYOMU && page.isShortStory() ? RecentViewType.SHORT : RecentViewType.NOVEL,
-                work, null, page.title().getRawJa(), page.title().getJa(), null, page.title().getTranslatedText(), "en");
+        recentViews.save(code,
+                code != PlatformCode.KAKUYOMU && page.isShortStory() ? RecentViewType.SHORT : RecentViewType.NOVEL,
+                work, null, page.title().getRawJa(), page.title().getJa(), null, page.title().getTranslatedText(),
+                "en");
     }
 }

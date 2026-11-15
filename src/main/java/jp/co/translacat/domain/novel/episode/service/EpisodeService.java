@@ -70,14 +70,13 @@ public class EpisodeService {
     }
 
     private Optional<EpisodeStrategy> strategy(PlatformCode platformCode) {
-        return strategies.stream()
-                .filter(s -> s.getPlatformCode() == platformCode)
-                .findFirst();
+        return strategies.stream().filter(s -> s.getPlatformCode() == platformCode).findFirst();
     }
 
     public EpisodeDetailContext scrapeEpisodeDetail(PlatformCode platformCode, String pattern, String... urlArgs) {
-        EpisodeStrategy strategy = this.strategy(platformCode)
-                .orElseThrow(() -> new EntityNotFoundException("지원하지 않는 플랫폼입니다: " + platformCode));
+        EpisodeStrategy strategy =
+                this.strategy(platformCode)
+                        .orElseThrow(() -> new EntityNotFoundException("지원하지 않는 플랫폼입니다: " + platformCode));
 
         String url = strategy.getUrl(pattern, urlArgs);
         return strategy.scrape(url);
@@ -85,10 +84,7 @@ public class EpisodeService {
 
     @Transactional
     public EpisodeResponseDto processEpisodeTranslation(
-            PlatformCode platformCode,
-            Novel existingNovel,
-            EpisodeDetailContext scrappedEpisodeDetail) {
-
+            PlatformCode platformCode, Novel existingNovel, EpisodeDetailContext scrappedEpisodeDetail) {
         // 해당 에피소드 정보가 없으면 저장 후 흭득.
         // ( 타 트랜잭션을 이용하여 즉시 저장 )
         List<RawEpisodeContext> rawEpisodeContexts =
@@ -98,23 +94,19 @@ public class EpisodeService {
         Episode existingEpisode = this.saveAndGetEpisode(existingNovel, maybeEpisode, rawEpisodeContext);
 
         // 최근 본 목록에 기록 남기기
-        this.recentViewService.save(
-                platformCode,
-                RecentViewType.EPISODE,
-                existingNovel.getIdentifier(),
-                existingEpisode.getIdentifier(),
-                existingEpisode.getTitle(),
-                existingEpisode.getTitleJa(),
-                existingEpisode.getTitleKo()
-        );
+        this.recentViewService.save(platformCode, RecentViewType.EPISODE, existingNovel.getIdentifier(),
+                existingEpisode.getIdentifier(), existingEpisode.getTitle(), existingEpisode.getTitleJa(),
+                existingEpisode.getTitleKo());
 
         // 스크랩 한 데이터들 중 DB에 이미 존재하는 데이터 조회.
         // 이미 존재할 경우, 번역된 내용이 있는 것으로, Gemini 요청이 필요 없음.
         List<EpisodeContent> existingEpisodeContents = this.findEpisodeContents(existingEpisode.getId());
         String expectedSnapshot = EpisodeContentSnapshot.fingerprint(existingEpisodeContents);
-        Map<Integer, EpisodeContent> existingEpisodeContentsMap = existingEpisodeContents.stream()
-                .filter(content -> content.getContent() != null && !content.getContent().trim().isEmpty())
-                .collect(Collectors.toMap(EpisodeContent::getSequence, r -> r, (oldValue, newValue) -> oldValue));
+        Map<Integer, EpisodeContent> existingEpisodeContentsMap =
+                existingEpisodeContents.stream()
+                        .filter(content -> content.getContent() != null && !content.getContent().trim().isEmpty())
+                        .collect(Collectors.toMap(
+                                EpisodeContent::getSequence, r -> r, (oldValue, newValue) -> oldValue));
 
         // 번역이 필요한 유닛들.
         List<TranslationUnit> dirtyUnits = new ArrayList<>();
@@ -134,7 +126,6 @@ public class EpisodeService {
             // 원문이 바뀌었거나, DB에 한 번도 저장되지 않은 경우 Gemini 번역 대상으로 추가.
             if (Objects.isNull(existing) || !existing.getContent().equals(ctx.getContent().getRawJa())
                     || existing.isTranslationRequired()) {
-
                 // 번역 필요 데이터 수집.
                 List<TranslationUnit> currentUnits = ctx.getAllUnit();
 
@@ -152,38 +143,33 @@ public class EpisodeService {
 
         // 변경된 조각들만 벌크로 Gemini 번역 요청.
         if (!dirtyUnits.isEmpty()) {
-            this.translationExecutor.execute(
-                    dirtyUnits,
-                    AiRuleType.EPISODE,
-                    TranslationType.AI_SERVER
-            );
+            this.translationExecutor.execute(dirtyUnits, AiRuleType.EPISODE, TranslationType.AI_SERVER);
         }
 
         // 새로 번역된 내용 DB에 저장.
         int existingEpisodeContentsCount = this.countEpisodeContents(existingEpisode.getId());
         if (!dirtyUnits.isEmpty() || existingEpisodeContentsCount != scrappedEpisodeContents.size()) {
             List<EpisodeContent> contents = scrappedEpisodeContents.stream()
-                    .map(ctx -> EpisodeContent.create(
-                            existingEpisode, ctx.getSequence(),
-                            ctx.getContent().getRawJa(), ctx.getContent().getJa(), ctx.getContent().getKo()))
-                    .toList();
-            TransactionUtil.runAfterCommit(
-                    () -> this.episodeContentSafeSaver.saveEpisodeContents(existingEpisode, contents, expectedSnapshot));
+                                                    .map(ctx
+                                                            -> EpisodeContent.create(existingEpisode, ctx.getSequence(),
+                                                                    ctx.getContent().getRawJa(),
+                                                                    ctx.getContent().getJa(), ctx.getContent().getKo()))
+                                                    .toList();
+            TransactionUtil.runAfterCommit(()
+                                                   -> this.episodeContentSafeSaver.saveEpisodeContents(
+                                                           existingEpisode, contents, expectedSnapshot));
         }
 
-        return EpisodeResponseDto.of(
-                scrappedEpisodeDetail.getEpisodePagerContext(),
-                TranslationUnit.of(existingEpisode.getTitle(), existingEpisode.getTitleJa(),
-                        existingEpisode.getTitleKo())
-                , scrappedEpisodeContents, rubyFormatter);
+        return EpisodeResponseDto.of(scrappedEpisodeDetail.getEpisodePagerContext(),
+                TranslationUnit.of(
+                        existingEpisode.getTitle(), existingEpisode.getTitleJa(), existingEpisode.getTitleKo()),
+                scrappedEpisodeContents, rubyFormatter);
     }
 
     public Episode saveAndGetEpisode(Novel novel, Episode episode, RawEpisodeContext ctx) {
-
         // 번역 조각 선별.
-        List<TranslationUnit> dirtyUnits = new ArrayList<>(
-                Objects.isNull(episode) ? ctx.getAllUnit() : ctx.compareAndGetDirtyUnits(episode)
-        );
+        List<TranslationUnit> dirtyUnits =
+                new ArrayList<>(Objects.isNull(episode) ? ctx.getAllUnit() : ctx.compareAndGetDirtyUnits(episode));
 
         // ja ruby 설정.
         dirtyUnits.forEach(unit -> unit.setJa(furiganaProcessor.convertToRuby(unit.getRawJa())));

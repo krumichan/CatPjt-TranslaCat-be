@@ -22,7 +22,6 @@ import java.time.Duration;
 @Configuration
 @EnableConfigurationProperties(LanguageLearningClientProperties.class)
 public class LanguageLearningClientConfiguration {
-
     static void validate(LanguageLearningClientProperties properties) {
         requireText(properties.getUrl(), "language-learning.url");
         URI uri;
@@ -31,16 +30,14 @@ public class LanguageLearningClientConfiguration {
         } catch (IllegalArgumentException e) {
             throw new IllegalStateException("Language Learning URL 형식이 올바르지 않습니다.");
         }
-        if ((!"http".equals(uri.getScheme()) && !"https".equals(uri.getScheme()))
-                || uri.getHost() == null
-                || uri.getUserInfo() != null
-                || uri.getQuery() != null
-                || uri.getFragment() != null
+        if ((!"http".equals(uri.getScheme()) && !"https".equals(uri.getScheme())) || uri.getHost() == null
+                || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null
                 || !(uri.getPath().isEmpty() || "/".equals(uri.getPath()))) {
-            throw new IllegalStateException("Language Learning URL은 자격증명/쿼리/경로가 없는 http(s) 원점이어야 합니다.");
+            throw new IllegalStateException(
+                    "Language Learning URL은 자격증명/쿼리/경로가 없는 http(s) 원점이어야 합니다.");
         }
-        if ("http".equals(uri.getScheme()) && !java.util.Set.of("localhost", "127.0.0.1", "[::1]", "::1")
-                .contains(uri.getHost())) {
+        if ("http".equals(uri.getScheme())
+                && !java.util.Set.of("localhost", "127.0.0.1", "[::1]", "::1").contains(uri.getHost())) {
             throw new IllegalStateException("loopback 이외의 Language Learning URL에는 HTTPS가 필요합니다.");
         }
 
@@ -73,15 +70,15 @@ public class LanguageLearningClientConfiguration {
 
     @Bean("languageLearningRestClient")
 
-    public RestClient languageLearningRestClient(RestClient.Builder builder,
-                                                 LanguageLearningClientProperties properties) {
+    public RestClient languageLearningRestClient(
+            RestClient.Builder builder, LanguageLearningClientProperties properties) {
         validate(properties);
 
         HttpClient httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(properties.getRemote().getConnectTimeoutMs()))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .version(HttpClient.Version.HTTP_1_1)
-                .build();
+                                        .connectTimeout(Duration.ofMillis(properties.getRemote().getConnectTimeoutMs()))
+                                        .followRedirects(HttpClient.Redirect.NEVER)
+                                        .version(HttpClient.Version.HTTP_1_1)
+                                        .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(Duration.ofMillis(properties.getRemote().getReadTimeoutMs()));
 
@@ -110,17 +107,16 @@ public class LanguageLearningClientConfiguration {
     @Bean
 
     public LanguageLearningLevelTestClient languageLearningLevelTestClient(RestClient.Builder builder,
-                                                                           LanguageLearningClientProperties properties,
-                                                                           LanguageLearningInternalJwtProvider jwtProvider,
-                                                                           ObjectMapper mapper) {
+            LanguageLearningClientProperties properties, LanguageLearningInternalJwtProvider jwtProvider,
+            ObjectMapper mapper) {
         validate(properties);
         int timeout = properties.getLevelTest().getReadTimeoutMs();
         if (timeout < 1000 || timeout > 600000)
             throw new IllegalStateException("레벨 테스트 HTTP timeout은 1000~600000ms여야 합니다.");
         var http = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(properties.getRemote().getConnectTimeoutMs()))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
+                           .connectTimeout(Duration.ofMillis(properties.getRemote().getConnectTimeoutMs()))
+                           .followRedirects(HttpClient.Redirect.NEVER)
+                           .build();
         var factory = new JdkClientHttpRequestFactory(http);
         factory.setReadTimeout(Duration.ofMillis(timeout));
         var client = builder.clone().baseUrl(trimTrailingSlash(properties.getUrl())).requestFactory(factory).build();
@@ -130,17 +126,16 @@ public class LanguageLearningClientConfiguration {
     @Bean
 
     public LanguageLearningWritingClient languageLearningWritingClient(RestClient.Builder builder,
-                                                                       LanguageLearningClientProperties properties,
-                                                                       LanguageLearningInternalJwtProvider jwtProvider,
-                                                                       ObjectMapper mapper) {
+            LanguageLearningClientProperties properties, LanguageLearningInternalJwtProvider jwtProvider,
+            ObjectMapper mapper) {
         validate(properties);
         int timeout = properties.getWriting().getReadTimeoutMs();
         if (timeout < 240000 || timeout > 600000)
             throw new IllegalStateException("Writing HTTP timeout은 LL의 240초 작업 기한을 포함해야 합니다.");
         var http = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(properties.getRemote().getConnectTimeoutMs()))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
+                           .connectTimeout(Duration.ofMillis(properties.getRemote().getConnectTimeoutMs()))
+                           .followRedirects(HttpClient.Redirect.NEVER)
+                           .build();
         var factory = new JdkClientHttpRequestFactory(http);
         factory.setReadTimeout(Duration.ofMillis(timeout));
         var client = builder.clone().baseUrl(trimTrailingSlash(properties.getUrl())).requestFactory(factory).build();

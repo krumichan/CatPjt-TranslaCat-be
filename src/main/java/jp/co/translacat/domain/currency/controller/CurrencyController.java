@@ -16,7 +16,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/currencies")
 public class CurrencyController {
-
     private final CurrencyService currencyService;
 
     @GetMapping

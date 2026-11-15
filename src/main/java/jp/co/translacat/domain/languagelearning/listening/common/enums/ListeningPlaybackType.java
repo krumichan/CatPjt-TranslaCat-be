@@ -1,6 +1,3 @@
 package jp.co.translacat.domain.languagelearning.listening.common.enums;
 
-public enum ListeningPlaybackType {
-    NORMAL,
-    SLOW
-}
+public enum ListeningPlaybackType { NORMAL, SLOW }

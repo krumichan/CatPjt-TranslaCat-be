@@ -10,9 +10,6 @@ public interface RankingPeriod {
     String getUrlParam();
 
     default NovelRankingPeriodResponseDto toResponseDto() {
-        return NovelRankingPeriodResponseDto.builder()
-                .code(this.getCode())
-                .label(this.getLabel())
-                .build();
+        return NovelRankingPeriodResponseDto.builder().code(this.getCode()).label(this.getLabel()).build();
     }
 }

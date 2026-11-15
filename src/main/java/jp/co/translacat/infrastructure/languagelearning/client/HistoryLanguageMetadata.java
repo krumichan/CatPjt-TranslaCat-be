@@ -11,7 +11,8 @@ import java.io.IOException;
 
 /** 순차 배포 중 이전 LL의 이력에는 새 언어 메타데이터만 null로 보완한다. */
 final class HistoryLanguageMetadata {
-    private HistoryLanguageMetadata() { }
+    private HistoryLanguageMetadata() {
+    }
 
     static <T> T readValue(ObjectMapper json, byte[] bytes, Class<T> type) throws IOException {
         return readValue(json, bytes, json.constructType(type));
@@ -25,18 +26,22 @@ final class HistoryLanguageMetadata {
     }
 
     private static void supplement(ObjectMapper json, JsonNode value, JavaType type) {
-        if (value == null || value.isNull()) return;
+        if (value == null || value.isNull())
+            return;
         if (type.isContainerType() && value.isArray()) {
             value.forEach(item -> supplement(json, item, type.getContentType()));
             return;
         }
-        if (!(value instanceof ObjectNode object)) return;
+        if (!(value instanceof ObjectNode object))
+            return;
 
         // 기존 필수 creator 속성은 그대로 엄격 검사한다. 두 이력 DTO의 새 필드만 선택적이다.
         Class<?> raw = type.getRawClass();
         if (raw == LearningHistoryItemResponseDto.class || raw == LevelTestHistoryItemResponseDto.class) {
-            if (!object.has("originLanguage")) object.putNull("originLanguage");
-            if (!object.has("learningLanguage")) object.putNull("learningLanguage");
+            if (!object.has("originLanguage"))
+                object.putNull("originLanguage");
+            if (!object.has("learningLanguage"))
+                object.putNull("learningLanguage");
         }
         if (raw.isRecord()) {
             for (var component : raw.getRecordComponents()) {

@@ -16,13 +16,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@RestControllerAdvice(basePackages = {
-        "jp.co.translacat.domain.user.auth",
-        "jp.co.translacat.domain.user.controller",
-        "jp.co.translacat.domain.user.deletion"
-})
+@RestControllerAdvice(basePackages = {"jp.co.translacat.domain.user.auth", "jp.co.translacat.domain.user.controller",
+                              "jp.co.translacat.domain.user.deletion"})
 public class AuthExceptionAdvice {
-
     @ExceptionHandler(AuthException.class)
     public ResponseEntity<ResponseDto<AuthError>> handleAuth(AuthException exception) {
         return error(exception.getStatus(), exception.getErrorCode(), exception.getMessage(),
@@ -32,8 +28,7 @@ public class AuthExceptionAdvice {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ResponseDto<AuthError>> handleCredentials(AuthenticationException exception) {
         // 사용자 존재 여부나 비밀번호 입력값을 응답·로그에 드러내지 않는다.
-        return error(HttpStatus.UNAUTHORIZED, "AUTH_INVALID_CREDENTIALS",
-                "이메일 또는 비밀번호를 확인해주세요.", null);
+        return error(HttpStatus.UNAUTHORIZED, "AUTH_INVALID_CREDENTIALS", "이메일 또는 비밀번호를 확인해주세요.", null);
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class,
@@ -45,20 +40,20 @@ public class AuthExceptionAdvice {
 
     @ExceptionHandler(JwtException.class)
     public ResponseEntity<ResponseDto<AuthError>> handleToken(JwtException exception) {
-        return error(HttpStatus.UNAUTHORIZED, "AUTH_TOKEN_INVALID", "인증이 만료되었습니다. 다시 로그인해주세요.", null);
+        return error(
+                HttpStatus.UNAUTHORIZED, "AUTH_TOKEN_INVALID", "인증이 만료되었습니다. 다시 로그인해주세요.", null);
     }
 
-    private ResponseEntity<ResponseDto<AuthError>> error(HttpStatus status, String code, String message,
-                                                        Integer retryAfterSeconds) {
+    private ResponseEntity<ResponseDto<AuthError>> error(
+            HttpStatus status, String code, String message, Integer retryAfterSeconds) {
         HttpHeaders headers = new HttpHeaders();
         headers.setCacheControl("no-store");
         if (retryAfterSeconds != null) {
             headers.set(HttpHeaders.RETRY_AFTER, Integer.toString(Math.max(1, retryAfterSeconds)));
         }
-        return new ResponseEntity<>(ResponseUtil.ok(status.value(), message,
-                new AuthError(code, retryAfterSeconds)), headers, status);
+        return new ResponseEntity<>(
+                ResponseUtil.ok(status.value(), message, new AuthError(code, retryAfterSeconds)), headers, status);
     }
 
-    public record AuthError(String errorCode, Integer retryAfterSeconds) {
-    }
+    public record AuthError(String errorCode, Integer retryAfterSeconds) {}
 }

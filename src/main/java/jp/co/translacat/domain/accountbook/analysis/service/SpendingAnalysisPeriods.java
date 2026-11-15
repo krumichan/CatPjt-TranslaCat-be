@@ -5,8 +5,9 @@ import jp.co.translacat.domain.accountbook.analysis.dto.SpendingAnalysisDtos.Per
 import java.time.LocalDate;
 
 public final class SpendingAnalysisPeriods {
-    private SpendingAnalysisPeriods() { }
-    public record Range(LocalDate start, LocalDate end) { }
+    private SpendingAnalysisPeriods() {
+    }
+    public record Range(LocalDate start, LocalDate end) {}
 
     public static Range resolve(Request request) {
         // 사용자 지정 기간은 끝 날짜를 포함하며 최소 한 달은 달력 기준으로 계산한다.
@@ -16,7 +17,8 @@ public final class SpendingAnalysisPeriods {
         if ((request.periodType() != PeriodType.QUARTERLY && request.quarter() != null)
                 || (request.periodType() != PeriodType.HALF_YEARLY && request.half() != null)
                 || (request.periodType() != PeriodType.MONTHLY && request.month() != null)
-                || (request.periodType() != PeriodType.CUSTOM && (request.startDate() != null || request.endDate() != null))) {
+                || (request.periodType() != PeriodType.CUSTOM
+                        && (request.startDate() != null || request.endDate() != null))) {
             throw new IllegalArgumentException("Unexpected period fields");
         }
         if (request.periodType() == PeriodType.CUSTOM) {
@@ -33,15 +35,18 @@ public final class SpendingAnalysisPeriods {
         int startMonth = 1;
         int months = 12;
         if (request.periodType() == PeriodType.MONTHLY) {
-            if (request.month() == null || request.month() < 1 || request.month() > 12) throw new IllegalArgumentException("Invalid month");
+            if (request.month() == null || request.month() < 1 || request.month() > 12)
+                throw new IllegalArgumentException("Invalid month");
             startMonth = request.month();
             months = 1;
         } else if (request.periodType() == PeriodType.QUARTERLY) {
-            if (request.quarter() == null || request.quarter() < 1 || request.quarter() > 4) throw new IllegalArgumentException("Invalid quarter");
+            if (request.quarter() == null || request.quarter() < 1 || request.quarter() > 4)
+                throw new IllegalArgumentException("Invalid quarter");
             startMonth = (request.quarter() - 1) * 3 + 1;
             months = 3;
         } else if (request.periodType() == PeriodType.HALF_YEARLY) {
-            if (request.half() == null || request.half() < 1 || request.half() > 2) throw new IllegalArgumentException("Invalid half");
+            if (request.half() == null || request.half() < 1 || request.half() > 2)
+                throw new IllegalArgumentException("Invalid half");
             startMonth = (request.half() - 1) * 6 + 1;
             months = 6;
         }

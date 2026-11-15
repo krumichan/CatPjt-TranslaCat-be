@@ -18,41 +18,20 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AccountBookTransactionQueryService {
-
     private final AccountBookAccessService accountBookAccessService;
     private final AccountBookTransactionRepository accountBookTransactionRepository;
 
-    public BigDecimal getMonthlyExpenseAmount(
-            Long accountBookId,
-            Integer year,
-            Integer month
-    ) {
-        return accountBookTransactionRepository.sumExpenseAmountByMonth(
-                accountBookId,
-                year,
-                month
-        );
+    public BigDecimal getMonthlyExpenseAmount(Long accountBookId, Integer year, Integer month) {
+        return accountBookTransactionRepository.sumExpenseAmountByMonth(accountBookId, year, month);
     }
 
-    public BigDecimal getMonthlyExpenseAmount(
-            Long accountBookId,
-            Integer year,
-            Integer month,
-            Long userId
-    ) {
+    public BigDecimal getMonthlyExpenseAmount(Long accountBookId, Integer year, Integer month, Long userId) {
         accountBookAccessService.validateAccessible(accountBookId, userId);
 
-        return getMonthlyExpenseAmount(
-                accountBookId,
-                year,
-                month
-        );
+        return getMonthlyExpenseAmount(accountBookId, year, month);
     }
 
-    public List<AccountBookTransactionMonthResponseDto> getTransactionMonths(
-            Long accountBookId,
-            Long userId
-    ) {
+    public List<AccountBookTransactionMonthResponseDto> getTransactionMonths(Long accountBookId, Long userId) {
         accountBookAccessService.validateAccessible(accountBookId, userId);
 
         List<AccountBookTransactionMonthResponseDto> months =
@@ -60,37 +39,22 @@ public class AccountBookTransactionQueryService {
 
         YearMonth currentYearMonth = YearMonth.now();
 
-        String currentMonthValue = "%04d-%02d".formatted(
-                currentYearMonth.getYear(),
-                currentYearMonth.getMonthValue()
-        );
+        String currentMonthValue = "%04d-%02d".formatted(currentYearMonth.getYear(), currentYearMonth.getMonthValue());
 
-        boolean hasCurrentMonth = months.stream()
-                .anyMatch(month -> month.value().equals(currentMonthValue));
+        boolean hasCurrentMonth = months.stream().anyMatch(month -> month.value().equals(currentMonthValue));
 
         if (!hasCurrentMonth) {
             months.addFirst(AccountBookTransactionMonthResponseDto.of(
-                    currentYearMonth.getYear(),
-                    currentYearMonth.getMonthValue(),
-                    true
-            ));
+                    currentYearMonth.getYear(), currentYearMonth.getMonthValue(), true));
         }
 
         return months;
     }
 
     public List<AccountBookStoreSuggestionResponseDto> getStoreSuggestions(
-            Long accountBookId,
-            AccountBookTransactionType type,
-            String keyword,
-            Long userId
-    ) {
+            Long accountBookId, AccountBookTransactionType type, String keyword, Long userId) {
         accountBookAccessService.validateAccessible(accountBookId, userId);
 
-        return accountBookTransactionRepository.findStoreSuggestions(
-                accountBookId,
-                type,
-                keyword
-        );
+        return accountBookTransactionRepository.findStoreSuggestions(accountBookId, type, keyword);
     }
 }

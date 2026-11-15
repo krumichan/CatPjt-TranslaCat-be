@@ -12,12 +12,9 @@ import java.util.Objects;
 
 @Entity
 @Getter
-@Table(name = "episode", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"novel_id", "identifier"})
-})
+@Table(name = "episode", uniqueConstraints = { @UniqueConstraint(columnNames = {"novel_id", "identifier"}) })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Episode extends BaseAuditable {
-
     @Builder(access = AccessLevel.PRIVATE)
     private Episode(Novel novel, String identifier, String title, String titleJa, String titleKo) {
         this.novel = novel;
@@ -27,25 +24,17 @@ public class Episode extends BaseAuditable {
         this.titleKo = titleKo;
     }
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "novel_id", nullable = false)
-    private Novel novel;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "novel_id", nullable = false) private Novel novel;
 
-    @Column(length = 50, nullable = false)
-    private String identifier;
+    @Column(length = 50, nullable = false) private String identifier;
 
-    @Column(length = 2000)
-    private String title;
+    @Column(length = 2000) private String title;
 
-    @Column(length = 2000)
-    private String titleJa;
+    @Column(length = 2000) private String titleJa;
 
-    @Column(length = 2000)
-    private String titleKo;
+    @Column(length = 2000) private String titleKo;
 
     public static Episode create(Novel novel, String identifier, String title, String titleJa, String titleKo) {
         if (Objects.isNull(identifier) || identifier.isBlank()) {
@@ -62,12 +51,9 @@ public class Episode extends BaseAuditable {
     }
 
     public boolean updateIfChanged(Novel novel, String title, String titleJa, String titleKo) {
-
         // 하나라도 변경되었는지 체크
-        boolean changed = !Objects.equals(this.novel, novel) ||
-                !Objects.equals(this.title, title) ||
-                !Objects.equals(this.titleJa, titleJa) ||
-                !Objects.equals(this.titleKo, titleKo);
+        boolean changed = !Objects.equals(this.novel, novel) || !Objects.equals(this.title, title)
+                || !Objects.equals(this.titleJa, titleJa) || !Objects.equals(this.titleKo, titleKo);
 
         if (changed) {
             this.update(novel, title, titleJa, titleKo);

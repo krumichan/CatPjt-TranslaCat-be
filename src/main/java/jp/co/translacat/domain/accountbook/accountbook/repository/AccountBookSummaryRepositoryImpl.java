@@ -20,99 +20,58 @@ import static jp.co.translacat.domain.accountbook.transaction.entity.QAccountBoo
 @Repository
 @RequiredArgsConstructor
 public class AccountBookSummaryRepositoryImpl implements AccountBookSummaryRepositoryCustom {
-
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public AccountBookSummaryResponseDto getSummary(
-            Long accountBookId,
-            Integer year,
-            Integer month
-    ) {
-        NumberExpression<Integer> transactionYear =
-                QueryDslUtil.yearOf(accountBookTransaction.transactionDate);
+    public AccountBookSummaryResponseDto getSummary(Long accountBookId, Integer year, Integer month) {
+        NumberExpression<Integer> transactionYear = QueryDslUtil.yearOf(accountBookTransaction.transactionDate);
 
-        NumberExpression<Integer> transactionMonth =
-                QueryDslUtil.monthOf(accountBookTransaction.transactionDate);
+        NumberExpression<Integer> transactionMonth = QueryDslUtil.monthOf(accountBookTransaction.transactionDate);
 
         BigDecimal incomeAmount = sumAmountByType(
-                accountBookId,
-                year,
-                month,
-                AccountBookTransactionType.INCOME,
-                transactionYear,
-                transactionMonth
-        );
+                accountBookId, year, month, AccountBookTransactionType.INCOME, transactionYear, transactionMonth);
 
         BigDecimal expenseAmount = sumAmountByType(
-                accountBookId,
-                year,
-                month,
-                AccountBookTransactionType.EXPENSE,
-                transactionYear,
-                transactionMonth
-        );
+                accountBookId, year, month, AccountBookTransactionType.EXPENSE, transactionYear, transactionMonth);
 
-        Long transactionCount = queryFactory
-                .select(accountBookTransaction.id.count())
-                .from(accountBookTransaction)
-                .where(
-                        accountBookTransaction.accountBook.id.eq(accountBookId),
-                        year != null ? transactionYear.eq(year) : null,
-                        month != null ? transactionMonth.eq(month) : null
-                )
-                .fetchOne();
+        Long transactionCount = queryFactory.select(accountBookTransaction.id.count())
+                                        .from(accountBookTransaction)
+                                        .where(accountBookTransaction.accountBook.id.eq(accountBookId),
+                                                year != null ? transactionYear.eq(year) : null,
+                                                month != null ? transactionMonth.eq(month) : null)
+                                        .fetchOne();
 
-        var currency = queryFactory
-                .select(accountBook.currency.code, accountBook.currency.decimalPlaces)
-                .from(accountBook)
-                .where(accountBook.id.eq(accountBookId))
-                .fetchOne();
+        var currency = queryFactory.select(accountBook.currency.code, accountBook.currency.decimalPlaces)
+                               .from(accountBook)
+                               .where(accountBook.id.eq(accountBookId))
+                               .fetchOne();
 
         BigDecimal normalizedIncomeAmount = ValueUtil.defaultIfNull(incomeAmount, BigDecimal.ZERO);
         BigDecimal normalizedExpenseAmount = ValueUtil.defaultIfNull(expenseAmount, BigDecimal.ZERO);
         Long normalizedTransactionCount = ValueUtil.defaultIfNull(transactionCount, 0L);
 
-        return new AccountBookSummaryResponseDto(
-                accountBookId,
+        return new AccountBookSummaryResponseDto(accountBookId,
                 currency == null ? null : currency.get(accountBook.currency.code),
-                currency == null ? null : currency.get(accountBook.currency.decimalPlaces),
-                normalizedIncomeAmount,
-                normalizedExpenseAmount,
-                normalizedIncomeAmount.subtract(normalizedExpenseAmount),
-                normalizedTransactionCount
-        );
+                currency == null ? null : currency.get(accountBook.currency.decimalPlaces), normalizedIncomeAmount,
+                normalizedExpenseAmount, normalizedIncomeAmount.subtract(normalizedExpenseAmount),
+                normalizedTransactionCount);
     }
 
-    private Expression<BigDecimal> amountIfType(
-            AccountBookTransactionType type
-    ) {
+    private Expression<BigDecimal> amountIfType(AccountBookTransactionType type) {
         return new CaseBuilder()
                 .when(accountBookTransaction.type.eq(type))
                 .then(accountBookTransaction.amount)
                 .otherwise(BigDecimal.ZERO);
     }
 
-    private BigDecimal sumAmountByType(
-            Long accountBookId,
-            Integer year,
-            Integer month,
-            AccountBookTransactionType type,
-            NumberExpression<Integer> transactionYear,
-            NumberExpression<Integer> transactionMonth
-    ) {
+    private BigDecimal sumAmountByType(Long accountBookId, Integer year, Integer month, AccountBookTransactionType type,
+            NumberExpression<Integer> transactionYear, NumberExpression<Integer> transactionMonth) {
         return queryFactory
-                .select(Expressions.numberTemplate(
-                        BigDecimal.class,
-                        "coalesce(sum({0}), 0)",
-                        amountIfType(type)
-                ))
+                .select(Expressions.numberTemplate(BigDecimal.class, "coalesce(sum({0}), 0)", amountIfType(type)))
                 .from(accountBookTransaction)
-                .where(
-                        accountBookTransaction.accountBook.id.eq(accountBookId),
+                .where(accountBookTransaction.accountBook.id.eq(accountBookId),
                         year != null ? transactionYear.eq(year) : null,
-                        month != null ? transactionMonth.eq(month) : null
-                )
+                        month != null ? transactionMonth.eq(month) : null)
                 .fetchOne();
     }
 }

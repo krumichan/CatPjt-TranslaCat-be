@@ -6,6 +6,5 @@ import lombok.Getter;
 
 @Getter
 public class NovelRequestDto extends PageableDto {
-    @Schema(description = "소설 식별 ID", defaultValue = "n7787eq")
-    private String identifier;
+    @Schema(description = "소설 식별 ID", defaultValue = "n7787eq") private String identifier;
 }

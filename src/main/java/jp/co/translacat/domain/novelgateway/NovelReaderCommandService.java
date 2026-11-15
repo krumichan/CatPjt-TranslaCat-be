@@ -11,15 +11,20 @@ public class NovelReaderCommandService {
     private final NovelEmbeddedService embedded;
 
     public record TranslationStart(String revision, String idempotencyKey, boolean retryFailed, String targetLanguage) {
-        public TranslationStart(String revision, String idempotencyKey, boolean retryFailed) { this(revision, idempotencyKey, retryFailed, "ko"); }
+        public TranslationStart(String revision, String idempotencyKey, boolean retryFailed) {
+            this(revision, idempotencyKey, retryFailed, "ko");
+        }
         public TranslationStart {
             targetLanguage = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
             requireToken(revision, 128);
             requireToken(idempotencyKey, 128);
         }
     }
-    public record AudioRequest(String revision, String segmentId, String language, Integer partIndex, String targetLanguage) {
-        public AudioRequest(String revision, String segmentId, String language, Integer partIndex) { this(revision, segmentId, language, partIndex, "ko"); }
+    public record
+            AudioRequest(String revision, String segmentId, String language, Integer partIndex, String targetLanguage) {
+        public AudioRequest(String revision, String segmentId, String language, Integer partIndex) {
+            this(revision, segmentId, language, partIndex, "ko");
+        }
         public AudioRequest {
             targetLanguage = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
             requireToken(revision, 128);
@@ -35,7 +40,8 @@ public class NovelReaderCommandService {
         public RepairRequest {
             requireToken(revision, 128);
             requireToken(idempotencyKey, 128);
-            if (segmentId != null) requireToken(segmentId, 160);
+            if (segmentId != null)
+                requireToken(segmentId, 160);
         }
     }
 
@@ -45,13 +51,17 @@ public class NovelReaderCommandService {
     }
 
     public record GlossaryUpdate(String expectedVersion, java.util.Map<String, String> terms, String targetLanguage) {
-        public GlossaryUpdate(String expectedVersion, java.util.Map<String, String> terms) { this(expectedVersion, terms, "ko"); }
+        public GlossaryUpdate(String expectedVersion, java.util.Map<String, String> terms) {
+            this(expectedVersion, terms, "ko");
+        }
         public GlossaryUpdate {
             targetLanguage = jp.co.translacat.novel.domain.NovelTargetLanguage.normalize(targetLanguage);
             requireToken(expectedVersion, 128);
-            if (terms == null || terms.size() > 100 || terms.entrySet().stream().anyMatch(entry ->
-                    entry.getKey() == null || entry.getValue() == null || entry.getKey().isBlank()
-                            || entry.getValue().isBlank() || entry.getKey().length() > 128 || entry.getValue().length() > 128)) {
+            if (terms == null || terms.size() > 100
+                    || terms.entrySet().stream().anyMatch(entry
+                            -> entry.getKey() == null || entry.getValue() == null || entry.getKey().isBlank()
+                                    || entry.getValue().isBlank() || entry.getKey().length() > 128
+                                    || entry.getValue().length() > 128)) {
                 throw new NovelGatewayException(400, "NOVEL_GLOSSARY_INVALID", false);
             }
             terms = java.util.Map.copyOf(terms);

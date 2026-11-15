@@ -18,57 +18,46 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/friend-requests")
 public class FriendRequestController {
-
     private final FriendRequestService friendRequestService;
 
     @PostMapping
     public ResponseDto<FriendRequestResponseDto> sendFriendRequest(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestBody FriendRequestSendRequestDto request
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @RequestBody FriendRequestSendRequestDto request) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
         return ResponseUtil.ok(friendRequestService.sendFriendRequest(loginUserId, request));
     }
 
     @GetMapping("/received")
     public ResponseDto<List<FriendRequestListItemResponseDto>> getReceivedPendingRequests(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
         return ResponseUtil.ok(friendRequestService.getReceivedPendingRequests(loginUserId));
     }
 
     @GetMapping("/sent")
     public ResponseDto<List<FriendRequestListItemResponseDto>> getSentPendingRequests(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
         return ResponseUtil.ok(friendRequestService.getSentPendingRequests(loginUserId));
     }
 
     @PatchMapping("/{requestId}/accept")
     public ResponseDto<FriendRequestListItemResponseDto> acceptFriendRequest(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long requestId
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long requestId) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
         return ResponseUtil.ok(friendRequestService.acceptFriendRequest(loginUserId, requestId));
     }
 
     @PatchMapping("/{requestId}/reject")
     public ResponseDto<FriendRequestListItemResponseDto> rejectFriendRequest(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long requestId
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long requestId) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
         return ResponseUtil.ok(friendRequestService.rejectFriendRequest(loginUserId, requestId));
     }
 
     @PatchMapping("/{requestId}/cancel")
     public ResponseDto<FriendRequestListItemResponseDto> cancelFriendRequest(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long requestId
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long requestId) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
         return ResponseUtil.ok(friendRequestService.cancelFriendRequest(loginUserId, requestId));
     }

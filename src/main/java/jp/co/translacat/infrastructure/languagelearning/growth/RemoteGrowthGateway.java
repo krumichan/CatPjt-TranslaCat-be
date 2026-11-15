@@ -40,11 +40,12 @@ public class RemoteGrowthGateway implements GrowthReadGateway {
         while (true) {
             var page = client.activities(userId, source, from, to, after);
             if (revision != null && !revision.equals(page.projectionRevision()))
-                throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
-                        "GROWTH_READ_CHANGED", "성장 이력이 갱신되어 다시 조회해야 합니다.");
+                throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, "GROWTH_READ_CHANGED",
+                        "성장 이력이 갱신되어 다시 조회해야 합니다.");
             revision = page.projectionRevision();
             result.addAll(page.activities());
-            if (page.nextAfterId() == null) break;
+            if (page.nextAfterId() == null)
+                break;
             if (page.nextAfterId() <= after || page.activities().isEmpty())
                 throw new IllegalStateException("성장 조회 커서가 전진하지 않았습니다.");
             after = page.nextAfterId();
@@ -53,6 +54,7 @@ public class RemoteGrowthGateway implements GrowthReadGateway {
     }
 
     private void requireUser(Long userId) {
-        if (userId == null || userId <= 0) throw new IllegalArgumentException("userId는 양수여야 합니다.");
+        if (userId == null || userId <= 0)
+            throw new IllegalArgumentException("userId는 양수여야 합니다.");
     }
 }

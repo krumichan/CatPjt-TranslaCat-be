@@ -29,8 +29,10 @@ public class SyosyetuSourceAdapter implements NovelPorts.Source {
         segmenter = settings.segmenter();
     }
     private static final int MAX_HTML_BYTES = 2_000_000;
-    private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5))
-            .followRedirects(HttpClient.Redirect.NEVER).build();
+    private final HttpClient client = HttpClient.newBuilder()
+                                              .connectTimeout(Duration.ofSeconds(5))
+                                              .followRedirects(HttpClient.Redirect.NEVER)
+                                              .build();
 
     @Override
     public SourceEpisode fetch(EpisodeKey key) {
@@ -43,8 +45,11 @@ public class SyosyetuSourceAdapter implements NovelPorts.Source {
                     throw new NovelProblem("SOURCE_ADDRESS_FORBIDDEN", 422);
                 }
             }
-            HttpRequest request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(12))
-                    .header("User-Agent", "TranslaCat-Novel/1.0").GET().build();
+            HttpRequest request = HttpRequest.newBuilder(uri)
+                                          .timeout(Duration.ofSeconds(12))
+                                          .header("User-Agent", "TranslaCat-Novel/1.0")
+                                          .GET()
+                                          .build();
             HttpResponse<byte[]> response = BoundedHttp.send(client, request, MAX_HTML_BYTES, 12_000);
             if (response.statusCode() != 200) {
                 throw new NovelProblem(response.statusCode() == 404 ? "SOURCE_NOT_FOUND" : "SOURCE_UNAVAILABLE",
@@ -73,8 +78,9 @@ public class SyosyetuSourceAdapter implements NovelPorts.Source {
         // 본문만 대상이다. ruby 발음은 제거하고 escaped '<...>' 일반 텍스트는 그대로 보존한다.
         for (Element paragraph : document.select(".js-novel-text p, #novel_honbun p")) {
             if (paragraph.id().startsWith("Lp") || paragraph.id().startsWith("La")
-                    || paragraph.parents().stream().anyMatch(parent -> parent.hasClass("p-novel__text--preface")
-                    || parent.hasClass("p-novel__text--afterword"))) {
+                    || paragraph.parents().stream().anyMatch(parent
+                            -> parent.hasClass("p-novel__text--preface")
+                                    || parent.hasClass("p-novel__text--afterword"))) {
                 continue;
             }
             StringBuilder text = new StringBuilder();
@@ -96,7 +102,8 @@ public class SyosyetuSourceAdapter implements NovelPorts.Source {
             text.append(value.getWholeText());
             return;
         }
-        if (!(node instanceof Element element) || List.of("rt", "rp", "script", "style", "iframe", "object").contains(element.tagName())) {
+        if (!(node instanceof Element element)
+                || List.of("rt", "rp", "script", "style", "iframe", "object").contains(element.tagName())) {
             return;
         }
         if (element.tagName().equals("br")) {
@@ -105,7 +112,8 @@ public class SyosyetuSourceAdapter implements NovelPorts.Source {
         }
         if (element.tagName().equals("ruby")) {
             Element base = element.clone();
-            String reading = base.select("rt").stream().map(Element::text).collect(java.util.stream.Collectors.joining());
+            String reading =
+                    base.select("rt").stream().map(Element::text).collect(java.util.stream.Collectors.joining());
             base.select("rt,rp,script,style,iframe,object").remove();
             String value = base.wholeText();
             int start = text.length();
@@ -124,8 +132,8 @@ public class SyosyetuSourceAdapter implements NovelPorts.Source {
         }
         try {
             URI uri = URI.create(key.sourceUrl()).resolve(link.attr("href"));
-            if (!"https".equals(uri.getScheme()) || !"ncode.syosetu.com".equals(uri.getHost())
-                    || uri.getPort() != -1 || uri.getRawQuery() != null || uri.getUserInfo() != null) {
+            if (!"https".equals(uri.getScheme()) || !"ncode.syosetu.com".equals(uri.getHost()) || uri.getPort() != -1
+                    || uri.getRawQuery() != null || uri.getUserInfo() != null) {
                 return null;
             }
             String prefix = "/" + key.novel() + "/";

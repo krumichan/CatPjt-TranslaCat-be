@@ -20,13 +20,13 @@ public class WebAiExternalController {
 
     @PostMapping("/prompt")
     public ResponseDto<JsonNode> prompt(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String auth,
-                                       @RequestBody JsonNode body) {
+            @RequestBody JsonNode body) {
         return ResponseUtil.ok(client.externalPrompt(capability(auth), body));
     }
 
     @PostMapping("/results")
     public ResponseDto<JsonNode> result(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String auth,
-                                       @RequestBody JsonNode body) {
+            @RequestBody JsonNode body) {
         return ResponseUtil.ok(client.externalResult(capability(auth), body));
     }
 
@@ -43,7 +43,7 @@ public class WebAiExternalController {
     }
 
     private LanguageLearningServiceException invalidToken() {
-        return new LanguageLearningServiceException(HttpStatus.UNAUTHORIZED, "WEB_AI_TOKEN_INVALID",
-                "Web AI 학습 계획의 연결 토큰을 확인해 주세요.");
+        return new LanguageLearningServiceException(
+                HttpStatus.UNAUTHORIZED, "WEB_AI_TOKEN_INVALID", "Web AI 학습 계획의 연결 토큰을 확인해 주세요.");
     }
 }

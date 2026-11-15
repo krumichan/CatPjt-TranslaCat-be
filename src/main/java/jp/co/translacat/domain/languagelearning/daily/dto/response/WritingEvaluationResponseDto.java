@@ -7,23 +7,8 @@ import jp.co.translacat.domain.languagelearning.common.enums.WritingEvaluationCo
 import java.time.LocalDateTime;
 import java.util.List;
 
-public record WritingEvaluationResponseDto(
-        Long evaluationId,
-        WritingEvaluationContext context,
-        int overall,
-        int meaning,
-        int grammar,
-        int vocabulary,
-        int naturalness,
-        int expression,
-        List<BilingualMessageDto> strengths,
-        List<BilingualMessageDto> weaknesses,
-        List<WritingCorrectionDto> corrections,
-        List<String> recommendedAnswers,
-        BilingualMessageDto explanation,
-        String evaluationRubricVersion,
-        String scoringPolicyVersion,
-        String promptVersion,
-        LocalDateTime evaluatedAt
-) {
-}
+public record WritingEvaluationResponseDto(Long evaluationId, WritingEvaluationContext context, int overall,
+        int meaning, int grammar, int vocabulary, int naturalness, int expression, List<BilingualMessageDto> strengths,
+        List<BilingualMessageDto> weaknesses, List<WritingCorrectionDto> corrections, List<String> recommendedAnswers,
+        BilingualMessageDto explanation, String evaluationRubricVersion, String scoringPolicyVersion,
+        String promptVersion, LocalDateTime evaluatedAt) {}

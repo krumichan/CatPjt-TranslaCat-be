@@ -21,13 +21,11 @@ public class RawEpisodeContext extends BaseContext<Episode> {
 
     @Override
     protected List<TranslationComparison> getTranslationComparisons(Episode existing) {
-        return List.of(
-                TranslationComparison.builder()
+        return List.of(TranslationComparison.builder()
                         .unit(title)
                         .dbRawJa(Objects.isNull(existing) ? null : existing.getTitle())
                         .dbJa(Objects.isNull(existing) ? null : existing.getTitleJa())
                         .dbKo(Objects.isNull(existing) ? null : existing.getTitleKo())
-                        .build()
-        );
+                        .build());
     }
 }

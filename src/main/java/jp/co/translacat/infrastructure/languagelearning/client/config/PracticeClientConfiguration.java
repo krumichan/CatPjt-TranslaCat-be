@@ -13,8 +13,8 @@ public class PracticeClientConfiguration {
     @Bean
 
     public LanguageLearningPracticeClient languageLearningPracticeClient(
-            @Qualifier("languageLearningRestClient") RestClient client,
-            LanguageLearningInternalJwtProvider jwt, ObjectMapper json) {
+            @Qualifier("languageLearningRestClient") RestClient client, LanguageLearningInternalJwtProvider jwt,
+            ObjectMapper json) {
         return new LanguageLearningPracticeClient(client, jwt, json);
     }
 }

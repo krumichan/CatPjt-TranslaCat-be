@@ -7,5 +7,4 @@ public interface AdminSettingsGateway {
     AdminSettingResponseDto getSettings(Long adminUserId);
 
     AdminSettingResponseDto update(Long adminUserId, AdminSettingUpdateRequestDto request);
-
 }

@@ -15,11 +15,8 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class Pagination {
-    @Positive
-    @JsonProperty(value = "size")
-    private Integer perPage;
-    @Positive
-    private Integer page;
+    @Positive @JsonProperty(value = "size") private Integer perPage;
+    @Positive private Integer page;
     private transient List<OrderDto> orders;
     private boolean pagingYn;
 }

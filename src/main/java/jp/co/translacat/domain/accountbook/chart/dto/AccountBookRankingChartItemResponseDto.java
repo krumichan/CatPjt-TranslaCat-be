@@ -6,10 +6,6 @@ import jp.co.translacat.domain.accountbook.common.serialization.DecimalStringSer
 
 import java.math.BigDecimal;
 
-public record AccountBookRankingChartItemResponseDto(
-        String name,
-        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal amount,
-        Long transactionCount,
-        BigDecimal percentage,
-        String groupKey) {
-}
+public record AccountBookRankingChartItemResponseDto(String name,
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal amount, Long transactionCount,
+        BigDecimal percentage, String groupKey) {}

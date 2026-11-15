@@ -20,19 +20,15 @@ public class NovelRankingController {
 
     @GetMapping("/periods")
     @Operation(summary = "랭킹 조회 주기 목록", description = "주기별 소설 랭킹을 조회하기 위한 주기 목록을 조회한다.")
-    public ResponseDto<List<NovelRankingPeriodResponseDto>> periods(
-            @PathVariable PlatformCode platformCode) {
+    public ResponseDto<List<NovelRankingPeriodResponseDto>> periods(@PathVariable PlatformCode platformCode) {
         return ResponseUtil.ok(novelRankingService.periods(platformCode));
     }
 
     @GetMapping("/novels/{period}/{genreId}")
     @Operation(summary = "소설 랭킹", description = "임의 플랫폼 및 장르에 대하여 랭킹 순위로 소설을 표시한다.")
-    public ResponseDto<NovelRankingPageResponseDto> rankings(
-            @PathVariable PlatformCode platformCode,
-            @PathVariable String period,
-            @PathVariable String genreId,
+    public ResponseDto<NovelRankingPageResponseDto> rankings(@PathVariable PlatformCode platformCode,
+            @PathVariable String period, @PathVariable String genreId,
             @RequestParam(value = "page", defaultValue = "1") int page) {
-        return ResponseUtil.ok(this.novelRankingService.list(
-                platformCode, period, genreId, page));
+        return ResponseUtil.ok(this.novelRankingService.list(platformCode, period, genreId, page));
     }
 }

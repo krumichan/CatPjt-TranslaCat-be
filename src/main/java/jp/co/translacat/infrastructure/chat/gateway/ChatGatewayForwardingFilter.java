@@ -24,8 +24,8 @@ final class ChatGatewayForwardingFilter extends OncePerRequestFilter {
     private final ChatGatewayTarget target;
     private final ChatGatewayTokenIssuer issuer;
 
-    ChatGatewayForwardingFilter(ChatGatewayProperties properties, ChatGatewayTarget target,
-                                ChatGatewayTokenIssuer issuer) {
+    ChatGatewayForwardingFilter(
+            ChatGatewayProperties properties, ChatGatewayTarget target, ChatGatewayTokenIssuer issuer) {
         this.properties = properties;
         this.target = target;
         this.issuer = issuer;
@@ -53,16 +53,19 @@ final class ChatGatewayForwardingFilter extends OncePerRequestFilter {
 
         try {
             String scope = request.getServletPath().startsWith("/api/v1/admin/chat") ? "chat:admin" : "chat:http";
-            var upstream = HttpRequest.newBuilder(target.httpUri(request.getRequestURI(), request.getQueryString()))
-                    .timeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
-                    .header("Authorization", request.getHeader("Authorization"))
-                    .header("X-Chat-Service-Authorization", "Bearer " + issuer.issue(user.getId(), scope));
+            var upstream =
+                    HttpRequest.newBuilder(target.httpUri(request.getRequestURI(), request.getQueryString()))
+                            .timeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
+                            .header("Authorization", request.getHeader("Authorization"))
+                            .header("X-Chat-Service-Authorization", "Bearer " + issuer.issue(user.getId(), scope));
             for (String name : List.of("Content-Type", "Accept", "Accept-Language")) {
                 String value = request.getHeader(name);
-                if (value != null) upstream.header(name, value);
+                if (value != null)
+                    upstream.header(name, value);
             }
-            upstream.method(request.getMethod(), body.length == 0
-                    ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body));
+            upstream.method(request.getMethod(),
+                    body.length == 0 ? HttpRequest.BodyPublishers.noBody()
+                                     : HttpRequest.BodyPublishers.ofByteArray(body));
 
             // Host, cookies, caller identity, forwarding, hop-by-hop 헤더는 복사하지 않는다. redirect도 따라가지 않는다.
             var result = sendWithinDeadline(upstream.build());
@@ -92,10 +95,12 @@ final class ChatGatewayForwardingFilter extends OncePerRequestFilter {
         try {
             return pending.get(properties.getTimeoutSeconds(), TimeUnit.SECONDS);
         } catch (ExecutionException failure) {
-            if (failure.getCause() instanceof HttpTimeoutException timeout) throw timeout;
+            if (failure.getCause() instanceof HttpTimeoutException timeout)
+                throw timeout;
             throw new IOException("Chat gateway upstream failed.");
         } finally {
-            if (!pending.isDone()) pending.cancel(true);
+            if (!pending.isDone())
+                pending.cancel(true);
         }
     }
 

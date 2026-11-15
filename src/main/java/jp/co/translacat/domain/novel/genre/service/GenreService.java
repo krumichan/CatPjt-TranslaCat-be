@@ -37,9 +37,10 @@ public class GenreService {
 
     public Genre getGenre(Long platformId, String name) {
         return this.findGenre(platformId, name)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        String.format("Genre not found for platform ID [%d] and Japanese name [%s]", platformId, name)
-                ));
+                .orElseThrow(()
+                                     -> new EntityNotFoundException(String.format(
+                                             "Genre not found for platform ID [%d] and Japanese name [%s]", platformId,
+                                             name)));
     }
 
     public List<GenreResponseDto> list(PlatformCode platformCode) {

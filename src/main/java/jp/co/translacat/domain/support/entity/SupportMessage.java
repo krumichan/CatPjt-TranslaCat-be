@@ -11,15 +11,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Getter
-@Table(name = "support_message", indexes = {
-        @Index(name = "idx_support_message_recipient_id", columnList = "recipient_id,id")
-})
+@Table(name = "support_message",
+        indexes = { @Index(name = "idx_support_message_recipient_id", columnList = "recipient_id,id") })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SupportMessage extends Base {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "sender_id", nullable = false)
@@ -29,14 +25,11 @@ public class SupportMessage extends Base {
     @JoinColumn(name = "recipient_id", nullable = false)
     private User recipient;
 
-    @Column(nullable = false, length = 200)
-    private String title;
+    @Column(nullable = false, length = 200) private String title;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String content;
+    @Column(nullable = false, columnDefinition = "TEXT") private String content;
 
-    @Column
-    private LocalDateTime readAt;
+    @Column private LocalDateTime readAt;
 
     public static SupportMessage create(User sender, User recipient, String title, String content) {
         SupportMessage message = new SupportMessage();

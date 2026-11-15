@@ -15,12 +15,12 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/auth")
 public class UserController {
-
     private final UserService userService;
     private final OAuth2AuthenticationService oAuthService;
 
     @PostMapping("/register")
-    public ResponseDto<UserRegistrationResponseDto> register(@RequestBody @Valid UserCreateRequestDto userCreateRequestDto) {
+    public ResponseDto<UserRegistrationResponseDto> register(
+            @RequestBody @Valid UserCreateRequestDto userCreateRequestDto) {
         User createdUser = userService.register(userCreateRequestDto);
         return ResponseUtil.ok(new UserRegistrationResponseDto(
                 createdUser.getPublicId(), createdUser.getEmail(), createdUser.getUsername()));
@@ -33,8 +33,7 @@ public class UserController {
 
     @PostMapping("/social/{provider}")
     public ResponseDto<UserLoginResponseDto> socialLogin(
-            @PathVariable String provider,
-            @RequestBody @Valid OAuth2LoginRequestDto requestDto) {
+            @PathVariable String provider, @RequestBody @Valid OAuth2LoginRequestDto requestDto) {
         return ResponseUtil.ok(oAuthService.loginViaSocial(provider, requestDto.getIdToken()));
     }
 

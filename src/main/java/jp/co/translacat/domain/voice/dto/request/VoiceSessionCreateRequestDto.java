@@ -6,11 +6,5 @@ import jp.co.translacat.domain.voice.enums.VoiceSourceLanguageMode;
 
 import java.util.Map;
 
-public record VoiceSessionCreateRequestDto(
-        VoiceMode mode,
-        VoiceSourceLanguageMode sourceLanguageMode,
-        String targetLanguage,
-        Boolean saveTranscript,
-        Map<VoiceChannel, String> manualSourceLanguages
-) {
-}
+public record VoiceSessionCreateRequestDto(VoiceMode mode, VoiceSourceLanguageMode sourceLanguageMode,
+        String targetLanguage, Boolean saveTranscript, Map<VoiceChannel, String> manualSourceLanguages) {}

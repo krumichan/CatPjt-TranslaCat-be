@@ -21,27 +21,19 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Service
 @RequiredArgsConstructor
 public class UserProfileImageService {
-
     private final UserProfileService userProfileService;
     private final ProfileImageValidator profileImageValidator;
     private final ImageStoragePort imageStoragePort;
 
-    @Autowired
-    private ProfileObjectWriteRegistry writes;
+    @Autowired private ProfileObjectWriteRegistry writes;
 
     @Transactional
-    public UserProfileResponseDto uploadProfileImage(
-            Long userId,
-            ProfileImageUploadFile file
-    ) {
+    public UserProfileResponseDto uploadProfileImage(Long userId, ProfileImageUploadFile file) {
         return upload(userId, file, ProfileImageType.PROFILE);
     }
 
     @Transactional
-    public UserProfileResponseDto uploadProfileBackgroundImage(
-            Long userId,
-            ProfileImageUploadFile file
-    ) {
+    public UserProfileResponseDto uploadProfileBackgroundImage(Long userId, ProfileImageUploadFile file) {
         return upload(userId, file, ProfileImageType.BACKGROUND);
     }
 
@@ -65,27 +57,16 @@ public class UserProfileImageService {
         return userProfileService.toResponse(userProfile);
     }
 
-    private UserProfileResponseDto upload(
-            Long userId,
-            ProfileImageUploadFile file,
-            ProfileImageType imageType
-    ) {
+    private UserProfileResponseDto upload(Long userId, ProfileImageUploadFile file, ProfileImageType imageType) {
         UserProfile userProfile = userProfileService.getOrCreateByUserId(userId);
-        ValidatedImage validatedImage =
-                profileImageValidator.validate(file, imageType);
+        ValidatedImage validatedImage = profileImageValidator.validate(file, imageType);
 
-        String newObjectKey = imageType.createObjectKey(
-                userId,
-                validatedImage.extension()
-        );
+        String newObjectKey = imageType.createObjectKey(userId, validatedImage.extension());
 
         String oldObjectKey = currentObjectKey(userProfile, imageType);
 
-        ImageStorageUpload upload = new ImageStorageUpload(
-                newObjectKey,
-                validatedImage.contentType(),
-                validatedImage.bytes()
-        );
+        ImageStorageUpload upload =
+                new ImageStorageUpload(newObjectKey, validatedImage.contentType(), validatedImage.bytes());
         // 실제 외부 PUT을 시작하기 전에 별도 트랜잭션의 영속 intent를 남긴다.
         writes.write(userId, newObjectKey, () -> imageStoragePort.store(upload));
 
@@ -95,51 +76,36 @@ public class UserProfileImageService {
         return userProfileService.toResponse(userProfile);
     }
 
-    private String currentObjectKey(
-            UserProfile userProfile,
-            ProfileImageType imageType
-    ) {
+    private String currentObjectKey(UserProfile userProfile, ProfileImageType imageType) {
         return switch (imageType) {
             case PROFILE -> userProfile.getProfileImageObjectKey();
             case BACKGROUND -> userProfile.getProfileBackgroundImageObjectKey();
         };
     }
 
-    private void replaceObjectKey(
-            UserProfile userProfile,
-            ProfileImageType imageType,
-            String newObjectKey
-    ) {
+    private void replaceObjectKey(UserProfile userProfile, ProfileImageType imageType, String newObjectKey) {
         switch (imageType) {
             case PROFILE -> userProfile.replaceProfileImageObjectKey(newObjectKey);
-            case BACKGROUND -> userProfile.replaceProfileBackgroundImageObjectKey(
-                    newObjectKey
-            );
+            case BACKGROUND -> userProfile.replaceProfileBackgroundImageObjectKey(newObjectKey);
         }
     }
 
-    private void registerUploadSynchronization(
-            String newObjectKey,
-            String oldObjectKey
-    ) {
+    private void registerUploadSynchronization(String newObjectKey, String oldObjectKey) {
         requireTransactionSynchronization();
 
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                safeDelete(oldObjectKey);
+            }
 
-                    @Override
-                    public void afterCommit() {
-                        safeDelete(oldObjectKey);
-                    }
-
-                    @Override
-                    public void afterCompletion(int status) {
-                        if (status != STATUS_COMMITTED) {
-                            safeDelete(newObjectKey);
-                        }
-                    }
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    safeDelete(newObjectKey);
                 }
-        );
+            }
+        });
     }
 
     private void deleteOldObjectAfterCommit(String oldObjectKey) {
@@ -149,22 +115,17 @@ public class UserProfileImageService {
 
         requireTransactionSynchronization();
 
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-
-                    @Override
-                    public void afterCommit() {
-                        safeDelete(oldObjectKey);
-                    }
-                }
-        );
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                safeDelete(oldObjectKey);
+            }
+        });
     }
 
     private void requireTransactionSynchronization() {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            throw new IllegalStateException(
-                    "이미지 저장 변경은 활성 트랜잭션 안에서 실행되어야 합니다."
-            );
+            throw new IllegalStateException("이미지 저장 변경은 활성 트랜잭션 안에서 실행되어야 합니다.");
         }
     }
 
@@ -176,11 +137,7 @@ public class UserProfileImageService {
         try {
             imageStoragePort.delete(objectKey);
         } catch (RuntimeException e) {
-            log.warn(
-                    "이미지 object 삭제 실패. cleanup 대상 objectKey={}",
-                    objectKey,
-                    e
-            );
+            log.warn("이미지 object 삭제 실패. cleanup 대상 objectKey={}", objectKey, e);
         }
     }
 

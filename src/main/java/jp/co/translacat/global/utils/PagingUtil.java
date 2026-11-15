@@ -12,11 +12,9 @@ import java.util.Objects;
 
 @UtilityClass
 public class PagingUtil {
-
     public <T> Page<T> toPage(List<T> contents, long total, PageableDto pageableDto) {
-        Pageable pageable = Objects.isNull(pageableDto.getPageRequest())
-                ? Pageable.unpaged()
-                : pageableDto.getPageRequest();
+        Pageable pageable =
+                Objects.isNull(pageableDto.getPageRequest()) ? Pageable.unpaged() : pageableDto.getPageRequest();
 
         return new PageImpl<>(contents, pageable, total);
     }

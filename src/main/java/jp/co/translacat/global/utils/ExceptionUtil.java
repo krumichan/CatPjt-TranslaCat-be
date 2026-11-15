@@ -13,7 +13,6 @@ import java.util.Objects;
  */
 @UtilityClass
 public class ExceptionUtil {
-
     /**
      * Exception StackTrace를 문자열로 변환
      *
@@ -22,7 +21,8 @@ public class ExceptionUtil {
      * th가 null이면 빈 문자열("") 반환
      */
     public String convertStackTrace(Throwable th) {
-        if (Objects.isNull(th)) return "";
+        if (Objects.isNull(th))
+            return "";
 
         // StringWriter와 PrintWriter를 사용하여 Exception StackTrace를 문자열로 캡처
         StringWriter writer = new StringWriter();

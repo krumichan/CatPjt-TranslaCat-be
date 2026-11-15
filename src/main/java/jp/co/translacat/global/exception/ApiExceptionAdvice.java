@@ -23,14 +23,13 @@ import java.util.Objects;
 @Slf4j
 @RestControllerAdvice
 public class ApiExceptionAdvice {
-
     @ExceptionHandler(LanguageLearningServiceException.class)
     protected ResponseEntity<?> handleLanguageLearningServiceException(LanguageLearningServiceException e) {
         // 내부 인증 실패는 FE 로그인 만료가 아니다. 외부 Access Token 갱신 루프를 유발하지 않는다.
-        if (e.getStatus() == HttpStatus.UNAUTHORIZED
-                || "INTERNAL_ADMIN_REQUIRED".equals(e.getErrorCode())) {
+        if (e.getStatus() == HttpStatus.UNAUTHORIZED || "INTERNAL_ADMIN_REQUIRED".equals(e.getErrorCode())) {
             log.error("LL internal authentication failed. status={} code={}", e.getStatus().value(), e.getErrorCode());
-            return entity(HttpStatus.BAD_GATEWAY, "LL_INTERNAL_AUTH_FAILED", "언어학습 내부 인증 설정을 확인해 주세요.", e);
+            return entity(
+                    HttpStatus.BAD_GATEWAY, "LL_INTERNAL_AUTH_FAILED", "언어학습 내부 인증 설정을 확인해 주세요.", e);
         }
         if (e.getStatus() == HttpStatus.BAD_REQUEST) {
             // 기존 FE의 BusinessException/ListeningErrorDto 포장을 그대로 유지한다.
@@ -41,51 +40,33 @@ public class ApiExceptionAdvice {
     }
 
     @ExceptionHandler(ReceiptRegistrationException.class)
-    protected ResponseEntity<ResponseDto<ErrorDto>> handleReceiptRegistrationException(
-            ReceiptRegistrationException e) {
+    protected ResponseEntity<ResponseDto<ErrorDto>> handleReceiptRegistrationException(ReceiptRegistrationException e) {
         String responseMessage = this.trace(e);
         log.warn("Receipt registration rejected: code={}, message={}", e.getErrorCode(), e.getMessage());
         return this.entity(e.getStatus(), e.getErrorCode(), responseMessage, e);
     }
 
     @ExceptionHandler(ListeningAiException.class)
-    protected ResponseEntity<ResponseDto<ListeningErrorDto>>
-    handleListeningAiException(ListeningAiException e) {
-        log.error(
-                "Listening AI error: code={}, stage={}, resourceId={}",
-                e.getErrorCode(),
-                e.getFailedStage(),
-                e.getResourceId(),
-                e
-        );
-        HttpStatus status = e.isRetryable()
-                ? HttpStatus.BAD_GATEWAY
-                : HttpStatus.UNPROCESSABLE_ENTITY;
-        ListeningErrorDto body = new ListeningErrorDto(
-                e.getErrorCode(),
-                "languageLearning.listening."
-                        + e.getErrorCode().toLowerCase(),
-                e.isRetryable(),
-                e.getRetryAfter() == null
-                        ? null
-                        : e.getRetryAfter().toSeconds(),
-                e.getFailedStage(),
-                e.getResourceId()
-        );
-        ResponseDto<ListeningErrorDto> response =
-                ResponseDto.<ListeningErrorDto>builder()
-                        .resultCode(status.value())
-                        .message(e.getMessage())
-                        .body(body)
-                        .createDate(LocalDateTime.now())
-                        .build();
+    protected ResponseEntity<ResponseDto<ListeningErrorDto>> handleListeningAiException(ListeningAiException e) {
+        log.error("Listening AI error: code={}, stage={}, resourceId={}", e.getErrorCode(), e.getFailedStage(),
+                e.getResourceId(), e);
+        HttpStatus status = e.isRetryable() ? HttpStatus.BAD_GATEWAY : HttpStatus.UNPROCESSABLE_ENTITY;
+        ListeningErrorDto body =
+                new ListeningErrorDto(e.getErrorCode(), "languageLearning.listening." + e.getErrorCode().toLowerCase(),
+                        e.isRetryable(), e.getRetryAfter() == null ? null : e.getRetryAfter().toSeconds(),
+                        e.getFailedStage(), e.getResourceId());
+        ResponseDto<ListeningErrorDto> response = ResponseDto.<ListeningErrorDto>builder()
+                                                          .resultCode(status.value())
+                                                          .message(e.getMessage())
+                                                          .body(body)
+                                                          .createDate(LocalDateTime.now())
+                                                          .build();
         return ResponseEntity.status(status).body(response);
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ResponseDto<ErrorDto>> handleMaxUploadSizeExceededException(
-            MaxUploadSizeExceededException e
-    ) {
+            MaxUploadSizeExceededException e) {
         String responseMessage = this.trace(e);
         log.error("Upload file size exceeded: ", e);
         return this.entity(HttpStatus.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE", responseMessage, e);
@@ -120,42 +101,26 @@ public class ApiExceptionAdvice {
 
         if (isListeningContractError(e.getErrorCode())) {
             HttpStatus status = listeningBusinessStatus(e.getErrorCode());
-            ListeningErrorDto body = new ListeningErrorDto(
-                    e.getErrorCode(),
-                    "languageLearning.listening."
-                            + e.getErrorCode().toLowerCase(),
-                    false,
-                    null,
-                    null,
-                    null
-            );
-            ResponseDto<ListeningErrorDto> response =
-                    ResponseDto.<ListeningErrorDto>builder()
-                            .resultCode(status.value())
-                            .message(e.getMessage())
-                            .body(body)
-                            .createDate(LocalDateTime.now())
-                            .build();
+            ListeningErrorDto body = new ListeningErrorDto(e.getErrorCode(),
+                    "languageLearning.listening." + e.getErrorCode().toLowerCase(), false, null, null, null);
+            ResponseDto<ListeningErrorDto> response = ResponseDto.<ListeningErrorDto>builder()
+                                                              .resultCode(status.value())
+                                                              .message(e.getMessage())
+                                                              .body(body)
+                                                              .createDate(LocalDateTime.now())
+                                                              .build();
             return ResponseEntity.status(status).body(response);
         }
 
-        return this.entity(
-                HttpStatus.BAD_REQUEST,
-                e.getErrorCode(),
-                responseMessage,
-                e
-        );
+        return this.entity(HttpStatus.BAD_REQUEST, e.getErrorCode(), responseMessage, e);
     }
 
     private boolean isListeningContractError(String errorCode) {
-        return errorCode != null
-                && (errorCode.startsWith("LISTENING_")
-                || errorCode.startsWith("AI_"));
+        return errorCode != null && (errorCode.startsWith("LISTENING_") || errorCode.startsWith("AI_"));
     }
 
     private HttpStatus listeningBusinessStatus(String errorCode) {
-        if ("LISTENING_ACTIVE_SESSION_EXISTS".equals(errorCode)
-                || "LISTENING_IDEMPOTENCY_CONFLICT".equals(errorCode)) {
+        if ("LISTENING_ACTIVE_SESSION_EXISTS".equals(errorCode) || "LISTENING_IDEMPOTENCY_CONFLICT".equals(errorCode)) {
             return HttpStatus.CONFLICT;
         }
         return HttpStatus.BAD_REQUEST;
@@ -212,8 +177,7 @@ public class ApiExceptionAdvice {
 
     private ResponseEntity<ResponseDto<ErrorDto>> entity(
             HttpStatus status, String errorCode, String responseMessage, Exception e) {
-        ResponseDto<ErrorDto> errorVo = ResponseUtil.error(
-                status.value(), responseMessage, errorCode, e, false);
+        ResponseDto<ErrorDto> errorVo = ResponseUtil.error(status.value(), responseMessage, errorCode, e, false);
         return new ResponseEntity<>(errorVo, null, status);
     }
 }

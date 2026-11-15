@@ -7,5 +7,6 @@ public final class CatalogExecutionBudget {
     public static final long COMMIT_GRACE_MS = 30000;
     public static final long LEASE_MS = PROVIDER_MS + COMMIT_GRACE_MS;
 
-    private CatalogExecutionBudget() {}
+    private CatalogExecutionBudget() {
+    }
 }

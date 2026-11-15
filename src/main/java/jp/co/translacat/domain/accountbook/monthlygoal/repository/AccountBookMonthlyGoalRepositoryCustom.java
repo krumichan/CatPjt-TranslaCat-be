@@ -5,8 +5,5 @@ import jp.co.translacat.domain.accountbook.monthlygoal.dto.AccountBookMonthlyGoa
 import java.util.List;
 
 public interface AccountBookMonthlyGoalRepositoryCustom {
-
-    List<AccountBookMonthlyGoalListItemResponseDto> findAllMonthlyGoalsWithExpenseAmount(
-            Long accountBookId
-    );
+    List<AccountBookMonthlyGoalListItemResponseDto> findAllMonthlyGoalsWithExpenseAmount(Long accountBookId);
 }

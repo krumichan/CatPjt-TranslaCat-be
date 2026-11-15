@@ -9,17 +9,14 @@ import lombok.Getter;
 @Getter
 @Builder
 public class PlatformResponseDto {
-    @Schema(description = "platform ID", example = "1")
-    private Long id;
+    @Schema(description = "platform ID", example = "1") private Long id;
 
-    @Schema(description = "platform Code", example = "SYOSETU")
-    private PlatformCode code;
+    @Schema(description = "platform Code", example = "SYOSETU") private PlatformCode code;
 
     @Schema(description = "platform japanese name", example = "<ruby>小生塚<rt>しょうせつか</rt></ruby>になろう")
     private String nameJa;
 
-    @Schema(description = "platform korean name", example = "소설가가 되자")
-    private String nameKo;
+    @Schema(description = "platform korean name", example = "소설가가 되자") private String nameKo;
 
     public static PlatformResponseDto of(Platform platform) {
         return PlatformResponseDto.builder()

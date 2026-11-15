@@ -18,26 +18,17 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class VoiceUsageQueryService {
-
     private final VoiceSessionRepository sessionRepository;
     private final VoiceUsageLedgerRepository usageRepository;
     private final VoicePolicyProperties policy;
 
-    public boolean isLimitReached(
-            Long userId,
-            String sessionId
-    ) {
-        VoiceSession session = sessionRepository
-                .findByIdAndUser_Id(sessionId, userId)
-                .orElseThrow(() -> new BusinessException(
-                        "Voice resource was not found.",
-                        VoiceErrorCode.NOT_FOUND
-                ));
+    public boolean isLimitReached(Long userId, String sessionId) {
+        VoiceSession session =
+                sessionRepository.findByIdAndUser_Id(sessionId, userId)
+                        .orElseThrow(
+                                () -> new BusinessException("Voice resource was not found.", VoiceErrorCode.NOT_FOUND));
 
         return session.getProcessedAudioMs() >= policy.getMaxSessionMs()
-                || usageRepository.sumProcessedAudioMs(
-                userId,
-                LocalDate.now()
-        ) >= policy.getDailyLimitMs();
+                || usageRepository.sumProcessedAudioMs(userId, LocalDate.now()) >= policy.getDailyLimitMs();
     }
 }

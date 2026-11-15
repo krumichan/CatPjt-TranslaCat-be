@@ -23,7 +23,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AccountBookService {
-
     private final AccountBookRepository accountBookRepository;
     private final UserService userService;
     private final CurrencyService currencyService;
@@ -31,97 +30,55 @@ public class AccountBookService {
     private final AccountBookAccessService accountBookAccessService;
 
     @Transactional
-    public AccountBookResponseDto register(
-            Long userId,
-            AccountBookCreateRequestDto dto
-    ) {
+    public AccountBookResponseDto register(Long userId, AccountBookCreateRequestDto dto) {
         User user = userService.getById(userId);
         Currency currency = currencyService.getEnabledCurrencyByCode(dto.currencyCode());
 
-        AccountBook accountBook = AccountBook.create(
-                user,
-                currency,
-                dto.name(),
-                dto.category()
-        );
+        AccountBook accountBook = AccountBook.create(user, currency, dto.name(), dto.category());
 
         AccountBook savedAccountBook = accountBookRepository.save(accountBook);
 
-        accountBookMemberRepository.save(
-                AccountBookMember.createOwner(savedAccountBook, user)
-        );
+        accountBookMemberRepository.save(AccountBookMember.createOwner(savedAccountBook, user));
 
-        return AccountBookResponseDto.from(
-                savedAccountBook,
-                AccountBookMemberRole.OWNER
-        );
+        return AccountBookResponseDto.from(savedAccountBook, AccountBookMemberRole.OWNER);
     }
 
     @Transactional(readOnly = true)
-    public AccountBookResponseDto get(
-            Long userId,
-            Long accountBookId
-    ) {
-        AccountBook accountBook = accountBookAccessService
-                .getAccessibleAccountBook(accountBookId, userId);
+    public AccountBookResponseDto get(Long userId, Long accountBookId) {
+        AccountBook accountBook = accountBookAccessService.getAccessibleAccountBook(accountBookId, userId);
 
-        return AccountBookResponseDto.from(
-                accountBook,
-                getMyRole(accountBookId, userId)
-        );
+        return AccountBookResponseDto.from(accountBook, getMyRole(accountBookId, userId));
     }
 
-    public List<AccountBookResponseDto> list(
-            Long userId,
-            AccountBookSearchRequestDto searchDto
-    ) {
+    public List<AccountBookResponseDto> list(Long userId, AccountBookSearchRequestDto searchDto) {
         return accountBookRepository.search(userId, searchDto);
     }
 
     @Transactional
     public AccountBookResponseDto updateAccountBook(
-            Long accountBookId,
-            AccountBookUpdateRequestDto request,
-            Long userId
-    ) {
-        AccountBookMember member = accountBookMemberRepository
-                .findByAccountBook_IdAndUser_IdAndDeletedFalse(accountBookId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
+            Long accountBookId, AccountBookUpdateRequestDto request, Long userId) {
+        AccountBookMember member =
+                accountBookMemberRepository.findByAccountBook_IdAndUser_IdAndDeletedFalse(accountBookId, userId)
+                        .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
 
-        AccountBook accountBook = accountBookAccessService
-                .getOwnerAccountBook(accountBookId, userId);
+        AccountBook accountBook = accountBookAccessService.getOwnerAccountBook(accountBookId, userId);
 
-        accountBook.update(
-                request.name(),
-                request.description(),
-                request.category()
-        );
+        accountBook.update(request.name(), request.description(), request.category());
 
         return AccountBookResponseDto.from(accountBook, member.getRole());
     }
 
     @Transactional
-    public boolean deleteAccountBook(
-            Long accountBookId,
-            Long userId
-    ) {
-        AccountBook accountBook = accountBookAccessService
-                .getOwnerAccountBook(accountBookId, userId);
+    public boolean deleteAccountBook(Long accountBookId, Long userId) {
+        AccountBook accountBook = accountBookAccessService.getOwnerAccountBook(accountBookId, userId);
 
         accountBook.softDelete();
 
         return true;
     }
 
-    private AccountBookMemberRole getMyRole(
-            Long accountBookId,
-            Long userId
-    ) {
-        return accountBookMemberRepository
-                .findByAccountBook_IdAndUser_IdAndDeletedFalse(
-                        accountBookId,
-                        userId
-                )
+    private AccountBookMemberRole getMyRole(Long accountBookId, Long userId) {
+        return accountBookMemberRepository.findByAccountBook_IdAndUser_IdAndDeletedFalse(accountBookId, userId)
                 .map(AccountBookMember::getRole)
                 .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다."));
     }

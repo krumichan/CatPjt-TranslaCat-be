@@ -16,16 +16,13 @@ import java.util.Optional;
  */
 @UtilityClass
 public class ServletRequestUtil {
-
     /**
      * 현재 HttpServletRequest 가져오기
      *
      * @return HttpServletRequest 객체, 요청이 없으면 null
      */
     public HttpServletRequest getServletRequest() {
-        return Optional.ofNullable(
-                        RequestContextHolder.getRequestAttributes()
-                )
+        return Optional.ofNullable(RequestContextHolder.getRequestAttributes())
                 .map(ra -> ((ServletRequestAttributes) ra).getRequest())
                 .orElse(null);
     }
@@ -50,7 +47,8 @@ public class ServletRequestUtil {
      */
     public RequestContextDto getServletRequestContextVo() {
         return (RequestContextDto) Optional.ofNullable(getServletRequest())
-                .map(req -> req.getAttribute("_REQUEST_CONTEXT_VO")).orElse(null);
+                .map(req -> req.getAttribute("_REQUEST_CONTEXT_VO"))
+                .orElse(null);
     }
 
     /**
@@ -60,7 +58,6 @@ public class ServletRequestUtil {
      * @return 헤더 값 문자열, 없으면 null
      */
     public String getHeader(String key) {
-        return Optional.ofNullable(ServletRequestUtil.getServletRequest()).map(req -> req.getHeader(key))
-                .orElse(null);
+        return Optional.ofNullable(ServletRequestUtil.getServletRequest()).map(req -> req.getHeader(key)).orElse(null);
     }
 }

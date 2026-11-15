@@ -11,9 +11,9 @@ import java.util.Objects;
 @Slf4j
 @UtilityClass
 public class PathUtil {
-
     public static String extractPath(String url) {
-        if (Objects.isNull(url) || url.isBlank()) return "";
+        if (Objects.isNull(url) || url.isBlank())
+            return "";
 
         String urlToParse = url.contains("://") ? url : "https://" + url;
 
@@ -28,10 +28,7 @@ public class PathUtil {
 
     public static String getQueryParamFirst(String url, String tagName) {
         try {
-            return UriComponentsBuilder.fromUriString(url)
-                    .build()
-                    .getQueryParams()
-                    .getFirst(tagName);
+            return UriComponentsBuilder.fromUriString(url).build().getQueryParams().getFirst(tagName);
         } catch (Exception e) {
             log.warn("failed to extract query parameters from {}", url, e);
             return null;

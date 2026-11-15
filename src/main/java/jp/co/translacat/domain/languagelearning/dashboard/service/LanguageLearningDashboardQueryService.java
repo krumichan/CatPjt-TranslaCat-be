@@ -17,8 +17,8 @@ import java.util.LinkedHashMap;
 public class LanguageLearningDashboardQueryService {
     private final OverviewGateway overview;
 
-    public DashboardResponseDto get(Long userId, LocalDate from, LocalDate to, String sourceValue,
-                                    ListeningTaskType taskType) {
+    public DashboardResponseDto get(
+            Long userId, LocalDate from, LocalDate to, String sourceValue, ListeningTaskType taskType) {
         var query = new LinkedHashMap<String, Object>();
         query.put("from", from);
         query.put("to", to);

@@ -17,16 +17,12 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AccountBookCategoryService {
-
     private final AccountBookRepository accountBookRepository;
     private final AccountBookCategoryRepository accountBookCategoryRepository;
 
     private final AccountBookAccessService accountBookAccessService;
 
-    public List<AccountBookCategoryResponseDto> getCategories(
-            Long accountBookId,
-            Long userId
-    ) {
+    public List<AccountBookCategoryResponseDto> getCategories(Long accountBookId, Long userId) {
         accountBookAccessService.validateAccessible(accountBookId, userId);
 
         return accountBookCategoryRepository
@@ -38,44 +34,28 @@ public class AccountBookCategoryService {
 
     @Transactional
     public AccountBookCategoryResponseDto createCategory(
-            Long accountBookId,
-            AccountBookCategoryRequestDto request,
-            Long userId
-    ) {
-        AccountBook accountBook = accountBookAccessService
-                .getAccessibleAccountBook(accountBookId, userId);
+            Long accountBookId, AccountBookCategoryRequestDto request, Long userId) {
+        AccountBook accountBook = accountBookAccessService.getAccessibleAccountBook(accountBookId, userId);
 
         String name = normalizeName(request.name());
 
-        accountBookCategoryRepository
-                .findByAccountBookIdAndName(accountBookId, name)
-                .ifPresent(category -> {
-                    throw new IllegalArgumentException("Category already exists.");
-                });
+        accountBookCategoryRepository.findByAccountBookIdAndName(accountBookId, name).ifPresent(category -> {
+            throw new IllegalArgumentException("Category already exists.");
+        });
 
         Integer nextDisplayOrder = getNextDisplayOrder(accountBookId);
 
-        AccountBookCategory category = AccountBookCategory.create(
-                accountBook,
-                name,
-                nextDisplayOrder
-        );
+        AccountBookCategory category = AccountBookCategory.create(accountBook, name, nextDisplayOrder);
 
-        return AccountBookCategoryResponseDto.from(
-                accountBookCategoryRepository.save(category)
-        );
+        return AccountBookCategoryResponseDto.from(accountBookCategoryRepository.save(category));
     }
 
     @Transactional
-    public AccountBookCategory findOrCreateCategory(
-            Long accountBookId,
-            String categoryName
-    ) {
+    public AccountBookCategory findOrCreateCategory(Long accountBookId, String categoryName) {
         AccountBook accountBook = getAccountBook(accountBookId);
         String normalizedName = normalizeName(categoryName);
 
-        return accountBookCategoryRepository
-                .findByAccountBookIdAndName(accountBookId, normalizedName)
+        return accountBookCategoryRepository.findByAccountBookIdAndName(accountBookId, normalizedName)
                 .map(category -> {
                     if (!Boolean.TRUE.equals(category.getActive())) {
                         category.activate();
@@ -83,13 +63,9 @@ public class AccountBookCategoryService {
 
                     return category;
                 })
-                .orElseGet(() -> accountBookCategoryRepository.save(
-                        AccountBookCategory.create(
-                                accountBook,
-                                normalizedName,
-                                getNextDisplayOrder(accountBookId)
-                        )
-                ));
+                .orElseGet(()
+                                   -> accountBookCategoryRepository.save(AccountBookCategory.create(
+                                           accountBook, normalizedName, getNextDisplayOrder(accountBookId))));
     }
 
     private AccountBook getAccountBook(Long accountBookId) {

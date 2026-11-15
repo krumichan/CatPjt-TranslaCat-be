@@ -6,6 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface VoiceUsageLedgerRepository
         extends JpaRepository<VoiceUsageLedger, Long>, VoiceUsageLedgerRepositoryCustom {
-
     boolean existsBySegmentId(Long segmentId);
 }

@@ -1,9 +1,3 @@
 package jp.co.translacat.domain.languagelearning.common.enums;
 
-public enum DailySetStatus {
-    GENERATING,
-    PARTIAL,
-    READY,
-    COMPLETED,
-    FAILED
-}
+public enum DailySetStatus { GENERATING, PARTIAL, READY, COMPLETED, FAILED }

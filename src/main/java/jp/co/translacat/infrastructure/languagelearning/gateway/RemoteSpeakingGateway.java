@@ -22,8 +22,9 @@ public class RemoteSpeakingGateway implements SpeakingGateway {
 
     private LanguageLearningSpeakingClient client() {
         var client = clients.getIfAvailable();
-        if (client == null) throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
-                "LL_SPEAKING_REMOTE_DISABLED", "Speaking 서비스 연결이 비활성화되어 있습니다.");
+        if (client == null)
+            throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, "LL_SPEAKING_REMOTE_DISABLED",
+                    "Speaking 서비스 연결이 비활성화되어 있습니다.");
         return client;
     }
 

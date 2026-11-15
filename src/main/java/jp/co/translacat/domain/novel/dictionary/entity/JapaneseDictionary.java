@@ -12,16 +12,11 @@ import lombok.NoArgsConstructor;
 @Table(name = "japanese_dictionary")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class JapaneseDictionary extends BaseAuditable {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(length = 20, nullable = false, unique = true) private String surface;
 
-    @Column(length = 20, nullable = false, unique = true)
-    private String surface;
-
-    @Column(length = 20, nullable = false)
-    private String reading;
+    @Column(length = 20, nullable = false) private String reading;
 
     @Builder(access = AccessLevel.PRIVATE)
     private JapaneseDictionary(String surface, String reading) {

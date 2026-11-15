@@ -24,7 +24,6 @@ import java.util.concurrent.TimeoutException;
 @Service
 @RequiredArgsConstructor
 public class VoiceSessionFacade {
-
     private final VoiceSessionCommandService sessionCommandService;
     private final VoiceSessionQueryService sessionQueryService;
     private final VoiceTranslationRetryQueryService retryQueryService;
@@ -34,73 +33,32 @@ public class VoiceSessionFacade {
     private final VoiceConnectionRegistry connectionRegistry;
     private final VoicePolicyProperties policy;
 
-    public VoiceSessionResponseDto create(
-            Long userId,
-            VoiceSessionCreateRequestDto request
-    ) {
-        String sessionId = sessionCommandService.create(
-                userId,
-                request
-        );
+    public VoiceSessionResponseDto create(Long userId, VoiceSessionCreateRequestDto request) {
+        String sessionId = sessionCommandService.create(userId, request);
 
         return sessionQueryService.get(userId, sessionId);
     }
 
-    public VoiceSessionResponseDto get(
-            Long userId,
-            String sessionId
-    ) {
+    public VoiceSessionResponseDto get(Long userId, String sessionId) {
         return sessionQueryService.get(userId, sessionId);
     }
 
-    public VoiceSessionListResponseDto listHistory(
-            Long userId,
-            LocalDateTime cursor,
-            Integer size
-    ) {
-        return sessionQueryService.listHistory(
-                userId,
-                cursor,
-                size
-        );
+    public VoiceSessionListResponseDto listHistory(Long userId, LocalDateTime cursor, Integer size) {
+        return sessionQueryService.listHistory(userId, cursor, size);
     }
 
-    public VoiceSegmentListResponseDto listSegments(
-            Long userId,
-            String sessionId,
-            Long cursor,
-            Integer size
-    ) {
-        return sessionQueryService.listSegments(
-                userId,
-                sessionId,
-                cursor,
-                size
-        );
+    public VoiceSegmentListResponseDto listSegments(Long userId, String sessionId, Long cursor, Integer size) {
+        return sessionQueryService.listSegments(userId, sessionId, cursor, size);
     }
 
-    public VoiceSessionResponseDto update(
-            Long userId,
-            String sessionId,
-            VoiceSessionUpdateRequestDto request
-    ) {
-        sessionCommandService.update(
-                userId,
-                sessionId,
-                request
-        );
+    public VoiceSessionResponseDto update(Long userId, String sessionId, VoiceSessionUpdateRequestDto request) {
+        sessionCommandService.update(userId, sessionId, request);
 
         return sessionQueryService.get(userId, sessionId);
     }
 
-    public VoiceSessionResponseDto complete(
-            Long userId,
-            String sessionId
-    ) {
-        boolean shouldFlush = sessionCommandService.startCompleting(
-                userId,
-                sessionId
-        );
+    public VoiceSessionResponseDto complete(Long userId, String sessionId) {
+        boolean shouldFlush = sessionCommandService.startCompleting(userId, sessionId);
 
         if (shouldFlush) {
             flushConnections(userId, sessionId);
@@ -112,84 +70,37 @@ public class VoiceSessionFacade {
             connectionRegistry.forceCloseSession(sessionId);
             // 진행 중이던 이번 종료의 손실은 오류로 알린다. 실패 후 반복 정리는 FAILED 응답으로 확인한다.
             if (shouldFlush) {
-                throw new BusinessException(
-                        "A Voice channel closed without completing its final results.",
-                        VoiceErrorCode.AI_CONNECTION_CLOSED
-                );
+                throw new BusinessException("A Voice channel closed without completing its final results.",
+                        VoiceErrorCode.AI_CONNECTION_CLOSED);
             }
         }
 
         return sessionQueryService.get(userId, sessionId);
     }
 
-    public void delete(
-            Long userId,
-            String sessionId
-    ) {
+    public void delete(Long userId, String sessionId) {
         sessionCommandService.delete(userId, sessionId);
     }
 
-    public VoiceWebSocketTicketResponseDto issueWebSocketTicket(
-            Long userId,
-            String sessionId,
-            VoiceChannel channel
-    ) {
-        sessionQueryService.validateStreamAccess(
-                userId,
-                sessionId,
-                channel
-        );
+    public VoiceWebSocketTicketResponseDto issueWebSocketTicket(Long userId, String sessionId, VoiceChannel channel) {
+        sessionQueryService.validateStreamAccess(userId, sessionId, channel);
 
         return new VoiceWebSocketTicketResponseDto(
-                webSocketTicketService.issue(
-                        userId,
-                        sessionId,
-                        channel
-                ),
-                policy.getWebsocketTicketTtlSeconds()
-        );
+                webSocketTicketService.issue(userId, sessionId, channel), policy.getWebsocketTicketTtlSeconds());
     }
 
-    public VoiceTranslationRetryResponseDto retryTranslation(
-            Long userId,
-            String sessionId,
-            Long segmentId
-    ) {
-        VoiceTranslationRetryContext context = retryQueryService.prepare(
-                userId,
-                sessionId,
-                segmentId
-        );
-        AiVoiceTranslationRetryResponse aiResponse =
-                aiTranslationRetryClient.retry(
-                        sessionId,
-                        segmentId,
-                        context
-                );
-        VoiceSegmentResponseDto segment = retryCommandService.apply(
-                userId,
-                sessionId,
-                segmentId,
-                context,
-                aiResponse
-        );
+    public VoiceTranslationRetryResponseDto retryTranslation(Long userId, String sessionId, Long segmentId) {
+        VoiceTranslationRetryContext context = retryQueryService.prepare(userId, sessionId, segmentId);
+        AiVoiceTranslationRetryResponse aiResponse = aiTranslationRetryClient.retry(sessionId, segmentId, context);
+        VoiceSegmentResponseDto segment = retryCommandService.apply(userId, sessionId, segmentId, context, aiResponse);
 
         return new VoiceTranslationRetryResponseDto(segment);
     }
 
-    private void flushConnections(
-            Long userId,
-            String sessionId
-    ) {
+    private void flushConnections(Long userId, String sessionId) {
         try {
-            connectionRegistry.closeSession(
-                            sessionId,
-                            "SESSION_COMPLETE"
-                    )
-                    .get(
-                            policy.getSessionCompleteTimeoutMs(),
-                            TimeUnit.MILLISECONDS
-                    );
+            connectionRegistry.closeSession(sessionId, "SESSION_COMPLETE")
+                    .get(policy.getSessionCompleteTimeoutMs(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             failCompletion(userId, sessionId, e);
@@ -200,11 +111,7 @@ public class VoiceSessionFacade {
         }
     }
 
-    private void failCompletion(
-            Long userId,
-            String sessionId,
-            Throwable failure
-    ) {
+    private void failCompletion(Long userId, String sessionId, Throwable failure) {
         // DB의 terminal 상태/미보관 삭제를 먼저 확정해 늦은 Final 쓰기와 직렬화한다.
         // DB 정리에 실패해도 소켓과 준비 중인 AI 연결은 반드시 종료한다.
         try {
@@ -218,8 +125,7 @@ public class VoiceSessionFacade {
                 && cause.getCause() != null) {
             cause = cause.getCause();
         }
-        if (cause instanceof BusinessException business
-                && business.getErrorCode() != null
+        if (cause instanceof BusinessException business && business.getErrorCode() != null
                 && !business.getErrorCode().isBlank()) {
             throw business;
         }
@@ -227,7 +133,6 @@ public class VoiceSessionFacade {
         boolean timedOut = cause instanceof TimeoutException || cause instanceof InterruptedException;
         throw new BusinessException(
                 timedOut ? "Timed out while flushing Voice streams." : "Failed while closing Voice streams.",
-                timedOut ? VoiceErrorCode.COMPLETE_TIMEOUT : VoiceErrorCode.BE_INTERNAL_ERROR
-        );
+                timedOut ? VoiceErrorCode.COMPLETE_TIMEOUT : VoiceErrorCode.BE_INTERNAL_ERROR);
     }
 }

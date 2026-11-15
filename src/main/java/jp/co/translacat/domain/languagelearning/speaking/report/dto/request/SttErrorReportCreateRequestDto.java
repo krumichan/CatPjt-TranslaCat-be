@@ -4,11 +4,5 @@ import jp.co.translacat.domain.languagelearning.speaking.common.enums.SttReportT
 
 import java.util.Map;
 
-public record SttErrorReportCreateRequestDto(
-        SttReportType reportType,
-        String expectedText,
-        boolean audioAnalysisConsent,
-        Map<String, Object> clientAudioMetadata,
-        boolean supportRequested
-) {
-}
+public record SttErrorReportCreateRequestDto(SttReportType reportType, String expectedText,
+        boolean audioAnalysisConsent, Map<String, Object> clientAudioMetadata, boolean supportRequested) {}

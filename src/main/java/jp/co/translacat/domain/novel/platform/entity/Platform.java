@@ -13,23 +13,18 @@ import java.util.List;
 @Getter
 @Table(name = "platform")
 public class Platform extends BaseAuditable {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
     @Enumerated(EnumType.STRING)
     @Column(unique = true, nullable = false)
     @JsonFormat(with = JsonFormat.Feature.ACCEPT_CASE_INSENSITIVE_PROPERTIES)
     private PlatformCode code;
 
-    @Column
-    private String name;
+    @Column private String name;
 
-    @Column
-    private String nameJa;
+    @Column private String nameJa;
 
-    @Column
-    private String nameKo;
+    @Column private String nameKo;
 
     @OneToMany(mappedBy = "platform", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PlatformUrlTemplate> urlTemplates = new ArrayList<>();

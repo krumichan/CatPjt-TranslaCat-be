@@ -18,7 +18,8 @@ public class MobileAuthRedirects {
     private final Set<String> allowed;
 
     @Autowired
-    public MobileAuthRedirects(@Value("${auth.mobile.allowed-redirect-uris:}") String configured, Environment environment) {
+    public MobileAuthRedirects(
+            @Value("${auth.mobile.allowed-redirect-uris:}") String configured, Environment environment) {
         this(configured, environment.acceptsProfiles(Profiles.of("prod", "production")));
     }
 
@@ -38,8 +39,8 @@ public class MobileAuthRedirects {
                     "앱 로그인 연결 설정이 준비되지 않았습니다.");
         }
         if (!validShape(redirectUri) || !allowed.contains(redirectUri)) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "MOBILE_AUTH_REDIRECT_NOT_ALLOWED",
-                    "허용되지 않은 앱 로그인 경로입니다.");
+            throw new AuthException(
+                    HttpStatus.BAD_REQUEST, "MOBILE_AUTH_REDIRECT_NOT_ALLOWED", "허용되지 않은 앱 로그인 경로입니다.");
         }
     }
 

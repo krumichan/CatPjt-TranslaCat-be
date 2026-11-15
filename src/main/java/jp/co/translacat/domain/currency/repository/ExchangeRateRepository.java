@@ -11,8 +11,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 public interface ExchangeRateRepository extends JpaRepository<ExchangeRate, Long> {
-    Optional<ExchangeRate>
-    findBySourceCurrencyCodeAndTargetCurrencyCodeAndRequestedRateDateAndProvider(
+    Optional<ExchangeRate> findBySourceCurrencyCodeAndTargetCurrencyCodeAndRequestedRateDateAndProvider(
             String source, String target, LocalDate date, String provider);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -23,9 +22,6 @@ public interface ExchangeRateRepository extends JpaRepository<ExchangeRate, Long
               and rate.requestedRateDate = :date
               and rate.provider = :provider
             """)
-    Optional<ExchangeRate> findForUpdate(
-            @Param("source") String source,
-            @Param("target") String target,
-            @Param("date") LocalDate date,
-            @Param("provider") String provider);
+    Optional<ExchangeRate> findForUpdate(@Param("source") String source, @Param("target") String target,
+            @Param("date") LocalDate date, @Param("provider") String provider);
 }

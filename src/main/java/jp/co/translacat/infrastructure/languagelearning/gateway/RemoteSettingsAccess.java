@@ -24,8 +24,9 @@ public class RemoteSettingsAccess {
 
     public LanguageLearningSettingsClient client() {
         LanguageLearningSettingsClient client = clients.getIfAvailable();
-        if (client == null) throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
-                "LL_SETTINGS_REMOTE_DISABLED", "언어학습 Settings 연결이 활성화되지 않았습니다.");
+        if (client == null)
+            throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, "LL_SETTINGS_REMOTE_DISABLED",
+                    "언어학습 Settings 연결이 활성화되지 않았습니다.");
         return client;
     }
 

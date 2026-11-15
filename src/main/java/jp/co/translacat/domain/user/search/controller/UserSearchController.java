@@ -17,14 +17,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/users")
 public class UserSearchController {
-
     private final UserSearchService userSearchService;
 
     @GetMapping("/search")
     public ResponseDto<UserSearchResponseDto> searchByPublicId(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestParam String publicId
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @RequestParam String publicId) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
         return ResponseUtil.ok(userSearchService.searchByPublicId(loginUserId, publicId));
     }

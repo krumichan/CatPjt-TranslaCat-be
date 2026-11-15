@@ -12,18 +12,11 @@ import java.util.Optional;
 
 public interface VoiceSessionChannelRepository
         extends JpaRepository<VoiceSessionChannel, Long>, VoiceSessionChannelRepositoryCustom {
-
     List<VoiceSessionChannel> findBySession_IdOrderByChannelAsc(String sessionId);
 
-    Optional<VoiceSessionChannel> findBySession_IdAndChannel(
-            String sessionId,
-            VoiceChannel channel
-    );
+    Optional<VoiceSessionChannel> findBySession_IdAndChannel(String sessionId, VoiceChannel channel);
 
-    long countBySession_IdAndStatusIn(
-            String sessionId,
-            Collection<VoiceChannelStatus> statuses
-    );
+    long countBySession_IdAndStatusIn(String sessionId, Collection<VoiceChannelStatus> statuses);
 
     void deleteBySession_Id(String sessionId);
 }

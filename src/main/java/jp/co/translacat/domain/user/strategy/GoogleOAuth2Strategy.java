@@ -24,8 +24,7 @@ public class GoogleOAuth2Strategy implements OAuth2Strategy {
         var identity = verifier.verify(idTokenString);
 
         // 이메일 충돌은 연결 안내로 유지하고 Google 검증 오류로 덮어쓰지 않는다.
-        return userService.getOrRegisterSocialUser(identity.email(), identity.name(),
-                identity.subject(), SocialType.GOOGLE);
+        return userService.getOrRegisterSocialUser(
+                identity.email(), identity.name(), identity.subject(), SocialType.GOOGLE);
     }
 }
-

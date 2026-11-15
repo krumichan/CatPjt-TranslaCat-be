@@ -11,57 +11,36 @@ import java.util.Optional;
 
 @RequiredArgsConstructor
 public class FriendRepositoryImpl implements FriendRepositoryCustom {
-
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Optional<Friend> findByUserIds(
-            Long userId1,
-            Long userId2
-    ) {
+    public Optional<Friend> findByUserIds(Long userId1, Long userId2) {
         QFriend friend = QFriend.friend;
 
-        Friend result = queryFactory
-                .selectFrom(friend)
-                .where(betweenUsers(friend, userId1, userId2))
-                .fetchFirst();
+        Friend result = queryFactory.selectFrom(friend).where(betweenUsers(friend, userId1, userId2)).fetchFirst();
 
         return Optional.ofNullable(result);
     }
 
     @Override
-    public Optional<Friend> findActiveByUserIds(
-            Long userId1,
-            Long userId2
-    ) {
+    public Optional<Friend> findActiveByUserIds(Long userId1, Long userId2) {
         QFriend friend = QFriend.friend;
 
-        Friend result = queryFactory
-                .selectFrom(friend)
-                .where(
-                        friend.deleted.isFalse(),
-                        betweenUsers(friend, userId1, userId2)
-                )
-                .fetchFirst();
+        Friend result = queryFactory.selectFrom(friend)
+                                .where(friend.deleted.isFalse(), betweenUsers(friend, userId1, userId2))
+                                .fetchFirst();
 
         return Optional.ofNullable(result);
     }
 
     @Override
-    public boolean existsActiveByUserIds(
-            Long userId1,
-            Long userId2
-    ) {
+    public boolean existsActiveByUserIds(Long userId1, Long userId2) {
         QFriend friend = QFriend.friend;
 
-        Integer result = queryFactory
-                .selectOne()
-                .from(friend)
-                .where(
-                        friend.deleted.isFalse(),
-                        betweenUsers(friend, userId1, userId2)
-                )
-                .fetchFirst();
+        Integer result = queryFactory.selectOne()
+                                 .from(friend)
+                                 .where(friend.deleted.isFalse(), betweenUsers(friend, userId1, userId2))
+                                 .fetchFirst();
 
         return result != null;
     }
@@ -70,27 +49,15 @@ public class FriendRepositoryImpl implements FriendRepositoryCustom {
     public List<Friend> findActiveFriendsByUserId(Long userId) {
         QFriend friend = QFriend.friend;
 
-        return queryFactory
-                .selectFrom(friend)
-                .where(
-                        friend.deleted.isFalse(),
-                        friend.userLow.id.eq(userId)
-                                .or(friend.userHigh.id.eq(userId))
-                )
+        return queryFactory.selectFrom(friend)
+                .where(friend.deleted.isFalse(), friend.userLow.id.eq(userId).or(friend.userHigh.id.eq(userId)))
                 .orderBy(friend.createdAt.desc())
                 .fetch();
     }
 
-    private BooleanExpression betweenUsers(
-            QFriend friend,
-            Long userId1,
-            Long userId2
-    ) {
+    private BooleanExpression betweenUsers(QFriend friend, Long userId1, Long userId2) {
         return friend.userLow.id.eq(userId1)
                 .and(friend.userHigh.id.eq(userId2))
-                .or(
-                        friend.userLow.id.eq(userId2)
-                                .and(friend.userHigh.id.eq(userId1))
-                );
+                .or(friend.userLow.id.eq(userId2).and(friend.userHigh.id.eq(userId1)));
     }
 }

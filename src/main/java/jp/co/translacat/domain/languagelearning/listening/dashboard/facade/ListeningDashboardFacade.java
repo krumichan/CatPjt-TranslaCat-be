@@ -18,15 +18,18 @@ public class ListeningDashboardFacade {
     private final ListeningGateway gateway;
     private final ListeningDailySetFacade dailySetFacade;
 
-    public ListeningApiContract.DashboardView dashboard(Long userId, LocalDate from, LocalDate to,
-                                                        ListeningTaskType taskType) {
+    public ListeningApiContract.DashboardView dashboard(
+            Long userId, LocalDate from, LocalDate to, ListeningTaskType taskType) {
         return gateway.get(userId, range("/dashboard", from, to, taskType), ListeningApiContract.DashboardView.class);
     }
 
-    public List<ListeningApiContract.MetricTrendView> metricTrends(Long userId, String language, LocalDate from,
-                                                                   LocalDate to, ListeningTaskType taskType) {
+    public List<ListeningApiContract.MetricTrendView> metricTrends(
+            Long userId, String language, LocalDate from, LocalDate to, ListeningTaskType taskType) {
         String path = UriComponentsBuilder.fromUriString(range("/metric-trends", from, to, taskType))
-                .queryParam("learningLanguage", language).build().encode().toUriString();
+                              .queryParam("learningLanguage", language)
+                              .build()
+                              .encode()
+                              .toUriString();
         return gateway.list(userId, path, ListeningApiContract.MetricTrendView.class);
     }
 
@@ -48,9 +51,12 @@ public class ListeningDashboardFacade {
 
     private String range(String path, LocalDate from, LocalDate to, ListeningTaskType taskType) {
         var builder = UriComponentsBuilder.fromPath(path);
-        if (from != null) builder.queryParam("from", from);
-        if (to != null) builder.queryParam("to", to);
-        if (taskType != null) builder.queryParam("taskType", taskType);
+        if (from != null)
+            builder.queryParam("from", from);
+        if (to != null)
+            builder.queryParam("to", to);
+        if (taskType != null)
+            builder.queryParam("taskType", taskType);
         return builder.build().encode().toUriString();
     }
 }

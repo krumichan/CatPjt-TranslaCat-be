@@ -46,22 +46,21 @@ public class NovelSafeSaver {
     // 반드시 성공 시켜야 할 목록으로 별도 트랜잭션 처리.
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public CompletableFuture<List<Novel>> saveNovels(Platform platform, String genreIdentifier,
-                                                     List<NovelContext> contextList) {
+    public CompletableFuture<List<Novel>> saveNovels(
+            Platform platform, String genreIdentifier, List<NovelContext> contextList) {
         List<Novel> processedList = new ArrayList<>();
 
         // 소설 존재 여부 확인.
-        List<Novel> existingNovels =
-                novelRepository.findAllByPlatformIdAndIdentifierIn(
-                        platform.getId(), contextList.stream().map(NovelContext::getIdentifier).toList());
-        Map<String, Novel> existingNovelMap = existingNovels.stream()
-                .collect(Collectors.toMap(Novel::getIdentifier, r -> r, (oldValue, newValue) -> oldValue));
+        List<Novel> existingNovels = novelRepository.findAllByPlatformIdAndIdentifierIn(
+                platform.getId(), contextList.stream().map(NovelContext::getIdentifier).toList());
+        Map<String, Novel> existingNovelMap = existingNovels.stream().collect(
+                Collectors.toMap(Novel::getIdentifier, r -> r, (oldValue, newValue) -> oldValue));
 
         // 작가 존재 여부 확인.
         List<Author> existingAuthors = authorService.findAuthors(
                 platform.getId(), contextList.stream().map(NovelContext::getAuthorIdentifier).toList());
-        Map<String, Author> existingAuthorMap = existingAuthors.stream()
-                .collect(Collectors.toMap(Author::getIdentifier, r -> r, (oldValue, newValue) -> oldValue));
+        Map<String, Author> existingAuthorMap = existingAuthors.stream().collect(
+                Collectors.toMap(Author::getIdentifier, r -> r, (oldValue, newValue) -> oldValue));
 
         // 장르 존재 여부 확인.
         Map<String, Genre> existingGenreMap = new HashMap<>();
@@ -71,16 +70,11 @@ public class NovelSafeSaver {
         }
 
         for (NovelContext ctx : contextList) {
-
             // 해당하는 작가가 있는지 조회하여 있으면 그대로 쓰고 아니면 생성해서 쓰기.
             Author author = existingAuthorMap.get(ctx.getAuthorIdentifier());
             if (Objects.isNull(author)) {
-                author = authorService.create(
-                        platform,
-                        ctx.getAuthorIdentifier(),
-                        ctx.getAuthor().getRawJa(),
-                        ctx.getAuthor().getJa(),
-                        ctx.getAuthor().getKo());
+                author = authorService.create(platform, ctx.getAuthorIdentifier(), ctx.getAuthor().getRawJa(),
+                        ctx.getAuthor().getJa(), ctx.getAuthor().getKo());
 
                 // 중복 등록 방지.
                 existingAuthorMap.put(author.getIdentifier(), author);
@@ -99,22 +93,19 @@ public class NovelSafeSaver {
             Novel maybeNovel = existingNovelMap.get(ctx.getIdentifier());
             if (!Objects.isNull(maybeNovel)) {
                 // [UPDATE] 이미 있다면 가져와서 정보 갱신
-                maybeNovel.updateIfChanged(
-                        literalGenre, author,
-                        ctx.getTitle().getRawJa(), ctx.getTitle().getJa(), ctx.getTitle().getKo(),
-                        ctx.getStatus().getRawJa(), ctx.getStatus().getJa(), ctx.getStatus().getKo(),
-                        ctx.getSynopsis().getRawJa(), ctx.getSynopsis().getJa(), ctx.getSynopsis().getKo(),
-                        ctx.isShortStory());
+                maybeNovel.updateIfChanged(literalGenre, author, ctx.getTitle().getRawJa(), ctx.getTitle().getJa(),
+                        ctx.getTitle().getKo(), ctx.getStatus().getRawJa(), ctx.getStatus().getJa(),
+                        ctx.getStatus().getKo(), ctx.getSynopsis().getRawJa(), ctx.getSynopsis().getJa(),
+                        ctx.getSynopsis().getKo(), ctx.isShortStory());
 
                 processedList.add(maybeNovel);
             } else {
                 // [INSERT] 없다면 새로 생성
-                Novel newNovel = this.novelRepository.save(Novel.create(
-                        platform, literalGenre, author, ctx.getIdentifier(),
-                        ctx.getTitle().getRawJa(), ctx.getTitle().getJa(), ctx.getTitle().getKo(),
-                        ctx.getStatus().getRawJa(), ctx.getStatus().getJa(), ctx.getStatus().getKo(),
-                        ctx.getSynopsis().getRawJa(), ctx.getSynopsis().getJa(), ctx.getSynopsis().getKo(),
-                        ctx.isShortStory()));
+                Novel newNovel = this.novelRepository.save(
+                        Novel.create(platform, literalGenre, author, ctx.getIdentifier(), ctx.getTitle().getRawJa(),
+                                ctx.getTitle().getJa(), ctx.getTitle().getKo(), ctx.getStatus().getRawJa(),
+                                ctx.getStatus().getJa(), ctx.getStatus().getKo(), ctx.getSynopsis().getRawJa(),
+                                ctx.getSynopsis().getJa(), ctx.getSynopsis().getKo(), ctx.isShortStory()));
                 processedList.add(newNovel);
 
                 // 중복 등록 방지.

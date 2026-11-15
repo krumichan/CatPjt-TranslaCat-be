@@ -18,7 +18,6 @@ import java.util.Locale;
 @RequiredArgsConstructor
 @Slf4j
 public class VoiceSourceReadingService {
-
     private static final int MAX_READING_TOKENS = 2_000;
     private static final int MAX_SOURCE_CHARACTERS = 3_000;
 
@@ -34,9 +33,7 @@ public class VoiceSourceReadingService {
 
     public ArrayNode forLanguage(String sourceText, String sourceLanguage) {
         ArrayNode empty = objectMapper.createArrayNode();
-        if (!"ja".equals(normalizeLanguage(sourceLanguage))
-                || sourceText == null
-                || sourceText.isBlank()
+        if (!"ja".equals(normalizeLanguage(sourceLanguage)) || sourceText == null || sourceText.isBlank()
                 || sourceText.length() > MAX_SOURCE_CHARACTERS) {
             return empty;
         }
@@ -66,17 +63,12 @@ public class VoiceSourceReadingService {
             }
             return sourceText.contentEquals(reconstructed) ? result : empty;
         } catch (RuntimeException error) {
-            log.warn("Voice Sudachi reading generation failed errorType={}",
-                    error.getClass().getSimpleName());
+            log.warn("Voice Sudachi reading generation failed errorType={}", error.getClass().getSimpleName());
             return empty;
         }
     }
 
-    public String preserveStoredWhenGenerationFails(
-            String generatedJson,
-            String storedJson,
-            String sourceText
-    ) {
+    public String preserveStoredWhenGenerationFails(String generatedJson, String storedJson, String sourceText) {
         if (!"[]".equals(generatedJson) || storedJson == null || sourceText == null) {
             return generatedJson;
         }

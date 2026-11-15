@@ -15,21 +15,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/language-learning/speaking/sessions/{sessionId}")
 @RequiredArgsConstructor
 public class SpeakingAssistanceController {
-
     private final SpeakingAssistanceFacade assistanceFacade;
 
     @PostMapping("/assistance")
-    public ResponseDto<SpeakingAssistanceResponseDto> getAssistance(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId,
-            @RequestBody SpeakingAssistanceRequestDto request
-    ) {
-        return ResponseUtil.ok(
-                assistanceFacade.get(
-                        SecurityUtil.getLoginUserId(principal),
-                        sessionId,
-                        request
-                )
-        );
+    public ResponseDto<SpeakingAssistanceResponseDto> getAssistance(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long sessionId, @RequestBody SpeakingAssistanceRequestDto request) {
+        return ResponseUtil.ok(assistanceFacade.get(SecurityUtil.getLoginUserId(principal), sessionId, request));
     }
 }

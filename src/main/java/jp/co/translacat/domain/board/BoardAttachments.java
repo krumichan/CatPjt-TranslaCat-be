@@ -23,14 +23,13 @@ import static jp.co.translacat.domain.board.BoardDtos.*;
 @Service
 @RequiredArgsConstructor
 class BoardAttachments {
-
     static final long MEMBER_MAX = 30_000_000;
     static final long R2_MAX = (5L << 40) - (5L << 30);
     private static final long MIB = 1L << 20;
 
-    private static final RowMapper<StoredUpload> UPLOAD = (rs, index) -> new StoredUpload(
-            UUID.fromString(rs.getString("id")), rs.getLong("bytes"), rs.getLong("part_bytes"),
-            rs.getString("upload_id"), rs.getString("state"), rs.getBoolean("expired"));
+    private static final RowMapper<StoredUpload> UPLOAD = (rs, index)
+            -> new StoredUpload(UUID.fromString(rs.getString("id")), rs.getLong("bytes"), rs.getLong("part_bytes"),
+                    rs.getString("upload_id"), rs.getString("state"), rs.getBoolean("expired"));
 
     private final JdbcTemplate jdbc;
     private final BoardStorage storage;
@@ -78,10 +77,11 @@ class BoardAttachments {
             return new UploadStatus(id, upload.partBytes(), List.of(), true);
         }
 
-        List<Integer> completed = storage.parts(id, upload.uploadId()).stream()
-                .filter(part -> validPart(upload, part))
-                .map(Part::partNumber)
-                .toList();
+        List<Integer> completed = storage.parts(id, upload.uploadId())
+                                          .stream()
+                                          .filter(part -> validPart(upload, part))
+                                          .map(Part::partNumber)
+                                          .toList();
         return new UploadStatus(id, upload.partBytes(), completed, false);
     }
 
@@ -104,9 +104,10 @@ class BoardAttachments {
 
         // 실제 파트 개수와 바이트를 R2에서 확인한 뒤 완료한다.
         if (!verifiedObject(upload)) {
-            List<Part> parts = storage.parts(id, upload.uploadId()).stream()
-                    .sorted(Comparator.comparingInt(Part::partNumber))
-                    .toList();
+            List<Part> parts = storage.parts(id, upload.uploadId())
+                                       .stream()
+                                       .sorted(Comparator.comparingInt(Part::partNumber))
+                                       .toList();
             if (parts.size() != partCount(upload)
                     || parts.stream().map(Part::partNumber).distinct().count() != parts.size()
                     || parts.stream().anyMatch(part -> !validPart(upload, part))) {
@@ -155,8 +156,11 @@ class BoardAttachments {
         return jdbc.query("""
                 SELECT id, filename, bytes FROM board_attachment
                 WHERE entry_id = ? AND state = 'ATTACHED' ORDER BY id
-                """, (rs, index) -> new Attachment(UUID.fromString(rs.getString("id")),
-                rs.getString("filename"), rs.getLong("bytes")), entry.toString());
+                """,
+                (rs, index)
+                        -> new Attachment(
+                                UUID.fromString(rs.getString("id")), rs.getString("filename"), rs.getLong("bytes")),
+                entry.toString());
     }
 
     SignedUrl download(UUID entry, UUID id) {
@@ -178,8 +182,7 @@ class BoardAttachments {
                 """, entry.toString());
     }
 
-    @Scheduled(fixedDelayString = "${translacat.board.storage.cleanup-interval-ms:60000}",
-            initialDelayString = "60000")
+    @Scheduled(fixedDelayString = "${translacat.board.storage.cleanup-interval-ms:60000}", initialDelayString = "60000")
     void cleanExpired() {
         // 후보를 찾는 동안 다른 첨부의 업로드나 글 등록을 잠그지 않는다.
         List<String> expired = jdbc.queryForList("""
@@ -233,8 +236,11 @@ class BoardAttachments {
         return jdbc.query("""
                 SELECT a.*, expires_at <= UTC_TIMESTAMP(6) AS expired FROM board_attachment a
                 WHERE id = ? AND board = ? AND owner_id = ? AND state IN ('OPEN', 'READY') FOR UPDATE
-                """, UPLOAD, id.toString(), board.name(), owner).stream()
-                .filter(upload -> !upload.expired()).findFirst().orElseThrow(BoardException::missing);
+                """, UPLOAD, id.toString(), board.name(), owner)
+                .stream()
+                .filter(upload -> !upload.expired())
+                .findFirst()
+                .orElseThrow(BoardException::missing);
     }
 
     private boolean verifiedObject(StoredUpload upload) {
@@ -270,8 +276,7 @@ class BoardAttachments {
         return number >= 1 && number <= partCount(upload) && part.size() == partLength(upload, number);
     }
 
-    private record StoredUpload(UUID id, long bytes, long partBytes,
-                                String uploadId, String state, boolean expired) {
+    private record StoredUpload(UUID id, long bytes, long partBytes, String uploadId, String state, boolean expired) {
         boolean ready() {
             return "READY".equals(state);
         }

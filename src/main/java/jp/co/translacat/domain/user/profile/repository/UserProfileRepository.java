@@ -11,16 +11,10 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface UserProfileRepository
-        extends JpaRepository<UserProfile, Long> {
-
+public interface UserProfileRepository extends JpaRepository<UserProfile, Long> {
     Optional<UserProfile> findByUserAndDeletedFalse(User user);
 
     Optional<UserProfile> findByUserIdAndDeletedFalse(Long userId);
 
-    @EntityGraph(attributePaths = {"user"})
-    List<UserProfile> findByUserIdInAndDeletedFalse(
-            Collection<Long> userIds
-    );
-
+    @EntityGraph(attributePaths = {"user"}) List<UserProfile> findByUserIdInAndDeletedFalse(Collection<Long> userIds);
 }

@@ -8,7 +8,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /** 계정 소유 데이터를 쓰는 트랜잭션은 탈퇴 전환과 같은 사용자 행을 직렬화한다. */
 public final class UserAccountWriteFence {
-    private UserAccountWriteFence() { }
+    private UserAccountWriteFence() {
+    }
 
     public static User lock(EntityManager entities, User candidate) {
         User current = candidate;
@@ -17,7 +18,8 @@ public final class UserAccountWriteFence {
                 && TransactionSynchronizationManager.isActualTransactionActive()
                 && !TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             current = entities.find(User.class, candidate.getId(), LockModeType.PESSIMISTIC_WRITE);
-            if (current != null) entities.refresh(current, LockModeType.PESSIMISTIC_WRITE);
+            if (current != null)
+                entities.refresh(current, LockModeType.PESSIMISTIC_WRITE);
         }
         if (current == null || !current.isActiveAccount()) {
             throw new BusinessException("사용자를 찾을 수 없습니다.", "USER_NOT_FOUND");

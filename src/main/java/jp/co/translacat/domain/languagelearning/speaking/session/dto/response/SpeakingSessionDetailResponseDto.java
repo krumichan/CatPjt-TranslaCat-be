@@ -6,13 +6,8 @@ import jp.co.translacat.domain.languagelearning.speaking.turn.dto.response.Speak
 
 import java.util.List;
 
-public record SpeakingSessionDetailResponseDto(
-        SpeakingSessionResponseDto session,
-        SpeakingDailyUsageResponseDto dailyUsage,
-        List<SpeakingTurnResponseDto> turns,
+public record SpeakingSessionDetailResponseDto(SpeakingSessionResponseDto session,
+        SpeakingDailyUsageResponseDto dailyUsage, List<SpeakingTurnResponseDto> turns,
         List<SpeakingReadAloudProblemEvaluationResponseDto> readAloudProblemEvaluations,
         SpeakingEvaluationEligibilityResponseDto evaluationEligibility,
-        SpeakingCoachingResultResponseDto coachingResult,
-        boolean resumable
-) {
-}
+        SpeakingCoachingResultResponseDto coachingResult, boolean resumable) {}

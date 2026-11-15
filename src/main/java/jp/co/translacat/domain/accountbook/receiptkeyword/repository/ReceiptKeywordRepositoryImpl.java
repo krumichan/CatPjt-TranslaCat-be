@@ -11,33 +11,17 @@ import static jp.co.translacat.domain.accountbook.receiptkeyword.entity.QReceipt
 
 @RequiredArgsConstructor
 public class ReceiptKeywordRepositoryImpl implements ReceiptKeywordRepositoryCustom {
-
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public List<ReceiptKeyword> findEffectiveKeywords(
-            String currencyCode,
-            String ocrLanguage
-    ) {
-        return queryFactory
-                .selectFrom(receiptKeyword)
-                .where(
-                        receiptKeyword.enabled.isTrue(),
-                        receiptKeyword.deleted.isFalse(),
+    public List<ReceiptKeyword> findEffectiveKeywords(String currencyCode, String ocrLanguage) {
+        return queryFactory.selectFrom(receiptKeyword)
+                .where(receiptKeyword.enabled.isTrue(), receiptKeyword.deleted.isFalse(),
                         receiptKeyword.ocrLanguage.eq(ocrLanguage),
-                        receiptKeyword.currencyCode.isNull()
-                                .or(receiptKeyword.currencyCode.eq(currencyCode))
-                )
+                        receiptKeyword.currencyCode.isNull().or(receiptKeyword.currencyCode.eq(currencyCode)))
                 .orderBy(
-                        new CaseBuilder()
-                                .when(receiptKeyword.currencyCode.eq(currencyCode))
-                                .then(0)
-                                .otherwise(1)
-                                .asc(),
-                        receiptKeyword.keywordType.asc(),
-                        receiptKeyword.displayOrder.asc(),
-                        receiptKeyword.id.asc()
-                )
+                        new CaseBuilder().when(receiptKeyword.currencyCode.eq(currencyCode)).then(0).otherwise(1).asc(),
+                        receiptKeyword.keywordType.asc(), receiptKeyword.displayOrder.asc(), receiptKeyword.id.asc())
                 .fetch();
     }
 }

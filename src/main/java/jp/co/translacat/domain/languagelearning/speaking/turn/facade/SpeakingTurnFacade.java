@@ -20,8 +20,8 @@ import java.util.Map;
 public class SpeakingTurnFacade {
     private final SpeakingGateway gateway;
 
-    public SpeakingTurnUploadGrantResponseDto createUploadGrant(Long userId, Long sessionId,
-                                                                SpeakingTurnUploadGrantRequestDto request) {
+    public SpeakingTurnUploadGrantResponseDto createUploadGrant(
+            Long userId, Long sessionId, SpeakingTurnUploadGrantRequestDto request) {
         return gateway.post(userId, path(sessionId) + "/upload-url", request, SpeakingTurnUploadGrantResponseDto.class);
     }
 
@@ -30,9 +30,10 @@ public class SpeakingTurnFacade {
                 SpeakingTurnUploadGrantResponseDto.class);
     }
 
-    public SpeakingTurnResponseDto process(Long userId, Long sessionId, SpeakingTurnProcessRequestDto request,
-                                           MultipartFile audio) {
-        if (request == null || audio == null) throw new BusinessException("Audio 요청을 확인해 주세요.", "INVALID_AUDIO");
+    public SpeakingTurnResponseDto process(
+            Long userId, Long sessionId, SpeakingTurnProcessRequestDto request, MultipartFile audio) {
+        if (request == null || audio == null)
+            throw new BusinessException("Audio 요청을 확인해 주세요.", "INVALID_AUDIO");
 
         // 외부 multipart를 내부 전송 DTO로 옮긴다. 형식·시간·재녹음 판정은 LL에서 수행한다.
         Map<String, Object> body = new LinkedHashMap<>();

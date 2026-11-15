@@ -29,8 +29,7 @@ public class PasswordResetService {
     private final RefreshTokenRepository legacyRefresh;
     private final AuthAttemptLimiter attempts;
 
-    @PersistenceContext
-    private EntityManager entities;
+    @PersistenceContext private EntityManager entities;
 
     @Transactional
     public void complete(String email, String verificationToken, String password) {
@@ -48,10 +47,12 @@ public class PasswordResetService {
             throw invalid();
         }
         try {
-            verification.consume(verificationToken, normalizedEmail, EmailVerificationPurpose.RESET_PASSWORD, user.getId());
+            verification.consume(
+                    verificationToken, normalizedEmail, EmailVerificationPurpose.RESET_PASSWORD, user.getId());
         } catch (AuthException failure) {
             // 잘못된 증명과 대상 계정 부재에 같은 오류를 사용해 익명 복구 경로에서 계정을 구분하지 않는다.
-            if (!"AUTH_EMAIL_VERIFICATION_INVALID".equals(failure.getErrorCode())) throw failure;
+            if (!"AUTH_EMAIL_VERIFICATION_INVALID".equals(failure.getErrorCode()))
+                throw failure;
             throw invalid();
         }
 

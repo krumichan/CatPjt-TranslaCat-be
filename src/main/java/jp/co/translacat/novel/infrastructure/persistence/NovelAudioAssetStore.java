@@ -15,20 +15,21 @@ import java.util.UUID;
 @Repository
 public class NovelAudioAssetStore {
     private final NovelAccountFence accountFence;
-    public record Asset(String id, String identity, String sourceKey, long actor, String language,
-                        int partIndex, String textSha256, String model, String objectKey,
-                        String checksum, Long bytes, String contentType, Double duration,
-                        String state, String owner, long fence, long leaseUntil, int attempts) {}
+    public record Asset(String id, String identity, String sourceKey, long actor, String language, int partIndex,
+            String textSha256, String model, String objectKey, String checksum, Long bytes, String contentType,
+            Double duration, String state, String owner, long fence, long leaseUntil, int attempts) {}
     public record Claim(Asset asset, boolean owner) {}
 
     private final JdbcTemplate jdbc;
 
     public void beginObjectWrite(Asset asset) {
-        if (accountFence != null) accountFence.beginObjectWrite(asset.actor(), asset.identity(), asset.attempts());
+        if (accountFence != null)
+            accountFence.beginObjectWrite(asset.actor(), asset.identity(), asset.attempts());
     }
 
     public void finishObjectWrite(Asset asset, boolean confirmed) {
-        if (accountFence != null) accountFence.finishObjectWrite(asset.identity(), asset.attempts(), confirmed);
+        if (accountFence != null)
+            accountFence.finishObjectWrite(asset.identity(), asset.attempts(), confirmed);
     }
 
     public NovelAudioAssetStore(JdbcTemplate jdbc) {
@@ -42,24 +43,26 @@ public class NovelAudioAssetStore {
     }
 
     public Optional<Asset> find(String identity) {
-        return jdbc.query("SELECT * FROM novel_audio_asset WHERE identity_hash=?",
-                this::map, identity).stream().findFirst();
+        return jdbc.query("SELECT * FROM novel_audio_asset WHERE identity_hash=?", this::map, identity)
+                .stream()
+                .findFirst();
     }
 
-    public Claim claim(String identity, String sourceKey, long actor, String language, int partIndex,
-                       String textSha256, String model, String pronunciationVersion, long leaseMillis) {
+    public Claim claim(String identity, String sourceKey, long actor, String language, int partIndex, String textSha256,
+            String model, String pronunciationVersion, long leaseMillis) {
         // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
         return withActiveActor(actor, () -> {
             long now = System.currentTimeMillis();
             String owner = UUID.randomUUID().toString();
             try {
                 // identity unique가 두 BE 인스턴스의 첫 삽입 경합을 하나의 합성으로 묶는다.
-                jdbc.update("INSERT INTO novel_audio_asset(asset_id,identity_hash,source_key,actor_id,language,part_index,"
+                jdbc.update(
+                        "INSERT INTO novel_audio_asset(asset_id,identity_hash,source_key,actor_id,language,part_index,"
                                 + "text_sha256,pronunciation_version,model_name,voice_name,audio_format,state,owner_token,"
                                 + "fence,lease_until,attempt_count,created_at,updated_at) "
                                 + "VALUES(?,?,?,?,?,?,?,?,?,'marin','wav','GENERATING',?,1,?,1,?,?)",
-                        UUID.randomUUID().toString(), identity, sourceKey, actor, language, partIndex,
-                        textSha256, pronunciationVersion, model, owner, now + leaseMillis, now, now);
+                        UUID.randomUUID().toString(), identity, sourceKey, actor, language, partIndex, textSha256,
+                        pronunciationVersion, model, owner, now + leaseMillis, now, now);
                 return new Claim(find(identity).orElseThrow(), true);
             } catch (DuplicateKeyException existing) {
                 // 정상 자산·진행 중 자산은 재합성 대상이 아니다. 만료된 upload는 같은 바이트를 복구한다.
@@ -71,8 +74,8 @@ public class NovelAudioAssetStore {
                             owner, now + leaseMillis, now, identity);
                     return new Claim(find(identity).orElseThrow(), changed == 1);
                 }
-                if ("UPLOAD_FAILED".equals(current.state()) ||
-                        "UPLOADING".equals(current.state()) && current.leaseUntil() < now) {
+                if ("UPLOAD_FAILED".equals(current.state())
+                        || "UPLOADING".equals(current.state()) && current.leaseUntil() < now) {
                     int changed = jdbc.update("UPDATE novel_audio_asset SET state='UPLOADING',owner_token=?,"
                                     + "fence=fence+1,lease_until=?,updated_at=? WHERE identity_hash=? "
                                     + "AND (state='UPLOAD_FAILED' OR (state='UPLOADING' AND lease_until<?))",
@@ -98,7 +101,7 @@ public class NovelAudioAssetStore {
     }
 
     public Asset uploading(Asset owner, String objectKey, String checksum, long bytes, String contentType,
-                           Double duration, long leaseMillis) {
+            Double duration, long leaseMillis) {
         // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
         return withActiveActor(owner.actor(), () -> {
             int changed = jdbc.update("UPDATE novel_audio_asset SET state='UPLOADING',object_key=?,checksum_sha256=?,"
@@ -106,7 +109,8 @@ public class NovelAudioAssetStore {
                             + "WHERE identity_hash=? AND owner_token=? AND fence=? AND state='GENERATING'",
                     objectKey, checksum, bytes, contentType, duration, System.currentTimeMillis() + leaseMillis,
                     System.currentTimeMillis(), owner.identity(), owner.owner(), owner.fence());
-            if (changed != 1) throw new NovelProblem("AUDIO_CLAIM_LOST", 409);
+            if (changed != 1)
+                throw new NovelProblem("AUDIO_CLAIM_LOST", 409);
             return find(owner.identity()).orElseThrow();
         });
     }
@@ -117,7 +121,8 @@ public class NovelAudioAssetStore {
             int changed = jdbc.update("UPDATE novel_audio_asset SET state='READY',owner_token=NULL,lease_until=0,"
                             + "updated_at=? WHERE identity_hash=? AND owner_token=? AND fence=? AND state='UPLOADING'",
                     System.currentTimeMillis(), owner.identity(), owner.owner(), owner.fence());
-            if (changed != 1) throw new NovelProblem("AUDIO_CLAIM_LOST", 409);
+            if (changed != 1)
+                throw new NovelProblem("AUDIO_CLAIM_LOST", 409);
         });
     }
 
@@ -136,8 +141,8 @@ public class NovelAudioAssetStore {
                 System.currentTimeMillis(), asset.identity(), asset.objectKey());
     }
 
-    public void link(String sourceKey, String revision, long actor, String segmentId,
-                     String language, int partIndex, String assetId, String translationCacheKey) {
+    public void link(String sourceKey, String revision, long actor, String segmentId, String language, int partIndex,
+            String assetId, String translationCacheKey) {
         // 탈퇴 접수와 같은 사용자 잠금 안에서 쓰기 전체를 확정한다.
         withActiveActor(actor, () -> {
             // 같은 원문 revision에서 KO가 바뀌면 현재 문장 연결만 새 asset으로 갱신한다.
@@ -145,7 +150,8 @@ public class NovelAudioAssetStore {
                             + "WHERE source_key=? AND source_revision=? AND actor_id=? AND segment_id=? "
                             + "AND language=? AND part_index=?",
                     assetId, translationCacheKey, sourceKey, revision, actor, segmentId, language, partIndex);
-            if (updated == 1) return;
+            if (updated == 1)
+                return;
             try {
                 jdbc.update("INSERT INTO novel_audio_segment_link(source_key,source_revision,actor_id,segment_id,"
                                 + "language,part_index,asset_id,translation_cache_key) VALUES(?,?,?,?,?,?,?,?)",
@@ -164,11 +170,10 @@ public class NovelAudioAssetStore {
         Long size = row.wasNull() ? null : bytes;
         double duration = row.getDouble("duration_seconds");
         Double seconds = row.wasNull() ? null : duration;
-        return new Asset(row.getString("asset_id"), row.getString("identity_hash"),
-                row.getString("source_key"), row.getLong("actor_id"), row.getString("language"),
-                row.getInt("part_index"), row.getString("text_sha256"), row.getString("model_name"),
-                row.getString("object_key"), row.getString("checksum_sha256"), size,
-                row.getString("content_type"), seconds, row.getString("state"),
+        return new Asset(row.getString("asset_id"), row.getString("identity_hash"), row.getString("source_key"),
+                row.getLong("actor_id"), row.getString("language"), row.getInt("part_index"),
+                row.getString("text_sha256"), row.getString("model_name"), row.getString("object_key"),
+                row.getString("checksum_sha256"), size, row.getString("content_type"), seconds, row.getString("state"),
                 row.getString("owner_token"), row.getLong("fence"), row.getLong("lease_until"),
                 row.getInt("attempt_count"));
     }
@@ -178,8 +183,9 @@ public class NovelAudioAssetStore {
     }
 
     private void withActiveActor(long actor, Runnable action) {
-        if (accountFence == null) action.run();
-        else accountFence.active(actor, action);
+        if (accountFence == null)
+            action.run();
+        else
+            accountFence.active(actor, action);
     }
-
 }

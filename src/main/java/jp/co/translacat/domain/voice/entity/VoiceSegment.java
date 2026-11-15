@@ -15,220 +15,90 @@ import java.util.Objects;
 
 @Entity
 @Getter
-@Table(
-        name = "voice_segment",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_voice_segment_sequence",
-                        columnNames = {
-                                "session_id",
-                                "channel",
-                                "utterance_sequence"
-                        }
-                ),
-                @UniqueConstraint(
-                        name = "uk_voice_segment_transcript_event",
-                        columnNames = "transcript_final_event_id"
-                ),
-                @UniqueConstraint(
-                        name = "uk_voice_segment_completed_event",
-                        columnNames = "pipeline_completed_event_id"
-                )
+@Table(name = "voice_segment",
+        uniqueConstraints =
+        {
+            @UniqueConstraint(
+                    name = "uk_voice_segment_sequence", columnNames = {"session_id", "channel", "utterance_sequence"})
+            ,
+                    @UniqueConstraint(
+                            name = "uk_voice_segment_transcript_event", columnNames = "transcript_final_event_id"),
+                    @UniqueConstraint(
+                            name = "uk_voice_segment_completed_event", columnNames = "pipeline_completed_event_id")
         },
-        indexes = {
-                @Index(
-                        name = "idx_voice_segment_session",
-                        columnList = "session_id,id"
-                )
-        }
-)
+        indexes = { @Index(name = "idx_voice_segment_session", columnList = "session_id,id") })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class VoiceSegment extends Base {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @ManyToOne(
-            fetch = FetchType.LAZY,
-            optional = false
-    )
-    @JoinColumn(
-            name = "session_id",
-            nullable = false
-    )
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "session_id", nullable = false)
     private VoiceSession session;
 
-    @Enumerated(EnumType.STRING)
-    @Column(
-            nullable = false,
-            length = 16
-    )
-    private VoiceChannel channel;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 16) private VoiceChannel channel;
 
-    @Column(
-            name = "utterance_key",
-            nullable = false,
-            length = 120
-    )
-    private String utteranceKey;
+    @Column(name = "utterance_key", nullable = false, length = 120) private String utteranceKey;
 
-    @Column(
-            name = "utterance_sequence",
-            nullable = false
-    )
-    private long utteranceSequence;
+    @Column(name = "utterance_sequence", nullable = false) private long utteranceSequence;
 
-    @Column(
-            name = "transcript_final_event_id",
-            length = 100
-    )
-    private String transcriptFinalEventId;
+    @Column(name = "transcript_final_event_id", length = 100) private String transcriptFinalEventId;
 
-    @Column(
-            name = "pipeline_completed_event_id",
-            length = 100
-    )
-    private String pipelineCompletedEventId;
+    @Column(name = "pipeline_completed_event_id", length = 100) private String pipelineCompletedEventId;
 
-    @Column(
-            name = "started_at_offset_ms",
-            nullable = false
-    )
-    private long startedAtOffsetMs;
+    @Column(name = "started_at_offset_ms", nullable = false) private long startedAtOffsetMs;
 
-    @Column(
-            name = "ended_at_offset_ms",
-            nullable = false
-    )
-    private long endedAtOffsetMs;
+    @Column(name = "ended_at_offset_ms", nullable = false) private long endedAtOffsetMs;
 
-    @Column(
-            name = "speech_duration_ms",
-            nullable = false
-    )
-    private long speechDurationMs;
+    @Column(name = "speech_duration_ms", nullable = false) private long speechDurationMs;
 
-    @Enumerated(EnumType.STRING)
-    @Column(
-            nullable = false,
-            length = 24
-    )
-    private VoiceSegmentStatus status;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 24) private VoiceSegmentStatus status;
 
-    @Column(
-            name = "detected_language",
-            length = 8
-    )
-    private String detectedLanguage;
+    @Column(name = "detected_language", length = 8) private String detectedLanguage;
 
-    @Column(name = "language_confidence")
-    private Double languageConfidence;
+    @Column(name = "language_confidence") private Double languageConfidence;
 
-    @Column(
-            name = "locked_language",
-            length = 8
-    )
-    private String lockedLanguage;
+    @Column(name = "locked_language", length = 8) private String lockedLanguage;
 
-    @Lob
-    @Column(name = "source_text", columnDefinition = "LONGTEXT")
-    private String sourceText;
+    @Lob @Column(name = "source_text", columnDefinition = "LONGTEXT") private String sourceText;
 
-    @Lob
-    @Column(name = "source_reading_tokens", columnDefinition = "LONGTEXT")
-    private String sourceReadingTokens;
+    @Lob @Column(name = "source_reading_tokens", columnDefinition = "LONGTEXT") private String sourceReadingTokens;
 
-    @Column(
-            name = "target_language",
-            nullable = false,
-            length = 8
-    )
-    private String targetLanguage;
+    @Column(name = "target_language", nullable = false, length = 8) private String targetLanguage;
 
-    @Lob
-    @Column(name = "translated_text", columnDefinition = "LONGTEXT")
-    private String translatedText;
+    @Lob @Column(name = "translated_text", columnDefinition = "LONGTEXT") private String translatedText;
 
-    @Column(
-            name = "translation_skipped",
-            nullable = false
-    )
-    private boolean translationSkipped;
+    @Column(name = "translation_skipped", nullable = false) private boolean translationSkipped;
 
-    @Column(
-            name = "error_code",
-            length = 100
-    )
-    private String errorCode;
+    @Column(name = "error_code", length = 100) private String errorCode;
 
-    @Column(
-            name = "retry_count",
-            nullable = false
-    )
-    private int retryCount;
+    @Column(name = "retry_count", nullable = false) private int retryCount;
 
-    @Column(name = "endpointing_ms")
-    private Long endpointingMs;
+    @Column(name = "endpointing_ms") private Long endpointingMs;
 
-    @Column(name = "stt_finalize_ms")
-    private Long sttFinalizeMs;
+    @Column(name = "stt_finalize_ms") private Long sttFinalizeMs;
 
-    @Column(name = "translation_ms")
-    private Long translationMs;
+    @Column(name = "translation_ms") private Long translationMs;
 
-    @Column(name = "ai_total_after_speech_ms")
-    private Long aiTotalAfterSpeechMs;
+    @Column(name = "ai_total_after_speech_ms") private Long aiTotalAfterSpeechMs;
 
-    @Column(name = "be_relay_and_persist_ms")
-    private Long beRelayAndPersistMs;
+    @Column(name = "be_relay_and_persist_ms") private Long beRelayAndPersistMs;
 
-    @Column(name = "total_after_speech_ms")
-    private Long totalAfterSpeechMs;
+    @Column(name = "total_after_speech_ms") private Long totalAfterSpeechMs;
 
-    @Column(
-            name = "stt_model_version",
-            length = 200
-    )
-    private String sttModelVersion;
+    @Column(name = "stt_model_version", length = 200) private String sttModelVersion;
 
-    @Column(
-            name = "translation_model_version",
-            length = 200
-    )
-    private String translationModelVersion;
+    @Column(name = "translation_model_version", length = 200) private String translationModelVersion;
 
-    @Column(
-            name = "prompt_version",
-            length = 100
-    )
-    private String promptVersion;
+    @Column(name = "prompt_version", length = 100) private String promptVersion;
 
-    @Column(name = "completed_at")
-    private LocalDateTime completedAt;
+    @Column(name = "completed_at") private LocalDateTime completedAt;
 
-    @Version
-    private long version;
+    @Version private long version;
 
-    private VoiceSegment(
-            VoiceSession session,
-            VoiceChannel channel,
-            String utteranceKey,
-            long utteranceSequence,
-            String transcriptFinalEventId,
-            long startedAtOffsetMs,
-            long endedAtOffsetMs,
-            long speechDurationMs,
-            String detectedLanguage,
-            Double languageConfidence,
-            String lockedLanguage,
-            String sourceText
-    ) {
-        validateOffsets(
-                startedAtOffsetMs,
-                endedAtOffsetMs,
-                speechDurationMs
-        );
+    private VoiceSegment(VoiceSession session, VoiceChannel channel, String utteranceKey, long utteranceSequence,
+            String transcriptFinalEventId, long startedAtOffsetMs, long endedAtOffsetMs, long speechDurationMs,
+            String detectedLanguage, Double languageConfidence, String lockedLanguage, String sourceText) {
+        validateOffsets(startedAtOffsetMs, endedAtOffsetMs, speechDurationMs);
 
         this.session = session;
         this.channel = channel;
@@ -248,34 +118,13 @@ public class VoiceSegment extends Base {
         this.retryCount = 0;
     }
 
-    public static VoiceSegment transcriptFinal(
-            VoiceSession session,
-            VoiceChannel channel,
-            String utteranceKey,
-            long utteranceSequence,
-            String transcriptFinalEventId,
-            long startedAtOffsetMs,
-            long endedAtOffsetMs,
-            long speechDurationMs,
-            String detectedLanguage,
-            Double languageConfidence,
-            String lockedLanguage,
-            String sourceText
-    ) {
-        return new VoiceSegment(
-                session,
-                channel,
-                utteranceKey,
-                utteranceSequence,
-                transcriptFinalEventId,
-                startedAtOffsetMs,
-                endedAtOffsetMs,
-                speechDurationMs,
-                detectedLanguage,
-                languageConfidence,
-                lockedLanguage,
-                sourceText
-        );
+    public static VoiceSegment transcriptFinal(VoiceSession session, VoiceChannel channel, String utteranceKey,
+            long utteranceSequence, String transcriptFinalEventId, long startedAtOffsetMs, long endedAtOffsetMs,
+            long speechDurationMs, String detectedLanguage, Double languageConfidence, String lockedLanguage,
+            String sourceText) {
+        return new VoiceSegment(session, channel, utteranceKey, utteranceSequence, transcriptFinalEventId,
+                startedAtOffsetMs, endedAtOffsetMs, speechDurationMs, detectedLanguage, languageConfidence,
+                lockedLanguage, sourceText);
     }
 
     public boolean matchesSource(String sourceText) {
@@ -286,26 +135,13 @@ public class VoiceSegment extends Base {
         sourceReadingTokens = readingTokens;
     }
 
-    public void applyCompleted(
-            String completedEventId,
-            String translatedText,
-            String readingTokens,
-            boolean translationSkipped,
-            Long endpointingMs,
-            Long sttFinalizeMs,
-            Long translationMs,
-            Long aiTotalAfterSpeechMs,
-            Long beRelayAndPersistMs,
-            String sttModelVersion,
-            String translationModelVersion,
-            String promptVersion
-    ) {
-        if (pipelineCompletedEventId != null
-                && !pipelineCompletedEventId.equals(completedEventId)) {
+    public void applyCompleted(String completedEventId, String translatedText, String readingTokens,
+            boolean translationSkipped, Long endpointingMs, Long sttFinalizeMs, Long translationMs,
+            Long aiTotalAfterSpeechMs, Long beRelayAndPersistMs, String sttModelVersion, String translationModelVersion,
+            String promptVersion) {
+        if (pipelineCompletedEventId != null && !pipelineCompletedEventId.equals(completedEventId)) {
             throw new BusinessException(
-                    "Conflicting completed event for voice segment.",
-                    VoiceErrorCode.FINAL_EVENT_CONFLICT
-            );
+                    "Conflicting completed event for voice segment.", VoiceErrorCode.FINAL_EVENT_CONFLICT);
         }
 
         pipelineCompletedEventId = completedEventId;
@@ -319,10 +155,7 @@ public class VoiceSegment extends Base {
         this.translationMs = translationMs;
         this.aiTotalAfterSpeechMs = aiTotalAfterSpeechMs;
         this.beRelayAndPersistMs = beRelayAndPersistMs;
-        totalAfterSpeechMs = safeAdd(
-                aiTotalAfterSpeechMs,
-                beRelayAndPersistMs
-        );
+        totalAfterSpeechMs = safeAdd(aiTotalAfterSpeechMs, beRelayAndPersistMs);
         this.sttModelVersion = sttModelVersion;
         this.translationModelVersion = translationModelVersion;
         this.promptVersion = promptVersion;
@@ -330,14 +163,8 @@ public class VoiceSegment extends Base {
     }
 
     public void updateRelayLatency(long beRelayAndPersistMs) {
-        this.beRelayAndPersistMs = Math.max(
-                0L,
-                beRelayAndPersistMs
-        );
-        totalAfterSpeechMs = safeAdd(
-                aiTotalAfterSpeechMs,
-                this.beRelayAndPersistMs
-        );
+        this.beRelayAndPersistMs = Math.max(0L, beRelayAndPersistMs);
+        totalAfterSpeechMs = safeAdd(aiTotalAfterSpeechMs, this.beRelayAndPersistMs);
     }
 
     public void markTranslationFailed(String errorCode) {
@@ -346,13 +173,8 @@ public class VoiceSegment extends Base {
         completedAt = LocalDateTime.now();
     }
 
-    public void applyRetry(
-            String translatedText,
-            String readingTokens,
-            boolean translationSkipped,
-            String translationModelVersion,
-            String promptVersion
-    ) {
+    public void applyRetry(String translatedText, String readingTokens, boolean translationSkipped,
+            String translationModelVersion, String promptVersion) {
         retryCount++;
         this.translatedText = translatedText;
         sourceReadingTokens = readingTokens;
@@ -364,30 +186,17 @@ public class VoiceSegment extends Base {
         completedAt = LocalDateTime.now();
     }
 
-    private static void validateOffsets(
-            long startedAtOffsetMs,
-            long endedAtOffsetMs,
-            long speechDurationMs
-    ) {
-        if (startedAtOffsetMs < 0
-                || endedAtOffsetMs < startedAtOffsetMs
-                || speechDurationMs < 0) {
-            throw new BusinessException(
-                    "Invalid voice segment offsets.",
-                    VoiceErrorCode.INVALID_SEGMENT_OFFSET
-            );
+    private static void validateOffsets(long startedAtOffsetMs, long endedAtOffsetMs, long speechDurationMs) {
+        if (startedAtOffsetMs < 0 || endedAtOffsetMs < startedAtOffsetMs || speechDurationMs < 0) {
+            throw new BusinessException("Invalid voice segment offsets.", VoiceErrorCode.INVALID_SEGMENT_OFFSET);
         }
     }
 
-    private static Long safeAdd(
-            Long first,
-            Long second
-    ) {
+    private static Long safeAdd(Long first, Long second) {
         if (first == null && second == null) {
             return null;
         }
 
-        return (first == null ? 0L : first)
-                + (second == null ? 0L : second);
+        return (first == null ? 0L : first) + (second == null ? 0L : second);
     }
 }

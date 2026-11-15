@@ -20,22 +20,17 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Component
-@ConditionalOnProperty(
-        name = "exchange-rate.provider",
-        havingValue = "frankfurter",
-        matchIfMissing = true)
+@ConditionalOnProperty(name = "exchange-rate.provider", havingValue = "frankfurter", matchIfMissing = true)
 public class FrankfurterExchangeRateProvider implements ExchangeRateProvider {
     private final RestClient client;
     private final int lookbackDays;
     private final Retry retry;
 
     public FrankfurterExchangeRateProvider(
-            @Value("${exchange-rate.frankfurter.base-url:https://api.frankfurter.dev}")
-            String baseUrl,
+            @Value("${exchange-rate.frankfurter.base-url:https://api.frankfurter.dev}") String baseUrl,
             @Value("${exchange-rate.connect-timeout-ms:3000}") int connectTimeout,
             @Value("${exchange-rate.read-timeout-ms:5000}") int readTimeout,
-            @Value("${exchange-rate.max-lookback-days:31}") int lookbackDays,
-            RetryRegistry retryRegistry) {
+            @Value("${exchange-rate.max-lookback-days:31}") int lookbackDays, RetryRegistry retryRegistry) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(connectTimeout);
         factory.setReadTimeout(readTimeout);
@@ -55,23 +50,18 @@ public class FrankfurterExchangeRateProvider implements ExchangeRateProvider {
     private Quote fetchPublishedRate(String source, String target, LocalDate requestedDate) {
         try {
             // The scalar v2 endpoint avoids downloading a whole historical series for one quote.
-            RateRow row =
-                    client.get()
-                            .uri(
-                                    builder ->
-                                            builder.path("/v2/rate/{source}/{target}")
-                                                    .queryParam("date", requestedDate)
-                                                    .build(source, target))
-                            .retrieve()
-                            .body(RateRow.class);
-            if (row == null
-                    || row.date() == null
-                    || row.date().isAfter(requestedDate)
+            RateRow row = client.get()
+                                  .uri(builder
+                                          -> builder.path("/v2/rate/{source}/{target}")
+                                                  .queryParam("date", requestedDate)
+                                                  .build(source, target))
+                                  .retrieve()
+                                  .body(RateRow.class);
+            if (row == null || row.date() == null || row.date().isAfter(requestedDate)
                     || row.date().isBefore(requestedDate.minusDays(lookbackDays))
-                    || !source.equalsIgnoreCase(row.base())
-                    || !target.equalsIgnoreCase(row.quote())
-                    || row.rate() == null
-                    || row.rate().signum() <= 0) throw new RateUnavailableException();
+                    || !source.equalsIgnoreCase(row.base()) || !target.equalsIgnoreCase(row.quote())
+                    || row.rate() == null || row.rate().signum() <= 0)
+                throw new RateUnavailableException();
             return new Quote(row.rate(), row.date());
         } catch (RestClientResponseException e) {
             if (e.getStatusCode().is5xxServerError() || e.getStatusCode().value() == 429) {
@@ -85,6 +75,5 @@ public class FrankfurterExchangeRateProvider implements ExchangeRateProvider {
         }
     }
 
-    public record RateRow(LocalDate date, String base, String quote, BigDecimal rate) {
-    }
+    public record RateRow(LocalDate date, String base, String quote, BigDecimal rate) {}
 }

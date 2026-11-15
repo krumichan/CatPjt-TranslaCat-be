@@ -22,20 +22,15 @@ public class ReceiptBatchController {
     private final ReceiptBatchService receipts;
 
     @PostMapping("/receipt-batch")
-    public ResponseDto<List<AccountBookTransactionResponseDto>> register(
-            @PathVariable Long accountBookId,
-            @AuthenticationPrincipal UserPrincipal user,
-            @RequestHeader("Idempotency-Key") String idempotencyKey,
+    public ResponseDto<List<AccountBookTransactionResponseDto>> register(@PathVariable Long accountBookId,
+            @AuthenticationPrincipal UserPrincipal user, @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestBody @Valid ReceiptBatchRequestDto request) {
-        return ResponseUtil.ok(
-                receipts.register(accountBookId, user.getId(), idempotencyKey, request));
+        return ResponseUtil.ok(receipts.register(accountBookId, user.getId(), idempotencyKey, request));
     }
 
     @PostMapping("/receipt-conversion")
-    public ResponseDto<ReceiptConversionResponseDto> convert(
-            @PathVariable Long accountBookId,
-            @AuthenticationPrincipal UserPrincipal user,
-            @RequestBody @Valid ReceiptConversionRequestDto request) {
+    public ResponseDto<ReceiptConversionResponseDto> convert(@PathVariable Long accountBookId,
+            @AuthenticationPrincipal UserPrincipal user, @RequestBody @Valid ReceiptConversionRequestDto request) {
         return ResponseUtil.ok(receipts.recalculate(accountBookId, user.getId(), request));
     }
 }

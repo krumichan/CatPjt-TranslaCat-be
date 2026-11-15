@@ -7,9 +7,7 @@ import org.springframework.retry.annotation.EnableRetry;
 @EnableRetry
 @SpringBootApplication
 public class TranslacatApplication {
-
     public static void main(String[] args) {
         SpringApplication.run(TranslacatApplication.class, args);
     }
-
 }

@@ -7,7 +7,6 @@ import org.springframework.util.StringUtils;
 @Slf4j
 @UtilityClass
 public class AiResponseUtil {
-
     /**
      * AI 응답에서 마크다운 태그를 제거하고 순수 JSON 배열 부분만 추출합니다.
      */

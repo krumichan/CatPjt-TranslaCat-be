@@ -32,8 +32,10 @@ public final class ChatGatewayTarget {
             throw new IllegalStateException(
                     "Chat gateway requires a fixed HTTPS origin or a Development loopback HTTP origin.");
         }
-        this.client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
-                .connectTimeout(Duration.ofSeconds(3)).build();
+        this.client = HttpClient.newBuilder()
+                              .followRedirects(HttpClient.Redirect.NEVER)
+                              .connectTimeout(Duration.ofSeconds(3))
+                              .build();
     }
 
     public URI httpUri(String path, String rawQuery) {
@@ -54,8 +56,9 @@ public final class ChatGatewayTarget {
     }
 
     public static boolean isChatHttpPath(String path) {
-        return path != null && (path.equals("/api/v1/chat") || path.startsWith("/api/v1/chat/")
-                || path.equals("/api/v1/admin/chat") || path.startsWith("/api/v1/admin/chat/")
-                || path.equals("/api/v1/users/me/chat-language-settings"));
+        return path != null
+                && (path.equals("/api/v1/chat") || path.startsWith("/api/v1/chat/") || path.equals("/api/v1/admin/chat")
+                        || path.startsWith("/api/v1/admin/chat/")
+                        || path.equals("/api/v1/users/me/chat-language-settings"));
     }
 }

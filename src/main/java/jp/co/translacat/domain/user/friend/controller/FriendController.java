@@ -16,22 +16,17 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/friends")
 public class FriendController {
-
     private final FriendService friendService;
 
     @GetMapping
-    public ResponseDto<List<FriendResponseDto>> getFriends(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
-    ) {
+    public ResponseDto<List<FriendResponseDto>> getFriends(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
         return ResponseUtil.ok(friendService.getFriends(loginUserId));
     }
 
     @DeleteMapping("/{friendUserId}")
     public ResponseDto<Boolean> deleteFriend(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long friendUserId
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long friendUserId) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
         friendService.deleteFriend(loginUserId, friendUserId);
         return ResponseUtil.ok(true);

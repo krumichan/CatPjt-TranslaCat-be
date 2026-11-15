@@ -49,49 +49,51 @@ public class WritingPlanController {
 
     @GetMapping("/history/{date}")
     public ResponseDto<JsonNode> history(@AuthenticationPrincipal UserPrincipal principal, @PathVariable LocalDate date,
-                                         @RequestParam DailyWritingType writingType) {
+            @RequestParam DailyWritingType writingType) {
         return ResponseUtil.ok(client().writingPlanHistory(SecurityUtil.getLoginUserId(principal), date, writingType));
     }
 
     @PostMapping("/{setId}/target")
-    public ResponseDto<JsonNode> target(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long setId,
-                                        @RequestBody JsonNode body) {
+    public ResponseDto<JsonNode> target(
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long setId, @RequestBody JsonNode body) {
         return ResponseUtil.ok(client().writingPlanExpand(SecurityUtil.getLoginUserId(principal), setId, body));
     }
 
     @PostMapping("/{setId}/restore")
-    public ResponseDto<JsonNode> restore(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long setId,
-                                         @RequestBody JsonNode body) {
+    public ResponseDto<JsonNode> restore(
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long setId, @RequestBody JsonNode body) {
         return ResponseUtil.ok(client().writingPlanRestore(SecurityUtil.getLoginUserId(principal), setId, body));
     }
 
     @PostMapping("/items/{itemId}/answers")
-    public ResponseDto<JsonNode> answer(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long itemId,
-                                        @RequestBody JsonNode body) {
+    public ResponseDto<JsonNode> answer(
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long itemId, @RequestBody JsonNode body) {
         return ResponseUtil.ok(client().writingPlanAnswer(SecurityUtil.getLoginUserId(principal), itemId, body));
     }
 
     @PostMapping("/items/{itemId}/replacement")
-    public ResponseDto<JsonNode> replacement(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long itemId,
-                                             @RequestBody JsonNode body) {
+    public ResponseDto<JsonNode> replacement(
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long itemId, @RequestBody JsonNode body) {
         return ResponseUtil.ok(client().writingPlanReplacement(SecurityUtil.getLoginUserId(principal), itemId, body));
     }
 
     @PostMapping("/{setId}/delete")
-    public ResponseDto<JsonNode> delete(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long setId,
-                                        @RequestBody JsonNode body) {
+    public ResponseDto<JsonNode> delete(
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long setId, @RequestBody JsonNode body) {
         return ResponseUtil.ok(client().writingPlanDelete(SecurityUtil.getLoginUserId(principal), setId, body));
     }
 
     @PostMapping("/answers/{answerId}/feedback/retry")
-    public ResponseDto<JsonNode> retryFeedback(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long answerId) {
+    public ResponseDto<JsonNode> retryFeedback(
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long answerId) {
         return ResponseUtil.ok(client().writingPlanFeedbackRetry(SecurityUtil.getLoginUserId(principal), answerId));
     }
 
     private LanguageLearningWritingClient client() {
         var client = clients.getIfAvailable();
-        if (client == null) throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE,
-                "LL_WRITING_REMOTE_DISABLED", "Writing 서비스 연결이 비활성화되어 있습니다.");
+        if (client == null)
+            throw new LanguageLearningServiceException(HttpStatus.SERVICE_UNAVAILABLE, "LL_WRITING_REMOTE_DISABLED",
+                    "Writing 서비스 연결이 비활성화되어 있습니다.");
         return client;
     }
 }

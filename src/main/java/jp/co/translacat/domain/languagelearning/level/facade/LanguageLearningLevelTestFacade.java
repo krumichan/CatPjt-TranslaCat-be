@@ -45,24 +45,19 @@ public class LanguageLearningLevelTestFacade {
         return gateway.current(userId, sessionId);
     }
 
-    public LevelAnswerResultResponseDto submit(Long userId, Long sessionId, Long itemId,
-                                               LevelAnswerRequestDto request) {
+    public LevelAnswerResultResponseDto submit(
+            Long userId, Long sessionId, Long itemId, LevelAnswerRequestDto request) {
         // LL이 소유 세션의 완료와 생성 당시 언어 기준점 저장을 함께 확정한다.
         // 현재 언어의 기준점 유무를 옛 세션의 완료 후조건으로 다시 사용하지 않는다.
         return gateway.submit(userId, sessionId, itemId, request);
     }
 
-    public LevelAudioAnswerResultResponseDto submitAudio(Long userId, Long sessionId, Long itemId, MultipartFile audio,
-                                                         Integer durationMs, String key) {
-        if (audio == null
-                || audio.isEmpty()
-                || audio.getSize() > 10 * 1024 * 1024
-                || durationMs == null
-                || durationMs <= 0
-                || key == null
-                || key.isBlank()) {
-            throw new BusinessException("녹음 크기와 길이, 재전송 키를 확인해 주세요.",
-                    LanguageLearningErrorCode.LEVEL_TEST_AUDIO_INVALID);
+    public LevelAudioAnswerResultResponseDto submitAudio(
+            Long userId, Long sessionId, Long itemId, MultipartFile audio, Integer durationMs, String key) {
+        if (audio == null || audio.isEmpty() || audio.getSize() > 10 * 1024 * 1024 || durationMs == null
+                || durationMs <= 0 || key == null || key.isBlank()) {
+            throw new BusinessException(
+                    "녹음 크기와 길이, 재전송 키를 확인해 주세요.", LanguageLearningErrorCode.LEVEL_TEST_AUDIO_INVALID);
         }
         try {
             // 텍스트 제출과 같이 LL의 해당 세션 완료 계약을 그대로 보존한다.

@@ -10,35 +10,24 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(
-        name = "receipt_batch_registration",
+@Table(name = "receipt_batch_registration",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_receipt_batch_idempotency",
-                columnNames = {"account_book_id", "user_id", "idempotency_key"}))
+                name = "uk_receipt_batch_idempotency", columnNames = {"account_book_id", "user_id", "idempotency_key"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ReceiptBatchRegistration extends Base {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
-    @Column(name = "account_book_id", nullable = false)
-    private Long accountBookId;
+    @Column(name = "account_book_id", nullable = false) private Long accountBookId;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @Column(name = "user_id", nullable = false) private Long userId;
 
-    @Column(name = "idempotency_key", nullable = false, length = 100)
-    private String idempotencyKey;
+    @Column(name = "idempotency_key", nullable = false, length = 100) private String idempotencyKey;
 
-    @Column(name = "payload_fingerprint", nullable = false, length = 64)
-    private String payloadFingerprint;
+    @Column(name = "payload_fingerprint", nullable = false, length = 64) private String payloadFingerprint;
 
-    @Lob
-    @Column(name = "response_json", columnDefinition = "LONGTEXT")
-    private String responseJson;
+    @Lob @Column(name = "response_json", columnDefinition = "LONGTEXT") private String responseJson;
 
-    public static ReceiptBatchRegistration claim(
-            Long accountBookId, Long userId, String key, String fingerprint) {
+    public static ReceiptBatchRegistration claim(Long accountBookId, Long userId, String key, String fingerprint) {
         ReceiptBatchRegistration value = new ReceiptBatchRegistration();
         value.accountBookId = accountBookId;
         value.userId = userId;

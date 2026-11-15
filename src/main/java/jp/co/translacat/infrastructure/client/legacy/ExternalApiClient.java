@@ -21,19 +21,11 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class ExternalApiClient {
-
     private static final int MAX_BINARY_RESPONSE_BYTES = 10 * 1024 * 1024;
     private static final int MAX_ERROR_RESPONSE_BODY_CHARS = 1000;
     private static final String REDACTED_VALUE = "[REDACTED]";
-    private static final Set<String> SENSITIVE_HEADER_NAMES = Set.of(
-            "authorization",
-            "proxy-authorization",
-            "x-api-key",
-            "api-key",
-            "apikey",
-            "cookie",
-            "set-cookie"
-    );
+    private static final Set<String> SENSITIVE_HEADER_NAMES =
+            Set.of("authorization", "proxy-authorization", "x-api-key", "api-key", "apikey", "cookie", "set-cookie");
 
     private final WebClient webClient;
 
@@ -52,18 +44,15 @@ public class ExternalApiClient {
         return webClient.get()
                 .uri(uri)
                 .retrieve() // HTTP 응답을 수신하여 에러 상태 (4xx, 5xx)를 확인하고 적절한 예외를 발생시킨다.
-                .bodyToMono(responseType) // response body를 지정 타입(responseType)으로 역직렬화하여 Mono<T> 형태로 변환
+                .bodyToMono(
+                        responseType) // response body를 지정 타입(responseType)으로 역직렬화하여 Mono<T> 형태로 변환
                 .block(); // Mono<T> 형태의 값을 T 값으로 동기 방식으로 변환
     }
 
     /**
      * A single authenticated GET used by runtime preflight checks.
      */
-    public <T> T getOnce(
-            String uri,
-            Map<String, String> headers,
-            Class<T> responseType
-    ) {
+    public <T> T getOnce(String uri, Map<String, String> headers, Class<T> responseType) {
         return webClient.get()
                 .uri(uri)
                 .headers(h -> headers.forEach(h::add))
@@ -89,7 +78,8 @@ public class ExternalApiClient {
                 .uri(uri)
                 .bodyValue(body)
                 .retrieve() // HTTP 응답을 수신하여 에러 상태 (4xx, 5xx)를 확인하고 적절한 예외를 발생시킨다.
-                .bodyToMono(responseType) // response body를 지정 타입(responseType)으로 역직렬화하여 Mono<T> 형태로 변환
+                .bodyToMono(
+                        responseType) // response body를 지정 타입(responseType)으로 역직렬화하여 Mono<T> 형태로 변환
                 .block(); // Mono<T> 형태의 값을 T 값으로 동기 방식으로 변환
     }
 
@@ -108,7 +98,7 @@ public class ExternalApiClient {
     @Retry(name = "externalApiClient")
     @CircuitBreaker(name = "externalApiClient", fallbackMethod = "postMultipartFallback")
     public <R> R postMultipart(String uri, MultiValueMap<String, HttpEntity<?>> multipartData,
-                               Map<String, String> headers, Class<R> responseType) {
+            Map<String, String> headers, Class<R> responseType) {
         return webClient.post()
                 .uri(uri)
                 .headers(h -> headers.forEach(h::add))
@@ -145,10 +135,8 @@ public class ExternalApiClient {
      * @return throw exception
      */
     public <T, R> R postFallback(String uri, T body, Class<R> responseType, Throwable throwable) {
-        String errorMessage = String.format(
-                "[External API POST Error] URI: %s | Body: %s | Cause: %s",
-                uri, summarizeBody(body), getErrorMessage(throwable)
-        );
+        String errorMessage = String.format("[External API POST Error] URI: %s | Body: %s | Cause: %s", uri,
+                summarizeBody(body), getErrorMessage(throwable));
         throw new ExternalApiInvocationException(errorMessage, throwable);
     }
 
@@ -163,33 +151,17 @@ public class ExternalApiClient {
      * @return throw exception
      */
     public <T, R> R postFallback(
-            String uri,
-            T body,
-            Map<String, String> headers,
-            Class<R> responseType,
-            Throwable throwable
-    ) {
-        String errorMessage = String.format(
-                "[External API POST Error] URI: %s | Headers: %s | Body: %s | Cause: %s",
-                uri, sanitizeHeaders(headers), summarizeBody(body), getErrorMessage(throwable)
-        );
+            String uri, T body, Map<String, String> headers, Class<R> responseType, Throwable throwable) {
+        String errorMessage = String.format("[External API POST Error] URI: %s | Headers: %s | Body: %s | Cause: %s",
+                uri, sanitizeHeaders(headers), summarizeBody(body), getErrorMessage(throwable));
         throw new ExternalApiInvocationException(errorMessage, throwable);
     }
 
-    public <R> R postMultipartFallback(
-            String uri,
-            MultiValueMap<String, HttpEntity<?>> multipartData,
-            Map<String, String> headers,
-            Class<R> responseType,
-            Throwable throwable
-    ) {
-        String errorMessage = String.format(
-                "[External API Multipart Error] URI: %s | Headers: %s | Body: %s | Cause: %s",
-                uri,
-                sanitizeHeaders(headers),
-                summarizeMultipartBody(multipartData),
-                getErrorMessage(throwable)
-        );
+    public <R> R postMultipartFallback(String uri, MultiValueMap<String, HttpEntity<?>> multipartData,
+            Map<String, String> headers, Class<R> responseType, Throwable throwable) {
+        String errorMessage =
+                String.format("[External API Multipart Error] URI: %s | Headers: %s | Body: %s | Cause: %s", uri,
+                        sanitizeHeaders(headers), summarizeMultipartBody(multipartData), getErrorMessage(throwable));
         throw new ExternalApiInvocationException(errorMessage, throwable);
     }
 
@@ -199,12 +171,7 @@ public class ExternalApiClient {
      * CircuitBreaker는 유지하여 최종 실패에 대한 보호는 적용한다.
      */
     @CircuitBreaker(name = "externalApiClient", fallbackMethod = "postFallback")
-    public <T, R> R postOnce(
-            String uri,
-            T body,
-            Map<String, String> headers,
-            Class<R> responseType
-    ) {
+    public <T, R> R postOnce(String uri, T body, Map<String, String> headers, Class<R> responseType) {
         return executePostOnce(uri, body, headers, responseType);
     }
 
@@ -213,21 +180,11 @@ public class ExternalApiClient {
      * 사용자 요청과 별도 Circuit Breaker를 사용하여 배치 장애가 실시간 학습 요청으로 전파되지 않게 한다.
      */
     @CircuitBreaker(name = "levelTestPoolBatchAi", fallbackMethod = "postFallback")
-    public <T, R> R postOnceLevelTestPool(
-            String uri,
-            T body,
-            Map<String, String> headers,
-            Class<R> responseType
-    ) {
+    public <T, R> R postOnceLevelTestPool(String uri, T body, Map<String, String> headers, Class<R> responseType) {
         return executePostOnce(uri, body, headers, responseType);
     }
 
-    private <T, R> R executePostOnce(
-            String uri,
-            T body,
-            Map<String, String> headers,
-            Class<R> responseType
-    ) {
+    private <T, R> R executePostOnce(String uri, T body, Map<String, String> headers, Class<R> responseType) {
         try {
             return webClient.post()
                     .uri(uri)
@@ -248,16 +205,9 @@ public class ExternalApiClient {
      * Retry를 적용하지 않는 단발 Multipart POST.
      * 자체 단계별 Retry 정책을 가진 AI Speaking 호출에 사용한다.
      */
-    @CircuitBreaker(
-            name = "externalApiClient",
-            fallbackMethod = "postMultipartFallback"
-    )
-    public <R> R postMultipartOnce(
-            String uri,
-            MultiValueMap<String, HttpEntity<?>> multipartData,
-            Map<String, String> headers,
-            Class<R> responseType
-    ) {
+    @CircuitBreaker(name = "externalApiClient", fallbackMethod = "postMultipartFallback")
+    public <R> R postMultipartOnce(String uri, MultiValueMap<String, HttpEntity<?>> multipartData,
+            Map<String, String> headers, Class<R> responseType) {
         return webClient.post()
                 .uri(uri)
                 .headers(h -> headers.forEach(h::add))
@@ -271,14 +221,8 @@ public class ExternalApiClient {
     /**
      * Retry를 적용하지 않는 단발 Binary GET.
      */
-    @CircuitBreaker(
-            name = "externalApiClient",
-            fallbackMethod = "getBytesFallback"
-    )
-    public byte[] getBytesOnce(
-            String uri,
-            Map<String, String> headers
-    ) {
+    @CircuitBreaker(name = "externalApiClient", fallbackMethod = "getBytesFallback")
+    public byte[] getBytesOnce(String uri, Map<String, String> headers) {
         return webClient.get()
                 .uri(uri)
                 .headers(h -> headers.forEach(h::add))
@@ -286,10 +230,7 @@ public class ExternalApiClient {
                     if (!response.statusCode().is2xxSuccessful()) {
                         return response.createException().flatMap(Mono::error);
                     }
-                    return DataBufferUtils.join(
-                                    response.bodyToFlux(DataBuffer.class),
-                                    MAX_BINARY_RESPONSE_BYTES
-                            )
+                    return DataBufferUtils.join(response.bodyToFlux(DataBuffer.class), MAX_BINARY_RESPONSE_BYTES)
                             .map(buffer -> {
                                 try {
                                     byte[] bytes = new byte[buffer.readableByteCount()];
@@ -304,16 +245,9 @@ public class ExternalApiClient {
                 .block();
     }
 
-    public byte[] getBytesFallback(
-            String uri,
-            Map<String, String> headers,
-            Throwable throwable
-    ) {
-        String errorMessage = String.format(
-                "[External API Binary GET Error] URI: %s | Cause: %s",
-                uri,
-                getErrorMessage(throwable)
-        );
+    public byte[] getBytesFallback(String uri, Map<String, String> headers, Throwable throwable) {
+        String errorMessage =
+                String.format("[External API Binary GET Error] URI: %s | Cause: %s", uri, getErrorMessage(throwable));
         throw new ExternalApiInvocationException(errorMessage, throwable);
     }
 
@@ -323,16 +257,12 @@ public class ExternalApiClient {
         }
 
         Map<String, String> sanitized = new LinkedHashMap<>();
-        headers.forEach((name, value) -> sanitized.put(
-                name,
-                isSensitiveHeader(name) ? REDACTED_VALUE : value
-        ));
+        headers.forEach((name, value) -> sanitized.put(name, isSensitiveHeader(name) ? REDACTED_VALUE : value));
         return sanitized;
     }
 
     private boolean isSensitiveHeader(String name) {
-        return name != null
-                && SENSITIVE_HEADER_NAMES.contains(name.toLowerCase(java.util.Locale.ROOT));
+        return name != null && SENSITIVE_HEADER_NAMES.contains(name.toLowerCase(java.util.Locale.ROOT));
     }
 
     private String summarizeBody(Object body) {
@@ -342,9 +272,7 @@ public class ExternalApiClient {
         return body.getClass().getSimpleName();
     }
 
-    private String summarizeMultipartBody(
-            MultiValueMap<String, HttpEntity<?>> multipartData
-    ) {
+    private String summarizeMultipartBody(MultiValueMap<String, HttpEntity<?>> multipartData) {
         if (multipartData == null || multipartData.isEmpty()) {
             return "empty multipart";
         }
@@ -354,20 +282,14 @@ public class ExternalApiClient {
     private String getErrorMessage(Throwable t) {
         if (t instanceof ExternalApiClient4xxException clientError) {
             var e = clientError.getResponseException();
-            return String.format(
-                    "서버 응답 에러 (Status: %d, Body: %s)",
-                    e.getRawStatusCode(),
-                    summarizeErrorResponseBody(e.getResponseBodyAsString())
-            );
+            return String.format("서버 응답 에러 (Status: %d, Body: %s)", e.getRawStatusCode(),
+                    summarizeErrorResponseBody(e.getResponseBodyAsString()));
         } else if (t instanceof io.github.resilience4j.circuitbreaker.CallNotPermittedException) {
             return "서킷 브레이커가 열려 있어 요청이 차단되었습니다 (Circuit Breaker Open)";
         } else if (t instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
             var e = (org.springframework.web.reactive.function.client.WebClientResponseException) t;
-            return String.format(
-                    "서버 응답 에러 (Status: %d, Body: %s)",
-                    e.getRawStatusCode(),
-                    summarizeErrorResponseBody(e.getResponseBodyAsString())
-            );
+            return String.format("서버 응답 에러 (Status: %d, Body: %s)", e.getRawStatusCode(),
+                    summarizeErrorResponseBody(e.getResponseBodyAsString()));
         } else if (t instanceof java.net.ConnectException || t instanceof java.util.concurrent.TimeoutException) {
             return "연결 실패 또는 타임아웃이 발생했습니다";
         }

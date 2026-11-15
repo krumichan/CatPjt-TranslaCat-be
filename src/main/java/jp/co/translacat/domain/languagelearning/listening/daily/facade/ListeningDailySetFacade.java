@@ -15,8 +15,8 @@ public class ListeningDailySetFacade {
     private final ListeningGateway gateway;
     private final ListeningPolicyGateway policyGateway;
 
-    public ListeningApiContract.DailySetView getOrCreate(Long userId,
-                                                         ListeningApiContract.DailySetCreateRequest request) {
+    public ListeningApiContract.DailySetView getOrCreate(
+            Long userId, ListeningApiContract.DailySetCreateRequest request) {
         return gateway.post(userId, "/daily-sets", request, ListeningApiContract.DailySetView.class);
     }
 
@@ -29,8 +29,8 @@ public class ListeningDailySetFacade {
     }
 
     public ListeningApiContract.DailySetView retryGeneration(Long userId, Long setId) {
-        return gateway.post(userId, "/daily-sets/" + setId + "/retry-generation", null,
-                ListeningApiContract.DailySetView.class);
+        return gateway.post(
+                userId, "/daily-sets/" + setId + "/retry-generation", null, ListeningApiContract.DailySetView.class);
     }
 
     public ListeningApiContract.DailySetView retryTts(Long userId, Long itemId) {

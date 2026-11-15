@@ -18,8 +18,16 @@ public class NovelProblem extends RuntimeException {
         this.retryAfterMillis = retryAfterMillis;
     }
 
-    public String code() { return code; }
-    public int status() { return status; }
-    public boolean retryable() { return retryable; }
-    public long retryAfterMillis() { return retryAfterMillis; }
+    public String code() {
+        return code;
+    }
+    public int status() {
+        return status;
+    }
+    public boolean retryable() {
+        return retryable;
+    }
+    public long retryAfterMillis() {
+        return retryAfterMillis;
+    }
 }

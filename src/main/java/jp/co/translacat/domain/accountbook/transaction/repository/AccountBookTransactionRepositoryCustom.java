@@ -14,41 +14,22 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface AccountBookTransactionRepositoryCustom {
-
     Page<AccountBookTransactionResponseDto> findAllWithPage(
-            Long accountBookId,
-            AccountBookTransactionRequestDto condition
-    );
+            Long accountBookId, AccountBookTransactionRequestDto condition);
 
     List<AccountBookTransactionMonthResponseDto> findTransactionMonths(Long accountBookId);
 
-    BigDecimal sumExpenseAmountByMonth(
-            Long accountBookId,
-            Integer year,
-            Integer month
-    );
+    BigDecimal sumExpenseAmountByMonth(Long accountBookId, Integer year, Integer month);
 
     List<AccountBookStoreSuggestionResponseDto> findStoreSuggestions(
-            Long accountBookId,
-            AccountBookTransactionType type,
-            String keyword
-    );
+            Long accountBookId, AccountBookTransactionType type, String keyword);
 
     List<AccountBookMonthlyTransactionAggregateDto> aggregateMonthlyAmounts(
-            Long accountBookId,
-            LocalDate startDate,
-            LocalDate endDate
-    );
+            Long accountBookId, LocalDate startDate, LocalDate endDate);
 
     List<AccountBookRankingChartAggregateDto> aggregateExpenseAmountsByCategory(
-            Long accountBookId,
-            LocalDate startDate,
-            LocalDate endDate
-    );
+            Long accountBookId, LocalDate startDate, LocalDate endDate);
 
     List<AccountBookRankingChartAggregateDto> aggregateExpenseAmountsByStore(
-            Long accountBookId,
-            LocalDate startDate,
-            LocalDate endDate
-    );
+            Long accountBookId, LocalDate startDate, LocalDate endDate);
 }

@@ -14,7 +14,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 
-@RestControllerAdvice(assignableTypes = {NovelReaderController.class, NovelCatalogController.class, NovelReaderExceptionAdvice.class})
+@RestControllerAdvice(
+        assignableTypes = {NovelReaderController.class, NovelCatalogController.class, NovelReaderExceptionAdvice.class})
 public class NovelReaderTraceAdvice implements ResponseBodyAdvice<Object> {
     @Override
     public boolean supports(MethodParameter type, Class<? extends HttpMessageConverter<?>> converter) {

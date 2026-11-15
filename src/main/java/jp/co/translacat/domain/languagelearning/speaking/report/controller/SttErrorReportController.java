@@ -15,16 +15,12 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/language-learning/speaking")
 @RequiredArgsConstructor
 public class SttErrorReportController {
-
     private final SpeakingGateway gateway;
 
     @PostMapping("/sessions/{sessionId}/turns/{turnId}/stt-reports")
-    public ResponseDto<SttErrorReportResponseDto> create(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long sessionId,
-            @PathVariable Long turnId,
-            @RequestBody SttErrorReportCreateRequestDto request
-    ) {
+    public ResponseDto<SttErrorReportResponseDto> create(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long sessionId, @PathVariable Long turnId,
+            @RequestBody SttErrorReportCreateRequestDto request) {
         return ResponseUtil.ok(gateway.post(SecurityUtil.getLoginUserId(principal),
                 "/sessions/" + sessionId + "/turns/" + turnId + "/stt-reports", request,
                 SttErrorReportResponseDto.class));
@@ -32,19 +28,15 @@ public class SttErrorReportController {
 
     @PostMapping("/stt-reports/{reportId}/support")
     public ResponseDto<SttErrorReportResponseDto> requestSupport(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long reportId
-    ) {
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long reportId) {
         return ResponseUtil.ok(gateway.post(SecurityUtil.getLoginUserId(principal),
                 "/stt-reports/" + reportId + "/support", null, SttErrorReportResponseDto.class));
     }
 
     @GetMapping("/stt-reports/{reportId}")
     public ResponseDto<SttErrorReportResponseDto> get(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long reportId
-    ) {
-        return ResponseUtil.ok(gateway.get(SecurityUtil.getLoginUserId(principal),
-                "/stt-reports/" + reportId, SttErrorReportResponseDto.class));
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long reportId) {
+        return ResponseUtil.ok(gateway.get(
+                SecurityUtil.getLoginUserId(principal), "/stt-reports/" + reportId, SttErrorReportResponseDto.class));
     }
 }

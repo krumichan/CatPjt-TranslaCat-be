@@ -17,11 +17,7 @@ import java.util.List;
 public class PracticeFacade {
     private final PracticeGateway gateway;
 
-    public PracticeSetResponseDto getToday(
-            Long userId,
-            PracticeDomain domain,
-            String mode
-    ) {
+    public PracticeSetResponseDto getToday(Long userId, PracticeDomain domain, String mode) {
         return gateway.today(userId, domain, mode);
     }
 
@@ -33,10 +29,7 @@ public class PracticeFacade {
         return gateway.retry(userId, setId);
     }
 
-    public List<PracticeTodayModeStatusResponseDto> getTodayStatus(
-            Long userId,
-            PracticeDomain domain
-    ) {
+    public List<PracticeTodayModeStatusResponseDto> getTodayStatus(Long userId, PracticeDomain domain) {
         return gateway.statuses(userId, domain);
     }
 
@@ -45,10 +38,7 @@ public class PracticeFacade {
     }
 
     public PracticeAnswerResultResponseDto submit(
-            Long userId,
-            Long questionId,
-            PracticeAnswerSubmitRequestDto request
-    ) {
+            Long userId, Long questionId, PracticeAnswerSubmitRequestDto request) {
         return gateway.answer(userId, questionId, request);
     }
 }

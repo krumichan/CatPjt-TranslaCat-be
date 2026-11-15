@@ -14,11 +14,9 @@ import java.time.Duration;
 @Slf4j
 @Service
 public class GoogleProxy {
-
     private final WebClient googleProxyWebClient;
 
-    @Value("${external.google.proxy-url}")
-    private String googleProxyUrl;
+    @Value("${external.google.proxy-url}") private String googleProxyUrl;
 
     public GoogleProxy(@Qualifier("googleProxyWebClient") WebClient webClient) {
         this.googleProxyWebClient = webClient;
@@ -29,11 +27,8 @@ public class GoogleProxy {
     }
 
     private <T> T doRequest(String uri, Class<T> responseType) {
-
-        String finalUri = UriComponentsBuilder.fromUri(URI.create(googleProxyUrl))
-                .queryParam("url", uri)
-                .build()
-                .toUriString();
+        String finalUri =
+                UriComponentsBuilder.fromUri(URI.create(googleProxyUrl)).queryParam("url", uri).build().toUriString();
 
         log.info("[GoogleProxy] Final Proxy URL: {}", finalUri);
 
@@ -45,12 +40,12 @@ public class GoogleProxy {
                     response.headers().asHttpHeaders().forEach((k, v) -> log.debug("Header: {} = {}", k, v));
                     return response.bodyToMono(responseType);
                 })
-//                .retrieve()
-//                .onStatus(
-//                        status -> !status.is2xxSuccessful(),
-//                        resp -> Mono.error(new RuntimeException("HTTP " + resp.statusCode()))
-//                )
-//                .bodyToMono(responseType)
+                //                .retrieve()
+                //                .onStatus(
+                //                        status -> !status.is2xxSuccessful(),
+                //                        resp -> Mono.error(new RuntimeException("HTTP " + resp.statusCode()))
+                //                )
+                //                .bodyToMono(responseType)
                 .switchIfEmpty(Mono.error(new RuntimeException("empty body")))
                 .flatMap(r -> {
                     if (r instanceof String s && s.length() < 500) {
@@ -62,9 +57,7 @@ public class GoogleProxy {
                 .onErrorMap(e -> {
                     String cause = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
                     return new RuntimeException(
-                            "GoogleProxy failed after retry. url=" + finalUri + ", cause=" + cause,
-                            e
-                    );
+                            "GoogleProxy failed after retry. url=" + finalUri + ", cause=" + cause, e);
                 })
                 .block();
     }

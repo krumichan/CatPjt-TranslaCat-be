@@ -17,86 +17,45 @@ import java.util.List;
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class AccountBookInvitationController {
-
     private final AccountBookInvitationService accountBookInvitationService;
 
     @PostMapping("/account-books/{accountBookId}/invitations")
     public ResponseDto<AccountBookInvitationResponseDto> createInvitation(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId,
-            @RequestBody @Valid AccountBookInvitationCreateRequestDto request
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId,
+            @RequestBody @Valid AccountBookInvitationCreateRequestDto request) {
         return ResponseUtil.ok(
-                accountBookInvitationService.createInvitation(
-                        accountBookId,
-                        request,
-                        userPrincipal.getId()
-                )
-        );
+                accountBookInvitationService.createInvitation(accountBookId, request, userPrincipal.getId()));
     }
 
     @DeleteMapping("/account-books/{accountBookId}/invitations/{invitationId}")
-    public ResponseDto<Boolean> cancelInvitation(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId,
-            @PathVariable Long invitationId
-    ) {
+    public ResponseDto<Boolean> cancelInvitation(@AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long accountBookId, @PathVariable Long invitationId) {
         return ResponseUtil.ok(
-                accountBookInvitationService.cancelInvitation(
-                        accountBookId,
-                        invitationId,
-                        userPrincipal.getId()
-                )
-        );
+                accountBookInvitationService.cancelInvitation(accountBookId, invitationId, userPrincipal.getId()));
     }
 
     @GetMapping("/account-books/{accountBookId}/invitations")
     public ResponseDto<List<AccountBookInvitationResponseDto>> getPendingInvitationsByAccountBook(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long accountBookId
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long accountBookId) {
         return ResponseUtil.ok(
-                accountBookInvitationService.getPendingInvitationsByAccountBook(
-                        accountBookId,
-                        userPrincipal.getId()
-                )
-        );
+                accountBookInvitationService.getPendingInvitationsByAccountBook(accountBookId, userPrincipal.getId()));
     }
 
     @GetMapping("/account-book-invitations/received")
     public ResponseDto<List<AccountBookInvitationResponseDto>> getReceivedPendingInvitations(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
-    ) {
-        return ResponseUtil.ok(
-                accountBookInvitationService.getReceivedPendingInvitations(
-                        userPrincipal.getId()
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        return ResponseUtil.ok(accountBookInvitationService.getReceivedPendingInvitations(userPrincipal.getId()));
     }
 
     @PostMapping("/account-book-invitations/{invitationId}/accept")
     public ResponseDto<AccountBookInvitationResponseDto> acceptInvitation(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long invitationId
-    ) {
-        return ResponseUtil.ok(
-                accountBookInvitationService.acceptInvitation(
-                        invitationId,
-                        userPrincipal.getId()
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long invitationId) {
+        return ResponseUtil.ok(accountBookInvitationService.acceptInvitation(invitationId, userPrincipal.getId()));
     }
 
     @PostMapping("/account-book-invitations/{invitationId}/reject")
     public ResponseDto<AccountBookInvitationResponseDto> rejectInvitation(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long invitationId
-    ) {
-        return ResponseUtil.ok(
-                accountBookInvitationService.rejectInvitation(
-                        invitationId,
-                        userPrincipal.getId()
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long invitationId) {
+        return ResponseUtil.ok(accountBookInvitationService.rejectInvitation(invitationId, userPrincipal.getId()));
     }
 }

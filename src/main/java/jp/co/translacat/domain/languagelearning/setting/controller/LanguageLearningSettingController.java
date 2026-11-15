@@ -15,30 +15,16 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/language-learning/settings")
 @RequiredArgsConstructor
 public class LanguageLearningSettingController {
-
     private final LanguageLearningSettingFacade settingFacade;
 
     @GetMapping
-    public ResponseDto<UserSettingResponseDto> get(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
-    ) {
-        return ResponseUtil.ok(
-                settingFacade.get(
-                        SecurityUtil.getLoginUserId(userPrincipal)
-                )
-        );
+    public ResponseDto<UserSettingResponseDto> get(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+        return ResponseUtil.ok(settingFacade.get(SecurityUtil.getLoginUserId(userPrincipal)));
     }
 
     @PatchMapping
     public ResponseDto<UserSettingResponseDto> update(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestBody UserSettingUpdateRequestDto request
-    ) {
-        return ResponseUtil.ok(
-                settingFacade.update(
-                        SecurityUtil.getLoginUserId(userPrincipal),
-                        request
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @RequestBody UserSettingUpdateRequestDto request) {
+        return ResponseUtil.ok(settingFacade.update(SecurityUtil.getLoginUserId(userPrincipal), request));
     }
 }

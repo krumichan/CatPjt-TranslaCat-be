@@ -12,18 +12,12 @@ import java.time.Duration;
 
 @Configuration
 public class ExternalClientConfig {
-
     @Bean
     @Qualifier("googleProxyWebClient")
     public WebClient googleProxyWebClient() {
         return WebClient.builder()
-                .clientConnector(
-                        new ReactorClientHttpConnector(
-                                HttpClient.create()
-                                        .followRedirect(true)
-                                        .responseTimeout(Duration.ofSeconds(60))
-                        )
-                )
+                .clientConnector(new ReactorClientHttpConnector(
+                        HttpClient.create().followRedirect(true).responseTimeout(Duration.ofSeconds(60))))
                 .defaultHeader(HttpHeaders.USER_AGENT,
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                 .defaultHeader(HttpHeaders.ACCEPT,

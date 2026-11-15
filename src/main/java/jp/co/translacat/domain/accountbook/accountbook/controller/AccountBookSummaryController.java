@@ -15,21 +15,12 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @Validated
 public class AccountBookSummaryController {
-
     private final AccountBookSummaryFacade accountBookSummaryFacade;
 
     @GetMapping
-    public ResponseDto<AccountBookSummaryResponseDto> getSummary(
-            @PathVariable Long accountBookId,
+    public ResponseDto<AccountBookSummaryResponseDto> getSummary(@PathVariable Long accountBookId,
             @RequestParam(required = false) @Min(2000) @Max(9999) Integer year,
-            @RequestParam(required = false) @Min(1) @Max(12) Integer month
-    ) {
-        return ResponseUtil.ok(
-                accountBookSummaryFacade.getSummary(
-                        accountBookId,
-                        year,
-                        month
-                )
-        );
+            @RequestParam(required = false) @Min(1) @Max(12) Integer month) {
+        return ResponseUtil.ok(accountBookSummaryFacade.getSummary(accountBookId, year, month));
     }
 }

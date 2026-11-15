@@ -19,83 +19,47 @@ import java.time.LocalDate;
 @RequestMapping("/api/v1/language-learning/writing/daily")
 @RequiredArgsConstructor
 public class DailyWritingController {
-
     private final DailyWritingFacade dailyWritingFacade;
 
     @GetMapping
-    public ResponseDto<DailyWritingSetResponseDto> getToday(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestParam(defaultValue = "FREE") DailyWritingType writingType
-    ) {
+    public ResponseDto<DailyWritingSetResponseDto> getToday(@AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestParam(defaultValue = "FREE") DailyWritingType writingType) {
         return ResponseUtil.ok(
-                dailyWritingFacade.getOrGenerateToday(
-                        SecurityUtil.getLoginUserId(userPrincipal),
-                        writingType
-                )
-        );
+                dailyWritingFacade.getOrGenerateToday(SecurityUtil.getLoginUserId(userPrincipal), writingType));
     }
 
     @GetMapping("/history/{date}")
-    public ResponseDto<DailyWritingSetResponseDto> getHistory(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable LocalDate date,
-            @RequestParam(defaultValue = "FREE") DailyWritingType writingType
-    ) {
+    public ResponseDto<DailyWritingSetResponseDto> getHistory(@AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable LocalDate date, @RequestParam(defaultValue = "FREE") DailyWritingType writingType) {
         return ResponseUtil.ok(
-                dailyWritingFacade.getHistory(
-                        SecurityUtil.getLoginUserId(userPrincipal),
-                        date,
-                        writingType
-                )
-        );
+                dailyWritingFacade.getHistory(SecurityUtil.getLoginUserId(userPrincipal), date, writingType));
     }
 
     @PostMapping("/{dailySetId}/regenerate")
     public ResponseDto<DailyWritingSetResponseDto> regenerate(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long dailySetId
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long dailySetId) {
         return ResponseUtil.ok(
-                dailyWritingFacade.regenerateUnanswered(
-                        SecurityUtil.getLoginUserId(userPrincipal),
-                        dailySetId
-                )
-        );
+                dailyWritingFacade.regenerateUnanswered(SecurityUtil.getLoginUserId(userPrincipal), dailySetId));
     }
 
     @PostMapping("/{dailySetId}/retry-generation")
     public ResponseDto<DailyWritingSetResponseDto> retryGeneration(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long dailySetId
-    ) {
-        return ResponseUtil.ok(dailyWritingFacade.retryGeneration(
-                SecurityUtil.getLoginUserId(userPrincipal), dailySetId));
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long dailySetId) {
+        return ResponseUtil.ok(
+                dailyWritingFacade.retryGeneration(SecurityUtil.getLoginUserId(userPrincipal), dailySetId));
     }
 
     @PostMapping("/items/{itemId}/evaluation/resume")
     public ResponseDto<Void> resumeEvaluation(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long itemId
-    ) {
-        dailyWritingFacade.resumeEvaluation(
-                SecurityUtil.getLoginUserId(userPrincipal),
-                itemId
-        );
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long itemId) {
+        dailyWritingFacade.resumeEvaluation(SecurityUtil.getLoginUserId(userPrincipal), itemId);
         return ResponseUtil.<Void>ok(null);
     }
 
     @PostMapping("/items/{itemId}/answers")
-    public ResponseDto<AnswerResultResponseDto> submitAnswer(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long itemId,
-            @RequestBody AnswerSubmitRequestDto request
-    ) {
+    public ResponseDto<AnswerResultResponseDto> submitAnswer(@AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long itemId, @RequestBody AnswerSubmitRequestDto request) {
         return ResponseUtil.ok(
-                dailyWritingFacade.submitAnswer(
-                        SecurityUtil.getLoginUserId(userPrincipal),
-                        itemId,
-                        request
-                )
-        );
+                dailyWritingFacade.submitAnswer(SecurityUtil.getLoginUserId(userPrincipal), itemId, request));
     }
 }

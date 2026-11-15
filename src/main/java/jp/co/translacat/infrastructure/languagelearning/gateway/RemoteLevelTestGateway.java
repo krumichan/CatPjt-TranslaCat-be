@@ -57,14 +57,14 @@ public class RemoteLevelTestGateway implements LevelTestGateway {
     }
 
     @Override
-    public LevelAnswerResultResponseDto submit(Long userId, Long sessionId, Long itemId,
-                                               LevelAnswerRequestDto request) {
+    public LevelAnswerResultResponseDto submit(
+            Long userId, Long sessionId, Long itemId, LevelAnswerRequestDto request) {
         return forUser(userId).submit(userId, sessionId, itemId, request);
     }
 
     @Override
     public LevelAudioAnswerResultResponseDto submitAudio(Long userId, Long sessionId, Long itemId, byte[] audio,
-                                                         String contentType, Integer durationMs, String key) {
+            String contentType, Integer durationMs, String key) {
         return forUser(userId).submitAudio(userId, sessionId, itemId, audio, contentType, durationMs, key);
     }
 
@@ -92,5 +92,4 @@ public class RemoteLevelTestGateway implements LevelTestGateway {
     public LevelTestAudioData audio(Long userId, Long itemId, String kind) {
         return forUser(userId).audio(userId, itemId, kind);
     }
-
 }

@@ -7,9 +7,6 @@ import jp.co.translacat.domain.accountbook.common.serialization.DecimalStringSer
 import java.math.BigDecimal;
 import java.util.List;
 
-public record AccountBookRankingChartResponseDto(
-        Integer year,
-        Integer month,
+public record AccountBookRankingChartResponseDto(Integer year, Integer month,
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal totalAmount,
-        List<AccountBookRankingChartItemResponseDto> items) {
-}
+        List<AccountBookRankingChartItemResponseDto> items) {}

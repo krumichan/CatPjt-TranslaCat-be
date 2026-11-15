@@ -8,21 +8,15 @@ import java.time.LocalDate;
 
 @Getter
 public class UserCreateRequestDto {
-    @NotBlank
-    @Schema(description = "user email", example = "tester@gmail.com")
-    private String email;
+    @NotBlank @Schema(description = "user email", example = "tester@gmail.com") private String email;
 
     @NotBlank(message = "The 'password' field does not allow null or empty values.")
     @Schema(description = "user password", example = "tester")
     private String password;
 
-    @NotBlank
-    @Schema(description = "nickname", example = "TranslaCat")
-    private String nickname;
+    @NotBlank @Schema(description = "nickname", example = "TranslaCat") private String nickname;
 
-    @NotNull
-    private LocalDate birthDate;
+    @NotNull private LocalDate birthDate;
 
-    @NotBlank
-    private String verificationToken;
+    @NotBlank private String verificationToken;
 }

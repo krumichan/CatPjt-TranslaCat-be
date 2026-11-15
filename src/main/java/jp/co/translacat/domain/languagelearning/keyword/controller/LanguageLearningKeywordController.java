@@ -19,86 +19,46 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/language-learning/keywords")
 @RequiredArgsConstructor
 public class LanguageLearningKeywordController {
-
     private final LanguageLearningKeywordFacade keywordFacade;
 
     @GetMapping
-    public ResponseDto<KeywordListResponseDto> getKeywords(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestHeader(
-                    value = "X-TranslaCat-Locale",
-                    defaultValue = "ko"
-            ) String uiLocale
-    ) {
-        return ResponseUtil.ok(
-                keywordFacade.getKeywords(
-                        SecurityUtil.getLoginUserId(userPrincipal),
-                        uiLocale
-                )
-        );
+    public ResponseDto<KeywordListResponseDto> getKeywords(@AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestHeader(value = "X-TranslaCat-Locale", defaultValue = "ko") String uiLocale) {
+        return ResponseUtil.ok(keywordFacade.getKeywords(SecurityUtil.getLoginUserId(userPrincipal), uiLocale));
     }
 
     @GetMapping("/effective")
     public ResponseDto<EffectiveKeywordsResponseDto> getEffectiveKeywords(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
-    ) {
-        return ResponseUtil.ok(
-                keywordFacade.getEffectiveKeywords(SecurityUtil.getLoginUserId(userPrincipal))
-        );
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        return ResponseUtil.ok(keywordFacade.getEffectiveKeywords(SecurityUtil.getLoginUserId(userPrincipal)));
     }
 
     @PostMapping("/custom")
     public ResponseDto<KeywordResponseDto> createCustomKeyword(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestBody KeywordCreateRequestDto request
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @RequestBody KeywordCreateRequestDto request) {
         return ResponseUtil.created(
-                keywordFacade.createCustomKeyword(
-                        SecurityUtil.getLoginUserId(userPrincipal),
-                        request
-                )
-        );
+                keywordFacade.createCustomKeyword(SecurityUtil.getLoginUserId(userPrincipal), request));
     }
 
     @PatchMapping("/custom/{keywordId}")
-    public ResponseDto<KeywordResponseDto> updateCustomKeyword(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long keywordId,
-            @RequestBody KeywordUpdateRequestDto request
-    ) {
+    public ResponseDto<KeywordResponseDto> updateCustomKeyword(@AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long keywordId, @RequestBody KeywordUpdateRequestDto request) {
         return ResponseUtil.ok(
-                keywordFacade.updateCustomKeyword(
-                        SecurityUtil.getLoginUserId(userPrincipal),
-                        keywordId,
-                        request
-                )
-        );
+                keywordFacade.updateCustomKeyword(SecurityUtil.getLoginUserId(userPrincipal), keywordId, request));
     }
 
     @DeleteMapping("/custom/{keywordId}")
     public ResponseDto<Boolean> deleteCustomKeyword(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long keywordId
-    ) {
-        keywordFacade.deleteCustomKeyword(
-                SecurityUtil.getLoginUserId(userPrincipal),
-                keywordId
-        );
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long keywordId) {
+        keywordFacade.deleteCustomKeyword(SecurityUtil.getLoginUserId(userPrincipal), keywordId);
         return ResponseUtil.ok(true);
     }
 
     @PutMapping("/system/{keywordId}/selection")
     public ResponseDto<KeywordResponseDto> updateSystemKeywordSelection(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long keywordId,
-            @RequestBody SystemKeywordSelectionRequestDto request
-    ) {
-        return ResponseUtil.ok(
-                keywordFacade.updateSystemKeywordSelection(
-                        SecurityUtil.getLoginUserId(userPrincipal),
-                        keywordId,
-                        request.selected()
-                )
-        );
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @PathVariable Long keywordId,
+            @RequestBody SystemKeywordSelectionRequestDto request) {
+        return ResponseUtil.ok(keywordFacade.updateSystemKeywordSelection(
+                SecurityUtil.getLoginUserId(userPrincipal), keywordId, request.selected()));
     }
 }

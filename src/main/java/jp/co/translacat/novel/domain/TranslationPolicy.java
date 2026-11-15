@@ -19,7 +19,8 @@ public final class TranslationPolicy {
 
     public static String instructions(String targetLanguage) {
         return "en".equals(NovelTargetLanguage.normalize(targetLanguage))
-                ? INSTRUCTIONS.replace("natural Korean", "natural English") : INSTRUCTIONS;
+                ? INSTRUCTIONS.replace("natural Korean", "natural English")
+                : INSTRUCTIONS;
     }
 
     public List<List<SourceEpisode.Segment>> chunks(List<SourceEpisode.Segment> segments) {
@@ -59,34 +60,37 @@ public final class TranslationPolicy {
     }
 
     public String cacheKey(EpisodeKey key, SourceEpisode source, long actorId, String model, String glossaryVersion,
-                           TranslationOptions options) {
+            TranslationOptions options) {
         return cacheKey(key, source, actorId, model, glossaryVersion, options, "ko");
     }
 
     public String cacheKey(EpisodeKey key, SourceEpisode source, long actorId, String model, String glossaryVersion,
-                           TranslationOptions options, String targetLanguage) {
+            TranslationOptions options, String targetLanguage) {
         String target = NovelTargetLanguage.normalize(targetLanguage);
         // 한국어 identity는 이전과 동일하게 유지하고 영어만 별도 캐시 namespace를 사용한다.
-        return SentenceSegmenter.hash(String.join("|", key.value(), source.revision(),
-                source.segmentationVersion(), target, version(target), SCHEMA_VERSION, glossaryVersion,
-                model, Long.toString(actorId), options.fingerprint()));
+        return SentenceSegmenter.hash(
+                String.join("|", key.value(), source.revision(), source.segmentationVersion(), target, version(target),
+                        SCHEMA_VERSION, glossaryVersion, model, Long.toString(actorId), options.fingerprint()));
     }
 
     public String sharedCacheKey(EpisodeKey key, SourceEpisode source, String model, String glossaryVersion,
-                                 TranslationOptions options, String targetLanguage) {
+            TranslationOptions options, String targetLanguage) {
         String target = NovelTargetLanguage.normalize(targetLanguage);
         // 계정별 작업 키는 유지하고, 같은 번역 입력의 결과/실행만 공통 identity로 연결한다.
-        return SentenceSegmenter.hash(String.join("|", "shared-translation-v1", key.value(), source.revision(),
-                source.segmentationVersion(), target, version(target), SCHEMA_VERSION, glossaryVersion,
-                model, options.fingerprint()));
+        return SentenceSegmenter.hash(
+                String.join("|", "shared-translation-v1", key.value(), source.revision(), source.segmentationVersion(),
+                        target, version(target), SCHEMA_VERSION, glossaryVersion, model, options.fingerprint()));
     }
 
     public Map<String, Object> schema(List<SourceEpisode.Segment> segments) {
-        return Map.of("type", "object", "additionalProperties", false, "required", List.of("items"),
-                "properties", Map.of("items", Map.of("type", "array", "items", Map.of(
-                        "type", "object", "additionalProperties", false,
-                        "required", List.of("id", "text"), "properties", Map.of(
-                                "id", Map.of("type", "string", "enum", segments.stream().map(SourceEpisode.Segment::id).toList()),
-                                "text", Map.of("type", "string"))))));
+        return Map.of("type", "object", "additionalProperties", false, "required", List.of("items"), "properties",
+                Map.of("items",
+                        Map.of("type", "array", "items",
+                                Map.of("type", "object", "additionalProperties", false, "required",
+                                        List.of("id", "text"), "properties",
+                                        Map.of("id",
+                                                Map.of("type", "string", "enum",
+                                                        segments.stream().map(SourceEpisode.Segment::id).toList()),
+                                                "text", Map.of("type", "string"))))));
     }
 }

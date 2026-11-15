@@ -6,14 +6,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface AccountBookFixedCostRepository
-        extends JpaRepository<AccountBookFixedCost, Long>,
-        AccountBookFixedCostRepositoryCustom {
-
+        extends JpaRepository<AccountBookFixedCost, Long>, AccountBookFixedCostRepositoryCustom {
     List<AccountBookFixedCost> findByAccountBookIdAndDeletedFalseOrderByActiveDescPaymentDayAscIdDesc(
-            Long accountBookId
-    );
+            Long accountBookId);
 
     List<AccountBookFixedCost> findByAccountBookIdAndActiveTrueAndDeletedFalseOrderByPaymentDayAscIdDesc(
-            Long accountBookId
-    );
+            Long accountBookId);
 }

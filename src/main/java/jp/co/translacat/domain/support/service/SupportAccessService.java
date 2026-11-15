@@ -19,11 +19,9 @@ import java.util.Locale;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SupportAccessService {
-
     private final UserRepository userRepository;
 
-    @PersistenceContext
-    private EntityManager entities;
+    @PersistenceContext private EntityManager entities;
 
     public User user(Long userId) {
         if (userId == null) {
@@ -31,7 +29,8 @@ public class SupportAccessService {
         }
 
         return userRepository.findById(userId)
-                .map(user -> UserAccountWriteFence.lock(entities, user)).orElseThrow(SupportException::notFound);
+                .map(user -> UserAccountWriteFence.lock(entities, user))
+                .orElseThrow(SupportException::notFound);
     }
 
     public User admin(Long userId) {
@@ -70,9 +69,6 @@ public class SupportAccessService {
         }
 
         // LIKE 와일드카드는 검색어로 취급하여 의도하지 않은 전체 검색을 막는다.
-        return "%" + value.toLowerCase(Locale.ROOT)
-                .replace("!", "!!")
-                .replace("%", "!%")
-                .replace("_", "!_") + "%";
+        return "%" + value.toLowerCase(Locale.ROOT).replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
     }
 }

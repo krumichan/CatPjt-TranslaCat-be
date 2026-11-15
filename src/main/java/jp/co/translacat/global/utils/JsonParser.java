@@ -27,15 +27,14 @@ public class JsonParser {
     @SneakyThrows
     public <T> List<T> parseToList(String raw, Class<T> clazz) {
         // TODO: 로그 남길지 말지 결정 필요.
-//        log.info("JsonParser - class: {}, parse target: {}", clazz.getName(), raw);
+        //        log.info("JsonParser - class: {}, parse target: {}", clazz.getName(), raw);
         try {
-            return objectMapper.readValue(raw,
-                    objectMapper.getTypeFactory().constructCollectionType(List.class, clazz));
+            return objectMapper.readValue(
+                    raw, objectMapper.getTypeFactory().constructCollectionType(List.class, clazz));
         } catch (JsonProcessingException e) {
             log.error("JSON conversion failed", e);
             throw new RuntimeException("JSON conversion failed", e);
         }
-
     }
 
     public Object parseToObject(String json) {

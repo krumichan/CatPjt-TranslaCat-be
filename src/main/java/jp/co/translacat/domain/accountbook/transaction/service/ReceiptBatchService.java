@@ -28,26 +28,18 @@ public class ReceiptBatchService {
     private final ObjectMapper objectMapper;
     private static final Pattern IDEMPOTENCY_KEY = Pattern.compile("[A-Za-z0-9._:-]{8,100}");
 
-    public ReceiptConversionResponseDto recalculate(
-            Long bookId, Long userId, ReceiptConversionRequestDto request) {
+    public ReceiptConversionResponseDto recalculate(Long bookId, Long userId, ReceiptConversionRequestDto request) {
         var book = access.getAccessibleAccountBook(bookId, userId);
         var amountDecision = ReceiptAmountPolicy.decide(
                 request.purchaseTotal() != null ? request.purchaseTotal() : request.originalAmount(),
                 request.paymentBreakdown(), request.cashTendered(), request.change());
-        return conversions.convert(
-                amountDecision.ready() ? amountDecision.bookAmount() : null,
-                request.originalCurrencyCode(),
-                request.transactionDate(),
-                book.getCurrency(),
-                bookId,
+        return conversions.convert(amountDecision.ready() ? amountDecision.bookAmount() : null,
+                request.originalCurrencyCode(), request.transactionDate(), book.getCurrency(), bookId,
                 amountDecision.fingerprint());
     }
 
     public List<AccountBookTransactionResponseDto> register(
-            Long bookId,
-            Long userId,
-            String idempotencyKey,
-            ReceiptBatchRequestDto request) {
+            Long bookId, Long userId, String idempotencyKey, ReceiptBatchRequestDto request) {
         if (idempotencyKey == null || !IDEMPOTENCY_KEY.matcher(idempotencyKey).matches()) {
             throw ReceiptRegistrationException.invalidKey();
         }
@@ -55,9 +47,8 @@ public class ReceiptBatchService {
         try {
             return executor.execute(bookId, userId, idempotencyKey, payloadFingerprint, request);
         } catch (DataIntegrityViolationException duplicate) {
-            var existing = registrations
-                    .findByAccountBookIdAndUserIdAndIdempotencyKey(bookId, userId, idempotencyKey)
-                    .orElseThrow(() -> duplicate);
+            var existing = registrations.findByAccountBookIdAndUserIdAndIdempotencyKey(bookId, userId, idempotencyKey)
+                                   .orElseThrow(() -> duplicate);
             if (!payloadFingerprint.equals(existing.getPayloadFingerprint())) {
                 throw ReceiptRegistrationException.idempotencyConflict();
             }
@@ -66,9 +57,7 @@ public class ReceiptBatchService {
             }
             try {
                 return objectMapper.readValue(
-                        existing.getResponseJson(),
-                        new TypeReference<List<AccountBookTransactionResponseDto>>() {
-                        });
+                        existing.getResponseJson(), new TypeReference<List<AccountBookTransactionResponseDto>>() {});
             } catch (IOException e) {
                 throw new IllegalStateException("Failed to restore the receipt batch response.", e);
             }

@@ -29,22 +29,16 @@ public class AiGeminiClient {
     @RateLimiter(name = "geminiLimiter")
     public String call(String rule, String data, String schema) {
         try {
-            var optionsBuilder = GoogleGenAiChatOptions.builder()
-                    .safetySettings(safetySettings);
+            var optionsBuilder = GoogleGenAiChatOptions.builder().safetySettings(safetySettings);
 
             if (schema != null && !schema.isBlank()) {
-                optionsBuilder.responseMimeType(MediaType.APPLICATION_JSON_VALUE)
-                        .responseSchema(schema);
+                optionsBuilder.responseMimeType(MediaType.APPLICATION_JSON_VALUE).responseSchema(schema);
             } else {
                 optionsBuilder.responseMimeType(MediaType.TEXT_PLAIN_VALUE);
             }
 
-            var response = chatClient.prompt()
-                    .system(rule)
-                    .user(data)
-                    .options(optionsBuilder.build())
-                    .call()
-                    .chatResponse();
+            var response =
+                    chatClient.prompt().system(rule).user(data).options(optionsBuilder.build()).call().chatResponse();
 
             // 2. 응답 메타데이터 및 결과 로깅
             if (response.getResult() != null) {
@@ -69,27 +63,17 @@ public class AiGeminiClient {
     }
 
     private List<GoogleGenAiSafetySetting> safetySettings() {
-        return List.of(
-                new GoogleGenAiSafetySetting(
-                        GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
+        return List.of(new GoogleGenAiSafetySetting(GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
+                               GoogleGenAiSafetySetting.HarmBlockThreshold.BLOCK_NONE,
+                               GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED),
+                new GoogleGenAiSafetySetting(GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
                         GoogleGenAiSafetySetting.HarmBlockThreshold.BLOCK_NONE,
-                        GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED
-                ),
-                new GoogleGenAiSafetySetting(
-                        GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                        GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED),
+                new GoogleGenAiSafetySetting(GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
                         GoogleGenAiSafetySetting.HarmBlockThreshold.BLOCK_NONE,
-                        GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED
-                ),
-                new GoogleGenAiSafetySetting(
-                        GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                        GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED),
+                new GoogleGenAiSafetySetting(GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
                         GoogleGenAiSafetySetting.HarmBlockThreshold.BLOCK_NONE,
-                        GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED
-                ),
-                new GoogleGenAiSafetySetting(
-                        GoogleGenAiSafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                        GoogleGenAiSafetySetting.HarmBlockThreshold.BLOCK_NONE,
-                        GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED
-                )
-        );
+                        GoogleGenAiSafetySetting.HarmBlockMethod.HARM_BLOCK_METHOD_UNSPECIFIED));
     }
 }

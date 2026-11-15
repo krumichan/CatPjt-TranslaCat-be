@@ -24,12 +24,8 @@ import java.util.EnumSet;
 @Service
 @RequiredArgsConstructor
 public class VoiceStreamCommandService {
-
     private static final EnumSet<VoiceChannelStatus> OPERATIONAL_STATUSES =
-            EnumSet.of(
-                    VoiceChannelStatus.STREAMING,
-                    VoiceChannelStatus.BACKPRESSURED
-            );
+            EnumSet.of(VoiceChannelStatus.STREAMING, VoiceChannelStatus.BACKPRESSURED);
 
     private final VoiceSessionRepository sessionRepository;
     private final VoiceSessionChannelRepository channelRepository;
@@ -38,40 +34,19 @@ public class VoiceStreamCommandService {
     private final VoicePolicyProperties policy;
 
     @Transactional
-    public VoiceStreamContext open(
-            Long userId,
-            String sessionId,
-            VoiceChannel channel,
-            String connectionId
-    ) {
-        VoiceSession session = sessionRepository
-                .findOwnedForUpdate(sessionId, userId)
-                .orElseThrow(this::notFound);
+    public VoiceStreamContext open(Long userId, String sessionId, VoiceChannel channel, String connectionId) {
+        VoiceSession session = sessionRepository.findOwnedForUpdate(sessionId, userId).orElseThrow(this::notFound);
 
         validateStreamable(userId, session);
 
-        VoiceSessionChannel sessionChannel = channelRepository
-                .findOwnedForUpdate(
-                        sessionId,
-                        channel,
-                        userId
-                )
-                .orElseThrow(this::notFound);
+        VoiceSessionChannel sessionChannel =
+                channelRepository.findOwnedForUpdate(sessionId, channel, userId).orElseThrow(this::notFound);
         sessionChannel.connecting(connectionId);
 
-        return new VoiceStreamContext(
-                userId,
-                sessionId,
-                channel,
-                connectionId,
-                session.getMode(),
-                session.getSourceLanguageMode(),
-                sessionChannel.getManualSourceLanguage(),
-                sessionChannel.getLastLockedLanguage(),
-                session.getTargetLanguage(),
-                session.getPolicySnapshot(),
-                segmentRepository.findMaxSequence(sessionId, channel)
-        );
+        return new VoiceStreamContext(userId, sessionId, channel, connectionId, session.getMode(),
+                session.getSourceLanguageMode(), sessionChannel.getManualSourceLanguage(),
+                sessionChannel.getLastLockedLanguage(), session.getTargetLanguage(), session.getPolicySnapshot(),
+                segmentRepository.findMaxSequence(sessionId, channel));
     }
 
     @Transactional
@@ -80,9 +55,7 @@ public class VoiceStreamCommandService {
         // open 이후 registry 등록/AI 연결 사이에 세션 완료가 먼저 일어날 수 있다.
         if (!session.getStatus().isOpen()) {
             throw new BusinessException(
-                    "Voice session finished before the stream became ready.",
-                    VoiceErrorCode.SESSION_NOT_STREAMABLE
-            );
+                    "Voice session finished before the stream became ready.", VoiceErrorCode.SESSION_NOT_STREAMABLE);
         }
 
         VoiceSessionChannel channel = requireChannel(context);
@@ -108,23 +81,14 @@ public class VoiceStreamCommandService {
 
     @Transactional
     public void markDisconnected(VoiceStreamContext context) {
-        VoiceSession session = sessionRepository
-                .findOwnedForUpdate(
-                        context.sessionId(),
-                        context.userId()
-                )
-                .orElse(null);
+        VoiceSession session = sessionRepository.findOwnedForUpdate(context.sessionId(), context.userId()).orElse(null);
         if (session == null) {
             return;
         }
 
-        VoiceSessionChannel channel = channelRepository
-                .findOwnedForUpdate(
-                        context.sessionId(),
-                        context.channel(),
-                        context.userId()
-                )
-                .orElse(null);
+        VoiceSessionChannel channel =
+                channelRepository.findOwnedForUpdate(context.sessionId(), context.channel(), context.userId())
+                        .orElse(null);
         if (channel == null) {
             return;
         }
@@ -134,10 +98,7 @@ public class VoiceStreamCommandService {
     }
 
     @Transactional
-    public void updateLockedLanguage(
-            VoiceStreamContext context,
-            String language
-    ) {
+    public void updateLockedLanguage(VoiceStreamContext context, String language) {
         if (language == null || language.isBlank()) {
             return;
         }
@@ -147,70 +108,40 @@ public class VoiceStreamCommandService {
         channel.lockLanguage(language);
     }
 
-    private void validateStreamable(
-            Long userId,
-            VoiceSession session
-    ) {
+    private void validateStreamable(Long userId, VoiceSession session) {
         if (!session.getStatus().isOpen()) {
             throw new BusinessException(
-                    "Voice session is not open for streaming.",
-                    VoiceErrorCode.SESSION_NOT_STREAMABLE
-            );
+                    "Voice session is not open for streaming.", VoiceErrorCode.SESSION_NOT_STREAMABLE);
         }
         if (session.getProcessedAudioMs() >= policy.getMaxSessionMs()) {
             throw new BusinessException(
-                    "Voice session duration limit has been reached.",
-                    VoiceErrorCode.SESSION_LIMIT_EXCEEDED
-            );
+                    "Voice session duration limit has been reached.", VoiceErrorCode.SESSION_LIMIT_EXCEEDED);
         }
 
-        long usedToday = usageRepository.sumProcessedAudioMs(
-                userId,
-                LocalDate.now()
-        );
+        long usedToday = usageRepository.sumProcessedAudioMs(userId, LocalDate.now());
         if (usedToday >= policy.getDailyLimitMs()) {
             throw new BusinessException(
-                    "Daily Voice usage limit has been reached.",
-                    VoiceErrorCode.DAILY_LIMIT_EXCEEDED
-            );
+                    "Daily Voice usage limit has been reached.", VoiceErrorCode.DAILY_LIMIT_EXCEEDED);
         }
     }
 
     private VoiceSession requireSession(VoiceStreamContext context) {
-        return sessionRepository.findOwnedForUpdate(
-                        context.sessionId(),
-                        context.userId()
-                )
-                .orElseThrow(this::notFound);
+        return sessionRepository.findOwnedForUpdate(context.sessionId(), context.userId()).orElseThrow(this::notFound);
     }
 
-    private VoiceSessionChannel requireChannel(
-            VoiceStreamContext context
-    ) {
-        return channelRepository.findOwnedForUpdate(
-                        context.sessionId(),
-                        context.channel(),
-                        context.userId()
-                )
+    private VoiceSessionChannel requireChannel(VoiceStreamContext context) {
+        return channelRepository.findOwnedForUpdate(context.sessionId(), context.channel(), context.userId())
                 .orElseThrow(this::notFound);
     }
 
     private void recomputeSession(VoiceSession session) {
-        long operationalChannels = channelRepository
-                .countBySession_IdAndStatusIn(
-                        session.getId(),
-                        OPERATIONAL_STATUSES
-                );
+        long operationalChannels =
+                channelRepository.countBySession_IdAndStatusIn(session.getId(), OPERATIONAL_STATUSES);
 
-        session.updateConnectivity(
-                Math.toIntExact(operationalChannels)
-        );
+        session.updateConnectivity(Math.toIntExact(operationalChannels));
     }
 
     private BusinessException notFound() {
-        return new BusinessException(
-                "Voice stream resource was not found.",
-                VoiceErrorCode.NOT_FOUND
-        );
+        return new BusinessException("Voice stream resource was not found.", VoiceErrorCode.NOT_FOUND);
     }
 }

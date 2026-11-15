@@ -13,7 +13,7 @@ import java.util.Map;
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(assignableTypes = {NovelReaderController.class, NovelCatalogController.class,
-        jp.co.translacat.domain.novel.novel.controller.NovelController.class})
+                              jp.co.translacat.domain.novel.novel.controller.NovelController.class})
 public class NovelReaderExceptionAdvice {
     @ExceptionHandler(jp.co.translacat.novel.domain.NovelProblem.class)
     public ResponseEntity<?> invalidTarget(jp.co.translacat.novel.domain.NovelProblem failure) {
@@ -21,9 +21,13 @@ public class NovelReaderExceptionAdvice {
     }
     @ExceptionHandler(NovelGatewayException.class)
     public ResponseEntity<?> failure(NovelGatewayException failure) {
-        return ResponseEntity.status(failure.status()).header("Cache-Control", "no-store")
-                .body(ResponseDto.builder().resultCode(failure.status()).message(failure.code())
-                        .body(Map.of("code", failure.code(), "retryable", failure.retryable())).build());
+        return ResponseEntity.status(failure.status())
+                .header("Cache-Control", "no-store")
+                .body(ResponseDto.builder()
+                                .resultCode(failure.status())
+                                .message(failure.code())
+                                .body(Map.of("code", failure.code(), "retryable", failure.retryable()))
+                                .build());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

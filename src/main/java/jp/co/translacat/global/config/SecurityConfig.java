@@ -39,26 +39,20 @@ import java.util.List;
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-
     private static final RequestMatcher NOVEL_API_REQUESTS = novelApiRequests();
 
     private static RequestMatcher novelApiRequests() {
         PathPatternRequestMatcher.Builder paths = PathPatternRequestMatcher.withDefaults();
 
-        return new OrRequestMatcher(
-                paths.matcher("/api/v1/platforms/**"),
-                paths.matcher("/api/v1/{platformCode}/genres/**"),
-                paths.matcher("/api/v1/{platformCode}/ranking/**"),
+        return new OrRequestMatcher(paths.matcher("/api/v1/platforms/**"),
+                paths.matcher("/api/v1/{platformCode}/genres/**"), paths.matcher("/api/v1/{platformCode}/ranking/**"),
                 paths.matcher("/api/v1/{platformCode}/novels/**"),
                 paths.matcher("/api/v1/{platformCode}/{novelIdentifier}/episodes/**"),
-                paths.matcher("/api/v1/{platformCode}/search/novels/**"),
-                paths.matcher("/api/v1/dictionary/**"),
-                paths.matcher("/api/v1/recent/**")
-        );
+                paths.matcher("/api/v1/{platformCode}/search/novels/**"), paths.matcher("/api/v1/dictionary/**"),
+                paths.matcher("/api/v1/recent/**"));
     }
 
-    @Value("${cors.allowed-origin}")
-    private List<String> allowedOrigin;
+    @Value("${cors.allowed-origin}") private List<String> allowedOrigin;
 
     /**
      * JWT 인증/인가 필터
@@ -82,98 +76,96 @@ public class SecurityConfig {
      * @throws Exception Security 설정 중 예외 발생 가능
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   AuthenticationManager authenticationManager) throws Exception {
-
-        return http
-                .cors(corsConfigurer -> corsConfigurer.configurationSource(this.corsConfigurationSource()))
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationManager authenticationManager)
+            throws Exception {
+        return http.cors(corsConfigurer -> corsConfigurer.configurationSource(this.corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable) // CSRF 비활성화 (REST API 사용 시 필요)
                 .authenticationManager(authenticationManager) // AuthenticationManager 설정
-                .authorizeHttpRequests(request -> request // URL별 접근 권한 설정
-                        .requestMatchers(NOVEL_API_REQUESTS).hasRole("ADMIN")
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        // 익명 PKCE 생성·교환 경로보다 현재 로그인 사용자의 명시적 승인을 먼저 보호한다.
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/mobile/authorize").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/mobile/requests", "/api/v1/auth/mobile/exchange").permitAll()
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/v1/auth/password-reset/challenges",
-                                "/api/v1/auth/password-reset/verify",
-                                "/api/v1/auth/password-reset/complete").permitAll()
-                        // 폐기한 로그인 대신 사전 저장한 256비트 receipt로 이 요청의 상태만 확인한다.
-                        .requestMatchers(HttpMethod.POST, "/api/v1/account-deletion/status").permitAll()
-                        // 외부 AI는 계획별 capability로 인증하며 나머지 계획 관리는 계정 인증을 요구한다.
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/v1/language-learning/web-ai/external/prompt",
-                                "/api/v1/language-learning/web-ai/external/results").permitAll()
-                        .requestMatchers(
-                                "/api/v1/auth/register",
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/email/challenges",
-                                "/api/v1/auth/email/verify",
-                                "/api/v1/auth/token/refresh",
-                                "/api/v1/auth/social/**",
-                                "/api/v1/health",
-                                "/api/v1/voice/sessions/*/channels/*/stream",
-                                "/ws/chat",
-                                "/ws/chat/**",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/swagger-resources/**",
-                                "/swagger-ui.html"
-                        ).permitAll()  // 위 경로는 인증 없이 접근 허용
-                        .anyRequest().authenticated())  // 나머지 경로는 인증 필요
+                .authorizeHttpRequests(request
+                        -> request // URL별 접근 권한 설정
+                                .requestMatchers(NOVEL_API_REQUESTS)
+                                .hasRole("ADMIN")
+                                .requestMatchers("/api/v1/admin/**")
+                                .hasRole("ADMIN")
+                                // 익명 PKCE 생성·교환 경로보다 현재 로그인 사용자의 명시적 승인을 먼저 보호한다.
+                                .requestMatchers(HttpMethod.POST, "/api/v1/auth/mobile/authorize")
+                                .authenticated()
+                                .requestMatchers(
+                                        HttpMethod.POST, "/api/v1/auth/mobile/requests", "/api/v1/auth/mobile/exchange")
+                                .permitAll()
+                                .requestMatchers(HttpMethod.POST, "/api/v1/auth/password-reset/challenges",
+                                        "/api/v1/auth/password-reset/verify", "/api/v1/auth/password-reset/complete")
+                                .permitAll()
+                                // 폐기한 로그인 대신 사전 저장한 256비트 receipt로 이 요청의 상태만 확인한다.
+                                .requestMatchers(HttpMethod.POST, "/api/v1/account-deletion/status")
+                                .permitAll()
+                                // 외부 AI는 계획별 capability로 인증하며 나머지 계획 관리는 계정 인증을 요구한다.
+                                .requestMatchers(HttpMethod.POST, "/api/v1/language-learning/web-ai/external/prompt",
+                                        "/api/v1/language-learning/web-ai/external/results")
+                                .permitAll()
+                                .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login",
+                                        "/api/v1/auth/email/challenges", "/api/v1/auth/email/verify",
+                                        "/api/v1/auth/token/refresh", "/api/v1/auth/social/**", "/api/v1/health",
+                                        "/api/v1/voice/sessions/*/channels/*/stream", "/ws/chat", "/ws/chat/**",
+                                        "/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**",
+                                        "/swagger-ui.html")
+                                .permitAll() // 위 경로는 인증 없이 접근 허용
+                                .anyRequest()
+                                .authenticated()) // 나머지 경로는 인증 필요
                 // 비밀번호 확인은 시도 제한이 있는 로그인 API로만 받는다.
                 .httpBasic(AbstractHttpConfigurer::disable)
-                .exceptionHandling(exception -> exception
-                        .defaultAuthenticationEntryPointFor(
-                                (request, response, authException) ->
-                                        response.setStatus(HttpServletResponse.SC_NOT_FOUND),
-                                NOVEL_API_REQUESTS)
-                        .defaultAuthenticationEntryPointFor(
-                                (request, response, authException) ->
-                                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED),
-                                AnyRequestMatcher.INSTANCE)
-                        .defaultAccessDeniedHandlerFor(
-                                (request, response, accessDeniedException) ->
-                                        response.setStatus(HttpServletResponse.SC_NOT_FOUND),
-                                NOVEL_API_REQUESTS)
-                        // 인증된 비관리자의 거부가 익명 /error 재진입에서 401로 바뀌지 않게 한다.
-                        .defaultAccessDeniedHandlerFor(
-                                (request, response, accessDeniedException) ->
-                                        response.setStatus(HttpServletResponse.SC_FORBIDDEN),
-                                PathPatternRequestMatcher.withDefaults()
-                                        .matcher("/api/v1/admin/language-learning/**"))
-                        .defaultAccessDeniedHandlerFor(
-                                new AccessDeniedHandlerImpl(),
-                                AnyRequestMatcher.INSTANCE))
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션을 사용하지 않는 Stateless 정책 설정
+                .exceptionHandling(exception
+                        -> exception
+                                .defaultAuthenticationEntryPointFor(
+                                        (request, response, authException)
+                                                -> response.setStatus(HttpServletResponse.SC_NOT_FOUND),
+                                        NOVEL_API_REQUESTS)
+                                .defaultAuthenticationEntryPointFor(
+                                        (request, response, authException)
+                                                -> response.setStatus(HttpServletResponse.SC_UNAUTHORIZED),
+                                        AnyRequestMatcher.INSTANCE)
+                                .defaultAccessDeniedHandlerFor(
+                                        (request, response, accessDeniedException)
+                                                -> response.setStatus(HttpServletResponse.SC_NOT_FOUND),
+                                        NOVEL_API_REQUESTS)
+                                // 인증된 비관리자의 거부가 익명 /error 재진입에서 401로 바뀌지 않게 한다.
+                                .defaultAccessDeniedHandlerFor(
+                                        (request, response, accessDeniedException)
+                                                -> response.setStatus(HttpServletResponse.SC_FORBIDDEN),
+                                        PathPatternRequestMatcher.withDefaults().matcher(
+                                                "/api/v1/admin/language-learning/**"))
+                                .defaultAccessDeniedHandlerFor(new AccessDeniedHandlerImpl(),
+                                        AnyRequestMatcher.INSTANCE))
+                .sessionManagement(session
+                        -> session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS)) // 세션을 사용하지 않는 Stateless 정책 설정
                 .addFilterBefore(jwtFilter,
-                        UsernamePasswordAuthenticationFilter.class) // JWT 필터를 UsernamePasswordAuthenticationFilter 앞에 적용
+                        UsernamePasswordAuthenticationFilter
+                                .class) // JWT 필터를 UsernamePasswordAuthenticationFilter 앞에 적용
                 .addFilterAfter(loggingFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 
-//  // Spring Security의 유저 정보를 하드코딩으로 작성할 때 사용.
-//    @Bean
-//    public UserDetailsService userDetailsService() {
-//
-//        UserDetails user1 = User
-//                .withDefaultPasswordEncoder()
-//                .username("default_user1")
-//                .password("default_password1")
-//                .roles("USER")
-//                .build();
-//
-//        UserDetails user2 = User
-//                .withDefaultPasswordEncoder()
-//                .username("default_user2")
-//                .password("default_password2")
-//                .roles("ADMIN")
-//                .build();
-//
-//        return new InMemoryUserDetailsManager(user1, user2);
-//    }
+    //  // Spring Security의 유저 정보를 하드코딩으로 작성할 때 사용.
+    //    @Bean
+    //    public UserDetailsService userDetailsService() {
+    //
+    //        UserDetails user1 = User
+    //                .withDefaultPasswordEncoder()
+    //                .username("default_user1")
+    //                .password("default_password1")
+    //                .roles("USER")
+    //                .build();
+    //
+    //        UserDetails user2 = User
+    //                .withDefaultPasswordEncoder()
+    //                .username("default_user2")
+    //                .password("default_password2")
+    //                .roles("ADMIN")
+    //                .build();
+    //
+    //        return new InMemoryUserDetailsManager(user1, user2);
+    //    }
 
     /**
      * PasswordEncoder Bean 등록

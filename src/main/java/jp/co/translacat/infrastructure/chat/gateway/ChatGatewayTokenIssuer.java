@@ -23,9 +23,11 @@ public final class ChatGatewayTokenIssuer {
         try {
             if (blank(properties.getEnvironment()) || blank(properties.getIssuer()) || blank(properties.getAudience())
                     || blank(properties.getService()) || properties.getTokenLifetimeSeconds() < 1
-                    || properties.getTokenLifetimeSeconds() > 120) throw new IllegalArgumentException();
+                    || properties.getTokenLifetimeSeconds() > 120)
+                throw new IllegalArgumentException();
             byte[] decoded = Base64.getDecoder().decode(properties.getSecretBase64());
-            if (decoded.length < 32 || decoded.length > 128) throw new IllegalArgumentException();
+            if (decoded.length < 32 || decoded.length > 128)
+                throw new IllegalArgumentException();
             this.key = Keys.hmacShaKeyFor(decoded);
         } catch (Exception ignored) {
             throw new IllegalStateException("Chat gateway service authentication settings are invalid or missing.");
@@ -37,12 +39,20 @@ public final class ChatGatewayTokenIssuer {
             throw new IllegalArgumentException("Invalid Chat gateway subject or scope.");
         }
         var now = clock.instant();
-        return Jwts.builder().issuer(properties.getIssuer()).audience().add(properties.getAudience()).and()
-                .subject(Long.toString(userId)).claim("service", properties.getService())
-                .claim("tokenUse", "chat-ingress").claim("environment", properties.getEnvironment())
-                .claim("scopes", List.of(scope)).issuedAt(Date.from(now))
+        return Jwts.builder()
+                .issuer(properties.getIssuer())
+                .audience()
+                .add(properties.getAudience())
+                .and()
+                .subject(Long.toString(userId))
+                .claim("service", properties.getService())
+                .claim("tokenUse", "chat-ingress")
+                .claim("environment", properties.getEnvironment())
+                .claim("scopes", List.of(scope))
+                .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(properties.getTokenLifetimeSeconds())))
-                .signWith(key, Jwts.SIG.HS256).compact();
+                .signWith(key, Jwts.SIG.HS256)
+                .compact();
     }
 
     private static boolean blank(String value) {

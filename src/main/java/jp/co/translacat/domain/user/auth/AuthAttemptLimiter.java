@@ -54,10 +54,11 @@ public class AuthAttemptLimiter {
                 cleanup(now, cutoff, true);
             }
             if (attempts.size() >= maximumKeys) {
-                Instant firstAvailable = attempts.values().stream()
-                        .map(values -> values.getLast().plus(WINDOW))
-                        .min(Instant::compareTo)
-                        .orElse(now.plus(WINDOW));
+                Instant firstAvailable = attempts.values()
+                                                 .stream()
+                                                 .map(values -> values.getLast().plus(WINDOW))
+                                                 .min(Instant::compareTo)
+                                                 .orElse(now.plus(WINDOW));
                 throw exceeded(retryAfter(now, firstAvailable));
             }
             window = new ArrayDeque<>(MAX_ATTEMPTS);
@@ -107,6 +108,5 @@ public class AuthAttemptLimiter {
         return new AuthException(HttpStatus.BAD_REQUEST, "AUTH_INVALID_INPUT", "인증 요청 정보를 확인해주세요.");
     }
 
-    private record AttemptKey(String purpose, String identity) {
-    }
+    private record AttemptKey(String purpose, String identity) {}
 }

@@ -12,11 +12,23 @@ public final class PushInstallationException extends RuntimeException {
         this.code = code;
     }
 
-    public HttpStatus status() { return status; }
-    public String code() { return code; }
+    public HttpStatus status() {
+        return status;
+    }
+    public String code() {
+        return code;
+    }
 
-    static PushInstallationException invalid() { return new PushInstallationException(HttpStatus.BAD_REQUEST, "PUSH_INVALID_INPUT"); }
-    static PushInstallationException conflict() { return new PushInstallationException(HttpStatus.CONFLICT, "PUSH_INSTALLATION_CONFLICT"); }
-    static PushInstallationException unauthorized() { return new PushInstallationException(HttpStatus.UNAUTHORIZED, "PUSH_AUTH_REQUIRED"); }
-    static PushInstallationException unavailable() { return new PushInstallationException(HttpStatus.SERVICE_UNAVAILABLE, "PUSH_REGISTRY_UNAVAILABLE"); }
+    static PushInstallationException invalid() {
+        return new PushInstallationException(HttpStatus.BAD_REQUEST, "PUSH_INVALID_INPUT");
+    }
+    static PushInstallationException conflict() {
+        return new PushInstallationException(HttpStatus.CONFLICT, "PUSH_INSTALLATION_CONFLICT");
+    }
+    static PushInstallationException unauthorized() {
+        return new PushInstallationException(HttpStatus.UNAUTHORIZED, "PUSH_AUTH_REQUIRED");
+    }
+    static PushInstallationException unavailable() {
+        return new PushInstallationException(HttpStatus.SERVICE_UNAVAILABLE, "PUSH_REGISTRY_UNAVAILABLE");
+    }
 }

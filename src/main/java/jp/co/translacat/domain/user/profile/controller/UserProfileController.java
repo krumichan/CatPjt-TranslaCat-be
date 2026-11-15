@@ -15,27 +15,18 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/users/me/profile")
 public class UserProfileController {
-
     private final UserProfileService userProfileService;
 
     @GetMapping
-    public ResponseDto<UserProfileResponseDto> getMyProfile(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
-    ) {
+    public ResponseDto<UserProfileResponseDto> getMyProfile(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
-        return ResponseUtil.ok(
-                userProfileService.getMyProfile(loginUserId)
-        );
+        return ResponseUtil.ok(userProfileService.getMyProfile(loginUserId));
     }
 
     @PatchMapping
     public ResponseDto<UserProfileResponseDto> updateMyProfile(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestBody UserProfileUpdateRequestDto request
-    ) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @RequestBody UserProfileUpdateRequestDto request) {
         Long loginUserId = SecurityUtil.getLoginUserId(userPrincipal);
-        return ResponseUtil.ok(
-                userProfileService.updateMyProfile(loginUserId, request)
-        );
+        return ResponseUtil.ok(userProfileService.updateMyProfile(loginUserId, request));
     }
 }

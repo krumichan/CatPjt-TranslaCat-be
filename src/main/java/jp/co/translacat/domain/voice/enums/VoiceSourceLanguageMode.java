@@ -1,6 +1,3 @@
 package jp.co.translacat.domain.voice.enums;
 
-public enum VoiceSourceLanguageMode {
-    AUTO,
-    MANUAL
-}
+public enum VoiceSourceLanguageMode { AUTO, MANUAL }

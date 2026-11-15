@@ -8,32 +8,18 @@ import jp.co.translacat.domain.accountbook.monthlygoal.entity.AccountBookMonthly
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-public record AccountBookMonthlyGoalResponseDto(
-        Long id,
-        Long accountBookId,
-        Integer year,
-        Integer month,
+public record AccountBookMonthlyGoalResponseDto(Long id, Long accountBookId, Integer year, Integer month,
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal goalAmount,
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal expenseAmount,
-        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal remainingAmount,
-        Integer usageRate,
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal remainingAmount, Integer usageRate,
         Boolean exceeded) {
-    public static AccountBookMonthlyGoalResponseDto of(
-            Long accountBookId,
-            Integer year,
-            Integer month,
-            AccountBookMonthlyGoal monthlyGoal,
-            BigDecimal expenseAmount) {
+    public static AccountBookMonthlyGoalResponseDto of(Long accountBookId, Integer year, Integer month,
+            AccountBookMonthlyGoal monthlyGoal, BigDecimal expenseAmount) {
         BigDecimal normalizedExpenseAmount = normalize(expenseAmount);
         BigDecimal goalAmount = monthlyGoal == null ? null : normalize(monthlyGoal.getGoalAmount());
 
-        return new AccountBookMonthlyGoalResponseDto(
-                monthlyGoal == null ? null : monthlyGoal.getId(),
-                accountBookId,
-                year,
-                month,
-                goalAmount,
-                normalizedExpenseAmount,
+        return new AccountBookMonthlyGoalResponseDto(monthlyGoal == null ? null : monthlyGoal.getId(), accountBookId,
+                year, month, goalAmount, normalizedExpenseAmount,
                 calculateRemainingAmount(goalAmount, normalizedExpenseAmount),
                 calculateUsageRate(goalAmount, normalizedExpenseAmount),
                 isExceeded(goalAmount, normalizedExpenseAmount));
@@ -43,8 +29,7 @@ public record AccountBookMonthlyGoalResponseDto(
         return value == null ? BigDecimal.ZERO : value;
     }
 
-    private static BigDecimal calculateRemainingAmount(
-            BigDecimal goalAmount, BigDecimal expenseAmount) {
+    private static BigDecimal calculateRemainingAmount(BigDecimal goalAmount, BigDecimal expenseAmount) {
         if (goalAmount == null || goalAmount.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
@@ -57,10 +42,7 @@ public record AccountBookMonthlyGoalResponseDto(
             return 0;
         }
 
-        return expenseAmount
-                .multiply(BigDecimal.valueOf(100))
-                .divide(goalAmount, 0, RoundingMode.HALF_UP)
-                .intValue();
+        return expenseAmount.multiply(BigDecimal.valueOf(100)).divide(goalAmount, 0, RoundingMode.HALF_UP).intValue();
     }
 
     private static Boolean isExceeded(BigDecimal goalAmount, BigDecimal expenseAmount) {

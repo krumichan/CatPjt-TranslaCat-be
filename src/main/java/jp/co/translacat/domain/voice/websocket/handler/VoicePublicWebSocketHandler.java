@@ -41,11 +41,8 @@ import static jp.co.translacat.domain.voice.websocket.interceptor.VoiceWebSocket
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class VoicePublicWebSocketHandler
-        extends AbstractWebSocketHandler {
-
-    private static final CloseStatus TRY_AGAIN_LATER =
-            new CloseStatus(1013, "Voice relay overloaded");
+public class VoicePublicWebSocketHandler extends AbstractWebSocketHandler {
+    private static final CloseStatus TRY_AGAIN_LATER = new CloseStatus(1013, "Voice relay overloaded");
     private static final int PUBLIC_SEND_TIME_LIMIT_MS = 5_000;
     private static final int PUBLIC_SEND_BUFFER_LIMIT_BYTES = 256 * 1024;
 
@@ -56,20 +53,15 @@ public class VoicePublicWebSocketHandler
     private final VoicePolicyProperties policy;
     private final ObjectMapper objectMapper;
 
-    private final Map<String, VoiceRelayConnection> connections =
-            new ConcurrentHashMap<>();
+    private final Map<String, VoiceRelayConnection> connections = new ConcurrentHashMap<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
         Long userId = (Long) session.getAttributes().get(ATTR_USER_ID);
-        String voiceSessionId = (String) session.getAttributes()
-                .get(ATTR_SESSION_ID);
-        VoiceChannel channel = (VoiceChannel) session.getAttributes()
-                .get(ATTR_CHANNEL);
+        String voiceSessionId = (String) session.getAttributes().get(ATTR_SESSION_ID);
+        VoiceChannel channel = (VoiceChannel) session.getAttributes().get(ATTR_CHANNEL);
 
-        if (userId == null
-                || voiceSessionId == null
-                || channel == null
+        if (userId == null || voiceSessionId == null || channel == null
                 || !connectionRegistry.isAccountActive(userId)) {
             closeQuietly(session, CloseStatus.POLICY_VIOLATION);
             return;
@@ -78,51 +70,32 @@ public class VoicePublicWebSocketHandler
         String connectionId = session.getId();
         VoiceStreamContext context;
         try {
-            context = streamCommandService.open(
-                    userId,
-                    voiceSessionId,
-                    channel,
-                    connectionId
-            );
+            context = streamCommandService.open(userId, voiceSessionId, channel, connectionId);
         } catch (RuntimeException e) {
             closeQuietly(session, CloseStatus.POLICY_VIOLATION);
             return;
         }
 
-        WebSocketSession safeSession =
-                new ConcurrentWebSocketSessionDecorator(
-                        session,
-                        PUBLIC_SEND_TIME_LIMIT_MS,
-                        PUBLIC_SEND_BUFFER_LIMIT_BYTES
-                );
-        VoiceRelayConnection relay = new VoiceRelayConnection(
-                context,
-                safeSession,
-                policy,
-                error -> onAsyncError(connectionId, error)
-        );
+        WebSocketSession safeSession = new ConcurrentWebSocketSessionDecorator(
+                session, PUBLIC_SEND_TIME_LIMIT_MS, PUBLIC_SEND_BUFFER_LIMIT_BYTES);
+        VoiceRelayConnection relay =
+                new VoiceRelayConnection(context, safeSession, policy, error -> onAsyncError(connectionId, error));
 
         connections.put(connectionId, relay);
-        connectionRegistry.register(
-                voiceSessionId,
-                connectionId,
-                relay
-        );
+        connectionRegistry.register(voiceSessionId, connectionId, relay);
 
-        aiStreamClient.connect(
-                        context,
-                        text -> onAiText(connectionId, text),
-                        error -> onAsyncError(connectionId, error),
-                        () -> onAiClosed(connectionId)
-                )
+        aiStreamClient
+                .connect(context,
+                        text
+                        -> onAiText(connectionId, text),
+                        error -> onAsyncError(connectionId, error), () -> onAiClosed(connectionId))
                 .whenComplete((ai, error) -> {
                     if (error != null) {
                         onAsyncError(connectionId, error);
                         return;
                     }
 
-                    VoiceRelayConnection current =
-                            connections.get(connectionId);
+                    VoiceRelayConnection current = connections.get(connectionId);
                     if (current == null || current.isTerminated()) {
                         ai.abort();
                         return;
@@ -134,10 +107,7 @@ public class VoicePublicWebSocketHandler
     }
 
     @Override
-    protected void handleBinaryMessage(
-            WebSocketSession session,
-            BinaryMessage message
-    ) {
+    protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) {
         VoiceRelayConnection relay = connections.get(session.getId());
         if (relay == null) {
             closeQuietly(session, CloseStatus.POLICY_VIOLATION);
@@ -152,30 +122,16 @@ public class VoicePublicWebSocketHandler
             relay.acceptAudio(bytes);
         } catch (BackpressureException e) {
             streamCommandService.markBackpressured(relay.context());
-            relay.sendPublic(
-                    backpressureEvent(
-                            relay,
-                            e.getBufferedAudioMs()
-                    )
-            );
+            relay.sendPublic(backpressureEvent(relay, e.getBufferedAudioMs()));
             relay.forceClose(TRY_AGAIN_LATER);
         } catch (BusinessException e) {
-            relay.sendPublic(
-                    gatewayErrorEvent(
-                            relay,
-                            e.getErrorCode(),
-                            false
-                    )
-            );
+            relay.sendPublic(gatewayErrorEvent(relay, e.getErrorCode(), false));
             relay.forceClose(CloseStatus.POLICY_VIOLATION);
         }
     }
 
     @Override
-    protected void handleTextMessage(
-            WebSocketSession session,
-            TextMessage message
-    ) {
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
         VoiceRelayConnection relay = connections.get(session.getId());
         if (relay == null) {
             closeQuietly(session, CloseStatus.POLICY_VIOLATION);
@@ -183,58 +139,30 @@ public class VoicePublicWebSocketHandler
         }
 
         try {
-            JsonNode control = objectMapper.readTree(
-                    message.getPayload()
-            );
-            VoiceStreamControlType type = parseControlType(
-                    control.path("type").asText()
-            );
+            JsonNode control = objectMapper.readTree(message.getPayload());
+            VoiceStreamControlType type = parseControlType(control.path("type").asText());
 
             switch (type) {
-                case STREAM_FLUSH -> relay.sendControl(
-                        message.getPayload()
-                );
-                case STREAM_CLOSE -> relay.closeGracefully(
-                        control.path("reason").asText("REQUESTED")
-                );
+                case STREAM_FLUSH -> relay.sendControl(message.getPayload());
+                case STREAM_CLOSE -> relay.closeGracefully(control.path("reason").asText("REQUESTED"));
             }
         } catch (BusinessException e) {
-            relay.sendPublic(
-                    gatewayErrorEvent(
-                            relay,
-                            e.getErrorCode(),
-                            false
-                    )
-            );
+            relay.sendPublic(gatewayErrorEvent(relay, e.getErrorCode(), false));
             relay.forceClose(CloseStatus.POLICY_VIOLATION);
         } catch (Exception e) {
-            relay.sendPublic(
-                    gatewayErrorEvent(
-                            relay,
-                            VoiceErrorCode.INVALID_CONTROL,
-                            false
-                    )
-            );
+            relay.sendPublic(gatewayErrorEvent(relay, VoiceErrorCode.INVALID_CONTROL, false));
             relay.forceClose(CloseStatus.POLICY_VIOLATION);
         }
     }
 
     @Override
-    public void handleTransportError(
-            WebSocketSession session,
-            Throwable exception
-    ) {
+    public void handleTransportError(WebSocketSession session, Throwable exception) {
         onAsyncError(session.getId(), exception);
     }
 
     @Override
-    public void afterConnectionClosed(
-            WebSocketSession session,
-            CloseStatus status
-    ) {
-        VoiceRelayConnection relay = connections.get(
-                session.getId()
-        );
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        VoiceRelayConnection relay = connections.get(session.getId());
         if (relay == null) {
             return;
         }
@@ -252,10 +180,7 @@ public class VoicePublicWebSocketHandler
         }
 
         connections.remove(session.getId(), relay);
-        connectionRegistry.remove(
-                relay.context().sessionId(),
-                session.getId()
-        );
+        connectionRegistry.remove(relay.context().sessionId(), session.getId());
         relay.forceClose(status);
     }
 
@@ -263,17 +188,11 @@ public class VoicePublicWebSocketHandler
         try {
             return VoiceStreamControlType.valueOf(type);
         } catch (IllegalArgumentException e) {
-            throw new BusinessException(
-                    "Unsupported Voice control frame.",
-                    VoiceErrorCode.INVALID_CONTROL
-            );
+            throw new BusinessException("Unsupported Voice control frame.", VoiceErrorCode.INVALID_CONTROL);
         }
     }
 
-    private void onAiText(
-            String connectionId,
-            String rawJson
-    ) {
+    private void onAiText(String connectionId, String rawJson) {
         VoiceRelayConnection relay = connections.get(connectionId);
         if (relay == null || relay.isTerminated()) {
             return;
@@ -286,10 +205,7 @@ public class VoicePublicWebSocketHandler
         }
 
         try {
-            ProcessedEvent processed = eventProcessor.process(
-                    relay,
-                    rawJson
-            );
+            ProcessedEvent processed = eventProcessor.process(relay, rawJson);
             if (processed.suppressed()) {
                 return;
             }
@@ -322,19 +238,12 @@ public class VoicePublicWebSocketHandler
 
         // 종료 요청을 보냈다는 사실만으로 미완료 Final 처리까지 성공했다고 판단하지 않는다.
         // 정상 종료는 STREAM_CLOSED 이벤트 처리에서 이미 확정되고 소켓도 닫힌다.
-        onAsyncError(
-                connectionId,
-                new BusinessException(
-                        "Voice AI WebSocket closed before STREAM_CLOSED acknowledgement.",
-                        VoiceErrorCode.AI_CONNECTION_CLOSED
-                )
-        );
+        onAsyncError(connectionId,
+                new BusinessException("Voice AI WebSocket closed before STREAM_CLOSED acknowledgement.",
+                        VoiceErrorCode.AI_CONNECTION_CLOSED));
     }
 
-    private void onAsyncError(
-            String connectionId,
-            Throwable error
-    ) {
+    private void onAsyncError(String connectionId, Throwable error) {
         VoiceRelayConnection relay = connections.get(connectionId);
         // 오류 알림 전송도 실패할 수 있으므로 같은 연결의 오류 처리는 한 번만 수행한다.
         if (relay == null || !relay.beginFailure()) {
@@ -343,27 +252,20 @@ public class VoicePublicWebSocketHandler
 
         // 비동기 wrapper 안의 도메인 오류 코드를 보존해 timeout/계약/연결 오류를 구분한다.
         Throwable cause = unwrapAsyncError(error);
-        String code = cause instanceof BusinessException business
-                && business.getErrorCode() != null
-                && !business.getErrorCode().isBlank()
+        String code = cause instanceof BusinessException business && business.getErrorCode() != null
+                        && !business.getErrorCode().isBlank()
                 ? business.getErrorCode()
-                : cause instanceof DataAccessException
-                        ? VoiceErrorCode.BE_INTERNAL_ERROR
-                        : VoiceErrorCode.AI_CONNECTION_FAILED;
+                : cause instanceof DataAccessException ? VoiceErrorCode.BE_INTERNAL_ERROR
+                                                       : VoiceErrorCode.AI_CONNECTION_FAILED;
         boolean retryable = isRetryableStreamError(code);
 
         // 같은 연결의 종료를 기다리는 HTTP 요청에도 WS 이벤트와 동일한 원인을 전달한다.
         relay.markFailed(cause instanceof DataAccessException
-                ? new BusinessException("Failed to persist Voice results.", code)
-                : cause);
+                        ? new BusinessException("Failed to persist Voice results.", code)
+                        : cause);
 
-        log.warn(
-                "Voice stream failed session={} channel={} code={} errorType={}",
-                relay.context().sessionId(),
-                relay.context().channel(),
-                code,
-                cause.getClass().getSimpleName()
-        );
+        log.warn("Voice stream failed session={} channel={} code={} errorType={}", relay.context().sessionId(),
+                relay.context().channel(), code, cause.getClass().getSimpleName());
 
         try {
             streamCommandService.markError(relay.context());
@@ -372,13 +274,7 @@ public class VoicePublicWebSocketHandler
         }
 
         try {
-            relay.sendPublic(
-                    gatewayErrorEvent(
-                            relay,
-                            code,
-                            retryable
-                    )
-            );
+            relay.sendPublic(gatewayErrorEvent(relay, code, retryable));
         } finally {
             relay.forceClose(CloseStatus.SERVER_ERROR);
         }
@@ -395,34 +291,21 @@ public class VoicePublicWebSocketHandler
 
     private boolean isRetryableStreamError(String code) {
         // 저장/내부 오류는 같은 입력을 재연결로 반복해도 복구되지 않으므로 자동 재접속하지 않는다.
-        return VoiceErrorCode.AI_CONNECTION_FAILED.equals(code)
-                || VoiceErrorCode.AI_CONNECTION_CLOSED.equals(code)
-                || VoiceErrorCode.AI_READY_TIMEOUT.equals(code)
-                || VoiceErrorCode.AI_CIRCUIT_OPEN.equals(code);
+        return VoiceErrorCode.AI_CONNECTION_FAILED.equals(code) || VoiceErrorCode.AI_CONNECTION_CLOSED.equals(code)
+                || VoiceErrorCode.AI_READY_TIMEOUT.equals(code) || VoiceErrorCode.AI_CIRCUIT_OPEN.equals(code);
     }
 
     private void scheduleReadyTimeout(String connectionId) {
-        CompletableFuture.delayedExecutor(
-                policy.getAiConnectTimeoutMs(),
-                TimeUnit.MILLISECONDS
-        ).execute(() -> {
+        CompletableFuture.delayedExecutor(policy.getAiConnectTimeoutMs(), TimeUnit.MILLISECONDS).execute(() -> {
             VoiceRelayConnection relay = connections.get(connectionId);
             if (relay != null && !relay.isCloseRequested() && !relay.isReady()) {
-                onAsyncError(
-                        connectionId,
-                        new BusinessException(
-                                "Voice AI STREAM_READY timeout.",
-                                VoiceErrorCode.AI_READY_TIMEOUT
-                        )
-                );
+                onAsyncError(connectionId,
+                        new BusinessException("Voice AI STREAM_READY timeout.", VoiceErrorCode.AI_READY_TIMEOUT));
             }
         });
     }
 
-    private String backpressureEvent(
-            VoiceRelayConnection relay,
-            long bufferedAudioMs
-    ) {
+    private String backpressureEvent(VoiceRelayConnection relay, long bufferedAudioMs) {
         try {
             var root = objectMapper.createObjectNode();
             root.put("type", "BACKPRESSURE");
@@ -446,11 +329,7 @@ public class VoicePublicWebSocketHandler
         }
     }
 
-    private String gatewayErrorEvent(
-            VoiceRelayConnection relay,
-            String code,
-            boolean retryable
-    ) {
+    private String gatewayErrorEvent(VoiceRelayConnection relay, String code, boolean retryable) {
         try {
             var root = objectMapper.createObjectNode();
             root.put("type", "VOICE_PIPELINE_FAILED");
@@ -459,12 +338,7 @@ public class VoicePublicWebSocketHandler
             root.put("channel", relay.context().channel().name());
 
             var error = root.putObject("error");
-            error.put(
-                    "code",
-                    code == null || code.isBlank()
-                            ? VoiceErrorCode.BE_INTERNAL_ERROR
-                            : code
-            );
+            error.put("code", code == null || code.isBlank() ? VoiceErrorCode.BE_INTERNAL_ERROR : code);
             error.put("stage", "STREAM");
             error.put("message", "Voice Gateway stream error.");
             error.put("retryable", retryable);
@@ -477,10 +351,7 @@ public class VoicePublicWebSocketHandler
         }
     }
 
-    private void closeQuietly(
-            WebSocketSession session,
-            CloseStatus status
-    ) {
+    private void closeQuietly(WebSocketSession session, CloseStatus status) {
         try {
             if (session.isOpen()) {
                 session.close(status);

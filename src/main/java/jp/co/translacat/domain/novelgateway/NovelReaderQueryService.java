@@ -33,17 +33,20 @@ public class NovelReaderQueryService {
 
     private JsonNode recordVisit(NovelReaderAddress address, JsonNode snapshot, String targetLanguage) {
         String target = NovelTargetLanguage.normalize(targetLanguage);
-        if (recentViews == null || snapshot == null || !snapshot.path("title").path("rawJa").isTextual()) return snapshot;
+        if (recentViews == null || snapshot == null || !snapshot.path("title").path("rawJa").isTextual())
+            return snapshot;
         String actualTarget = snapshot.path("targetLanguage").asText("ko");
-        if (!target.equals(actualTarget)) throw new NovelGatewayException(409, "TRANSLATION_TARGET_MISMATCH", false);
+        if (!target.equals(actualTarget))
+            throw new NovelGatewayException(409, "TRANSLATION_TARGET_MISMATCH", false);
 
         // 최초 원문 조회만 방문을 기록한다. status poll·번역·복구 조회는 viewedAt을 바꾸지 않는다.
         boolean shortStory = java.util.Set.of("short", "0").contains(address.episode());
         JsonNode title = snapshot.path("title");
-        PlatformCode code = "kakuyomu".equalsIgnoreCase(address.platform()) ? PlatformCode.KAKUYOMU : PlatformCode.SYOSETU;
-        recentViews.save(code, shortStory ? RecentViewType.SHORT : RecentViewType.EPISODE,
-                address.novel(), shortStory ? null : address.episode(), title.path("rawJa").asText(),
-                title.path("ja").asText(null), "ko".equals(target) ? title.path("ko").asText(null) : null,
+        PlatformCode code =
+                "kakuyomu".equalsIgnoreCase(address.platform()) ? PlatformCode.KAKUYOMU : PlatformCode.SYOSETU;
+        recentViews.save(code, shortStory ? RecentViewType.SHORT : RecentViewType.EPISODE, address.novel(),
+                shortStory ? null : address.episode(), title.path("rawJa").asText(), title.path("ja").asText(null),
+                "ko".equals(target) ? title.path("ko").asText(null) : null,
                 "en".equals(target) ? title.path("translatedText").asText(null) : null, target);
         return snapshot;
     }

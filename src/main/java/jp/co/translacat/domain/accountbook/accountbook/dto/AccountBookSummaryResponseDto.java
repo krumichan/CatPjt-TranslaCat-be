@@ -6,14 +6,10 @@ import jp.co.translacat.domain.accountbook.common.serialization.DecimalStringSer
 
 import java.math.BigDecimal;
 
-public record AccountBookSummaryResponseDto(
-        Long accountBookId,
-        String currencyCode,
-        Integer currencyDecimalPlaces,
+public record AccountBookSummaryResponseDto(Long accountBookId, String currencyCode, Integer currencyDecimalPlaces,
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal incomeAmount,
         @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal expenseAmount,
-        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal balance,
-        Long transactionCount) {
+        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal balance, Long transactionCount) {
     public AccountBookSummaryResponseDto {
         incomeAmount = incomeAmount == null ? BigDecimal.ZERO : incomeAmount;
         expenseAmount = expenseAmount == null ? BigDecimal.ZERO : expenseAmount;

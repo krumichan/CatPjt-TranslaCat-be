@@ -10,31 +10,17 @@ import java.util.Optional;
 
 @Repository
 public interface AccountBookInvitationRepository extends JpaRepository<AccountBookInvitation, Long> {
-
     boolean existsByAccountBook_IdAndInvitee_IdAndStatus(
-            Long accountBookId,
-            Long inviteeUserId,
-            AccountBookInvitationStatus status
-    );
+            Long accountBookId, Long inviteeUserId, AccountBookInvitationStatus status);
 
-    Optional<AccountBookInvitation> findByIdAndAccountBook_Id(
-            Long invitationId,
-            Long accountBookId
-    );
+    Optional<AccountBookInvitation> findByIdAndAccountBook_Id(Long invitationId, Long accountBookId);
 
     List<AccountBookInvitation> findByAccountBook_IdAndStatusOrderByIdDesc(
-            Long accountBookId,
-            AccountBookInvitationStatus status
-    );
+            Long accountBookId, AccountBookInvitationStatus status);
 
     List<AccountBookInvitation> findByInvitee_IdAndStatusOrderByIdDesc(
-            Long inviteeUserId,
-            AccountBookInvitationStatus status
-    );
+            Long inviteeUserId, AccountBookInvitationStatus status);
 
     Optional<AccountBookInvitation> findByIdAndInvitee_IdAndStatus(
-            Long invitationId,
-            Long inviteeUserId,
-            AccountBookInvitationStatus status
-    );
+            Long invitationId, Long inviteeUserId, AccountBookInvitationStatus status);
 }

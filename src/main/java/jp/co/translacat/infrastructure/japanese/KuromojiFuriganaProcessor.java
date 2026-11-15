@@ -8,7 +8,6 @@ import java.util.List;
 
 @Component
 public class KuromojiFuriganaProcessor extends AbstractFuriganaProcessor {
-
     private final Tokenizer tokenizer;
 
     public KuromojiFuriganaProcessor() {

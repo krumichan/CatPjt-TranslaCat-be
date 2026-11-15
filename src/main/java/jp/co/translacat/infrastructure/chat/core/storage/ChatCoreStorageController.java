@@ -36,16 +36,19 @@ public class ChatCoreStorageController {
     }
 
     @PostMapping(value = "/internal/v1/chat/storage/urls", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<?> urls(@AuthenticationPrincipal ChatCoreServicePrincipal caller,
-                                  HttpServletRequest request) {
-        if (caller == null || !"chat:storage:read".equals(caller.scope())) return ChatCoreJson.rejected(403);
+    public ResponseEntity<?> urls(
+            @AuthenticationPrincipal ChatCoreServicePrincipal caller, HttpServletRequest request) {
+        if (caller == null || !"chat:storage:read".equals(caller.scope()))
+            return ChatCoreJson.rejected(403);
         Set<String> keys = new LinkedHashSet<>();
         try {
             JsonNode body = ChatCoreJson.read(request, 64 * 1024);
             if (body.size() != 1 || !body.path("objectKeys").isArray() || body.path("objectKeys").size() < 1
-                    || body.path("objectKeys").size() > 100) throw new IOException();
+                    || body.path("objectKeys").size() > 100)
+                throw new IOException();
             for (JsonNode value : body.path("objectKeys")) {
-                if (!value.isTextual() || !safeKey(value.textValue())) throw new IOException();
+                if (!value.isTextual() || !safeKey(value.textValue()))
+                    throw new IOException();
                 keys.add(value.textValue());
             }
         } catch (IOException ignored) {
@@ -58,19 +61,22 @@ public class ChatCoreStorageController {
     }
 
     @PutMapping("/internal/v1/chat/storage/objects")
-    public ResponseEntity<?> store(@AuthenticationPrincipal ChatCoreServicePrincipal caller,
-                                   HttpServletRequest request) {
-        if (caller == null || !"chat:storage:write".equals(caller.scope())) return ChatCoreJson.rejected(403);
+    public ResponseEntity<?> store(
+            @AuthenticationPrincipal ChatCoreServicePrincipal caller, HttpServletRequest request) {
+        if (caller == null || !"chat:storage:write".equals(caller.scope()))
+            return ChatCoreJson.rejected(403);
         List<String> keys = Collections.list(request.getHeaders("X-Chat-Object-Key"));
-        if (keys.size() != 1 || !GENERATED_KEY.matcher(keys.getFirst()).matches()) return ChatCoreJson.rejected(400);
+        if (keys.size() != 1 || !GENERATED_KEY.matcher(keys.getFirst()).matches())
+            return ChatCoreJson.rejected(400);
 
         // CHAT이 생성한 새 key와 제한된 이미지 byte만 받는다. 외부 URL 다운로드나 overwrite 재시도는 하지 않는다.
         ValidatedImage image;
         try {
             byte[] bytes = request.getInputStream().readNBytes(MAXIMUM_BYTES + 1);
-            image = validator.validate(new ProfileImageUploadFile(null, request.getContentType(), bytes),
-                    ProfileImageType.BACKGROUND);
-            if (!keys.getFirst().endsWith("." + image.extension())) return ChatCoreJson.rejected(400);
+            image = validator.validate(
+                    new ProfileImageUploadFile(null, request.getContentType(), bytes), ProfileImageType.BACKGROUND);
+            if (!keys.getFirst().endsWith("." + image.extension()))
+                return ChatCoreJson.rejected(400);
         } catch (IOException | BusinessException ignored) {
             return ChatCoreJson.rejected(400);
         }
@@ -81,9 +87,10 @@ public class ChatCoreStorageController {
     }
 
     @DeleteMapping(value = "/internal/v1/chat/storage/objects", consumes = "application/json")
-    public ResponseEntity<?> delete(@AuthenticationPrincipal ChatCoreServicePrincipal caller,
-                                    HttpServletRequest request) {
-        if (caller == null || !"chat:storage:delete".equals(caller.scope())) return ChatCoreJson.rejected(403);
+    public ResponseEntity<?> delete(
+            @AuthenticationPrincipal ChatCoreServicePrincipal caller, HttpServletRequest request) {
+        if (caller == null || !"chat:storage:delete".equals(caller.scope()))
+            return ChatCoreJson.rejected(403);
         try {
             JsonNode body = ChatCoreJson.read(request, 2048);
             if (body.size() != 1 || !body.path("objectKey").isTextual() || !safeKey(body.path("objectKey").textValue()))
@@ -104,6 +111,5 @@ public class ChatCoreStorageController {
                 .noneMatch(part -> part.isBlank() || part.equals(".") || part.equals(".."));
     }
 
-    public record ObjectUrl(String objectKey, String url) {
-    }
+    public record ObjectUrl(String objectKey, String url) {}
 }

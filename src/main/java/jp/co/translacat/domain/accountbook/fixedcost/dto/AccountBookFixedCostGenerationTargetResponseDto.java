@@ -7,13 +7,6 @@ import jp.co.translacat.domain.accountbook.common.serialization.DecimalStringSer
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-public record AccountBookFixedCostGenerationTargetResponseDto(
-        Long fixedCostId,
-        String title,
-        String storeName,
-        String category,
-        @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal amount,
-        Integer paymentDay,
-        LocalDate transactionDate,
-        String memo) {
-}
+public record AccountBookFixedCostGenerationTargetResponseDto(Long fixedCostId, String title, String storeName,
+        String category, @JsonSerialize(using = DecimalStringSerializer.class) BigDecimal amount, Integer paymentDay,
+        LocalDate transactionDate, String memo) {}

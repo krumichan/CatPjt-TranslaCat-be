@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 final class BoardException extends RuntimeException {
-
     final HttpStatus status;
 
     BoardException(HttpStatus status, String code) {
@@ -45,12 +44,8 @@ final class BoardException extends RuntimeException {
     @Order(Ordered.HIGHEST_PRECEDENCE)
     @RestControllerAdvice(assignableTypes = BoardController.class)
     static class Advice {
-
-        @ExceptionHandler({
-                MethodArgumentNotValidException.class,
-                HttpMessageNotReadableException.class,
-                MethodArgumentTypeMismatchException.class
-        })
+        @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class,
+                MethodArgumentTypeMismatchException.class})
         ResponseEntity<ResponseDto<ErrorDto>> invalidRequest() {
             return handle(BoardException.invalid());
         }

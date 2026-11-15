@@ -40,9 +40,9 @@ public class SpendingAnalysisJobService {
     private final TransactionTemplate tx;
 
     public SpendingAnalysisJobService(SpendingAnalysisJobStore store, AccountBookAccessService access,
-                                      AccountBookMemberRepository members, SpendingAnalysisService analysis,
-                                      SpendingAnalysisHistoryService history, SupportNotificationService notifications,
-                                      PlatformTransactionManager transactions) {
+            AccountBookMemberRepository members, SpendingAnalysisService analysis,
+            SpendingAnalysisHistoryService history, SupportNotificationService notifications,
+            PlatformTransactionManager transactions) {
         this.store = store;
         this.access = access;
         this.members = members;
@@ -52,8 +52,8 @@ public class SpendingAnalysisJobService {
         this.tx = new TransactionTemplate(transactions);
     }
 
-    public record View(long id, LocalDate periodStart, LocalDate periodEndExclusive, Status status,
-                       boolean canCancel, boolean requestedByMe, String analysisId, String errorCode) { }
+    public record View(long id, LocalDate periodStart, LocalDate periodEndExclusive, Status status, boolean canCancel,
+            boolean requestedByMe, String analysisId, String errorCode) {}
 
     public View enqueue(long bookId, long userId, Request request) {
         return view(submit(bookId, userId, request, null), userId);
@@ -79,8 +79,10 @@ public class SpendingAnalysisJobService {
 
     public View current(long bookId, long userId) {
         access.getAccessibleAccountBook(bookId, userId);
-        return store.active(bookId).or(() -> store.latestRequested(bookId, userId))
-                .map(job -> view(job, userId)).orElse(null);
+        return store.active(bookId)
+                .or(() -> store.latestRequested(bookId, userId))
+                .map(job -> view(job, userId))
+                .orElse(null);
     }
 
     public View get(long bookId, long userId, long jobId) {
@@ -113,14 +115,15 @@ public class SpendingAnalysisJobService {
     }
 
     private boolean isOwner(long bookId, long userId) {
-        return members.existsByAccountBook_IdAndUser_IdAndRoleAndDeletedFalse(bookId, userId, AccountBookMemberRole.OWNER);
+        return members.existsByAccountBook_IdAndUser_IdAndRoleAndDeletedFalse(
+                bookId, userId, AccountBookMemberRole.OWNER);
     }
 
     private View view(Job job, long userId) {
-        boolean canCancel = (job.status() == Status.QUEUED || job.status() == Status.RUNNING)
-                && isOwner(job.bookId(), userId);
-        return new View(job.id(), job.start(), job.endExclusive(), job.status(), canCancel,
-                job.requestedBy() == userId, job.analysisId(), job.requestedBy() == userId ? job.errorCode() : null);
+        boolean canCancel =
+                (job.status() == Status.QUEUED || job.status() == Status.RUNNING) && isOwner(job.bookId(), userId);
+        return new View(job.id(), job.start(), job.endExclusive(), job.status(), canCancel, job.requestedBy() == userId,
+                job.analysisId(), job.requestedBy() == userId ? job.errorCode() : null);
     }
 
     void expire() {
@@ -137,29 +140,33 @@ public class SpendingAnalysisJobService {
     private Response execute(Job job, boolean legacy) {
         try {
             var request = store.request(job.id());
-            if (request == null) throw new CancellationException();
+            if (request == null)
+                throw new CancellationException();
 
             // 공급자 호출은 트랜잭션 밖에서 진행하고, 취소·만료를 확인한 뒤에만 시작한다.
             var result = analysis.generate(job.bookId(), job.requestedBy(), request, legacy,
                     () -> store.canCallProvider(job.id(), Instant.now().plus(PROVIDER_BUDGET)));
             boolean committed = Boolean.TRUE.equals(tx.execute(transaction -> {
                 access.getAccessibleAccountBook(job.bookId(), job.requestedBy());
-                if (!store.complete(job.id(), result.analysisId(), Instant.now())) return false;
+                if (!store.complete(job.id(), result.analysisId(), Instant.now()))
+                    return false;
 
                 // 이력, 완료 상태, 수신자 한 명의 알림을 한 번에 커밋한다.
                 history.save(job.bookId(), job.requestedBy(), result);
-                notifications.notifySpendingAnalysisCompleted(job.requestedBy(), job.bookId(), job.id(),
-                        job.start(), job.endExclusive());
+                notifications.notifySpendingAnalysisCompleted(
+                        job.requestedBy(), job.bookId(), job.id(), job.start(), job.endExclusive());
                 return true;
             }));
-            if (!committed) throw new CancellationException();
+            if (!committed)
+                throw new CancellationException();
             return result;
         } catch (RuntimeException error) {
             String code = errorCode(error);
             store.finishWithoutResult(job.id(), code);
             if (!(error instanceof CancellationException)) {
                 // 오류 진단에 요청 본문, 거래 데이터, 사용자나 가계부 번호를 남기지 않는다.
-                log.warn("Spending analysis job failed: code={}, exceptionType={}", code, error.getClass().getSimpleName());
+                log.warn("Spending analysis job failed: code={}, exceptionType={}", code,
+                        error.getClass().getSimpleName());
             }
             if (legacy) {
                 if (error instanceof CancellationException) {
@@ -174,7 +181,8 @@ public class SpendingAnalysisJobService {
     private static String errorCode(RuntimeException error) {
         if (error instanceof ResponseStatusException status && status.getReason() != null) {
             return switch (status.getReason()) {
-                case "SPENDING_ANALYSIS_UNAVAILABLE", "STALE_SNAPSHOT", "SPENDING_ANALYSIS_TOO_LARGE" -> status.getReason();
+                case "SPENDING_ANALYSIS_UNAVAILABLE", "STALE_SNAPSHOT", "SPENDING_ANALYSIS_TOO_LARGE" ->
+                    status.getReason();
                 default -> FAILED;
             };
         }

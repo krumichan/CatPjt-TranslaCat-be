@@ -7,19 +7,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface AccountBookTransactionRepository
-        extends JpaRepository<AccountBookTransaction, Long>,
-        AccountBookTransactionRepositoryCustom {
+        extends JpaRepository<AccountBookTransaction, Long>, AccountBookTransactionRepositoryCustom {
+    Optional<AccountBookTransaction> findByIdAndAccountBookId(Long transactionId, Long accountBookId);
 
-    Optional<AccountBookTransaction> findByIdAndAccountBookId(
-            Long transactionId,
-            Long accountBookId
-    );
-
-    boolean existsByAccountBookIdAndSourceTypeAndSourceIdAndSourceYearAndSourceMonth(
-            Long accountBookId,
-            AccountBookTransactionSourceType sourceType,
-            Long sourceId,
-            Integer sourceYear,
-            Integer sourceMonth
-    );
+    boolean existsByAccountBookIdAndSourceTypeAndSourceIdAndSourceYearAndSourceMonth(Long accountBookId,
+            AccountBookTransactionSourceType sourceType, Long sourceId, Integer sourceYear, Integer sourceMonth);
 }

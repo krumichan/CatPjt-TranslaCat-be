@@ -1,9 +1,3 @@
 package jp.co.translacat.domain.languagelearning.common.enums;
 
-public enum LevelTestSessionStatus {
-    IN_PROGRESS,
-    EVALUATING,
-    COMPLETED,
-    FAILED,
-    ABANDONED
-}
+public enum LevelTestSessionStatus { IN_PROGRESS, EVALUATING, COMPLETED, FAILED, ABANDONED }

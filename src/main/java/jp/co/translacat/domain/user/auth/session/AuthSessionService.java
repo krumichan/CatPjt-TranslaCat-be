@@ -27,8 +27,7 @@ public class AuthSessionService {
     private final UserRepository users;
     private final JWTService jwt;
 
-    @PersistenceContext
-    private EntityManager entities;
+    @PersistenceContext private EntityManager entities;
 
     @Transactional
     public UserLoginResponseDto create(User user) {
@@ -37,7 +36,8 @@ public class AuthSessionService {
 
     @Transactional
     public UserLoginResponseDto createAfterPasswordAuthentication(User user, String authenticatedHash) {
-        if (authenticatedHash == null || authenticatedHash.isBlank()) throw invalidRefresh();
+        if (authenticatedHash == null || authenticatedHash.isBlank())
+            throw invalidRefresh();
         return createLocked(user, authenticatedHash);
     }
 
@@ -45,7 +45,8 @@ public class AuthSessionService {
         // 탈퇴와 새 발급이 같은 사용자 행을 잠가, 상태 변경 이후 세션이 되살아나지 않는다.
         User current = users.findLockedById(user.getId()).orElseThrow(this::invalidRefresh);
         entities.refresh(current, LockModeType.PESSIMISTIC_WRITE);
-        if (!current.isActiveAccount()) throw invalidRefresh();
+        if (!current.isActiveAccount())
+            throw invalidRefresh();
         // 비밀번호 확인 뒤 재설정이 먼저 완료되었으면 이전 확인 결과로 세션을 다시 만들지 않는다.
         if (authenticatedHash != null && !java.util.Objects.equals(authenticatedHash, current.getPassword())) {
             throw invalidRefresh();
@@ -55,8 +56,8 @@ public class AuthSessionService {
         String sessionId = UUID.randomUUID().toString();
         String refresh = jwt.generateRefreshToken(user.getId(), user.getEmail(), sessionId);
         Instant now = Instant.now();
-        sessions.saveAndFlush(AuthSession.create(sessionId, user.getId(), hash(refresh), now,
-                jwt.extractExpiration(refresh).toInstant()));
+        sessions.saveAndFlush(AuthSession.create(
+                sessionId, user.getId(), hash(refresh), now, jwt.extractExpiration(refresh).toInstant()));
 
         // 기존 웹과 모바일이 같은 JSON 계약을 사용하고 refresh 원문은 응답에만 반환한다.
         return response(user, jwt.generateAccessToken(user.getId(), user.getEmail(), sessionId), refresh);
@@ -70,7 +71,8 @@ public class AuthSessionService {
             throw invalidRefresh();
         }
         User user = users.findById(userId).orElseThrow(this::invalidRefresh);
-        if (!user.isActiveAccount()) throw invalidRefresh();
+        if (!user.isActiveAccount())
+            throw invalidRefresh();
 
         // NextAuth의 동시 갱신과 호환되도록 기존 refresh 재사용 계약을 유지한다.
         // 새 access도 같은 sid를 가지므로 이후 logout이 완료되면 보호 경계에서 거부된다.
@@ -84,7 +86,8 @@ public class AuthSessionService {
     }
 
     private UserLoginResponseDto response(User user, String accessToken, String refreshToken) {
-        long expiresIn = Math.max(0, (jwt.extractExpiration(accessToken).getTime() - System.currentTimeMillis()) / 1000);
+        long expiresIn =
+                Math.max(0, (jwt.extractExpiration(accessToken).getTime() - System.currentTimeMillis()) / 1000);
         return UserLoginResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -96,16 +99,17 @@ public class AuthSessionService {
 
     static String hash(String token) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(token.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 is required");
         }
     }
 
     private boolean sameHash(String expected, String actual) {
-        return expected != null && MessageDigest.isEqual(expected.getBytes(StandardCharsets.US_ASCII),
-                actual.getBytes(StandardCharsets.US_ASCII));
+        return expected != null
+                && MessageDigest.isEqual(
+                        expected.getBytes(StandardCharsets.US_ASCII), actual.getBytes(StandardCharsets.US_ASCII));
     }
 
     private AuthException invalidRefresh() {

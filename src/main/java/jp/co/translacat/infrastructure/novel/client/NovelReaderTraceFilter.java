@@ -16,9 +16,11 @@ import java.io.IOException;
 public class NovelReaderTraceFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !(request.getRequestURI().matches(
-                "/api/v1/[^/]+/[^/]+/episodes/[^/]+/(reader|audio|glossary|translations(?:/[^/]+(?:/(?:cancel|repair))?)?)")
-                || request.getRequestURI().matches("/api/v1/[^/]+/novels/catalog(?:/[^/]+(?:/cancel|/items/[^/]+/retry)?)?"));
+        return !(
+                request.getRequestURI().matches(
+                        "/api/v1/[^/]+/[^/]+/episodes/[^/]+/(reader|audio|glossary|translations(?:/[^/]+(?:/(?:cancel|repair))?)?)")
+                || request.getRequestURI().matches(
+                        "/api/v1/[^/]+/novels/catalog(?:/[^/]+(?:/cancel|/items/[^/]+/retry)?)?"));
     }
 
     @Override

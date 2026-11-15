@@ -4,46 +4,22 @@ import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
 
-public record AccountBookFixedCostRequestDto(
-        @NotBlank
-        @Size(max = 100)
-        String title,
+public record AccountBookFixedCostRequestDto(@NotBlank @Size(max = 100) String title,
 
-        @Size(max = 100)
-        String storeName,
+        @Size(max = 100) String storeName,
 
-        @NotBlank
-        @Size(max = 100)
-        String category,
+        @NotBlank @Size(max = 100) String category,
 
-        @NotNull
-        @DecimalMin(value = "0", inclusive = false)
-        BigDecimal amount,
+        @NotNull @DecimalMin(value = "0", inclusive = false) BigDecimal amount,
 
-        @NotNull
-        @Min(1)
-        @Max(31)
-        Integer paymentDay,
+        @NotNull @Min(1) @Max(31) Integer paymentDay,
 
-        @NotNull
-        @Min(2000)
-        @Max(9999)
-        Integer startYear,
+        @NotNull @Min(2000) @Max(9999) Integer startYear,
 
-        @NotNull
-        @Min(1)
-        @Max(12)
-        Integer startMonth,
+        @NotNull @Min(1) @Max(12) Integer startMonth,
 
-        @Min(2000)
-        @Max(9999)
-        Integer endYear,
+        @Min(2000) @Max(9999) Integer endYear,
 
-        @Min(1)
-        @Max(12)
-        Integer endMonth,
+        @Min(1) @Max(12) Integer endMonth,
 
-        @Size(max = 500)
-        String memo
-) {
-}
+        @Size(max = 500) String memo) {}

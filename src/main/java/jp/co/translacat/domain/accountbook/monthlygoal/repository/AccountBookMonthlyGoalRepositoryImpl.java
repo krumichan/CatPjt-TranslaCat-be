@@ -17,57 +17,32 @@ import static jp.co.translacat.domain.accountbook.transaction.entity.QAccountBoo
 @Repository
 @RequiredArgsConstructor
 public class AccountBookMonthlyGoalRepositoryImpl implements AccountBookMonthlyGoalRepositoryCustom {
-
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public List<AccountBookMonthlyGoalListItemResponseDto> findAllMonthlyGoalsWithExpenseAmount(
-            Long accountBookId
-    ) {
+    public List<AccountBookMonthlyGoalListItemResponseDto> findAllMonthlyGoalsWithExpenseAmount(Long accountBookId) {
         NumberExpression<Integer> transactionYear =
-                Expressions.numberTemplate(
-                        Integer.class,
-                        "year({0})",
-                        accountBookTransaction.transactionDate
-                );
+                Expressions.numberTemplate(Integer.class, "year({0})", accountBookTransaction.transactionDate);
 
         NumberExpression<Integer> transactionMonth =
-                Expressions.numberTemplate(
-                        Integer.class,
-                        "month({0})",
-                        accountBookTransaction.transactionDate
-                );
+                Expressions.numberTemplate(Integer.class, "month({0})", accountBookTransaction.transactionDate);
 
         return queryFactory
-                .select(Projections.constructor(
-                        AccountBookMonthlyGoalListItemResponseDto.class,
-                        accountBookMonthlyGoal.id,
-                        accountBookMonthlyGoal.accountBook.id,
-                        accountBookMonthlyGoal.targetYear,
-                        accountBookMonthlyGoal.targetMonth,
-                        accountBookMonthlyGoal.goalAmount,
-                        accountBookTransaction.amount.sum()
-                ))
+                .select(Projections.constructor(AccountBookMonthlyGoalListItemResponseDto.class,
+                        accountBookMonthlyGoal.id, accountBookMonthlyGoal.accountBook.id,
+                        accountBookMonthlyGoal.targetYear, accountBookMonthlyGoal.targetMonth,
+                        accountBookMonthlyGoal.goalAmount, accountBookTransaction.amount.sum()))
                 .from(accountBookMonthlyGoal)
                 .leftJoin(accountBookTransaction)
-                .on(
-                        accountBookTransaction.accountBook.id.eq(accountBookMonthlyGoal.accountBook.id),
+                .on(accountBookTransaction.accountBook.id.eq(accountBookMonthlyGoal.accountBook.id),
                         accountBookTransaction.type.eq(AccountBookTransactionType.EXPENSE),
                         transactionYear.eq(accountBookMonthlyGoal.targetYear),
-                        transactionMonth.eq(accountBookMonthlyGoal.targetMonth)
-                )
+                        transactionMonth.eq(accountBookMonthlyGoal.targetMonth))
                 .where(accountBookMonthlyGoal.accountBook.id.eq(accountBookId))
-                .groupBy(
-                        accountBookMonthlyGoal.id,
-                        accountBookMonthlyGoal.accountBook.id,
-                        accountBookMonthlyGoal.targetYear,
-                        accountBookMonthlyGoal.targetMonth,
-                        accountBookMonthlyGoal.goalAmount
-                )
-                .orderBy(
-                        accountBookMonthlyGoal.targetYear.desc(),
-                        accountBookMonthlyGoal.targetMonth.desc()
-                )
+                .groupBy(accountBookMonthlyGoal.id, accountBookMonthlyGoal.accountBook.id,
+                        accountBookMonthlyGoal.targetYear, accountBookMonthlyGoal.targetMonth,
+                        accountBookMonthlyGoal.goalAmount)
+                .orderBy(accountBookMonthlyGoal.targetYear.desc(), accountBookMonthlyGoal.targetMonth.desc())
                 .fetch();
     }
 }

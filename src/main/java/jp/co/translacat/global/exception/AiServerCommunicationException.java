@@ -33,11 +33,7 @@ public class AiServerCommunicationException extends RuntimeException {
         this.safeDetail = "";
     }
 
-    public AiServerCommunicationException(
-            String message,
-            AiServerFailureCode failureCode,
-            Throwable cause
-    ) {
+    public AiServerCommunicationException(String message, AiServerFailureCode failureCode, Throwable cause) {
         super(message, cause);
         this.errorCode = failureCode.name();
         this.retryable = failureCode.isRetryable();
@@ -46,12 +42,7 @@ public class AiServerCommunicationException extends RuntimeException {
     }
 
     public AiServerCommunicationException(
-            String message,
-            AiServerFailureCode failureCode,
-            Integer httpStatus,
-            String safeDetail,
-            Throwable cause
-    ) {
+            String message, AiServerFailureCode failureCode, Integer httpStatus, String safeDetail, Throwable cause) {
         super(message, cause);
         this.errorCode = failureCode.name();
         this.retryable = failureCode.isRetryable();
@@ -60,12 +51,7 @@ public class AiServerCommunicationException extends RuntimeException {
     }
 
     public AiServerCommunicationException(
-            String message,
-            String errorCode,
-            boolean retryable,
-            Integer httpStatus,
-            Throwable cause
-    ) {
+            String message, String errorCode, boolean retryable, Integer httpStatus, Throwable cause) {
         super(message, cause);
         this.errorCode = errorCode;
         this.retryable = retryable;

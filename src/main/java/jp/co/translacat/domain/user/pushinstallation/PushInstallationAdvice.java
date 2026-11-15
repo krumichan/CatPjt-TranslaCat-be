@@ -17,13 +17,20 @@ import jakarta.validation.ConstraintViolationException;
 @RestControllerAdvice(basePackageClasses = PushInstallationController.class)
 public class PushInstallationAdvice {
     @ExceptionHandler(PushInstallationException.class)
-    ResponseEntity<?> known(PushInstallationException error) { return error(error.status(), error.code()); }
+    ResponseEntity<?> known(PushInstallationException error) {
+        return error(error.status(), error.code());
+    }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    ResponseEntity<?> conflict() { return error(HttpStatus.CONFLICT, "PUSH_INSTALLATION_CONFLICT"); }
+    ResponseEntity<?> conflict() {
+        return error(HttpStatus.CONFLICT, "PUSH_INSTALLATION_CONFLICT");
+    }
 
-    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentNotValidException.class, ConstraintViolationException.class})
-    ResponseEntity<?> invalid() { return error(HttpStatus.BAD_REQUEST, "PUSH_INVALID_INPUT"); }
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentNotValidException.class,
+            ConstraintViolationException.class})
+    ResponseEntity<?> invalid() {
+        return error(HttpStatus.BAD_REQUEST, "PUSH_INVALID_INPUT");
+    }
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<?> unavailable() {
@@ -32,7 +39,8 @@ public class PushInstallationAdvice {
     }
 
     private ResponseEntity<?> error(HttpStatus status, String code) {
-        return ResponseEntity.status(status).cacheControl(CacheControl.noStore())
+        return ResponseEntity.status(status)
+                .cacheControl(CacheControl.noStore())
                 .body(ResponseUtil.ok(status.value(), "푸시 등록 요청을 처리하지 못했습니다.", new Error(code)));
     }
 

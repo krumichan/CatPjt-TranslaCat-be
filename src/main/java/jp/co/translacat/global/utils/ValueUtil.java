@@ -3,7 +3,6 @@ package jp.co.translacat.global.utils;
 import java.util.function.Supplier;
 
 public final class ValueUtil {
-
     private ValueUtil() {
     }
 

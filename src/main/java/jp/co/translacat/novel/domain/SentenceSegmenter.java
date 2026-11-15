@@ -10,24 +10,32 @@ import java.util.List;
 public final class SentenceSegmenter {
     public static final String VERSION = "ja-boundaries-v1";
     public enum Policy {
-        LEGACY_V1(VERSION), QUOTE_V2("ja-boundaries-v2-quotes");
+        LEGACY_V1(VERSION),
+        QUOTE_V2("ja-boundaries-v2-quotes");
         private final String version;
-        Policy(String version) { this.version = version; }
-        public String version() { return version; }
+        Policy(String version) {
+            this.version = version;
+        }
+        public String version() {
+            return version;
+        }
     }
     public static final int MAX_SOURCE_CHARS = 100_000;
     private static final int MAX_UNIT_CHARS = 1500;
     private final Policy policy;
-    public SentenceSegmenter() { this(Policy.LEGACY_V1); }
-    public SentenceSegmenter(Policy policy) { this.policy = java.util.Objects.requireNonNull(policy); }
+    public SentenceSegmenter() {
+        this(Policy.LEGACY_V1);
+    }
+    public SentenceSegmenter(Policy policy) {
+        this.policy = java.util.Objects.requireNonNull(policy);
+    }
 
-    public SourceEpisode segment(EpisodeKey key, String title, List<String> paragraphs,
-                                 String previous, String next) {
+    public SourceEpisode segment(EpisodeKey key, String title, List<String> paragraphs, String previous, String next) {
         return segment(key, title, paragraphs, previous, next, List.of());
     }
 
-    public SourceEpisode segment(EpisodeKey key, String title, List<String> paragraphs,
-                                 String previous, String next, List<List<SourceEpisode.RubyToken>> ruby) {
+    public SourceEpisode segment(EpisodeKey key, String title, List<String> paragraphs, String previous, String next,
+            List<List<SourceEpisode.RubyToken>> ruby) {
         // 길이 표시는 프레임을 포함해 모호한 결합에 의한 revision 충돌을 피한다.
         if (paragraphs == null || paragraphs.isEmpty() || paragraphs.size() > 3000
                 || paragraphs.stream().anyMatch(p -> p == null)
@@ -47,12 +55,23 @@ public final class SentenceSegmenter {
                 for (SourceEpisode.RubyToken token : ruby.get(p)) {
                     if (token.startOffset() < previousEnd || token.endOffset() <= token.startOffset()
                             || token.endOffset() > paragraphs.get(p).length() || token.text().length() > MAX_UNIT_CHARS
-                            || token.reading().length() > 500 || !paragraphs.get(p).substring(token.startOffset(), token.endOffset()).equals(token.text())) {
+                            || token.reading().length() > 500
+                            || !paragraphs.get(p)
+                                    .substring(token.startOffset(), token.endOffset())
+                                    .equals(token.text())) {
                         throw new NovelProblem("SOURCE_RUBY_INVALID", 422);
                     }
                     previousEnd = token.endOffset();
-                    identity.append('|').append(p).append(':').append(token.startOffset()).append(':').append(token.endOffset())
-                            .append(':').append(token.reading().length()).append(':').append(token.reading());
+                    identity.append('|')
+                            .append(p)
+                            .append(':')
+                            .append(token.startOffset())
+                            .append(':')
+                            .append(token.endOffset())
+                            .append(':')
+                            .append(token.reading().length())
+                            .append(':')
+                            .append(token.reading());
                 }
             }
         }
@@ -76,13 +95,14 @@ public final class SentenceSegmenter {
                 List<SourceEpisode.RubyToken> tokens = new ArrayList<>();
                 for (SourceEpisode.RubyToken token : annotations) {
                     if (token.startOffset() >= start && token.endOffset() <= end) {
-                        tokens.add(new SourceEpisode.RubyToken(token.startOffset() - start, token.endOffset() - start,
-                                token.text(), token.reading()));
+                        tokens.add(new SourceEpisode.RubyToken(
+                                token.startOffset() - start, token.endOffset() - start, token.text(), token.reading()));
                     }
                 }
-                segments.add(new SourceEpisode.Segment(paragraphId + "-s" + start, paragraphId,
-                        segments.size(), p, start, end, text, text, tokens));
-                if (segments.size() > 3000) throw new NovelProblem("SOURCE_SEGMENTS_EXCEEDED", 413);
+                segments.add(new SourceEpisode.Segment(
+                        paragraphId + "-s" + start, paragraphId, segments.size(), p, start, end, text, text, tokens));
+                if (segments.size() > 3000)
+                    throw new NovelProblem("SOURCE_SEGMENTS_EXCEEDED", 413);
                 start = end;
             } while (start < paragraph.length());
         }
@@ -97,7 +117,8 @@ public final class SentenceSegmenter {
         if (limit < text.length() && Character.isHighSurrogate(text.charAt(limit - 1))) {
             limit--;
         }
-        if (policy == Policy.QUOTE_V2) return quotedBoundary(text, start, limit);
+        if (policy == Policy.QUOTE_V2)
+            return quotedBoundary(text, start, limit);
         for (int i = start; i < limit; i++) {
             char ch = text.charAt(i);
             if ("。！？!?\n".indexOf(ch) < 0) {
@@ -119,19 +140,34 @@ public final class SentenceSegmenter {
         var closings = new java.util.ArrayDeque<Character>();
         for (int i = 0; i < limit; i++) {
             char ch = text.charAt(i);
-            char close = switch (ch) { case '「' -> '」'; case '『' -> '』'; case '“' -> '”'; case '‘' -> '’'; default -> 0; };
-            if (close != 0) { closings.push(close); continue; }
+            char close = switch (ch) {
+                case '「' -> '」';
+                case '『' -> '』';
+                case '“' -> '”';
+                case '‘' -> '’';
+                default -> 0;
+            };
+            if (close != 0) {
+                closings.push(close);
+                continue;
+            }
             boolean closedQuote = !closings.isEmpty() && closings.peek() == ch;
-            if (closedQuote) closings.pop();
-            if (i < start || !closings.isEmpty()) continue;
+            if (closedQuote)
+                closings.pop();
+            if (i < start || !closings.isEmpty())
+                continue;
             if (closedQuote) {
                 int next = i + 1;
-                while (next < text.length() && Character.isWhitespace(text.charAt(next))) next++;
-                if (next < text.length() && "「『“‘".indexOf(text.charAt(next)) >= 0) return i + 1;
+                while (next < text.length() && Character.isWhitespace(text.charAt(next)))
+                    next++;
+                if (next < text.length() && "「『“‘".indexOf(text.charAt(next)) >= 0)
+                    return i + 1;
             }
-            if ("。！？!?\n".indexOf(ch) < 0) continue;
+            if ("。！？!?\n".indexOf(ch) < 0)
+                continue;
             int end = i + 1;
-            while (end < limit && "。！？!?）】〕〉》".indexOf(text.charAt(end)) >= 0) end++;
+            while (end < limit && "。！？!?）】〕〉》".indexOf(text.charAt(end)) >= 0)
+                end++;
             return end;
         }
         return limit;
@@ -139,8 +175,8 @@ public final class SentenceSegmenter {
 
     public static String hash(String text) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(text.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA256_UNAVAILABLE");
         }

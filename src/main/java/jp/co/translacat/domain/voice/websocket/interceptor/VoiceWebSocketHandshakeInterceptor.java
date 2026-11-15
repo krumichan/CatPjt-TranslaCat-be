@@ -33,6 +33,7 @@ public class VoiceWebSocketHandshakeInterceptor
 
     private final VoiceWebSocketTicketService ticketService;
 
+    /** 음성 스트림 경로와 일회용 티켓을 검증하고 사용자 정보를 연결에 기록한다. */
     @Override
     public boolean beforeHandshake(
             ServerHttpRequest request,
@@ -40,11 +41,13 @@ public class VoiceWebSocketHandshakeInterceptor
             @NotNull WebSocketHandler wsHandler,
             @NotNull Map<String, Object> attributes
     ) {
+        // 음성 스트림 경로와 WebSocket 업그레이드 요청부터 검사한다.
         Matcher matcher = PATH.matcher(request.getURI().getPath());
         if (!matcher.matches() || !"websocket".equalsIgnoreCase(request.getHeaders().getUpgrade())) {
             return false;
         }
 
+        // 경로에 바인딩된 티켓을 읽어 사용 여부를 확인한다.
         String ticket = UriComponentsBuilder
                 .fromUri(request.getURI())
                 .build()
@@ -60,6 +63,7 @@ public class VoiceWebSocketHandshakeInterceptor
             VoiceWebSocketTicketService.TicketClaims claims =
                     ticketService.consume(ticket, sessionId, channel);
 
+            // 검증한 값만 핸들러가 사용할 연결 속성에 전달한다.
             attributes.put(ATTR_USER_ID, claims.userId());
             attributes.put(ATTR_SESSION_ID, sessionId);
             attributes.put(ATTR_CHANNEL, channel);

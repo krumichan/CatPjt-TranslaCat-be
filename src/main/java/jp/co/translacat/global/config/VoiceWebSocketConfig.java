@@ -25,6 +25,7 @@ public class VoiceWebSocketConfig implements WebSocketConfigurer {
     @Value("${cors.allowed-origin}")
     private List<String> allowedOrigins;
 
+    /** 음성 스트림 핸들러를 등록하고 출처 검사 후에 일회용 티켓을 검사한다. */
     @Override
     public void registerWebSocketHandlers(
             WebSocketHandlerRegistry registry
@@ -32,6 +33,7 @@ public class VoiceWebSocketConfig implements WebSocketConfigurer {
         // 기존 Origin 정책을 티켓 소비보다 먼저 적용한다.
         OriginHandshakeInterceptor origin = new OriginHandshakeInterceptor();
         origin.setAllowedOriginPatterns(allowedOrigins);
+
         registry.addHandler(
                         voicePublicWebSocketHandler,
                         "/api/v1/voice/sessions/*/channels/*/stream"

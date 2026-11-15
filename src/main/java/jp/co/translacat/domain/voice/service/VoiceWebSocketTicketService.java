@@ -41,6 +41,7 @@ public class VoiceWebSocketTicketService {
         this.policy = policy;
     }
 
+    /** 사용자·세션·채널 범위의 단기 WebSocket 연결 티켓을 발급한다. */
     public String issue(
             Long userId,
             String sessionId,
@@ -65,11 +66,17 @@ public class VoiceWebSocketTicketService {
                 .compact();
     }
 
-    public TicketClaims consume(String ticket, String expectedSessionId, VoiceChannel expectedChannel) {
+    /** 티켓 서명과 연결 범위를 확인하고 유효한 티켓을 한 번 사용 처리한다. */
+    public TicketClaims consume(
+            String ticket,
+            String expectedSessionId,
+            VoiceChannel expectedChannel
+    ) {
         if (ticket == null || ticket.isBlank()) {
             throw invalidTicket("Voice WebSocket ticket is missing.");
         }
 
+        // 발급 인스턴스와 서명을 확인한 뒤 티켓의 연결 범위를 읽는다.
         try {
             Claims claims = Jwts.parser()
                     .verifyWith(getKey())
@@ -106,6 +113,7 @@ public class VoiceWebSocketTicketService {
                 throw invalidTicket("Voice WebSocket ticket identity is missing.");
             }
             consumeOnce(ticketId, expiration.toInstant());
+
             return new TicketClaims(number.longValue(), sessionId, expectedChannel);
         } catch (BusinessException e) {
             throw e;
@@ -116,16 +124,19 @@ public class VoiceWebSocketTicketService {
         }
     }
 
+    // 유효기간 정리와 신규 소비 기록을 같은 잠금 안에서 처리한다.
     private synchronized void consumeOnce(String ticketId, Instant expiration) {
         Instant now = Instant.now();
         // 시계가 뒤로 움직여도 정리한 티켓이 다시 유효해지지 않도록 거절한다.
         if (now.isBefore(lastCleanup) || !now.isBefore(expiration)) {
             throw invalidTicket("Voice WebSocket ticket cannot be used.");
         }
+
         if (!now.isBefore(lastCleanup.plusSeconds(1))) {
             usedTickets.values().removeIf(usedUntil -> !now.isBefore(usedUntil));
             lastCleanup = now;
         }
+
         // 한도가 찼을 때 살아 있는 기록을 버리면 재사용이 가능하므로 요청을 거절한다.
         if (usedTickets.containsKey(ticketId) || usedTickets.size() >= MAX_USED_TICKETS) {
             throw invalidTicket("Voice WebSocket ticket cannot be used.");

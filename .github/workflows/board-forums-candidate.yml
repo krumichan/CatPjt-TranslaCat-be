@@ -1,0 +1,66 @@
+name: Board forums BE candidate verification
+on:
+  push:
+    branches: [ci/board-forums-20261121]
+permissions:
+  contents: read
+jobs:
+  verify:
+    # main push와 수동 실행 모두 선택된 SHA를 먼저 검증한다.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5e13fa7d3572e873d41385ef2c6535b45e180671
+          lfs: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify environment encoding with synthetic inputs
+        run: python -B scripts/check_release_env_encoding.py
+      - name: Verify public account deletion flag merging with synthetic inputs
+        run: python -B scripts/check_account_deletion_env_overrides.py
+      - name: Verify the exact release source
+        run: |
+          bash -n scripts/deploy-release.sh
+          python scripts/check_deploy_release.py
+          chmod +x gradlew
+          ./gradlew test bootJar --no-daemon
+
+  mysql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 8
+          persist-credentials: false
+      - name: Keep the exact synthetic checker and select the product source
+        run: |
+          cp .github/board-forums-mysql.cjs "$RUNNER_TEMP/board-forums-mysql.cjs"
+          git checkout --detach 5e13fa7d3572e873d41385ef2c6535b45e180671
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact MySQL migration and repository SQL
+        run: |
+          input="$RUNNER_TEMP/board-forums-input"
+          results="$RUNNER_TEMP/board-forums-results"
+          mkdir -p "$input/src/main/resources/db/migration" "$results"
+          cp scripts/sql/20261114_boards.sql scripts/sql/20261121_board_engagement.sql scripts/sql/20261121_board_forums.sql "$input/src/main/resources/db/migration/"
+          cp src/main/java/jp/co/translacat/domain/board/BoardRepository.java src/main/java/jp/co/translacat/domain/board/BoardForumRepository.java "$input/"
+          id="board-forums-${GITHUB_RUN_ID}"
+          docker run --detach --rm --network none --name "$id" --env MYSQL_ALLOW_EMPTY_PASSWORD=yes --env MYSQL_DATABASE=board_acceptance mysql:8.4
+          trap 'docker stop --time 10 "$id" >/dev/null || true' EXIT
+          CODEX_DESKTOP_INPUT_DIR="$input" CODEX_DESKTOP_RESULTS_DIR="$results" node "$RUNNER_TEMP/board-forums-mysql.cjs" "$id"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: board-forums-mysql
+          path: ${{ runner.temp }}/board-forums-results/

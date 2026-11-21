@@ -42,8 +42,13 @@ jobs:
           trap - EXIT
           tidb="board-tidb-${GITHUB_RUN_ID}"
           client="board-tidb-client-${GITHUB_RUN_ID}"
-          trap 'docker stop --time 10 "$client" "$tidb" >/dev/null 2>&1 || true' EXIT
-          docker run --detach --rm --name "$tidb" --publish 127.0.0.1:33306:4000 pingcap/tidb:v8.5.8 --store=unistore --path=/tmp/board-tidb --host=0.0.0.0 --log-level=error
+          trap 'docker logs "$tidb" >"$results/tidb-container.log" 2>&1 || true; docker stop --time 10 "$client" "$tidb" >/dev/null 2>&1 || true; docker rm "$tidb" >/dev/null 2>&1 || true' EXIT
+          docker run --detach --name "$tidb" --publish 127.0.0.1:33306:4000 pingcap/tidb:v8.5.8 --store=unistore --path=/tmp/board-tidb --host=0.0.0.0 -L error
+          sleep 2
+          if [ "$(docker inspect --format '{{.State.Running}}' "$tidb")" != true ]; then
+            docker logs "$tidb"
+            exit 1
+          fi
           docker run --detach --rm --name "$client" --network "container:$tidb" --env MYSQL_HOST=127.0.0.1 --env MYSQL_TCP_PORT=4000 --entrypoint /bin/sh mysql:8.4 -c 'sleep infinity'
           for attempt in {1..60}; do
             if docker exec "$client" mysql --connect-timeout=2 --user=root -e 'SELECT 1;' >/dev/null 2>&1; then break; fi

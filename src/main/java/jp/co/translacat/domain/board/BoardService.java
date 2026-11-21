@@ -70,8 +70,13 @@ class BoardService {
         return posts.reactions(post, reader.id());
     }
 
-    // 관리자 계정의 쓰기 상태를 확인한 뒤 게시판을 생성한다.
+    // 새 카테고리는 일반과 익명 그룹에만 추가할 수 있다.
     Forum createForum(BoardAccess.Reader reader, ForumWrite request) {
+        if (request.type() == Board.ADMIN) {
+            throw BoardException.invalid();
+        }
+
+        // 계정의 쓰기 가능 여부를 확인한 뒤 선택한 그룹에 카테고리를 저장한다.
         lockAuthor(reader);
         String name = request.name().strip();
         if (name.isBlank()) {

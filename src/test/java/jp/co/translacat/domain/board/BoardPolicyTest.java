@@ -110,6 +110,18 @@ class BoardPolicyTest {
     }
 
     @Test
+    void adminGroupDoesNotAcceptNewCategories() {
+        // 준비: 관리자만 쓸 수 있는 게시판 개설 경로가 호출된다고 가정한다.
+        var manager = new BoardAccess.Reader(7, "login");
+        var request = new ForumWrite("Internal topics", Board.ADMIN);
+
+        // 실행 및 검증: 기존 관리자 글은 유지하고 새 하위 카테고리 추가를 막는다.
+        assertThatThrownBy(() -> service.createForum(manager, request))
+                .hasMessage("BOARD_INVALID_INPUT");
+        verifyNoInteractions(forums);
+    }
+
+    @Test
     void popularOrderUsesTheRequestedAdminForum() {
         // 준비: 권한을 확인한 관리자가 관리자 게시판의 인기글을 요청한다.
         var reader = new BoardAccess.Reader(7, "login");

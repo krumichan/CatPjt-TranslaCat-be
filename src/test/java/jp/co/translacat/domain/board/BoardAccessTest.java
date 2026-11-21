@@ -40,13 +40,35 @@ class BoardAccessTest {
     }
 
     @Test
+    void nonAdministratorCannotCreateOrOpenAnAdminForum() {
+        // 준비: 일반 회원 세션과 별개 ID를 가진 관리자 전용 게시판을 준비한다.
+        var principal = new UserPrincipal(mock(User.class));
+        when(principal.user().isActiveAccount()).thenReturn(true);
+        when(principal.user().getAuthority()).thenReturn(Role.USER);
+        var service = mock(BoardService.class);
+        var forums = mock(BoardForumRepository.class);
+        var controller = new BoardController(service, access, mock(BoardAttachments.class), forums,
+                mock(BoardRepository.class));
+        String id = UUID.randomUUID().toString();
+        when(forums.find(id)).thenReturn(new BoardDtos.Forum(id, Board.ADMIN, "Staff"));
+
+        // 실행 및 검증: 실제 게시판 유형에서 권한을 확인하고 처리 서비스에는 도달하지 않는다.
+        assertThatThrownBy(() -> controller.createForum(principal, "Bearer a",
+                new BoardDtos.ForumWrite("Questions", Board.MEMBER))).hasMessage("BOARD_NOT_FOUND");
+        assertThatThrownBy(() -> controller.posts(principal, "Bearer a", id, BoardDtos.Locale.ko, 0,
+                BoardDtos.Sort.POPULAR)).hasMessage("BOARD_NOT_FOUND");
+        verifyNoInteractions(service, jwt);
+    }
+
+
+    @Test
     void grantIsScopedToEntryViewerAndSession() {
         // 준비
         String password = "open me 2026";
         UUID id = UUID.randomUUID();
         String hash = access.passwordHash(password);
         var row = new BoardRepository.EntryRow(
-                id, null, null, 7, null, "title", "body", hash, 1, Instant.EPOCH, Instant.EPOCH, null, 0);
+                id, null, null, 7, null, "title", "body", hash, 1, Instant.EPOCH, Instant.EPOCH, 0);
         var correctSession = new BoardAccess.Reader(7, "first");
         when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(id.toString()), eq(7L), eq("first"), eq(1)))
                 .thenReturn(true);
@@ -64,7 +86,7 @@ class BoardAccessTest {
 
         // 비밀번호가 바뀐 버전에는 이전 세션의 잠금 권한을 재사용하지 않는다.
         var edited = new BoardRepository.EntryRow(
-                id, null, null, 7, null, "title", "body", hash, 2, Instant.EPOCH, Instant.EPOCH, null, 0);
+                id, null, null, 7, null, "title", "body", hash, 2, Instant.EPOCH, Instant.EPOCH, 0);
         assertThat(access.unlocked(correctSession, edited)).isFalse();
     }
 

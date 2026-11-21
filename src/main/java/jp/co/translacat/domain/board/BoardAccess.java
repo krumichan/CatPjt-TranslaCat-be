@@ -34,7 +34,7 @@ class BoardAccess {
         }
 
         User user = principal.user();
-        if (board == Board.ADMIN && user.getAuthority() != Role.ADMIN) {
+        if (board == Board.ADMIN && !isAdmin(principal)) {
             throw BoardException.missing();
         }
 
@@ -45,14 +45,9 @@ class BoardAccess {
         return new Reader(user.getId(), hash(session == null ? "token:" + token : "session:" + session));
     }
 
-    // 게시판의 일반 열람 권한과 별도로 분류 편집 권한을 확인한다.
-    Reader categoryEditor(UserPrincipal principal, String authorization, Board board) {
-        Reader reader = reader(principal, authorization, board);
-        if (principal.user().getAuthority() != Role.ADMIN) {
-            throw BoardException.missing();
-        }
-
-        return reader;
+    // 인증된 사용자의 현재 권한으로 관리자 게시판의 노출 여부를 판단한다.
+    boolean isAdmin(UserPrincipal principal) {
+        return principal.user().getAuthority() == Role.ADMIN;
     }
 
     String passwordHash(String password) {

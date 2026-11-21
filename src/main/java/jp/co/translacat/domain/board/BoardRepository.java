@@ -5,12 +5,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.time.Instant;
 
 import static jp.co.translacat.domain.board.BoardDtos.Board;
-import static jp.co.translacat.domain.board.BoardDtos.Category;
+import static jp.co.translacat.domain.board.BoardDtos.Forum;
 import static jp.co.translacat.domain.board.BoardDtos.Sort;
 
 @Repository
@@ -24,25 +25,20 @@ class BoardRepository {
             -> new EntryRow(id(rs.getString("id")), id(rs.getString("root_id")), id(rs.getString("parent_id")),
                     rs.getLong("author_id"), rs.getString("author"), rs.getString("title"), rs.getString("content"),
                     rs.getString("password_hash"), rs.getInt("revision"), rs.getTimestamp("created_at").toInstant(),
-                    rs.getTimestamp("updated_at").toInstant(),
-                    rs.getString("category_id") == null ? null
-                            : new Category(id(rs.getString("category_id")), rs.getString("category_name")),
-                    rs.getLong("view_count"));
+                    rs.getTimestamp("updated_at").toInstant(), rs.getLong("view_count"));
 
     private static final String SELECT = """
-            SELECT e.*, u.username AS author, c.id AS category_id, c.name AS category_name,
-                   COALESCE(m.view_count, 0) AS view_count
+            SELECT e.*, u.username AS author, COALESCE(m.view_count, 0) AS view_count
             FROM board_entry e LEFT JOIN `user` u ON u.id = e.author_id
             LEFT JOIN board_post_meta m ON m.post_id = e.id
-            LEFT JOIN board_category c ON c.id = m.category_id AND c.board = e.board
             """;
 
     private final JdbcTemplate jdbc;
 
-    // 인기글의 자격과 분류를 SQL에서 적용한 뒤 페이지를 자른다.
-    List<EntryRow> posts(Board board, Sort sort, UUID category, boolean uncategorized, int offset, int limit) {
+    // 게시판과 인기글 조건을 SQL에서 함께 적용한 뒤 페이지를 자른다.
+    List<EntryRow> posts(Forum forum, Sort sort, int offset, int limit) {
         StringBuilder sql = new StringBuilder(SELECT);
-        List<Object> args = new java.util.ArrayList<>();
+        List<Object> args = new ArrayList<>();
 
         // 게시글·열람자 복합 키 덕분에 최근 조회 행 수가 곧 고유 열람자 수다.
         if (sort == Sort.POPULAR) {
@@ -63,17 +59,12 @@ class BoardRepository {
             args.add(POPULAR_LIKE_PERCENT);
         }
 
-        // 잠긴 글은 전체 목록에만 표시해 분류 필터가 숨겨진 분류를 노출하지 않게 한다.
-        sql.append(" WHERE e.board = ? AND e.parent_id IS NULL");
-        args.add(board.name());
-        if (sort == Sort.POPULAR || category != null || uncategorized) {
+        // 같은 권한 유형이어도 다른 게시판의 글은 섞이지 않는다.
+        sql.append(" WHERE e.board = ? AND e.forum_id <=> ? AND e.parent_id IS NULL");
+        args.add(forum.type().name());
+        args.add(forum.databaseId());
+        if (sort == Sort.POPULAR) {
             sql.append(" AND e.password_hash IS NULL");
-        }
-        if (category != null) {
-            sql.append(" AND c.id = ?");
-            args.add(category.toString());
-        } else if (uncategorized) {
-            sql.append(" AND c.id IS NULL");
         }
 
         // 같은 점수의 글도 날짜와 ID로 안정적으로 정렬한다.
@@ -91,22 +82,34 @@ class BoardRepository {
                 """, ROW, parent.toString(), limit, offset);
     }
 
-    EntryRow post(Board board, UUID id, boolean write) {
+    // 기존 유형 URL로 들어온 글이 속한 게시판 ID만 찾는다.
+    String forumForPost(Board legacyType, UUID post) {
+        return jdbc.queryForList("""
+                SELECT COALESCE(forum_id, board) FROM board_entry
+                WHERE id = ? AND board = ? AND parent_id IS NULL
+                """, String.class, post.toString(), legacyType.name())
+                .stream()
+                .findFirst()
+                .orElseThrow(BoardException::missing);
+    }
+
+    // 상세·수정이 요청된 게시판에 실제로 속한 글을 반환한다.
+    EntryRow post(Forum forum, UUID id, boolean write) {
         if (write) {
             // 글을 변경하는 모든 작업은 해당 글 행을 먼저 잠가 답글 생성·삭제와 직렬화한다.
             return jdbc.query("""
-                    SELECT e.*, NULL AS author, NULL AS category_id, NULL AS category_name, 0 AS view_count
+                    SELECT e.*, NULL AS author, 0 AS view_count
                     FROM board_entry e
-                    WHERE e.id = ? AND e.board = ? AND e.parent_id IS NULL FOR UPDATE
-                    """, ROW, id.toString(), board.name())
+                    WHERE e.id = ? AND e.board = ? AND e.forum_id <=> ? AND e.parent_id IS NULL FOR UPDATE
+                    """, ROW, id.toString(), forum.type().name(), forum.databaseId())
                     .stream()
                     .findFirst()
                     .orElseThrow(BoardException::missing);
         }
 
         return jdbc
-                .query(SELECT + " WHERE e.id = ? AND e.board = ? AND e.parent_id IS NULL", ROW, id.toString(),
-                        board.name())
+                .query(SELECT + " WHERE e.id = ? AND e.board = ? AND e.forum_id <=> ? AND e.parent_id IS NULL",
+                        ROW, id.toString(), forum.type().name(), forum.databaseId())
                 .stream()
                 .findFirst()
                 .orElseThrow(BoardException::missing);
@@ -119,14 +122,16 @@ class BoardRepository {
                 .orElseThrow(BoardException::missing);
     }
 
-    UUID insert(Board board, long author, UUID root, UUID parent, String title, String body, String password) {
+    // 글과 댓글에 게시판 ID 및 권한 유형을 함께 기록한다.
+    UUID insert(Forum forum, long author, UUID root, UUID parent, String title, String body, String password) {
         UUID id = UUID.randomUUID();
 
         jdbc.update("""
-                INSERT INTO board_entry (id, board, author_id, root_id, parent_id, title, content,
+                INSERT INTO board_entry (id, board, forum_id, author_id, root_id, parent_id, title, content,
                                          password_hash, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
-                """, id.toString(), board.name(), author, text(root), text(parent), title, body, password);
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
+                """, id.toString(), forum.type().name(), forum.databaseId(), author, text(root), text(parent),
+                title, body, password);
         return id;
     }
 
@@ -189,5 +194,5 @@ class BoardRepository {
     }
 
     record EntryRow(UUID id, UUID root, UUID parent, long authorId, String author, String title, String content,
-            String passwordHash, int revision, Instant createdAt, Instant updatedAt, Category category, long viewCount) {}
+            String passwordHash, int revision, Instant createdAt, Instant updatedAt, long viewCount) {}
 }

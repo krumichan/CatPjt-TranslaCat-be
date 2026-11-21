@@ -35,9 +35,10 @@ class BoardAttachments {
     private final BoardStorage storage;
     private final PlatformTransactionManager transactions;
 
-    UploadStatus start(Board board, long owner, Upload request) {
+    // 게시판 유형에 맞는 파일 한도를 적용해 업로드 세션을 저장한다.
+    UploadStatus start(Forum forum, long owner, Upload request) {
         // 업로드 ID를 만들기 전에 게시판의 바이트 한도와 파일명을 확인한다.
-        long partBytes = partBytes(board, request.bytes());
+        long partBytes = partBytes(forum.type(), request.bytes());
         String filename = request.filename().replaceAll("[\\p{Cntrl}/\\\\]", "_").strip();
         if (filename.isEmpty()) {
             throw BoardException.invalid();
@@ -49,9 +50,10 @@ class BoardAttachments {
         try {
             jdbc.update("""
                     INSERT INTO board_attachment
-                        (id, board, owner_id, filename, bytes, part_bytes, upload_id, state, expires_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN', UTC_TIMESTAMP(6) + INTERVAL 6 DAY)
-                    """, id.toString(), board.name(), owner, filename, request.bytes(), partBytes, uploadId);
+                        (id, board, forum_id, owner_id, filename, bytes, part_bytes, upload_id, state, expires_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', UTC_TIMESTAMP(6) + INTERVAL 6 DAY)
+                    """, id.toString(), forum.type().name(), forum.databaseId(), owner, filename, request.bytes(),
+                    partBytes, uploadId);
         } catch (RuntimeException error) {
             try {
                 storage.delete(id, uploadId);
@@ -64,9 +66,10 @@ class BoardAttachments {
         return new UploadStatus(id, partBytes, List.of(), false);
     }
 
+    // 같은 작성자와 게시판의 업로드 상태를 조회하거나 완료 상태를 복구한다.
     @Transactional
-    UploadStatus status(Board board, long owner, UUID id) {
-        StoredUpload upload = owned(board, owner, id);
+    UploadStatus status(Forum forum, long owner, UUID id) {
+        StoredUpload upload = owned(forum, owner, id);
         if (upload.ready()) {
             return new UploadStatus(id, upload.partBytes(), List.of(), true);
         }
@@ -85,9 +88,10 @@ class BoardAttachments {
         return new UploadStatus(id, upload.partBytes(), completed, false);
     }
 
+    // 같은 게시판 업로드의 유효한 조각 번호에 서명한다.
     @Transactional
-    SignedUrl part(Board board, long owner, UUID id, int number) {
-        StoredUpload upload = owned(board, owner, id);
+    SignedUrl part(Forum forum, long owner, UUID id, int number) {
+        StoredUpload upload = owned(forum, owner, id);
         if (upload.ready() || number < 1 || number > partCount(upload)) {
             throw BoardException.invalid();
         }
@@ -95,9 +99,10 @@ class BoardAttachments {
         return new SignedUrl(storage.signPart(id, upload.uploadId(), number, partLength(upload, number)));
     }
 
+    // 같은 게시판의 조각을 검증해 업로드를 완료한다.
     @Transactional
-    Created complete(Board board, long owner, UUID id) {
-        StoredUpload upload = owned(board, owner, id);
+    Created complete(Forum forum, long owner, UUID id) {
+        StoredUpload upload = owned(forum, owner, id);
         if (upload.ready()) {
             return new Created(id);
         }
@@ -123,7 +128,8 @@ class BoardAttachments {
         return new Created(id);
     }
 
-    void attach(Board board, long owner, UUID entry, List<UUID> ids) {
+    // 현재 게시판에 올린 작성자 소유의 파일만 글에 연결한다.
+    void attach(Forum forum, long owner, UUID entry, List<UUID> ids) {
         if (ids == null || ids.isEmpty()) {
             return;
         }
@@ -143,9 +149,9 @@ class BoardAttachments {
         for (UUID id : ids.stream().sorted().toList()) {
             int linked = jdbc.update("""
                     UPDATE board_attachment SET entry_id = ?, state = 'ATTACHED'
-                    WHERE id = ? AND owner_id = ? AND board = ? AND state = 'READY'
+                    WHERE id = ? AND owner_id = ? AND board = ? AND forum_id <=> ? AND state = 'READY'
                       AND expires_at > UTC_TIMESTAMP(6)
-                    """, entry.toString(), id.toString(), owner, board.name());
+                    """, entry.toString(), id.toString(), owner, forum.type().name(), forum.databaseId());
             if (linked != 1) {
                 throw BoardException.invalid();
             }
@@ -232,11 +238,13 @@ class BoardAttachments {
         return Math.max(32L * MIB, ((minBytes + MIB - 1) / MIB) * MIB);
     }
 
-    private StoredUpload owned(Board board, long owner, UUID id) {
+    // 임시 업로드는 최초에 선택한 게시판과 작성자만 다시 열 수 있다.
+    private StoredUpload owned(Forum forum, long owner, UUID id) {
         return jdbc.query("""
                 SELECT a.*, expires_at <= UTC_TIMESTAMP(6) AS expired FROM board_attachment a
-                WHERE id = ? AND board = ? AND owner_id = ? AND state IN ('OPEN', 'READY') FOR UPDATE
-                """, UPLOAD, id.toString(), board.name(), owner)
+                WHERE id = ? AND board = ? AND forum_id <=> ? AND owner_id = ?
+                  AND state IN ('OPEN', 'READY') FOR UPDATE
+                """, UPLOAD, id.toString(), forum.type().name(), forum.databaseId(), owner)
                 .stream()
                 .filter(upload -> !upload.expired())
                 .findFirst()

@@ -37,8 +37,8 @@ final class BoardException extends RuntimeException {
         return new BoardException(HttpStatus.BAD_REQUEST, "BOARD_INVALID_INPUT");
     }
 
-    static BoardException duplicateCategory() {
-        return new BoardException(HttpStatus.CONFLICT, "BOARD_CATEGORY_DUPLICATE");
+    static BoardException duplicateForum() {
+        return new BoardException(HttpStatus.CONFLICT, "BOARD_FORUM_DUPLICATE");
     }
 
     static BoardException storage() {

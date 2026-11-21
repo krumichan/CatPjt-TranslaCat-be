@@ -22,8 +22,7 @@ public final class BoardDtos {
     public enum Reaction { LIKE, DISLIKE, NONE }
 
     public record Write(@Size(max = 200) String title, @NotBlank @Size(max = 12000) String content,
-            @Size(max = 128) String password, @Size(max = 20) List<UUID> attachments,
-            UUID categoryId, Boolean clearCategory) {
+            @Size(max = 128) String password, @Size(max = 20) List<UUID> attachments) {
         // 요청 객체를 진단 출력에 사용해도 비밀번호나 비밀 본문을 기록하지 않는다.
         @Override
         public String toString() {
@@ -48,9 +47,17 @@ public final class BoardDtos {
 
     public record SignedUrl(String url) {}
 
-    public record Category(UUID id, String name) {}
+    /** 독립 게시판의 식별자와 열람·작성 정책을 반환한다. 기본 게시판의 이름은 화면에서 번역한다. */
+    public record Forum(String id, Board type, String name) {
+        /** 기존 기본 게시판의 글은 별도 게시판 ID 없이 유형으로 구분한다. */
+        String databaseId() {
+            return id.equals(type.name()) ? null : id;
+        }
+    }
 
-    public record CategoryWrite(@NotBlank @Size(max = 60) String name) {}
+    public record ForumWrite(@NotBlank @Size(max = 60) String name, @NotNull Board type) {}
+
+    public record ForumLocation(String id) {}
 
     public record Vote(@NotNull Reaction reaction) {}
 
@@ -58,7 +65,7 @@ public final class BoardDtos {
 
     public record Entry(UUID id, boolean locked, boolean secret, boolean mine, String author, Instant createdAt,
             Instant updatedAt, String title, String content, String translatedTitle, String translatedContent,
-            boolean translating, List<Attachment> attachments, Category category, Long viewCount, Reactions reactions) {}
+            boolean translating, List<Attachment> attachments, Long viewCount, Reactions reactions) {}
 
     public record Page(List<Entry> items, boolean hasMore) {}
 }

@@ -170,7 +170,9 @@ public final class BoardForumsDb {
     private static String dataFingerprint(Connection db) throws Exception {
         var values = new ArrayList<String>();
         for (String table : ORIGINAL_TABLES) {
-            String sql = "SELECT " + String.join(",", columns(db, table, false)) + " FROM " + quoted(table)
+            // 数値・日時も同じバイナリ結果型に揃え、JDBC のストリーム変換制約を避ける。
+            var projection = columns(db, table, false).stream().map(column -> "CAST(" + column + " AS BINARY)").toList();
+            String sql = "SELECT " + String.join(",", projection) + " FROM " + quoted(table)
                     + " ORDER BY " + String.join(",", columns(db, table, true));
             values.add(table + ":" + digestQuery(db, sql));
         }

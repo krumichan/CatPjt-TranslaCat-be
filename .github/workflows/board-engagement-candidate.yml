@@ -1,0 +1,65 @@
+name: Board engagement BE candidate verification
+on:
+  push:
+    branches: [ci/board-engagement-20261121]
+permissions:
+  contents: read
+jobs:
+  verify:
+    # main push와 수동 실행 모두 선택된 SHA를 먼저 검증한다.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e89bba8d4dfb871b0338dcda5e7c3852813893dd
+          lfs: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify environment encoding with synthetic inputs
+        run: python -B scripts/check_release_env_encoding.py
+      - name: Verify public account deletion flag merging with synthetic inputs
+        run: python -B scripts/check_account_deletion_env_overrides.py
+      - name: Verify the exact release source
+        run: |
+          bash -n scripts/deploy-release.sh
+          python scripts/check_deploy_release.py
+          chmod +x gradlew
+          ./gradlew test bootJar --no-daemon
+
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile the exact JDBC helper
+        run: |
+          mkdir -p "$RUNNER_TEMP/board-classes" "$RUNNER_TEMP/board-results"
+          javac --release 21 -encoding UTF-8 -d "$RUNNER_TEMP/board-classes" .github/BoardEngagementDb.java
+          jar --create --file "$RUNNER_TEMP/board-results/BoardEngagementDb.jar" -C "$RUNNER_TEMP/board-classes" BoardEngagementDb.class
+          python3 - <<'PY'
+          from hashlib import sha256
+          import json, os
+          from pathlib import Path
+          output = Path(os.environ['RUNNER_TEMP']) / 'board-results'
+          result = {'sourceSha256':sha256(Path('.github/BoardEngagementDb.java').read_bytes()).hexdigest(),
+                    'jarSha256':sha256((output / 'BoardEngagementDb.jar').read_bytes()).hexdigest()}
+          (output / 'board-db-compiler.json').write_text(json.dumps(result))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: board-engagement-jdbc-helper
+          path: ${{ runner.temp }}/board-results/
+          if-no-files-found: error

@@ -271,6 +271,10 @@ public final class BoardForumsDb {
                 require(!apply && !verify || schema.equals(args[2]), "SCHEMA_CHANGED_AFTER_INSPECTION");
                 long categories = count(db, "SELECT COUNT(*) FROM board_category");
                 long roots = count(db, "SELECT COUNT(*) FROM board_entry WHERE parent_id IS NULL");
+                long namedIndexParts = count(db, "SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='board_entry' AND INDEX_NAME='idx_board_forum_posts'");
+                boolean directAlterGrant = rows(db, "SHOW GRANTS FOR CURRENT_USER").stream()
+                        .anyMatch(value -> value.contains("ALL PRIVILEGES") || value.matches(".*\\bALTER\\b.*"));
+                String version = db.getMetaData().getDatabaseMajorVersion() + "." + db.getMetaData().getDatabaseMinorVersion();
                 String dataBefore = "";
                 String dataAfter = "";
                 String defaultBefore = "";
@@ -323,14 +327,18 @@ public final class BoardForumsDb {
                 }
                 require(!verify || ready && pending == 0, "FORUM_MAPPING_INCOMPLETE");
                 require(schemaFingerprint(db).equals(schema), "EXISTING_SCHEMA_CHANGED");
-                System.out.printf("{\"complete\":true,\"schemaReady\":%s,\"schemaFingerprint\":\"%s\",\"legacyCategories\":%d,\"legacyRoots\":%d,\"mappingPending\":%d,\"ddlStatements\":%d,\"migrationDmlStatements\":%d,\"transactionCommitted\":%s,\"preservationVerified\":%s,\"oldDataBefore\":\"%s\",\"oldDataAfter\":\"%s\",\"unclassifiedBefore\":\"%s\",\"unclassifiedAfter\":\"%s\",\"tlsVerifyIdentity\":true}%n",
+                System.out.printf("{\"mysqlMajorMinor\":\"%s\",\"namedForumIndexParts\":%d,\"entryForumColumn\":%s,\"attachmentForumColumn\":%s,\"directAlterGrantVisible\":%s,", version, namedIndexParts, hasColumn(db, "board_entry"), hasColumn(db, "board_attachment"), directAlterGrant);
+                System.out.printf("\"complete\":true,\"schemaReady\":%s,\"schemaFingerprint\":\"%s\",\"legacyCategories\":%d,\"legacyRoots\":%d,\"mappingPending\":%d,\"ddlStatements\":%d,\"migrationDmlStatements\":%d,\"transactionCommitted\":%s,\"preservationVerified\":%s,\"oldDataBefore\":\"%s\",\"oldDataAfter\":\"%s\",\"unclassifiedBefore\":\"%s\",\"unclassifiedAfter\":\"%s\",\"tlsVerifyIdentity\":true}%n",
                         ready, schema, categories, roots, pending, ddl, dml, committed, apply && committed,
                         dataBefore, dataAfter, defaultBefore, defaultAfter);
             }
         } catch (Exception error) {
             String reason = error instanceof IllegalStateException && error.getMessage().matches("[A-Z_]+")
                     ? error.getMessage() : error.getClass().getSimpleName();
-            System.out.printf("{\"complete\":false,\"error\":\"%s\",\"ddlStatements\":%d,\"migrationDmlStatements\":%d,\"transactionCommitted\":%s}%n", reason, ddl, dml, committed);
+            int vendorCode = error instanceof java.sql.SQLException sqlError ? sqlError.getErrorCode() : 0;
+            String state = error instanceof java.sql.SQLException sqlError ? sqlError.getSQLState() : "";
+            state = state != null && state.matches("[A-Z0-9]{5}") ? state : "";
+            System.out.printf("{\"complete\":false,\"error\":\"%s\",\"sqlVendorCode\":%d,\"sqlState\":\"%s\",\"ddlStatements\":%d,\"migrationDmlStatements\":%d,\"transactionCommitted\":%s}%n", reason, vendorCode, state, ddl, dml, committed);
             System.exit(1);
         }
     }

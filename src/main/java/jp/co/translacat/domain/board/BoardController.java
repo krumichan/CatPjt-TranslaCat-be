@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 import static jp.co.translacat.domain.board.BoardDtos.*;
@@ -28,11 +29,15 @@ public class BoardController {
         response.setHeader(HttpHeaders.CACHE_CONTROL, "private, no-store");
     }
 
+    /** 게시판의 정렬·분류 조건을 적용한 목록을 반환한다. */
     @GetMapping("/posts")
     public ResponseDto<Page> posts(@AuthenticationPrincipal UserPrincipal principal,
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @PathVariable Board board,
-            @RequestParam Locale locale, @RequestParam(defaultValue = "0") int page) {
-        return ResponseUtil.ok(service.posts(board, access.reader(principal, authorization, board), locale, page));
+            @RequestParam Locale locale, @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "LATEST") Sort sort, @RequestParam(required = false) UUID category,
+            @RequestParam(defaultValue = "false") boolean uncategorized) {
+        return ResponseUtil.ok(service.posts(board, access.reader(principal, authorization, board), locale,
+                page, sort, category, uncategorized));
     }
 
     @GetMapping("/posts/{post}")
@@ -40,6 +45,49 @@ public class BoardController {
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @PathVariable Board board,
             @PathVariable UUID post, @RequestParam Locale locale) {
         return ResponseUtil.ok(service.post(board, access.reader(principal, authorization, board), post, locale));
+    }
+
+    /** 현재 세션에서 실제로 읽은 게시글의 누적 조회수를 반환한다. */
+    @PostMapping("/posts/{post}/views")
+    public ResponseDto<Long> recordView(@AuthenticationPrincipal UserPrincipal principal,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @PathVariable Board board,
+            @PathVariable UUID post) {
+        return ResponseUtil.ok(service.recordView(board, access.reader(principal, authorization, board), post));
+    }
+
+    /** 이 계정의 투표를 지정한 값으로 저장하고 변경 후의 합계를 반환한다. */
+    @PutMapping("/posts/{post}/vote")
+    public ResponseDto<Reactions> vote(@AuthenticationPrincipal UserPrincipal principal,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @PathVariable Board board,
+            @PathVariable UUID post, @Valid @RequestBody Vote request) {
+        return ResponseUtil.ok(service.vote(board, access.reader(principal, authorization, board),
+                post, request.reaction()));
+    }
+
+    /** 읽기 권한이 있는 게시판의 분류를 반환한다. */
+    @GetMapping("/categories")
+    public ResponseDto<List<Category>> categories(@AuthenticationPrincipal UserPrincipal principal,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @PathVariable Board board) {
+        access.reader(principal, authorization, board);
+        return ResponseUtil.ok(service.categories(board));
+    }
+
+    /** 관리자가 현재 게시판에 분류를 추가한다. */
+    @PostMapping("/categories")
+    public ResponseDto<Category> createCategory(@AuthenticationPrincipal UserPrincipal principal,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @PathVariable Board board,
+            @Valid @RequestBody CategoryWrite request) {
+        return ResponseUtil.created(service.saveCategory(board, access.categoryEditor(principal, authorization, board),
+                null, request));
+    }
+
+    /** 관리자가 게시글 연결을 유지한 채 분류 이름을 변경한다. */
+    @PutMapping("/categories/{category}")
+    public ResponseDto<Category> renameCategory(@AuthenticationPrincipal UserPrincipal principal,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @PathVariable Board board,
+            @PathVariable UUID category, @Valid @RequestBody CategoryWrite request) {
+        return ResponseUtil.ok(service.saveCategory(board, access.categoryEditor(principal, authorization, board),
+                category, request));
     }
 
     @GetMapping("/posts/{post}/replies")

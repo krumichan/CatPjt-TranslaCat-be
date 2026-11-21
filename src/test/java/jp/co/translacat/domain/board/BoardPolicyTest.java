@@ -14,11 +14,12 @@ import static org.mockito.Mockito.*;
 
 class BoardPolicyTest {
     private final BoardRepository repository = mock(BoardRepository.class);
+    private final BoardPostRepository postRepository = mock(BoardPostRepository.class);
     private final BoardAccess access = mock(BoardAccess.class);
     private final BoardAttachments attachments = mock(BoardAttachments.class);
     private final BoardTranslation translation = mock(BoardTranslation.class);
     private final BoardService service =
-            new BoardService(repository, access, attachments, translation, mock(JdbcTemplate.class));
+            new BoardService(repository, postRepository, access, attachments, translation, mock(JdbcTemplate.class));
 
     @Test
     void memberAndAnonymousFileLimitsAreDecimalMb() {
@@ -62,10 +63,54 @@ class BoardPolicyTest {
         assertThat(result.title()).isNull();
         assertThat(result.content()).isNull();
         assertThat(result.author()).isNull();
+        assertThat(result.viewCount()).isNull();
+        assertThat(result.category()).isNull();
+        assertThat(result.reactions()).isNull();
         assertThat(result.attachments()).isEmpty();
         assertThatThrownBy(() -> service.download(Board.ADMIN, reader, row.id(), UUID.randomUUID()))
                 .hasMessage("BOARD_LOCKED");
         verifyNoInteractions(translation, attachments);
+    }
+
+    @Test
+    void lockedPostRejectsViewsAndVotesBeforeWriting() {
+        // 준비: 비밀번호를 입력하지 않은 세션이 게시글 조회와 투표를 시도한다.
+        var reader = new BoardAccess.Reader(7, "login");
+        var post = row(null, null, "locked");
+        when(repository.post(Board.MEMBER, post.id(), true)).thenReturn(post);
+        doThrow(BoardException.locked()).when(access).requireUnlocked(reader, post);
+
+        // 실행과 검증: 두 요청은 같은 열람 경계에서 거절되고 집계 저장소를 호출하지 않는다.
+        assertThatThrownBy(() -> service.recordView(Board.MEMBER, reader, post.id()))
+                .hasMessage("BOARD_LOCKED");
+        assertThatThrownBy(() -> service.vote(Board.MEMBER, reader, post.id(), Reaction.LIKE))
+                .hasMessage("BOARD_LOCKED");
+        verifyNoInteractions(postRepository);
+    }
+
+    @Test
+    void authorViewsDoNotIncreaseTheCount() {
+        // 준비: 자신의 게시글을 열람한다.
+        var reader = new BoardAccess.Reader(7, "login");
+        var post = row(null, null, null);
+        when(repository.post(Board.MEMBER, post.id(), true)).thenReturn(post);
+        when(repository.post(Board.MEMBER, post.id(), false)).thenReturn(post);
+
+        // 실행
+        long views = service.recordView(Board.MEMBER, reader, post.id());
+
+        // 검증: 현재 조회수를 그대로 반환한다.
+        assertThat(views).isEqualTo(post.viewCount());
+        verifyNoInteractions(postRepository);
+    }
+
+    @Test
+    void adminBoardRejectsPopularOrder() {
+        var reader = new BoardAccess.Reader(7, "login");
+
+        assertThatThrownBy(() -> service.posts(Board.ADMIN, reader, Locale.ko, 0, Sort.POPULAR, null, false))
+                .hasMessage("BOARD_INVALID_INPUT");
+        verifyNoInteractions(postRepository, repository);
     }
 
     @Test
@@ -106,8 +151,9 @@ class BoardPolicyTest {
         assertThat(result.translating()).isTrue();
     }
 
+    // 잠금 여부와 댓글 계층을 지정할 수 있는 게시글 데이터를 만든다.
     private static BoardRepository.EntryRow row(UUID root, UUID parent, String secret) {
         return new BoardRepository.EntryRow(UUID.randomUUID(), root, parent, 7, "author", "private title",
-                "sensitive content", secret, 1, Instant.EPOCH, Instant.EPOCH);
+                "sensitive content", secret, 1, Instant.EPOCH, Instant.EPOCH, null, 4);
     }
 }

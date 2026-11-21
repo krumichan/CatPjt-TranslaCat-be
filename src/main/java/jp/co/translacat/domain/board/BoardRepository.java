@@ -10,28 +10,78 @@ import java.util.UUID;
 import java.time.Instant;
 
 import static jp.co.translacat.domain.board.BoardDtos.Board;
+import static jp.co.translacat.domain.board.BoardDtos.Category;
+import static jp.co.translacat.domain.board.BoardDtos.Sort;
 
 @Repository
 @RequiredArgsConstructor
 class BoardRepository {
+    private static final int POPULAR_MIN_READERS = 3;
+    private static final int POPULAR_MIN_VOTES = 3;
+    private static final int POPULAR_LIKE_PERCENT = 70;
+
     private static final RowMapper<EntryRow> ROW = (rs, index)
             -> new EntryRow(id(rs.getString("id")), id(rs.getString("root_id")), id(rs.getString("parent_id")),
                     rs.getLong("author_id"), rs.getString("author"), rs.getString("title"), rs.getString("content"),
                     rs.getString("password_hash"), rs.getInt("revision"), rs.getTimestamp("created_at").toInstant(),
-                    rs.getTimestamp("updated_at").toInstant());
+                    rs.getTimestamp("updated_at").toInstant(),
+                    rs.getString("category_id") == null ? null
+                            : new Category(id(rs.getString("category_id")), rs.getString("category_name")),
+                    rs.getLong("view_count"));
 
     private static final String SELECT = """
-            SELECT e.*, u.username AS author
+            SELECT e.*, u.username AS author, c.id AS category_id, c.name AS category_name,
+                   COALESCE(m.view_count, 0) AS view_count
             FROM board_entry e LEFT JOIN `user` u ON u.id = e.author_id
+            LEFT JOIN board_post_meta m ON m.post_id = e.id
+            LEFT JOIN board_category c ON c.id = m.category_id AND c.board = e.board
             """;
 
     private final JdbcTemplate jdbc;
 
-    List<EntryRow> posts(Board board, int offset, int limit) {
-        return jdbc.query(SELECT + """
-                WHERE e.board = ? AND e.parent_id IS NULL
-                ORDER BY e.created_at DESC, e.id DESC LIMIT ? OFFSET ?
-                """, ROW, board.name(), limit, offset);
+    // 인기글의 자격과 분류를 SQL에서 적용한 뒤 페이지를 자른다.
+    List<EntryRow> posts(Board board, Sort sort, UUID category, boolean uncategorized, int offset, int limit) {
+        StringBuilder sql = new StringBuilder(SELECT);
+        List<Object> args = new java.util.ArrayList<>();
+
+        // 게시글·열람자 복합 키 덕분에 최근 조회 행 수가 곧 고유 열람자 수다.
+        if (sort == Sort.POPULAR) {
+            sql.append("""
+                    JOIN (
+                        SELECT post_id, COUNT(*) AS readers
+                        FROM board_post_view WHERE last_viewed_at > UTC_TIMESTAMP(6) - INTERVAL 7 DAY
+                        GROUP BY post_id HAVING COUNT(*) >= ?
+                    ) recent ON recent.post_id = e.id
+                    JOIN (
+                        SELECT post_id FROM board_post_vote GROUP BY post_id
+                        HAVING COUNT(*) >= ?
+                           AND 100 * SUM(CASE WHEN reaction = 'LIKE' THEN 1 ELSE 0 END) >= ? * COUNT(*)
+                    ) eligible ON eligible.post_id = e.id
+                    """);
+            args.add(POPULAR_MIN_READERS);
+            args.add(POPULAR_MIN_VOTES);
+            args.add(POPULAR_LIKE_PERCENT);
+        }
+
+        // 잠긴 글은 전체 목록에만 표시해 분류 필터가 숨겨진 분류를 노출하지 않게 한다.
+        sql.append(" WHERE e.board = ? AND e.parent_id IS NULL");
+        args.add(board.name());
+        if (sort == Sort.POPULAR || category != null || uncategorized) {
+            sql.append(" AND e.password_hash IS NULL");
+        }
+        if (category != null) {
+            sql.append(" AND c.id = ?");
+            args.add(category.toString());
+        } else if (uncategorized) {
+            sql.append(" AND c.id IS NULL");
+        }
+
+        // 같은 점수의 글도 날짜와 ID로 안정적으로 정렬한다.
+        sql.append(sort == Sort.POPULAR ? " ORDER BY recent.readers DESC," : " ORDER BY");
+        sql.append(" e.created_at DESC, e.id DESC LIMIT ? OFFSET ?");
+        args.add(limit);
+        args.add(offset);
+        return jdbc.query(sql.toString(), ROW, args.toArray());
     }
 
     List<EntryRow> replies(UUID parent, int offset, int limit) {
@@ -45,7 +95,8 @@ class BoardRepository {
         if (write) {
             // 글을 변경하는 모든 작업은 해당 글 행을 먼저 잠가 답글 생성·삭제와 직렬화한다.
             return jdbc.query("""
-                    SELECT e.*, NULL AS author FROM board_entry e
+                    SELECT e.*, NULL AS author, NULL AS category_id, NULL AS category_name, 0 AS view_count
+                    FROM board_entry e
                     WHERE e.id = ? AND e.board = ? AND e.parent_id IS NULL FOR UPDATE
                     """, ROW, id.toString(), board.name())
                     .stream()
@@ -138,5 +189,5 @@ class BoardRepository {
     }
 
     record EntryRow(UUID id, UUID root, UUID parent, long authorId, String author, String title, String content,
-            String passwordHash, int revision, Instant createdAt, Instant updatedAt) {}
+            String passwordHash, int revision, Instant createdAt, Instant updatedAt, Category category, long viewCount) {}
 }

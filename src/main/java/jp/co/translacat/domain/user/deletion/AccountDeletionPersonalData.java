@@ -110,6 +110,8 @@ public class AccountDeletionPersonalData {
             execute("friend", "delete from friend where user_low_id=? or user_high_id=?", user, user);
             execute("user_block", "delete from user_block where blocker_user_id=? or blocked_user_id=?", user, user);
             execute("recent_view", "delete from recent_view where user_id=?", user);
+            execute("board_post_view", "delete from board_post_view where viewer_id=?", user);
+            execute("board_post_vote", "delete from board_post_vote where voter_id=?", user);
             cleanSupport(user);
             cleanAccountBooks(user);
             if ("PENDING".equals(current.get("status"))) {

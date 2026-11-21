@@ -37,6 +37,10 @@ final class BoardException extends RuntimeException {
         return new BoardException(HttpStatus.BAD_REQUEST, "BOARD_INVALID_INPUT");
     }
 
+    static BoardException duplicateCategory() {
+        return new BoardException(HttpStatus.CONFLICT, "BOARD_CATEGORY_DUPLICATE");
+    }
+
     static BoardException storage() {
         return new BoardException(HttpStatus.SERVICE_UNAVAILABLE, "BOARD_STORAGE_UNAVAILABLE");
     }

@@ -46,7 +46,7 @@ class BoardAccessTest {
         UUID id = UUID.randomUUID();
         String hash = access.passwordHash(password);
         var row = new BoardRepository.EntryRow(
-                id, null, null, 7, null, "title", "body", hash, 1, Instant.EPOCH, Instant.EPOCH);
+                id, null, null, 7, null, "title", "body", hash, 1, Instant.EPOCH, Instant.EPOCH, null, 0);
         var correctSession = new BoardAccess.Reader(7, "first");
         when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(id.toString()), eq(7L), eq("first"), eq(1)))
                 .thenReturn(true);
@@ -64,7 +64,7 @@ class BoardAccessTest {
 
         // 비밀번호가 바뀐 버전에는 이전 세션의 잠금 권한을 재사용하지 않는다.
         var edited = new BoardRepository.EntryRow(
-                id, null, null, 7, null, "title", "body", hash, 2, Instant.EPOCH, Instant.EPOCH);
+                id, null, null, 7, null, "title", "body", hash, 2, Instant.EPOCH, Instant.EPOCH, null, 0);
         assertThat(access.unlocked(correctSession, edited)).isFalse();
     }
 

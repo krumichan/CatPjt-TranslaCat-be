@@ -10,12 +10,23 @@ SET @board_forum_entry_ddl = IF(
     EXISTS (SELECT 1 FROM information_schema.columns
             WHERE table_schema = DATABASE() AND table_name = 'board_entry' AND column_name = 'forum_id'),
     'SELECT 1',
-    'ALTER TABLE board_entry ADD COLUMN forum_id CHAR(36) NULL,
-        ADD INDEX idx_board_forum_posts (forum_id, board, parent_id, created_at, id)'
+    'ALTER TABLE board_entry ADD COLUMN forum_id CHAR(36) NULL'
 );
 PREPARE board_forum_entry_stmt FROM @board_forum_entry_ddl;
 EXECUTE board_forum_entry_stmt;
 DEALLOCATE PREPARE board_forum_entry_stmt;
+
+-- TiDB는 ALTER 실행 전의 스키마를 검증하므로 컬럼이 추가된 뒤 인덱스를 만든다.
+SET @board_forum_posts_index_ddl = IF(
+    EXISTS (SELECT 1 FROM information_schema.statistics
+            WHERE table_schema = DATABASE() AND table_name = 'board_entry'
+              AND index_name = 'idx_board_forum_posts'),
+    'SELECT 1',
+    'ALTER TABLE board_entry ADD INDEX idx_board_forum_posts (forum_id, board, parent_id, created_at, id)'
+);
+PREPARE board_forum_posts_index_stmt FROM @board_forum_posts_index_ddl;
+EXECUTE board_forum_posts_index_stmt;
+DEALLOCATE PREPARE board_forum_posts_index_stmt;
 
 SET @board_forum_attachment_ddl = IF(
     EXISTS (SELECT 1 FROM information_schema.columns

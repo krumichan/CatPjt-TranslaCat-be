@@ -1,0 +1,75 @@
+name: Board forums database helper verification
+on:
+  push:
+    branches: [ci/board-forums-tidb-db-helper-20261122]
+permissions:
+  contents: read
+jobs:
+  compile-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compile the exact production tool and separate synthetic harness
+        run: |
+          mkdir -p "$RUNNER_TEMP/board-classes" "$RUNNER_TEMP/board-results"
+          javac --release 21 -encoding UTF-8 -d "$RUNNER_TEMP/board-classes" .github/BoardForumsDb.java .github/BoardForumsDbTest.java
+          jar --create --file "$RUNNER_TEMP/board-results/BoardForumsDb.jar" -C "$RUNNER_TEMP/board-classes" BoardForumsDb.class
+          curl --fail --silent --show-error --location https://repo.maven.apache.org/maven2/com/mysql/mysql-connector-j/9.4.0/mysql-connector-j-9.4.0.jar -o "$RUNNER_TEMP/driver.jar"
+          echo "49ed93c8b2bea9cb0929b85a8a28837b191d0f8eac6919fdcef16e36e2cd53b3  $RUNNER_TEMP/driver.jar" | sha256sum --check
+      - name: Verify preservation, idempotence, late writes and damage detection
+        run: |
+          set -euo pipefail
+          input="$RUNNER_TEMP/board-forums-input"
+          results="$RUNNER_TEMP/board-results"
+          mkdir -p "$input/src/main/resources/db/migration"
+          cp scripts/sql/20261114_boards.sql scripts/sql/20261121_board_engagement.sql scripts/sql/20261121_board_forums.sql "$input/src/main/resources/db/migration/"
+          id="board-helper-${GITHUB_RUN_ID}"
+          docker run --detach --rm --name "$id" --publish 127.0.0.1:33306:3306 --env MYSQL_ALLOW_EMPTY_PASSWORD=yes --env MYSQL_ROOT_HOST=% --env MYSQL_DATABASE=board_acceptance mysql:8.4
+          trap 'docker stop --time 10 "$id" >/dev/null || true' EXIT
+          CODEX_DESKTOP_INPUT_DIR="$input" CODEX_DESKTOP_RESULTS_DIR="$results" BOARD_FORUM_FIXTURE_ONLY=1 node .github/board-forums-fixture.cjs "$id"
+          java -cp "$RUNNER_TEMP/board-classes:$RUNNER_TEMP/driver.jar" BoardForumsDbTest 'jdbc:mysql://127.0.0.1:33306/board_acceptance?sslMode=DISABLED&allowPublicKeyRetrieval=true' scripts/sql/20261121_board_forums.sql | tee "$results/mysql-helper-smoke.json"
+          docker stop --time 10 "$id" >/dev/null
+          trap - EXIT
+          tidb="board-tidb-${GITHUB_RUN_ID}"
+          client="board-tidb-client-${GITHUB_RUN_ID}"
+          trap 'docker stop --time 10 "$client" "$tidb" >/dev/null 2>&1 || true' EXIT
+          docker run --detach --rm --name "$tidb" --publish 127.0.0.1:33306:4000 pingcap/tidb:v8.5.8 --store=unistore --path=/tmp/board-tidb --host=0.0.0.0 --log-level=error
+          docker run --detach --rm --name "$client" --network "container:$tidb" --env MYSQL_HOST=127.0.0.1 --env MYSQL_TCP_PORT=4000 --entrypoint /bin/sh mysql:8.4 -c 'sleep infinity'
+          for attempt in {1..60}; do
+            if docker exec "$client" mysql --connect-timeout=2 --user=root -e 'SELECT 1;' >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker exec "$client" mysql --connect-timeout=2 --user=root -e 'CREATE DATABASE board_acceptance CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;'
+          CODEX_DESKTOP_INPUT_DIR="$input" CODEX_DESKTOP_RESULTS_DIR="$results" BOARD_FORUM_FIXTURE_ONLY=1 BOARD_HELPER_ENGINE=tidb node .github/board-forums-fixture.cjs "$client"
+          java -cp "$RUNNER_TEMP/board-classes:$RUNNER_TEMP/driver.jar" BoardForumsDbTest 'jdbc:mysql://127.0.0.1:33306/board_acceptance?sslMode=DISABLED&allowPublicKeyRetrieval=true' scripts/sql/20261121_board_forums.sql .github/original-board-forums.sql | tee "$results/tidb-helper-smoke.json"
+          python3 - <<'PY'
+          from hashlib import sha256
+          import json,os
+          from pathlib import Path
+          output=Path(os.environ['RUNNER_TEMP'])/'board-results'
+          result={'sourceSha256':sha256(Path('.github/BoardForumsDb.java').read_bytes()).hexdigest(),
+                  'jarSha256':sha256((output/'BoardForumsDb.jar').read_bytes()).hexdigest(),
+                  'testSourceSha256':sha256(Path('.github/BoardForumsDbTest.java').read_bytes()).hexdigest(),
+                  'migrationSha256':sha256(Path('scripts/sql/20261121_board_forums.sql').read_bytes()).hexdigest()}
+          (output/'board-db-compiler.json').write_text(json.dumps(result))
+          mysql=json.loads((output/'mysql-helper-smoke.json').read_text())
+          tidb=json.loads((output/'tidb-helper-smoke.json').read_text())
+          assert mysql['passed'] and tidb['passed'] and tidb['originalTiDbDdlReproduced']
+          (output/'helper-smoke.json').write_text(json.dumps({'passed':True,'mysql':mysql,'tidb':tidb}))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: board-forums-jdbc-helper
+          path: ${{ runner.temp }}/board-results/
+          if-no-files-found: error

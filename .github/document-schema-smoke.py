@@ -16,7 +16,8 @@ SQL_HASHES = {
 def query(container, sql, database=True, accepted=True):
     """合成コンテナ名だけを受け取り、固定 SQL を stdin 経由で送る。"""
     assert container.startswith('document-schema-')
-    command = ['docker', 'exec', '-i', container, 'mysql', '--connect-timeout=2', '--user=root', '--batch', '--skip-column-names']
+    command = ['docker', 'exec', '-i', container, 'mysql', '--protocol=TCP', '--host=127.0.0.1',
+               '--connect-timeout=2', '--user=root', '--batch', '--skip-column-names']
     if database:
         command.append('document_acceptance')
     result = subprocess.run(command, input=sql.encode(), capture_output=True, timeout=35)

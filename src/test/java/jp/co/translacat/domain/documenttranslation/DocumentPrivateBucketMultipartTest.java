@@ -2,8 +2,10 @@ package jp.co.translacat.domain.documenttranslation;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -17,6 +19,8 @@ import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListPartsRequest;
@@ -25,6 +29,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.model.UploadPartResponse;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,10 +43,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Answers.CALLS_REAL_METHODS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class DocumentPrivateBucketMultipartTest {
     private static final String BUCKET = "synthetic-private-documents";
@@ -62,8 +70,66 @@ class DocumentPrivateBucketMultipartTest {
     void prepareSyntheticObject() throws IOException {
         source = temporary.resolve("synthetic.xlsx");
         Files.writeString(source, "synthetic office bytes");
-        server = new SimulatedBucket();
+        server = new SimulatedBucket(KEY);
         bucket = new DocumentFiles.PrivateBucket(server.client(), BUCKET);
+    }
+
+    // 보드의 객체 키가 문서 포트의 조회, 쓰기 또는 정리 경계에서 차단되는지 확인한다.
+    @Test
+    void rejectsBoardKeysBeforeAnyS3Operation() {
+        String board = "boards/00000000-0000-4000-8000-000000000004";
+        S3Client client = mock(S3Client.class);
+        var documentBucket = new DocumentFiles.PrivateBucket(client, BUCKET);
+
+        // 실행: 포트 기본 구현을 거치는 경로를 포함해 모든 저장소 진입점을 호출한다.
+        List<Executable> attempts = List.of(
+                () -> documentBucket.open(board),
+                () -> documentBucket.delete(board),
+                () -> documentBucket.exists(board),
+                () -> documentBucket.createMultipart(board),
+                () -> documentBucket.writeMultipart(board, UPLOAD_ID, source),
+                () -> documentBucket.abortMultipart(board, UPLOAD_ID),
+                () -> documentBucket.reconcileMultipart(board, UPLOAD_ID),
+                () -> documentBucket.put(board, source),
+                () -> documentBucket.put(board, source, () -> true),
+                () -> documentBucket.reconcile(board, () -> fail("Unexpected reconciliation callback"))
+        );
+        for (Executable attempt : attempts) {
+            IOException invalid = assertThrows(IOException.class, attempt);
+            assertEquals("Invalid document object key", invalid.getMessage());
+        }
+
+        // 검증: 다른 기능의 객체는 S3에 요청하기 전에 일관되게 거부된다.
+        verifyNoInteractions(client);
+    }
+
+    // 원본, 결과, 배치 및 재시도가 공유하는 선행 원본 키는 기존 객체 경로를 쓴다.
+    @Test
+    void preservesSupportedDocumentAndRetrySourceKeys() throws IOException {
+        String job = "00000000-0000-4000-8000-000000000001";
+        String lease = "00000000-0000-4000-8000-000000000002";
+        String retrySource = "source-00000000-0000-4000-8000-000000000003";
+        List<String> keys = List.of(KEY, "result-" + job + "-" + lease, "batch-" + job + "-" + lease + "-0",
+                retrySource);
+        byte[] expected = Files.readAllBytes(source);
+
+        for (String key : keys) {
+            var provider = new SimulatedBucket(key);
+            var documentBucket = new DocumentFiles.PrivateBucket(provider.client(), BUCKET);
+
+            // 실행: 파일을 저장해 조회하고 해당 키에 속한 객체만 지운다.
+            String upload = documentBucket.createMultipart(key);
+            documentBucket.writeMultipart(key, upload, source);
+            assertTrue(documentBucket.exists(key));
+            try (var opened = documentBucket.open(key)) {
+                assertArrayEquals(expected, opened.readAllBytes());
+            }
+            documentBucket.delete(key);
+
+            // 검증: 유효한 키가 모의 제공자에 그대로 전달되고 삭제 후 조회에서 비어 있다.
+            assertEquals(List.of("create", "part", "complete", "head", "head", "get", "delete"), provider.calls);
+            assertFalse(documentBucket.exists(key));
+        }
     }
 
     // 정상 응답 경로에서도 하나의 멀티파트 객체에 원본 바이트와 쓰기 표식이 이어진다.
@@ -234,6 +300,7 @@ class DocumentPrivateBucketMultipartTest {
 
     // 요청 접수와 실제 저장 순서를 분리해 클라이언트 중단 뒤의 제공자 동작을 재현한다.
     private static final class SimulatedBucket {
+        private final String expectedKey;
         private final List<String> calls = new ArrayList<>();
         private Completion completion = Completion.NORMAL;
         private Map<String, String> metadata;
@@ -248,6 +315,10 @@ class DocumentPrivateBucketMultipartTest {
         private S3Exception listFailure;
         private S3Exception headFailure;
 
+        private SimulatedBucket(String expectedKey) {
+            this.expectedKey = expectedKey;
+        }
+
         // AWS의 람다 편의 오버로드가 구체 요청 객체를 만들고 모의 요청으로 전달되게 한다.
         private S3Client client() {
             S3Client api = mock(S3Client.class, CALLS_REAL_METHODS);
@@ -261,6 +332,7 @@ class DocumentPrivateBucketMultipartTest {
                     .abortMultipartUpload(any(AbortMultipartUploadRequest.class));
             doAnswer(call -> list(call.getArgument(0))).when(api).listParts(any(ListPartsRequest.class));
             doAnswer(call -> head(call.getArgument(0))).when(api).headObject(any(HeadObjectRequest.class));
+            doAnswer(call -> get(call.getArgument(0))).when(api).getObject(any(GetObjectRequest.class));
             doAnswer(call -> delete(call.getArgument(0))).when(api).deleteObject(any(DeleteObjectRequest.class));
             return api;
         }
@@ -269,7 +341,7 @@ class DocumentPrivateBucketMultipartTest {
         private CreateMultipartUploadResponse create(CreateMultipartUploadRequest request) {
             assertTarget(request.bucket(), request.key());
             calls.add("create");
-            assertEquals(KEY, request.metadata().get(WRITE_ID));
+            assertEquals(expectedKey, request.metadata().get(WRITE_ID));
             metadata = Map.copyOf(request.metadata());
             uploadOpen = true;
             if (loseCreateResponse) {
@@ -373,6 +445,18 @@ class DocumentPrivateBucketMultipartTest {
                     .metadata(object.metadata()).build();
         }
 
+        // 해당 키에 저장된 파일만 열어 호출자가 전체 바이트를 비교하도록 한다.
+        private ResponseInputStream<GetObjectResponse> get(GetObjectRequest request) {
+            assertTarget(request.bucket(), request.key());
+            calls.add("get");
+            if (object == null) {
+                throw error(404, "NoSuchKey");
+            }
+            long length = object.bytes().length;
+            return new ResponseInputStream<>(GetObjectResponse.builder().contentLength(length).build(),
+                    new ByteArrayInputStream(object.bytes()));
+        }
+
         // 현재 테스트 키만 삭제하도록 확인한다.
         private DeleteObjectResponse delete(DeleteObjectRequest request) {
             assertTarget(request.bucket(), request.key());
@@ -384,7 +468,7 @@ class DocumentPrivateBucketMultipartTest {
         // 각 작업이 테스트 버킷과 저장소 키를 넘어서지 않는지 확인한다.
         private void assertTarget(String bucket, String key) {
             assertEquals(BUCKET, bucket);
-            assertEquals(KEY, key);
+            assertEquals(expectedKey, key);
         }
 
         // 차단에 사용한 업로드 ID가 실제 파일 전송과 일치하는지 확인한다.

@@ -1,0 +1,44 @@
+name: Document schema MySQL and TiDB acceptance
+on:
+  push:
+    branches: [ci/document-schema-engines-20261123]
+permissions:
+  contents: read
+jobs:
+  schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [mysql, tidb]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Start synthetic MySQL
+        if: matrix.engine == 'mysql'
+        run: docker run --detach --name document-schema-mysql --env MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.4
+      - name: Start synthetic TiDB and isolated CLI
+        if: matrix.engine == 'tidb'
+        run: |
+          docker run --detach --name document-schema-tidb pingcap/tidb:v8.5.8 --store=unistore --path=/tmp/document-test --host=0.0.0.0 -L error
+          docker run --detach --name document-schema-client --network container:document-schema-tidb --env MYSQL_HOST=127.0.0.1 --env MYSQL_TCP_PORT=4000 --entrypoint /bin/sh mysql:8.4 -c 'sleep infinity'
+      - name: Verify MySQL schema and persistence constraints
+        if: matrix.engine == 'mysql'
+        run: python .github/document-schema-smoke.py document-schema-mysql mysql results
+      - name: Verify TiDB schema and persistence constraints
+        if: matrix.engine == 'tidb'
+        run: python .github/document-schema-smoke.py document-schema-client tidb results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: document-schema-${{ matrix.engine }}
+          path: results/
+          if-no-files-found: error
+      - name: Remove only the synthetic containers of this job
+        if: always()
+        run: docker rm --force document-schema-mysql document-schema-client document-schema-tidb 2>/dev/null || true

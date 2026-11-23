@@ -1,0 +1,63 @@
+name: Document JDBC migration tool acceptance
+on:
+  push:
+    branches: [ci/document-migration-tool-20261123]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [mysql, tidb]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile and pin the same JDBC driver as production
+        run: |
+          set -euo pipefail
+          mkdir -p classes results
+          curl --fail --location --silent --show-error https://repo.maven.apache.org/maven2/com/mysql/mysql-connector-j/9.4.0/mysql-connector-j-9.4.0.jar -o driver.jar
+          echo '49ed93c8b2bea9cb0929b85a8a28837b191d0f8eac6919fdcef16e36e2cd53b3  driver.jar' | sha256sum --check
+          javac --release 21 -Xlint:all -encoding UTF-8 -d classes .github/DocumentReleaseDb.java .github/DocumentReleaseDbTest.java
+          jar --create --file results/DocumentReleaseDb.jar -C classes DocumentReleaseDb.class
+          java -cp classes DocumentReleaseDb invalid > results/invalid-mode.json && exit 1
+          python3 -c "import json;assert json.load(open('results/invalid-mode.json'))['reason']=='INVALID_MODE'"
+      - name: Start synthetic MySQL
+        if: matrix.engine == 'mysql'
+        run: docker run --detach --name document-jdbc-mysql --publish 127.0.0.1:13306:3306 --env MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.4
+      - name: Start synthetic TiDB
+        if: matrix.engine == 'tidb'
+        run: docker run --detach --name document-jdbc-tidb --publish 127.0.0.1:14000:4000 pingcap/tidb:v8.5.8 --store=unistore --path=/tmp/document-test --host=0.0.0.0 -L error
+      - name: Verify JDBC execution and preservation on the selected engine
+        env:
+          ENGINE: ${{ matrix.engine }}
+        run: |
+          set -euo pipefail
+          port=13306
+          if [ "$ENGINE" = tidb ]; then port=14000; fi
+          java -cp classes:driver.jar DocumentReleaseDbTest "$port" scripts/sql/20261122_document_translation_jobs.sql scripts/sql/20261122_document_translation_object_writes.sql scripts/sql/20261123_document_translation_multipart_uploads.sql results/migration-test.json
+          printf 'c3ludGhldGlj\nc3ludGhldGlj\nc3ludGhldGlj\n' | java -cp classes DocumentReleaseDb inspect "$(base64 -w0 scripts/sql/20261122_document_translation_jobs.sql)" "$(base64 -w0 scripts/sql/20261122_document_translation_object_writes.sql)" "$(base64 -w0 scripts/sql/20261123_document_translation_multipart_uploads.sql)" > results/wrong-endpoint.json && exit 1
+          python3 -c "import json;assert json.load(open('results/wrong-endpoint.json'))['reason']=='DB_ENDPOINT_CHANGED'"
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          result={'sourceSha256':hashlib.sha256(Path('.github/DocumentReleaseDb.java').read_bytes()).hexdigest(),'jarSha256':hashlib.sha256(Path('results/DocumentReleaseDb.jar').read_bytes()).hexdigest(),'wrongEndpointRejectedBeforeConnection':True,'invalidModeRejected':True}
+          Path('results/compiler.json').write_text(json.dumps(result))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: document-migration-tool-${{ matrix.engine }}
+          path: results/
+          if-no-files-found: error
+      - name: Remove only this job's synthetic containers
+        if: always()
+        run: docker rm --force document-jdbc-mysql document-jdbc-tidb 2>/dev/null || true

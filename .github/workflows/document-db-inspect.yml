@@ -1,0 +1,43 @@
+name: Document readonly database inspection tool
+on:
+  push:
+    branches: [ci/document-db-inspection-20261123]
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile and verify connection guards without credentials
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/classes" "$RUNNER_TEMP/result"
+          javac --release 21 -Xlint:all -encoding UTF-8 -d "$RUNNER_TEMP/classes" .github/DocumentDbInspect.java
+          jar --create --file "$RUNNER_TEMP/result/DocumentDbInspect.jar" -C "$RUNNER_TEMP/classes" DocumentDbInspect.class
+          java -cp "$RUNNER_TEMP/classes" DocumentDbInspect apply > "$RUNNER_TEMP/mode.json" && exit 1
+          printf 'c3ludGhldGlj\nc3ludGhldGlj\nc3ludGhldGlj\n' | java -cp "$RUNNER_TEMP/classes" DocumentDbInspect inspect > "$RUNNER_TEMP/endpoint.json" && exit 1
+          python3 - <<'PY'
+          from hashlib import sha256
+          import json,os
+          from pathlib import Path
+          temp=Path(os.environ['RUNNER_TEMP'])
+          assert json.loads((temp/'mode.json').read_text())['reason']=='READONLY_MODE_REQUIRED'
+          assert json.loads((temp/'endpoint.json').read_text())['reason']=='DB_ENDPOINT_CHANGED'
+          result={'sourceSha256':sha256(Path('.github/DocumentDbInspect.java').read_bytes()).hexdigest(),
+                  'jarSha256':sha256((temp/'result/DocumentDbInspect.jar').read_bytes()).hexdigest(),
+                  'writeModeRejected':True,'wrongEndpointRejectedBeforeConnection':True}
+          (temp/'result/compiler.json').write_text(json.dumps(result))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: document-readonly-db-inspection
+          path: ${{ runner.temp }}/result/
+          if-no-files-found: error

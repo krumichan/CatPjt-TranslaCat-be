@@ -10,6 +10,7 @@ import time
 SQL_HASHES = {
     '20261122_document_translation_jobs.sql': '0eabc1a26e96369d7445673914a30430f911d3452fd8f67fa1f8a6d81d454726',
     '20261122_document_translation_object_writes.sql': 'ea6f08cbe3f3d8d515258ad8d42d12907e50488508c1d80f472f0fc0c0d673ed',
+    '20261123_document_translation_multipart_uploads.sql': 'cdb8fdc9e02f90e30a13fc6993c0fddfd6d8a804d97bc1dcba33b80d06e79b20',
 }
 
 
@@ -58,9 +59,18 @@ def main():
         content = (Path('scripts/sql') / name).read_bytes()
         assert sha256(content).hexdigest() == digest
         scripts.append(content.decode())
-    for repetition in range(2):
-        for sql in scripts:
-            query(container, sql)
+    for sql in scripts[:2]:
+        query(container, sql)
+    query(container, "INSERT INTO document_translation_object_write VALUES ('source-legacy-synthetic',9,'00000000-0000-4000-8000-000000000009','WRITING',NOW(6),NULL);")
+    old_query = "SELECT object_key,owner_id,job_id,state,started_at,settled_at FROM document_translation_object_write ORDER BY object_key;"
+    old_rows = query(container, old_query)
+    query(container, scripts[2])
+    assert query(container, old_query) == old_rows
+    assert query(container, "SELECT COUNT(*) FROM document_translation_object_write WHERE object_key='source-legacy-synthetic' AND upload_id IS NULL;") == '1'
+    for sql in scripts:
+        query(container, sql)
+    assert query(container, old_query) == old_rows
+    assert query(container, "SELECT COLUMN_TYPE,IS_NULLABLE FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='document_translation_object_write' AND column_name='upload_id';") == 'varbinary(2048)\tYES'
     assert query(container, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE();") == '3'
 
     first = '00000000-0000-4000-8000-000000000001'
@@ -76,15 +86,17 @@ def main():
     assert query(container, 'SELECT COUNT(*) FROM document_translation_batch;') == '0'
     assert query(container, f"SELECT COUNT(*) FROM document_translation_job WHERE id='{child}' AND retry_of IS NULL;") == '1'
     assert query(container, 'SELECT COUNT(*) FROM document_translation_job WHERE active_owner_id IS NOT NULL;') == '2'
-    query(container, f"INSERT INTO document_translation_object_write VALUES ('source-synthetic',7,'{first}','SETTLED',NOW(6),NOW(6));")
-    assert query(container, 'SELECT COUNT(*) FROM document_translation_object_write;') == '1'
+    query(container, f"INSERT INTO document_translation_object_write (object_key,owner_id,job_id,state,started_at,settled_at,upload_id) VALUES ('source-synthetic',7,'{first}','SETTLED',NOW(6),NOW(6),'synthetic/upload+id=');")
+    assert query(container, 'SELECT COUNT(*) FROM document_translation_object_write;') == '2'
+    assert query(container, "SELECT CAST(upload_id AS CHAR) FROM document_translation_object_write WHERE object_key='source-synthetic';") == 'synthetic/upload+id='
     definitions = '\n'.join(query(container, 'SHOW CREATE TABLE ' + table + ';') for table in (
         'document_translation_job', 'document_translation_batch', 'document_translation_object_write'))
     (output / (engine + '-definitions.txt')).write_text(definitions)
     result = {'passed': True, 'engine': engine, 'version': version, 'migrationAppliedTwice': True,
               'activeOwnerUniqueness': True, 'terminalOwnerAllowsNewJob': True,
               'batchDeleteCascades': True, 'retryParentDeleteSetsNull': True,
-              'virtualActiveOwnerColumn': True, 'objectWriteIndependentTracking': True, 'sqlSha256': SQL_HASHES}
+              'virtualActiveOwnerColumn': True, 'objectWriteIndependentTracking': True,
+              'oldWriteRowsPreserved': True, 'uploadIdNullableBinaryColumn': True, 'sqlSha256': SQL_HASHES}
     (output / (engine + '-schema-smoke.json')).write_text(json.dumps(result, indent=2))
     print(json.dumps(result))
 

@@ -1,0 +1,22 @@
+name: Document credential-free provider nonce boundaries
+on:
+  push:
+    branches: [ci/document-provider-nonce-20261123]
+permissions:
+  contents: read
+jobs:
+  provider-nonce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify public nonce and inherited document provider scope
+        run: /usr/bin/python3 -B .github/document-provider-nonce/test_provider_nonce.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: document-provider-nonce-boundaries
+          path: .github/document-provider-nonce/provider-nonce-tests.json
+          if-no-files-found: error

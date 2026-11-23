@@ -45,31 +45,96 @@ final class DocumentObjectWrites {
     boolean store(DocumentFiles files, long owner, UUID job, String key, Path source, BooleanSupplier permitted)
             throws IOException {
         requireOwnedKey(job, key);
+        boolean multipart = files instanceof DocumentFiles.PrivateBucket;
+        if (!reserve(owner, job, key, multipart ? "PREPARING" : "WRITING", permitted)) {
+            return false;
+        }
+        if (files instanceof DocumentFiles.PrivateBucket bucket) {
+            return storeMultipart(bucket, owner, job, key, source, permitted);
+        }
+
+        // 로컬에서는 OS 잠금이 작업 종료 또는 재시작 이후의 쓰기를 차단한다.
+        try {
+            files.put(key, source, () -> pending(owner, key));
+        } catch (DocumentFiles.UnconfirmedWrite unconfirmed) {
+            throw unconfirmed;
+        } catch (IOException settledFailure) {
+            complete(owner, job, key, null);
+            throw settledFailure;
+        }
+        return complete(owner, job, key, null);
+    }
+
+    // 저장소에 접근하기 전에 권한과 작업 상태를 확인하고 정리할 키를 먼저 커밋한다.
+    private boolean reserve(long owner, UUID job, String key, String state, BooleanSupplier permitted) {
         Boolean reserved = independent.execute(status -> {
             if (!accounts.lockActive(owner) || !permitted.getAsBoolean()) {
                 return false;
             }
             jdbc.update("""
                     INSERT INTO document_translation_object_write (object_key, owner_id, job_id, state, started_at)
-                    VALUES (?, ?, ?, 'WRITING', UTC_TIMESTAMP(6))
-                    """, key, owner, job.toString());
+                    VALUES (?, ?, ?, ?, UTC_TIMESTAMP(6))
+                    """, key, owner, job.toString(), state);
             return true;
         });
-        if (!Boolean.TRUE.equals(reserved)) {
+        return Boolean.TRUE.equals(reserved);
+    }
+
+    // 업로드 ID를 보존하고 권한을 다시 확인한 뒤에만 사용자 문서 바이트를 전송한다.
+    private boolean storeMultipart(DocumentFiles.PrivateBucket bucket, long owner, UUID job, String key,
+            Path source, BooleanSupplier permitted) throws IOException {
+        String uploadId;
+        try {
+            uploadId = bucket.createMultipart(key);
+        } catch (IOException unavailable) {
+            forgetPreparation(owner, job, key);
+            throw unavailable;
+        }
+
+        boolean attached;
+        try {
+            attached = attachUpload(owner, job, key, uploadId, permitted);
+        } catch (RuntimeException unavailable) {
+            abortEmptyUpload(bucket, key, uploadId);
+            throw unavailable;
+        }
+        if (!attached) {
+            abortEmptyUpload(bucket, key, uploadId);
+            forgetPreparation(owner, job, key);
             return false;
         }
 
-        // 실패가 반환돼도 통신 상태가 확정되지 않은 PUT은 정리할 때까지 별도로 추적한다.
+        // 데이터 전송 이후에 오류가 발생하면 복구에 필요한 업로드 ID와 상태를 보존한다.
+        bucket.writeMultipart(key, uploadId, source);
+        return complete(owner, job, key, uploadId);
+    }
+
+    // PREPARING이 이미 정리됐거나 탈퇴·리스 만료로 권한이 닫혔으면 전송을 거부한다.
+    private boolean attachUpload(long owner, UUID job, String key, String uploadId, BooleanSupplier permitted) {
+        return Boolean.TRUE.equals(independent.execute(status -> accounts.lockActive(owner)
+                && permitted.getAsBoolean()
+                && jdbc.update("""
+                        UPDATE document_translation_object_write
+                        SET state='WRITING', upload_id=?
+                        WHERE owner_id=? AND job_id=? AND object_key=? AND state='PREPARING' AND upload_id IS NULL
+                        """, uploadId, owner, job.toString(), key) == 1));
+    }
+
+    // PREPARING에는 문서 바이트가 없다. 오래된 응답이 이 키에 연결되지 않도록 조건부로 지운다.
+    private void forgetPreparation(long owner, UUID job, String key) {
+        jdbc.update("""
+                DELETE FROM document_translation_object_write
+                WHERE owner_id=? AND job_id=? AND object_key=? AND state='PREPARING' AND upload_id IS NULL
+                """, owner, job.toString(), key);
+    }
+
+    // 연결에 실패한 빈 업로드를 닫는다. 응답을 잃은 빈 세션에는 저장소 수명 주기 규칙이 적용된다.
+    private void abortEmptyUpload(DocumentFiles.PrivateBucket bucket, String key, String uploadId) {
         try {
-            files.put(key, source, () -> pending(owner, key));
-        } catch (DocumentFiles.UnconfirmedWrite unconfirmed) {
-            throw unconfirmed;
-        } catch (IOException settledFailure) {
-            complete(owner, key);
-            throw settledFailure;
+            bucket.abortMultipart(key, uploadId);
+        } catch (IOException unavailable) {
+            // 이 세션에는 문서 바이트를 전송하지 않았다.
         }
-        complete(owner, key);
-        return true;
     }
 
     // 계정과 문서 작업을 잠근 호출자가 실제 파일 참조를 확정한 같은 트랜잭션에서 호출한다.
@@ -119,11 +184,13 @@ final class DocumentObjectWrites {
     // 미접수·취소 경합에서 완료가 확정된 고아 객체만 바로 지울 수 있다.
     void removeOrphan(DocumentFiles files, long owner, UUID job, String key) throws IOException {
         requireOwnedKey(job, key);
-        Integer count = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM document_translation_object_write
-                WHERE object_key=? AND owner_id=? AND job_id=? AND state='SETTLED'
-                """, Integer.class, key, owner, job.toString());
-        if (count != null && count == 1) {
+        WriteState write = writeState(owner, job, key);
+        if (write == null || !write.state().equals("SETTLED")) {
+            return;
+        }
+        if (write.uploadId() != null) {
+            reconcileMultipart(files, owner, job, key, write);
+        } else {
             files.delete(key);
             forget(owner, job, key);
         }
@@ -133,26 +200,75 @@ final class DocumentObjectWrites {
     void cleanOldOrphans(DocumentFiles files) throws IOException {
         long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(15);
         var affected = jdbc.query("""
-                SELECT owner_id,job_id,object_key,state FROM document_translation_object_write
-                WHERE state IN ('WRITING','SETTLED') AND started_at < UTC_TIMESTAMP(6) - INTERVAL 24 HOUR
-                ORDER BY CASE WHEN state='SETTLED' THEN 0 ELSE 1 END, started_at LIMIT 25
+                SELECT owner_id,job_id,object_key FROM document_translation_object_write
+                WHERE state IN ('PREPARING','WRITING','SETTLED','RECONCILING')
+                    AND started_at < UTC_TIMESTAMP(6) - INTERVAL 24 HOUR
+                ORDER BY CASE WHEN state='WRITING' AND upload_id IS NULL THEN 1 ELSE 0 END, started_at LIMIT 25
                 """, (row, index) -> new Orphan(row.getLong(1), UUID.fromString(row.getString(2)),
-                row.getString(3), row.getString(4)));
+                row.getString(3)));
+        IOException deferred = null;
         for (Orphan orphan : affected) {
             if (System.nanoTime() >= deadline) {
-                return;
+                break;
             }
-            if (!orphan.state().equals("SETTLED")) {
+            try {
                 reconcile(files, orphan.owner(), orphan.job(), orphan.key());
+                removeOrphan(files, orphan.owner(), orphan.job(), orphan.key());
+            } catch (IOException unavailable) {
+                // 한 키의 복구 실패로 같은 작업 예산에 포함된 나머지 키를 건너뛰지 않는다.
+                deferred = unavailable;
             }
-            removeOrphan(files, orphan.owner(), orphan.job(), orphan.key());
+        }
+        if (deferred != null) {
+            throw deferred;
         }
     }
 
-    // 고유 키가 실제 저장소에서 확인되면 한 번만 보낸 PUT의 완료를 기록할 수 있다.
+    // 계정 삭제 또는 오래된 고아 처리에서 입증 가능한 상태만 종료한다.
     void reconcile(DocumentFiles files, long owner, UUID job, String key) throws IOException {
         requireOwnedKey(job, key);
-        files.reconcile(key, () -> complete(owner, key));
+        WriteState write = writeState(owner, job, key);
+        if (write == null) {
+            return;
+        }
+        if (write.state().equals("PREPARING")) {
+            forgetPreparation(owner, job, key);
+        } else if (write.uploadId() != null) {
+            reconcileMultipart(files, owner, job, key, write);
+        } else if (write.state().equals("WRITING") && !(files instanceof DocumentFiles.PrivateBucket)) {
+            // ID가 없는 과거 버킷 PUT에는 안전한 완료 근거가 없다. 로컬 잠금 복구만 허용한다.
+            files.reconcile(key, () -> complete(owner, job, key, null));
+        }
+    }
+
+    // 저장 결과를 게시할 수 없도록 먼저 닫은 다음 제공자가 완료를 확인한 동일한 ID만 지운다.
+    private void reconcileMultipart(DocumentFiles files, long owner, UUID job, String key, WriteState write)
+            throws IOException {
+        if (!(files instanceof DocumentFiles.PrivateBucket bucket)) {
+            throw new IOException("Document multipart cleanup requires its object store");
+        }
+        String uploadId = write.uploadId();
+        if (!write.state().equals("RECONCILING") && jdbc.update("""
+                UPDATE document_translation_object_write SET state='RECONCILING'
+                WHERE owner_id=? AND job_id=? AND object_key=? AND upload_id=? AND state IN ('WRITING','SETTLED')
+                """, owner, job.toString(), key, uploadId) != 1) {
+            return;
+        }
+
+        bucket.reconcileMultipart(key, uploadId);
+        jdbc.update("""
+                DELETE FROM document_translation_object_write
+                WHERE owner_id=? AND job_id=? AND object_key=? AND upload_id=? AND state='RECONCILING'
+                """, owner, job.toString(), key, uploadId);
+    }
+
+    // 소유자·작업·키가 모두 일치하는 현재 기록을 읽는다.
+    private WriteState writeState(long owner, UUID job, String key) {
+        return jdbc.query("""
+                SELECT state,upload_id FROM document_translation_object_write
+                WHERE owner_id=? AND job_id=? AND object_key=?
+                """, (row, index) -> new WriteState(row.getString(1), row.getString(2)),
+                owner, job.toString(), key).stream().findFirst().orElse(null);
     }
 
     // 파일 잠금을 늦게 획득했더라도 지워진 쓰기 의도를 되살리지 않는다.
@@ -165,12 +281,12 @@ final class DocumentObjectWrites {
     }
 
     // 성공이나 확정 실패는 탈퇴 접수 이후에도 기존 쓰기 기록에만 반영한다.
-    private void complete(long owner, String key) {
-        independent.executeWithoutResult(status -> jdbc.update("""
+    private boolean complete(long owner, UUID job, String key, String uploadId) {
+        return Boolean.TRUE.equals(independent.execute(status -> jdbc.update("""
                 UPDATE document_translation_object_write
                 SET state='SETTLED', settled_at=UTC_TIMESTAMP(6)
-                WHERE owner_id=? AND object_key=? AND state='WRITING'
-                """, owner, key));
+                WHERE owner_id=? AND job_id=? AND object_key=? AND upload_id <=> ? AND state='WRITING'
+                """, owner, job.toString(), key, uploadId) == 1));
     }
 
     // DB나 큐에서 얻은 값도 원본 작업에 속한 비공개 키 형식을 만족해야 실제 저장소에 적용할 수 있다.
@@ -182,6 +298,9 @@ final class DocumentObjectWrites {
         }
     }
 
-    private record Orphan(long owner, UUID job, String key, String state) {
+    private record Orphan(long owner, UUID job, String key) {
+    }
+
+    private record WriteState(String state, String uploadId) {
     }
 }

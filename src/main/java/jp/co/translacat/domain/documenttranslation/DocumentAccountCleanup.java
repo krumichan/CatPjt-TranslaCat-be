@@ -59,7 +59,9 @@ final class DocumentAccountCleanup implements AccountDeletionDomainCleanup {
                 SELECT owner_id,id,input_key,output_key,status,lease_token FROM document_translation_job WHERE 1=0
                 """);
         jdbc.queryForList("SELECT job_id,result_key FROM document_translation_batch WHERE 1=0");
-        jdbc.queryForList("SELECT owner_id,job_id,object_key,state FROM document_translation_object_write WHERE 1=0");
+        jdbc.queryForList("""
+                SELECT owner_id,job_id,object_key,state,upload_id FROM document_translation_object_write WHERE 1=0
+                """);
         if ((enabled || hasObjects()) && storage.configured().isEmpty()) {
             throw new IllegalStateException("Document cleanup object store is not configured");
         }
@@ -167,17 +169,20 @@ final class DocumentAccountCleanup implements AccountDeletionDomainCleanup {
                  JOIN document_translation_job job ON job.id=batch.job_id WHERE job.owner_id=?
                  UNION ALL
                  SELECT object_key, job_id, 'WRITE'
-                 FROM document_translation_object_write WHERE owner_id=? AND state IN ('SETTLED','LINKED')
+                 FROM document_translation_object_write
+                 WHERE owner_id=? AND (state='LINKED' OR (state='SETTLED' AND upload_id IS NULL))
                  ORDER BY object_key LIMIT 40
                  """, (row, index) -> new OwnedObject(row.getString(1), UUID.fromString(row.getString(2)),
                 row.getString(3)), owner, owner, owner, owner);
     }
 
-    // 늦게 도착할 수도 있는 개별 원격 PUT은 완료 증거가 확인될 때까지 기록을 남긴다.
+    // 준비 중이거나 업로드 ID를 보존한 객체는 전용 복구 경로에서 처리한다.
     private List<OwnedObject> unconfirmedObjects(long owner) {
         return jdbc.query("""
                 SELECT object_key,job_id FROM document_translation_object_write
-                WHERE owner_id=? AND state NOT IN ('SETTLED','LINKED') ORDER BY started_at LIMIT 20
+                 WHERE owner_id=? AND (state NOT IN ('SETTLED','LINKED')
+                        OR (state='SETTLED' AND upload_id IS NOT NULL))
+                 ORDER BY CASE WHEN state='WRITING' AND upload_id IS NULL THEN 1 ELSE 0 END, started_at LIMIT 20
                 """, (row, index) -> new OwnedObject(row.getString(1), UUID.fromString(row.getString(2)), "WRITE"),
                 owner);
     }
@@ -200,16 +205,20 @@ final class DocumentAccountCleanup implements AccountDeletionDomainCleanup {
         return true;
     }
 
-    // 네트워크 확인이 끝난 미확정 쓰기는 같은 고유 키를 다음 한 차례의 정리에 넘긴다.
-    private boolean reconcile(long owner, DocumentFiles files, List<OwnedObject> objects, long deadline)
-            throws IOException {
+    // 복구가 보류된 객체가 있어도 다른 후보를 정리할 기회를 남긴다.
+    private boolean reconcile(long owner, DocumentFiles files, List<OwnedObject> objects, long deadline) {
+        boolean available = true;
         for (OwnedObject object : objects) {
             if (System.nanoTime() >= deadline) {
                 return false;
             }
-            writes.reconcile(files, owner, object.job(), object.key());
+            try {
+                writes.reconcile(files, owner, object.job(), object.key());
+            } catch (IOException unavailable) {
+                available = false;
+            }
         }
-        return true;
+        return available;
     }
 
     // 재시도가 공유하는 원본은 어느 선행 작업의 것인지 확인한다.
@@ -241,7 +250,8 @@ final class DocumentAccountCleanup implements AccountDeletionDomainCleanup {
                 """, key, owner);
         jdbc.update("""
                 DELETE FROM document_translation_object_write
-                WHERE owner_id=? AND object_key=? AND state IN ('SETTLED','LINKED')
+                WHERE owner_id=? AND object_key=?
+                    AND (state='LINKED' OR (state='SETTLED' AND upload_id IS NULL))
                 """, owner, key);
     }
 

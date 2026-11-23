@@ -28,7 +28,7 @@ jobs:
       - name: Verify document format regression first
         run: |
           chmod +x gradlew
-          ./gradlew test --tests 'jp.co.translacat.domain.documenttranslation.format.*' --no-daemon
+          ./gradlew test --tests 'jp.co.translacat.domain.documenttranslation.*' --no-daemon
       - name: Verify the exact release source
         run: |
           bash -n scripts/deploy-release.sh

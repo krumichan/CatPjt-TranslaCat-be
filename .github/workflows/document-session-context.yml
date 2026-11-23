@@ -1,0 +1,22 @@
+name: Document temporary session context boundaries
+on:
+  push:
+    branches: [ci/document-session-context-20261123]
+permissions:
+  contents: read
+jobs:
+  linux-context:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify synthetic Linux role files without network or credentials
+        run: sudo -n /usr/bin/python3 -B .github/document-session-context/test_linux_context_delivery.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: document-linux-context-boundaries
+          path: .github/document-session-context/results/
+          if-no-files-found: error

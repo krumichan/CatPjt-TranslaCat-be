@@ -15,7 +15,7 @@ class NonceProviderStore(ProviderStore):
         """期限内の単一 GET にだけ応答し、認証情報付き疎通試験を拒否する。"""
         if target.startswith("/__codex_review_nonce/"):
             values = {name.lower(): value for name, value in headers.items()}
-            nonce = self.config["runId"]
+            nonce = self.config["reviewNonce"]
             assert re.fullmatch("[a-f0-9]{32}", nonce)
             forbidden = {"authorization", "proxy-authorization", "cookie", "x-api-key"}
             if (

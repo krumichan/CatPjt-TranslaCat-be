@@ -13,7 +13,8 @@ from scoped_r2_bridge import Denied
 ROOT = Path(__file__).resolve().parent
 RUN = "1234567890abcdef1234567890abcdef"
 BEARER = "a" * 64
-PATH = "/__codex_review_nonce/" + RUN
+NONCE = "f" * 32
+PATH = "/__codex_review_nonce/" + NONCE
 
 
 class NonceTests(unittest.TestCase):
@@ -32,7 +33,7 @@ class NonceTests(unittest.TestCase):
             return 200, {}, b'{"output":[]}'
 
         self.store = NonceProviderStore(
-            {"runId": RUN, "temporaryBearer": BEARER},
+            {"runId": RUN, "reviewNonce": NONCE, "temporaryBearer": BEARER},
             {"apiKey": "synthetic-not-a-real-key"},
             Path(self.temporary.name) / "journal.json",
             transport=transport,
@@ -54,7 +55,7 @@ class NonceTests(unittest.TestCase):
         status, headers, body = self.store.route("GET", PATH, {"Host": "127.0.0.1:26992"}, b"")
         self.assertEqual(200, status)
         self.assertEqual("application/json", headers["Content-Type"])
-        self.assertEqual({"schema_version": 1, "nonce": RUN}, json.loads(body))
+        self.assertEqual({"schema_version": 1, "nonce": NONCE}, json.loads(body))
         self.assertEqual([], self.calls)
         self.assertEqual([], self.store.events)
 

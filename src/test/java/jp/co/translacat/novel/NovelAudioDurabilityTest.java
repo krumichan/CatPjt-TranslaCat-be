@@ -133,6 +133,26 @@ class NovelAudioDurabilityTest {
     }
 
     @Test
+    void verifiedSinglePutReturnsTheSavedAudioWithoutAReadback() {
+        // 준비: 저장소가 저장한 WAV의 ETag는 반환하지만 첫 응답에서 GET을 할 수 없는 상태다.
+        objects.returnPutEtag = true;
+        objects.failReads.set(true);
+        String segment = source.segments().getFirst().id();
+
+        // 실행: 첫 재생은 DB에서 READY가 확정된 동일 바이트를 받는다.
+        var first = service().synthesize(key, 7, source.revision(), segment, "ja", 0);
+        assertThat(first.cacheDisposition()).isEqualTo("MISS");
+        assertThat(jdbc.queryForObject("SELECT state FROM novel_audio_asset", String.class)).isEqualTo("READY");
+
+        // 검증: 새 서비스에서 캐시를 읽을 때는 영속 객체를 검사하고 다시 합성하지 않는다.
+        objects.failReads.set(false);
+        var replay = service().synthesize(key, 7, source.revision(), segment, "ja", 0);
+        assertThat(replay.cacheDisposition()).isEqualTo("HIT");
+        assertThat(replay.audioBase64()).isEqualTo(first.audioBase64());
+        verify(ai, times(1)).synthesize(anyString(), anyString(), anyString(), eq("ja"), anyLong());
+    }
+
+    @Test
     void failedUploadRetriesIdenticalBytesAndStorageFailureNeverBecomesCacheMiss() {
         objects.failNextPut.set(true);
         String segment = source.segments().getFirst().id();
@@ -159,6 +179,7 @@ class NovelAudioDurabilityTest {
         private final Map<String, byte[]> content = new ConcurrentHashMap<>();
         private final AtomicBoolean failNextPut = new AtomicBoolean();
         private final AtomicBoolean failReads = new AtomicBoolean();
+        private boolean returnPutEtag;
 
         @Override
         public void put(String key, Path file, String type, long bytes, String sha) {
@@ -168,6 +189,20 @@ class NovelAudioDurabilityTest {
                 content.put(key, Files.readAllBytes(file));
             } catch (Exception failure) {
                 throw unavailable();
+            }
+        }
+
+        @Override
+        public String putAndGetEtag(String key, Path file, String type, long bytes, String sha) {
+            put(key, file, type, bytes, sha);
+            if (!returnPutEtag) {
+                return null;
+            }
+            try {
+                String digest = HexFormat.of().formatHex(MessageDigest.getInstance("MD5").digest(content.get(key)));
+                return '"' + digest + '"';
+            } catch (java.security.NoSuchAlgorithmException failure) {
+                throw new IllegalStateException(failure);
             }
         }
 

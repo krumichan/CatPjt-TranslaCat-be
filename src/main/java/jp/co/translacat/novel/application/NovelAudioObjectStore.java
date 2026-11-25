@@ -8,6 +8,13 @@ public interface NovelAudioObjectStore {
     record ObjectData(byte[] bytes, String contentType) {}
 
     void put(String objectKey, Path file, String contentType, long bytes, String sha256);
+
+    /** 객체를 저장하고 저장소가 반환한 단일 쓰기의 ETag를 전달한다. 제공되지 않으면 null을 반환한다. */
+    default String putAndGetEtag(String objectKey, Path file, String contentType, long bytes, String sha256) {
+        put(objectKey, file, contentType, bytes, sha256);
+        return null;
+    }
+
     ObjectInfo head(String objectKey);
     ObjectData read(String objectKey, int maxBytes);
     default void deleteAudio(String objectKey) {

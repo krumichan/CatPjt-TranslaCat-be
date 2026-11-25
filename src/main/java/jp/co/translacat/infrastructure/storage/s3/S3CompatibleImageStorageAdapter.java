@@ -126,10 +126,15 @@ public class S3CompatibleImageStorageAdapter implements ImageStoragePort, NovelA
 
     @Override
     public void put(String objectKey, Path file, String contentType, long bytes, String sha256) {
+        putAndGetEtag(objectKey, file, contentType, bytes, sha256);
+    }
+
+    @Override
+    public String putAndGetEtag(String objectKey, Path file, String contentType, long bytes, String sha256) {
         requireAudioKey(objectKey);
         try {
             // 기존 이미지 R2 bucket을 공유한다. 재생 응답은 BE가 전달하며 bucket 자체는 공개 접근 가능하다.
-            s3Client.putObject(PutObjectRequest.builder()
+            return s3Client.putObject(PutObjectRequest.builder()
                                        .bucket(bucket)
                                        .key(objectKey)
                                        .contentType(contentType)
@@ -140,7 +145,7 @@ public class S3CompatibleImageStorageAdapter implements ImageStoragePort, NovelA
                                        .cacheControl("private, max-age=31536000, immutable")
                                        .metadata(Map.of("sha256", sha256))
                                        .build(),
-                    RequestBody.fromFile(file));
+                    RequestBody.fromFile(file)).eTag();
         } catch (SdkException failure) {
             throw unavailable();
         }

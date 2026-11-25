@@ -268,16 +268,24 @@ public class NovelAudioService {
                                 Files.write(spool, bytes, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
                                 Asset uploading = assets.uploading(owner, objectKey, checksum, bytes.length,
                                         speech.contentType(), speech.durationSeconds(), LEASE_MILLIS);
+                                boolean verifiedByPut;
                                 try {
-                                    putWithDurableIntent(uploading, spool);
-                                    verifyObject(uploading);
+                                    String etag = putWithDurableIntent(uploading, spool);
+                                    verifiedByPut = matchesSinglePutEtag(etag, bytes);
+                                    if (!verifiedByPut) {
+                                        verifyObject(uploading);
+                                    }
                                 } catch (RuntimeException failure) {
                                     assets.failed(uploading, "UPLOAD_FAILED");
                                     throw failure;
                                 }
+
+                                // PUT이 같은 바이트를 확정했으면 READY를 저장한 뒤 이미 보유한 음성을 사용한다.
                                 assets.ready(uploading);
                                 Files.deleteIfExists(spool);
-                                return new Persisted(read(assets.find(owner.identity()).orElseThrow(), "MISS"), null);
+                                Asset ready = assets.find(owner.identity()).orElseThrow();
+                                Obtained result = verifiedByPut ? new Obtained(ready, bytes, "MISS") : read(ready, "MISS");
+                                return new Persisted(result, null);
                             } catch (NovelProblem failure) {
                                 // 저장 실패 상태를 commit한 뒤 호출자에게 오류를 돌려 같은 바이트의 업로드 복구를 유지한다.
                                 return new Persisted(null, failure);
@@ -333,16 +341,32 @@ public class NovelAudioService {
         }
     }
 
-    private void putWithDurableIntent(Asset asset, Path spool) {
+    // 객체 쓰기 의도를 확정한 뒤 저장소가 실제로 반환한 ETag를 전달한다.
+    private String putWithDurableIntent(Asset asset, Path spool) {
         assets.beginObjectWrite(asset);
+        String etag;
         try {
-            objects.put(asset.objectKey(), spool, asset.contentType(), asset.bytes(), asset.checksum());
+            etag = objects.putAndGetEtag(asset.objectKey(), spool, asset.contentType(), asset.bytes(), asset.checksum());
         } catch (RuntimeException failure) {
             assets.finishObjectWrite(asset, false);
             throw failure;
         }
         // 성공 응답이 확정된 시도만 종료한다. timeout·프로세스 중단 의도는 삭제 완료 판정을 막는다.
         assets.finishObjectWrite(asset, true);
+        return etag;
+    }
+
+    // 단일 PUT의 MD5 형식만 확인한다. 다른 형식이면 호출자가 기존 HEAD·GET 검증을 수행한다.
+    private static boolean matchesSinglePutEtag(String etag, byte[] bytes) {
+        if (etag == null) {
+            return false;
+        }
+        try {
+            String digest = HexFormat.of().formatHex(MessageDigest.getInstance("MD5").digest(bytes));
+            return digest.equals(etag) || ('"' + digest + '"').equals(etag);
+        } catch (java.security.NoSuchAlgorithmException unavailable) {
+            return false;
+        }
     }
 
     private Obtained read(Asset asset, String disposition) {

@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -155,7 +156,7 @@ class ImageTranslationContractsTest {
 
     // 実際の移行 SQL と JDBC ストアで、受理済みキー・所有者・期限の境界を確認する。
     @Test
-    void usesCurrentOwnedSnapshotForReplayAndHidesExpiredJobFromOtherOwners() {
+    void usesCurrentOwnedSnapshotForReplayAndHidesExpiredJobFromOtherOwners() throws SQLException {
         // 準備: テスト固有の H2 を MySQL 互換モードで起動し、製品の移行 SQL を適用する。
         var dataSource = new DriverManagerDataSource(
                 "jdbc:h2:mem:image_translation_" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
@@ -198,7 +199,7 @@ class ImageTranslationContractsTest {
             assertEquals(HttpStatus.GONE, assertThrows(RequestFailure.class, () -> jobs.get(41, id)).status);
             assertEquals(HttpStatus.NOT_FOUND, assertThrows(RequestFailure.class, () -> jobs.get(42, id)).status);
         } finally {
-            jdbc.execute("SHUTDOWN");
+            shutdownDatabase(dataSource);
         }
     }
 
@@ -256,13 +257,13 @@ class ImageTranslationContractsTest {
             assertEquals(5, store.ownedJobIds(84).size());
             assertEquals(JobStatus.PREPARING, jobs.create(85, "other-owner", request).status());
         } finally {
-            jdbc.execute("SHUTDOWN");
+            shutdownDatabase(dataSource);
         }
     }
 
     // アップロード中にアカウント削除が受理されると、受信済みデータを原本として公開しない。
     @Test
-    void discardsLateUploadAfterAccountFenceCloses(@TempDir Path root) throws IOException {
+    void discardsLateUploadAfterAccountFenceCloses(@TempDir Path root) throws IOException, SQLException {
         // 準備: 実際の H2 ストアと隔離したファイル領域を使い、外部アカウント状態だけを制御する。
         var dataSource = new DriverManagerDataSource(
                 "jdbc:h2:mem:image_upload_fence_" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
@@ -304,7 +305,15 @@ class ImageTranslationContractsTest {
             assertEquals(HttpStatus.NOT_FOUND,
                     assertThrows(RequestFailure.class, () -> jobs.create(56, "after-delete", request)).status);
         } finally {
-            jdbc.execute("SHUTDOWN");
+            shutdownDatabase(dataSource);
+        }
+    }
+
+    // SHUTDOWN は発行元の H2 接続も閉じるため、実行後の警告取得を伴わない JDBC で終了する。
+    private static void shutdownDatabase(DriverManagerDataSource dataSource) throws SQLException {
+        try (var connection = dataSource.getConnection();
+                var statement = connection.createStatement()) {
+            statement.execute("SHUTDOWN");
         }
     }
 

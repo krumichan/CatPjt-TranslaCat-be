@@ -9,7 +9,7 @@
     },
     {
       "name": "R2ImageVerificationSdk.java",
-      "sha256": "30cc2f78db40ab93adf48d748fb0c84ca5e40388b851a3b6cf6835d32277d34f"
+      "sha256": "9fbcfb84d4651a562341a12b744722d01a149cfe8b3ee2eeef94bcf831d429f8"
     },
     {
       "name": "R2ImageVerificationSyntheticTest.java",
@@ -17,5 +17,6 @@
     }
   ],
   "syntheticOnly": true,
-  "productionCredentialsSupplied": false
+  "productionCredentialsSupplied": false,
+  "sourceRevisionManifestSha256": "ca6e426a327a92593229ac48f0b11afabad5a4b40be914bdaa18fd7786541300"
 }

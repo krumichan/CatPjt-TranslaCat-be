@@ -17,7 +17,7 @@ import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
 import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.http.apache5.Apache5HttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.retries.StandardRetryStrategy;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -134,7 +134,7 @@ public final class R2ImageVerificationSdk implements R2ImageVerification.Storage
         return S3Client.builder()
                 .endpointOverride(endpoint)
                 .region(Region.of(region))
-                .httpClientBuilder(ApacheHttpClient.builder()
+                .httpClientBuilder(Apache5HttpClient.builder()
                         .connectionTimeout(ATTEMPT_TIMEOUT)
                         .socketTimeout(ATTEMPT_TIMEOUT))
                 .credentialsProvider(StaticCredentialsProvider.create(

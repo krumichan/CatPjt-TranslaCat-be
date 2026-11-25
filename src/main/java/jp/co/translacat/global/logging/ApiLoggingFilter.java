@@ -40,6 +40,7 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
                 case "PUSH_INTERNAL_REDACTED" -> "/internal/v1/chat/push/[REDACTED]";
                 case "TEXT_READINGS_REDACTED" -> "/api/v1/text-readings/japanese";
                 case "SPENDING_ANALYSIS_REDACTED" -> "/api/v1/account-books/[REDACTED]/spending-analysis/[REDACTED]";
+                case "IMAGE_TRANSLATION_REDACTED" -> "/api/v1/image-translation/jobs/[REDACTED]";
                 default -> request.getRequestURI();
             };
             log.info("[REQUEST] [{}] {} {} | Body: [{}]", "REDACTED", request.getMethod(), loggedUri, redactionLabel);
@@ -110,6 +111,11 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     }
 
     private String sensitiveBodyLabel(String uri) {
+        // 회차의 이미지·원문·번역문과 전송 티켓을 로그에 기록하지 않는다.
+        if (uri != null && (uri.equals("/api/v1/image-translation/jobs")
+                || uri.startsWith("/api/v1/image-translation/jobs/"))) {
+            return "IMAGE_TRANSLATION_REDACTED";
+        }
         // 읽기 요청·응답에는 비공개 채팅 번역문과 그 표면형이 들어간다.
         if (uri != null && uri.startsWith("/api/v1/text-readings/")) {
             return "TEXT_READINGS_REDACTED";

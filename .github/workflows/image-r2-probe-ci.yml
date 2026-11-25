@@ -1,0 +1,101 @@
+name: Isolated image R2 probe verification
+
+on:
+  push:
+    branches: [ci/image-r2-probe-20261126]
+
+permissions:
+  contents: read
+
+jobs:
+  compile-and-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Verify the exact reviewed sources
+        run: |
+          test "$(git rev-parse HEAD^)" = "a1a6db55b21004290776c2a7aa63494ce379ce20"
+          python3 - <<'PY'
+          from hashlib import sha256
+          import json
+          from pathlib import Path
+
+          root = Path('.codex-ci/image-r2-probe')
+          pins = json.loads((root / 'input-pins.json').read_bytes())
+          for source in pins['sources']:
+              assert sha256((root / source['name']).read_bytes()).hexdigest() == source['sha256']
+          print('Reviewed probe source pins matched')
+          PY
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Resolve only the existing BE runtime classpath
+        run: |
+          chmod +x gradlew
+          ./gradlew -I .codex-ci/image-r2-probe/classpath.init.gradle prepareR2ImageProbeClasspath --no-daemon
+      - name: Compile and run synthetic checks without R2 access
+        run: |
+          mkdir -p r2-probe-build/classes
+          runtime="$(cat r2-probe-build/classpath.txt)"
+          javac --release 21 -cp "$runtime" -d r2-probe-build/classes .codex-ci/image-r2-probe/*.java
+          java -Xmx128m -cp r2-probe-build/classes R2ImageVerificationSyntheticTest | tee r2-probe-build/synthetic.log
+          grep -Fx 'R2 image verification synthetic checks passed' r2-probe-build/synthetic.log
+
+          # 実素材も資格情報も渡さず、SDK entry point の入力拒否だけを確認する。
+          set +e
+          java -Xmx128m -cp "r2-probe-build/classes:$runtime" R2ImageVerificationSdk > r2-probe-build/negative.log 2> r2-probe-build/negative.err
+          status=$?
+          set -e
+          test "$status" = 2
+          test "$(cat r2-probe-build/negative.log)" = 'outcome=INPUT_REJECTED'
+          test ! -s r2-probe-build/negative.err
+      - name: Package only the operating probe classes and evidence
+        run: |
+          jar --create --file r2-probe-build/image-r2-probe.jar --main-class R2ImageVerificationSdk -C r2-probe-build/classes .
+          python3 - <<'PY'
+          from hashlib import sha256
+          import json
+          from pathlib import Path
+          import subprocess
+          import zipfile
+
+          root = Path('r2-probe-build')
+          jar = root / 'image-r2-probe.jar'
+          # 合成テストのクラスは運用向け JAR から除き、別の検証ログに残す。
+          with zipfile.ZipFile(jar) as archive:
+              entries = [(info, archive.read(info)) for info in archive.infolist()
+                         if not info.filename.startswith('R2ImageVerificationSyntheticTest')]
+          with zipfile.ZipFile(jar, 'w', zipfile.ZIP_DEFLATED) as archive:
+              for info, content in entries:
+                  archive.writestr(info, content)
+          pins = json.loads(Path('.codex-ci/image-r2-probe/input-pins.json').read_bytes())
+          evidence = {
+              'inputPins': pins,
+              'java': subprocess.run(['java', '-version'], capture_output=True, text=True, check=True).stderr.strip(),
+              'jarSha256': sha256(jar.read_bytes()).hexdigest(),
+              'sdkArtifacts': (root / 'sdk-artifacts.tsv').read_text().splitlines(),
+              'syntheticChecks': 'passed',
+              'sdkEntryPointRejectsMissingInput': True,
+              'r2RequestsExecuted': 0,
+              'productionCredentialsSupplied': False,
+          }
+          (root / 'compiler-evidence.json').write_text(json.dumps(evidence, indent=2))
+          print(json.dumps({key: evidence[key] for key in ('jarSha256', 'syntheticChecks', 'r2RequestsExecuted')}))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: image-r2-probe-reviewed
+          path: |
+            r2-probe-build/image-r2-probe.jar
+            r2-probe-build/compiler-evidence.json
+            r2-probe-build/sdk-artifacts.tsv
+            r2-probe-build/synthetic.log
+            r2-probe-build/negative.log
+            r2-probe-build/negative.err

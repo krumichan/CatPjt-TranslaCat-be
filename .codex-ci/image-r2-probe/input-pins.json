@@ -1,0 +1,21 @@
+{
+  "workDateKst": "2026-11-26",
+  "preparationManifestSha256": "a311e8105b2569b6fc3a61af27a62bc42d68ffd1d4d0ece15a2b7e561167190a",
+  "productBase": "a1a6db55b21004290776c2a7aa63494ce379ce20",
+  "sources": [
+    {
+      "name": "R2ImageVerification.java",
+      "sha256": "b7207bb9598ae0a88f6350984f8f4d8df5ce3e3492d933756dc5a4b4dd837912"
+    },
+    {
+      "name": "R2ImageVerificationSdk.java",
+      "sha256": "30cc2f78db40ab93adf48d748fb0c84ca5e40388b851a3b6cf6835d32277d34f"
+    },
+    {
+      "name": "R2ImageVerificationSyntheticTest.java",
+      "sha256": "64476108d929a3e1deb16abab8dff76ecffe9155a6af841ff1883905eb72191a"
+    }
+  ],
+  "syntheticOnly": true,
+  "productionCredentialsSupplied": false
+}

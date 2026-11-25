@@ -1,0 +1,25 @@
+// 製品の依存宣言を変更せず、既存の SDK runtime classpath だけを取得する。
+gradle.projectsEvaluated {
+    rootProject.tasks.register('prepareR2ImageProbeClasspath') {
+        doLast {
+            def runtime = rootProject.configurations.runtimeClasspath
+            def sdk = runtime.resolvedConfiguration.resolvedArtifacts.findAll {
+                it.moduleVersion.id.group == 'software.amazon.awssdk'
+            }
+            if (sdk.isEmpty() || sdk.any { it.moduleVersion.id.version != '2.46.21' }) {
+                throw new GradleException('Existing AWS SDK version differs from the reviewed input')
+            }
+            if (!sdk.any { it.name == 'apache-client' } || !sdk.any { it.name == 's3' }) {
+                throw new GradleException('Existing SDK runtime lacks S3 or Apache transport')
+            }
+
+            // プローブ生成物は検証 branch の build 領域に限定する。
+            def output = new File(rootProject.projectDir, 'r2-probe-build')
+            output.mkdirs()
+            new File(output, 'classpath.txt').text = runtime.asPath
+            new File(output, 'sdk-artifacts.tsv').text = sdk.sort { it.name }.collect {
+                "${it.name}\t${it.moduleVersion.id.version}\t${it.file.name}"
+            }.join('\n') + '\n'
+        }
+    }
+}

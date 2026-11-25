@@ -9,7 +9,7 @@ gradle.projectsEvaluated {
             if (sdk.isEmpty() || sdk.any { it.moduleVersion.id.version != '2.46.21' }) {
                 throw new GradleException('Existing AWS SDK version differs from the reviewed input')
             }
-            if (!sdk.any { it.name == 'apache-client' } || !sdk.any { it.name == 's3' }) {
+            if (!sdk.any { it.name == 'apache5-client' } || !sdk.any { it.name == 's3' }) {
                 throw new GradleException('Existing SDK runtime lacks S3 or Apache transport')
             }
 

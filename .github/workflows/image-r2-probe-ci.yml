@@ -15,17 +15,23 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-          fetch-depth: 2
+          fetch-depth: 5
       - name: Verify the exact reviewed sources
         run: |
-          test "$(git rev-parse HEAD^)" = "a1a6db55b21004290776c2a7aa63494ce379ce20"
+          test "$(git rev-parse HEAD^)" = "5e5d5692055bd60c30c1277b6c2001f688d681ef"
+          git merge-base --is-ancestor a1a6db55b21004290776c2a7aa63494ce379ce20 HEAD
           python3 - <<'PY'
           from hashlib import sha256
+          import subprocess
           import json
           from pathlib import Path
 
           root = Path('.codex-ci/image-r2-probe')
           pins = json.loads((root / 'input-pins.json').read_bytes())
+          changed = set(subprocess.check_output(["git", "diff", "--name-only", pins["productBase"], "HEAD"], text=True).splitlines())
+          expected = {str(root / source["name"]) for source in pins["sources"]}
+          expected.update({str(root / "input-pins.json"), str(root / "classpath.init.gradle"), ".github/workflows/image-r2-probe-ci.yml"})
+          assert changed == expected, changed ^ expected
           for source in pins['sources']:
               assert sha256((root / source['name']).read_bytes()).hexdigest() == source['sha256']
           print('Reviewed probe source pins matched')
@@ -35,6 +41,11 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: gradle
+          cache-dependency-path: |
+            build.gradle
+            gradle/wrapper/gradle-wrapper.properties
+            scripts/chat-local.gradle
+            settings.gradle
       - name: Resolve only the existing BE runtime classpath
         run: |
           chmod +x gradlew

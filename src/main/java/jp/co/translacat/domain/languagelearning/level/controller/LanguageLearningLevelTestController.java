@@ -2,6 +2,7 @@ package jp.co.translacat.domain.languagelearning.level.controller;
 
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelAnswerRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelTestStartRequestDto;
+import jp.co.translacat.domain.languagelearning.level.dto.request.LevelSelfSelectRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.*;
 import jp.co.translacat.domain.languagelearning.level.facade.LanguageLearningLevelTestFacade;
 import jp.co.translacat.global.dto.ResponseDto;
@@ -22,6 +23,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LanguageLearningLevelTestController {
     private final LanguageLearningLevelTestFacade levelTestFacade;
+
+    /** 로그인한 본인에게만 B1~B3의 초기 레벨 선택을 적용한다. */
+    @PostMapping("/self-selection")
+    public ResponseDto<LevelSessionResponseDto> selfSelect(
+            @AuthenticationPrincipal UserPrincipal userPrincipal, @RequestBody LevelSelfSelectRequestDto request) {
+        return ResponseUtil.ok(levelTestFacade.selfSelect(userId(userPrincipal), request));
+    }
 
     @GetMapping("/status")
     public ResponseDto<LevelStatusResponseDto> getStatus(@AuthenticationPrincipal UserPrincipal userPrincipal) {

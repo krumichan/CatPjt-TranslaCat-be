@@ -19,6 +19,45 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class LanguageLearningLevelTestClientTest {
+    @Test
+    void selfSelectionRelaysOnlyBandAndKeyAndAcceptsAZeroQuestionResult() {
+        // 준비: 실제 점수는 LL 응답에서만 가져오며 테스트 문항은 없다.
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/level-test/self-selection"))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.method(
+                        org.springframework.http.HttpMethod.POST))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.content().json(
+                        "{\"band\":\"B2\",\"idempotencyKey\":\"initial-choice\"}", true))
+                .andRespond(withSuccess("""
+                        {"sessionId":42,"sessionType":"SELF_SELECTED","status":"COMPLETED",
+                         "totalQuestions":0,"currentQuestionNumber":0,"currentComplexityBand":2,
+                         "baseLevelScore":47.0,"proficiencyBand":"BASIC",
+                         "startedAt":"2026-11-25T01:00:00","completedAt":"2026-11-25T01:00:00"}
+                        """, MediaType.APPLICATION_JSON));
+
+        // 실행
+        var result = client().selfSelect(123L,
+                new jp.co.translacat.domain.languagelearning.level.dto.request.LevelSelfSelectRequestDto(
+                        "B2", "initial-choice"));
+
+        // 검증: 자기 선택을 일반 실측으로 바꾸거나 임의 점수를 계산하지 않는다.
+        assertEquals(jp.co.translacat.domain.languagelearning.common.enums.LevelTestSessionType.SELF_SELECTED,
+                result.sessionType());
+        assertEquals(0, result.totalQuestions());
+        assertEquals(47.0, result.baseLevelScore());
+        server.verify();
+    }
+
+    @Test
+    void selfSelectionWriteFailureDoesNotAutomaticallyRetry() {
+        // 준비 / 실행 / 검증: 저장 여부가 불명확한 요청을 다른 키로 재실행하지 않는다.
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/level-test/self-selection"))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE).contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"code\":\"LL_LEVEL_SERVICE_UNAVAILABLE\",\"message\":\"unavailable\"}"));
+        assertThrows(LanguageLearningServiceException.class, () -> client().selfSelect(123L,
+                new jp.co.translacat.domain.languagelearning.level.dto.request.LevelSelfSelectRequestDto("B1", "retry")));
+        server.verify();
+    }
+
     private final RestClient.Builder builder = RestClient.builder().baseUrl("http://ll.test");
     private final MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
 

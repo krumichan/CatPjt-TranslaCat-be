@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelAnswerRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelTestStartRequestDto;
+import jp.co.translacat.domain.languagelearning.level.dto.request.LevelSelfSelectRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.*;
 import jp.co.translacat.domain.languagelearning.level.model.LevelTestAudioData;
 import jp.co.translacat.infrastructure.languagelearning.client.dto.InternalApiErrorDto;
@@ -67,6 +68,11 @@ public class LanguageLearningLevelTestClient {
 
     public LevelSessionResponseDto start(Long user, LevelTestStartRequestDto request) {
         return post(user, "/sessions", request, LevelSessionResponseDto.class);
+    }
+
+    /** AI 호출 없이 초기 레벨을 선택하며 인증된 소유자와 재전송 키를 LL에 전달한다. */
+    public LevelSessionResponseDto selfSelect(Long user, LevelSelfSelectRequestDto request) {
+        return post(user, "/self-selection", request, LevelSessionResponseDto.class);
     }
 
     public LevelSessionResponseDto session(Long user, Long id) {

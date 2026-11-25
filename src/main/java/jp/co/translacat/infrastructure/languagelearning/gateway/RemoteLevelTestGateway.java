@@ -2,6 +2,7 @@ package jp.co.translacat.infrastructure.languagelearning.gateway;
 
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelAnswerRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelTestStartRequestDto;
+import jp.co.translacat.domain.languagelearning.level.dto.request.LevelSelfSelectRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.*;
 import jp.co.translacat.domain.languagelearning.level.model.LevelTestAudioData;
 import jp.co.translacat.domain.languagelearning.level.port.LevelTestGateway;
@@ -44,6 +45,12 @@ public class RemoteLevelTestGateway implements LevelTestGateway {
     @Override
     public LevelSessionResponseDto start(Long userId, LevelTestStartRequestDto request) {
         return forUser(userId).start(userId, request);
+    }
+
+    /** 사용자 존재 확인과 내부 인증을 유지하여 초기 레벨 선택을 중계한다. */
+    @Override
+    public LevelSessionResponseDto selfSelect(Long userId, LevelSelfSelectRequestDto request) {
+        return forUser(userId).selfSelect(userId, request);
     }
 
     @Override

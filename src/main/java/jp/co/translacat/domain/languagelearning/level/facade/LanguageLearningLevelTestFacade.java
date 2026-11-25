@@ -2,6 +2,7 @@ package jp.co.translacat.domain.languagelearning.level.facade;
 
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelAnswerRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelTestStartRequestDto;
+import jp.co.translacat.domain.languagelearning.level.dto.request.LevelSelfSelectRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.response.*;
 import jp.co.translacat.domain.languagelearning.level.port.LevelTestGateway;
 import jp.co.translacat.domain.languagelearning.listening.audio.model.ListeningAudioObject;
@@ -35,6 +36,11 @@ public class LanguageLearningLevelTestFacade {
 
     public LevelSessionResponseDto start(Long userId, LevelTestStartRequestDto request) {
         return gateway.start(userId, request);
+    }
+
+    /** Core에 점수를 복제하지 않고 LL이 확정한 자기 선택 기준점을 반환한다. */
+    public LevelSessionResponseDto selfSelect(Long userId, LevelSelfSelectRequestDto request) {
+        return gateway.selfSelect(userId, request);
     }
 
     public LevelSessionResponseDto getSession(Long userId, Long sessionId) {

@@ -1,3 +1,3 @@
 package jp.co.translacat.domain.languagelearning.common.enums;
 
-public enum LevelTestSessionType { INITIAL, RECHECK }
+public enum LevelTestSessionType { INITIAL, RECHECK, SELF_SELECTED }

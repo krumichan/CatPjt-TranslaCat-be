@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "onlyForIsolatedLinuxMemoryCI": true,
+  "zlib": "1.3.2",
+  "files": {
+    "expanded-over.docx": {
+      "sha256": "9e19183dd5baf0fa2ca54ea263eed15facea63229f2eae6dfeab9a32dfb2a18f",
+      "compressedBytes": 140284,
+      "expandedBytes": 105906176
+    },
+    "expanded-under.docx": {
+      "sha256": "d98bff056074dfed6f7cad570914c5d89664223e6d6fc738e1c30902b6807773",
+      "compressedBytes": 134176,
+      "expandedBytes": 99614720
+    },
+    "normal.pptx": {
+      "sha256": "77c702e5b9f93531d598170946f981493f767da17c3fb1876886ff8dae34f568",
+      "compressedBytes": 2281793,
+      "expandedBytes": 2590474
+    },
+    "transfer-near-cap.docx": {
+      "sha256": "0157ae0ca75bbd531dd78e12d155dd4526b67ebbafd23d23821ed0c6e8ccf939",
+      "compressedBytes": 9475367,
+      "expandedBytes": 10301234
+    }
+  },
+  "candidateOutcomes": {
+    "normal.pptx": "complete, save, delete",
+    "expanded-under.docx": "complete with local identity provider",
+    "expanded-over.docx": "DOCUMENT_EXPANDED_SIZE_LIMIT; no ready output",
+    "transfer-near-cap.docx": "receive and reserve near full request size; output obeys the existing 10 MiB contract"
+  },
+  "fixturesSentExternally": false,
+  "runnableJobSubmitted": false
+}

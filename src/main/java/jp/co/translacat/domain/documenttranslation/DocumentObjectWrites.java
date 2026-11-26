@@ -289,9 +289,14 @@ final class DocumentObjectWrites {
                 """, owner, job.toString(), key, uploadId) == 1));
     }
 
+    // 저장 어댑터와 소유권 확인에서 동일한 문서 키 형식을 검사한다.
+    static boolean isDocumentKey(String key) {
+        return key != null && KEY.matcher(key).matches();
+    }
+
     // DB나 큐에서 얻은 값도 원본 작업에 속한 비공개 키 형식을 만족해야 실제 저장소에 적용할 수 있다.
     static void requireOwnedKey(UUID job, String key) {
-        if (key == null || !KEY.matcher(key).matches()
+        if (!isDocumentKey(key)
                 || !(key.equals("source-" + job) || key.startsWith("result-" + job + "-")
                         || key.startsWith("batch-" + job + "-"))) {
             throw new IllegalStateException("Document object does not belong to its job");

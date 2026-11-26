@@ -197,11 +197,13 @@ interface DocumentFiles {
         // 비공개 버킷의 쓰기는 원장을 통해 기록한 업로드 ID가 있어야 한다.
         @Override
         public void put(String key, Path source) throws IOException {
+            requireDocumentKey(key);
             throw new IOException("Document bucket writes require a tracked multipart upload");
         }
 
         // 시도별 객체 키의 업로드를 생성한다. 반환한 ID를 영속화하기 전에는 본문을 쓰지 않는다.
         String createMultipart(String key) throws IOException {
+            requireDocumentKey(key);
             try {
                 return requireUploadId(client.createMultipartUpload(request -> request.bucket(bucket).key(key)
                                 .metadata(Map.of(WRITE_ID_METADATA, key))
@@ -214,6 +216,7 @@ interface DocumentFiles {
 
         // 기록된 업로드의 마지막 단일 파트를 저장하고 소유권과 길이를 확인한다.
         void writeMultipart(String key, String uploadId, Path source) throws IOException {
+            requireDocumentKey(key);
             requireUploadId(uploadId);
             long length = Files.size(source);
             try {
@@ -243,6 +246,7 @@ interface DocumentFiles {
 
         // 기존 업로드를 중단하고 같은 ID가 더 이상 완료될 수 없음을 확인한다.
         void abortMultipart(String key, String uploadId) throws IOException {
+            requireDocumentKey(key);
             requireUploadId(uploadId);
             try {
                 client.abortMultipartUpload(request -> request.bucket(bucket).key(key).uploadId(uploadId)
@@ -292,6 +296,13 @@ interface DocumentFiles {
             delete(key);
         }
 
+        // 공유 버킷에 접근하기 전에 저장 요청과 DB에서 복원한 키를 검사한다.
+        private static void requireDocumentKey(String key) throws IOException {
+            if (!DocumentObjectWrites.isDocumentKey(key)) {
+                throw new IOException("Invalid document object key");
+            }
+        }
+
         // 공급자가 반환한 업로드 ID를 그대로 사용한다. 누락된 ID의 종료는 확정할 수 없다.
         private static String requireUploadId(String uploadId) throws IOException {
             if (uploadId == null || uploadId.isBlank()) {
@@ -316,13 +327,16 @@ interface DocumentFiles {
         }
 
         // 조정 및 저장 확인은 캐시를 통하지 않는 기존 버킷 클라이언트의 HEAD를 사용한다.
-        private HeadObjectResponse head(String key) {
+        private HeadObjectResponse head(String key) throws IOException {
+            requireDocumentKey(key);
             return client.headObject(request -> request.bucket(bucket).key(key)
                     .overrideConfiguration(options -> options.apiCallTimeout(METADATA_TIMEOUT)));
         }
 
+        /** 검증한 문서 키에서 다운로드에 사용할 스트림을 연다. */
         @Override
         public InputStream open(String key) throws IOException {
+            requireDocumentKey(key);
             try {
                 return client.getObject(request -> request.bucket(bucket).key(key));
             } catch (SdkException failure) {
@@ -330,8 +344,10 @@ interface DocumentFiles {
             }
         }
 
+        /** 검증한 문서 키의 객체를 삭제한다. 이미 없으면 정리가 완료된 것으로 처리한다. */
         @Override
         public void delete(String key) throws IOException {
+            requireDocumentKey(key);
             try {
                 client.deleteObject(request -> request.bucket(bucket).key(key)
                         .overrideConfiguration(options -> options.apiCallTimeout(METADATA_TIMEOUT)));

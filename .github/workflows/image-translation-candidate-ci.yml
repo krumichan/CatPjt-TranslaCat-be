@@ -1,0 +1,91 @@
+name: Image translation candidate verification
+
+on:
+  push:
+    branches: [ci/image-translation-operating-config-20261126]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    # main push와 수동 실행 모두 선택된 SHA를 먼저 검증한다.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d2238a76c52a19c963a22f97476a4a6752e5fc9d
+          lfs: true
+      - name: Verify webtoon configuration with synthetic inputs
+        run: |
+          python3 - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          from tempfile import TemporaryDirectory
+          from textwrap import dedent
+
+          release = Path('.github/workflows/deploy.yaml').read_text()
+          step = release.split('      - name: Merge webtoon release settings\n', 1)[1]
+          body = step.split('        run: |\n', 1)[1].split('\n      - name:', 1)[0]
+          code = dedent(body)
+          key = 'TRANSLACAT_IMAGE_TRANSLATION_ASSET_SECRET'
+          old = '# preserve\nCLOUDFLARE_R2_BOARD_BUCKET=translacat-private-assets\nCLOUDFLARE_R2_BUCKET=translacat-assets\nOTHER_CONFIG=unchanged\n'
+          added = {'TRANSLACAT_STORAGE_TYPE': 's3',
+                   'TRANSLACAT_IMAGE_TRANSLATION_PRIVATE_BUCKET': 'translacat-private-assets',
+                   'TRANSLACAT_IMAGE_TRANSLATION_PUBLIC_ORIGIN': 'https://217.142.230.186',
+                   'TRANSLACAT_IMAGE_TRANSLATION_ENABLED': 'true', key: 'a' * 64}
+
+          def case(bundle, secret, accept):
+              with TemporaryDirectory() as directory:
+                  output = Path(directory) / 'github-env'
+                  env = {**os.environ, 'DEPLOY_ENV_B64': base64.b64encode(bundle.encode()).decode(),
+                         'GITHUB_ENV': str(output), key: secret}
+                  child = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True)
+                  assert (child.returncode == 0) == accept
+                  assert output.exists() == accept
+                  if accept:
+                      payload = output.read_text().rstrip('\n').removeprefix('DEPLOY_ENV_B64=')
+                      decoded = base64.b64decode(payload, validate=True).decode()
+                      expected = bundle + ''.join(f'{name}={value}\n' for name, value in added.items()
+                                                  if name + '=' not in bundle)
+                      assert decoded == expected
+                      assert child.stdout.decode().strip() == '::add-mask::' + payload
+
+          case(old, 'a' * 64, True)
+          case(old + key + '=' + 'a' * 64 + '\n', '', True)
+          case(old + key + '=' + 'a' * 64 + '\n', 'b' * 64, False)
+          case(old, '', False)
+          case(old.replace('translacat-private-assets', 'unrelated-bucket'), 'a' * 64, False)
+          case(old + 'TRANSLACAT_IMAGE_TRANSLATION_ENABLED=false\n', 'a' * 64, False)
+          PY
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify environment encoding with synthetic inputs
+        run: python -B scripts/check_release_env_encoding.py
+      - name: Verify public account deletion flag merging with synthetic inputs
+        run: python -B scripts/check_account_deletion_env_overrides.py
+      - name: Verify the exact release source
+        run: |
+          bash -n scripts/deploy-release.sh
+          python scripts/check_deploy_release.py
+          chmod +x gradlew
+          ./gradlew test --tests "*ImageTranslationContractsTest" --tests "*ImageTranslationAccountLifecycleTest" --no-daemon
+          ./gradlew cleanTest test bootJar --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: be-image-test-results
+          path: |
+            build/test-results/test/
+            build/reports/tests/test/

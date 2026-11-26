@@ -306,6 +306,85 @@ jobs:
           except OSError:
               reject('GITHUB_ENV_WRITE_FAILED')
 
+      - name: Merge webtoon release settings
+        env:
+          TRANSLACAT_IMAGE_TRANSLATION_ASSET_SECRET: ${{ secrets.TRANSLACAT_IMAGE_TRANSLATION_ASSET_SECRET }}
+        shell: python
+        run: |
+          import base64
+          import binascii
+          import hmac
+          import os
+          from pathlib import Path
+          import re
+
+
+          def reject(code):
+              raise SystemExit('Webtoon environment merge rejected: ' + code)
+
+
+          # 배포 묶음과 별도 키를 같은 runner에서만 결합하고 기존 행을 검증한다.
+          try:
+              original = base64.b64decode(os.environ.get('DEPLOY_ENV_B64', ''), validate=True).decode('utf-8')
+          except (binascii.Error, UnicodeDecodeError):
+              reject('INVALID_DEPLOY_ENV_ENCODING')
+          if not original.strip() or original.startswith('\ufeff') or '\r' in original or '\0' in original:
+              reject('INVALID_DEPLOY_ENV_ENCODING')
+          values = {}
+          lines = original.split('\n')
+          for line in lines:
+              if not line.strip() or line.lstrip().startswith('#'):
+                  continue
+              name, separator, value = line.partition('=')
+              if not separator or not re.fullmatch(r'[A-Z][A-Z0-9_]*', name) or name in values:
+                  reject('INVALID_DEPLOY_ENV_RECORD')
+              values[name] = value
+
+          # 운영 R2 경계에서 검증한 버킷만 선택하며 공개 링크는 BE HTTPS 원점으로 발행한다.
+          bucket = 'translacat-private-assets'
+          if values.get('CLOUDFLARE_R2_BOARD_BUCKET') != bucket or values.get('CLOUDFLARE_R2_BUCKET') == bucket:
+              reject('PRIVATE_BUCKET_MISMATCH')
+          if values.get('TRANSLACAT_STORAGE_TYPE', 's3') != 's3':
+              reject('STORAGE_TYPE_MISMATCH')
+          key_name = 'TRANSLACAT_IMAGE_TRANSLATION_ASSET_SECRET'
+          bundle_key = values.get(key_name)
+          separate_key = os.environ.get(key_name) or None
+          for value in (bundle_key, separate_key):
+              if value is not None and (len(value.encode('utf-8')) < 32 or not value.isprintable()
+                                        or any(char.isspace() for char in value)):
+                  reject('INVALID_ASSET_SECRET')
+          if bundle_key is not None and separate_key is not None:
+              if not hmac.compare_digest(bundle_key.encode('utf-8'), separate_key.encode('utf-8')):
+                  reject('ASSET_SECRET_CONFLICT')
+          asset_key = bundle_key or separate_key
+          if asset_key is None:
+              reject('ASSET_SECRET_MISSING')
+
+          # 새 기능의 설정만 추가하고 이미 존재하는 값은 정확히 일치할 때 보존한다.
+          additions = {
+              'TRANSLACAT_STORAGE_TYPE': 's3',
+              'TRANSLACAT_IMAGE_TRANSLATION_PRIVATE_BUCKET': bucket,
+              'TRANSLACAT_IMAGE_TRANSLATION_PUBLIC_ORIGIN': 'https://217.142.230.186',
+              'TRANSLACAT_IMAGE_TRANSLATION_ENABLED': 'true',
+              key_name: asset_key,
+          }
+          insert_at = len(lines) - 1 if lines[-1] == '' else len(lines)
+          for name, value in additions.items():
+              if name in values:
+                  if values[name] != value:
+                      reject('WEBTOON_ENV_CONFLICT')
+                  continue
+              lines.insert(insert_at, name + '=' + value)
+              insert_at += 1
+
+          encoded = base64.b64encode('\n'.join(lines).encode('utf-8')).decode('ascii')
+          output_path = os.environ.get('GITHUB_ENV', '')
+          if not output_path:
+              reject('GITHUB_ENV_MISSING')
+          with Path(output_path).open('a', encoding='utf-8', newline='\n') as output:
+              print('::add-mask::' + encoded, flush=True)
+              output.write('DEPLOY_ENV_B64=' + encoded + '\n')
+
       - name: Prepare strict BE SSH
         env:
           OCI_HOST: ${{ secrets.OCI_HOST }}

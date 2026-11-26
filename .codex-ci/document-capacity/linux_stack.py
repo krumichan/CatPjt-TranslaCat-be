@@ -27,6 +27,7 @@ class LinuxStack(previous.Stack):
         self.memory_mib = memory_mib
         self.relay = None
         self.relay_thread = None
+        self.volatile_mounts = []
 
     def docker(self, *args, data=None, environment=None, timeout=30, expected=(0,)):
         """CI の既知 daemon だけを使い、Mac ソケット・保存済み CLI 認証を使わない。"""
@@ -75,11 +76,15 @@ class LinuxStack(previous.Stack):
 
     def start_be(self):
         """実 bootJar を noswap tmpfs と swap.max=0 の cgroup で起動する。"""
+        mounts = self.work / 'volatile-mounts'
+        mounts.mkdir(mode=0o700)
+        doc = self.mount_volatile(mounts / 'document', 32, '0700')
+        temporary = self.mount_volatile(mounts / 'temporary', 64, '1777')
         self.start_container('be', self.images['java'], [
             '--memory', str(self.memory_mib) + 'm', '--memory-swap', str(self.memory_mib) + 'm',
             '--cpus', '2', '--pids-limit', '128', '--read-only', '--cap-drop', 'ALL',
-            '--tmpfs', '/tmp:rw,noexec,nosuid,nodev,noswap,size=64m,mode=1777',
-            '--tmpfs', '/run/translacat-document-translation:rw,noexec,nosuid,nodev,noswap,size=32m,mode=0700',
+            '--mount', f'type=bind,source={temporary},target=/tmp',
+            '--mount', f'type=bind,source={doc},target=/run/translacat-document-translation',
             '--mount', f'type=bind,source={self.job_jar},target=/review.jar,readonly',
             '--mount', f'type=bind,source={self.dictionary},target=/system_full.dic,readonly',
             '--mount', f'type=bind,source={self.be_settings},target=/review.properties,readonly',
@@ -95,6 +100,26 @@ class LinuxStack(previous.Stack):
         self.be_ip = next(iter(network.values()))['IPAddress']
         if not ipaddress.ip_address(self.be_ip).is_private:
             raise RuntimeError('CAPACITY_BE_ADDRESS')
+
+    def mount_volatile(self, path, size_mib, mode):
+        """専用 path に kernel の noswap tmpfs を作り、Docker の option 制限を避ける。"""
+        root = self.work.resolve()
+        if path.exists() or not path.resolve().is_relative_to(root):
+            raise RuntimeError('CAPACITY_FRESH_MOUNT_PATH_REQUIRED')
+        path.mkdir(mode=0o700)
+        subprocess.run(['mount', '-t', 'tmpfs', '-o',
+                        f'rw,nosuid,nodev,noexec,noswap,size={size_mib}m,mode={mode}',
+                        'tmpfs', str(path)], check=True, capture_output=True, timeout=15)
+        # 成功した mount を先に所有記録へ入れ、検証失敗でも後処理の対象にする。
+        self.volatile_mounts.append(path.resolve())
+        records = [line for line in Path('/proc/self/mountinfo').read_text().splitlines()
+                   if line.split(' - ', 1)[0].split()[4] == str(path.resolve())]
+        if len(records) != 1:
+            raise RuntimeError('CAPACITY_MOUNT_IDENTITY')
+        detail = records[0].split(' - ', 1)[1].split()
+        if detail[0] != 'tmpfs' or 'noswap' not in detail[2].split(','):
+            raise RuntimeError('CAPACITY_NOSWAP_MOUNT_UNVERIFIED')
+        return path.resolve()
 
     def start_host_relay(self):
         """host の loopback 一点だけから専用内部 BE へ本文を記録せず中継する。"""
@@ -145,4 +170,25 @@ class LinuxStack(previous.Stack):
             self.relay.server_close()
             self.relay_thread.join(timeout=5)
             self.relay = None
-        return super().close()
+        result = super().close()
+        removed = True
+        if result['owned_resources_removed']:
+            for path in reversed(self.volatile_mounts):
+                try:
+                    if not path.is_relative_to(self.work.resolve()) or path.is_symlink():
+                        raise RuntimeError('CAPACITY_OWNED_MOUNT_CHANGED')
+                    records = [line for line in Path('/proc/self/mountinfo').read_text().splitlines()
+                               if line.split(' - ', 1)[0].split()[4] == str(path)]
+                    if len(records) != 1 or records[0].split(' - ', 1)[1].split()[0] != 'tmpfs':
+                        raise RuntimeError('CAPACITY_OWNED_MOUNT_CHANGED')
+                    subprocess.run(['umount', '--', str(path)], capture_output=True, check=True, timeout=15)
+                    if any(line.split(' - ', 1)[0].split()[4] == str(path)
+                           for line in Path('/proc/self/mountinfo').read_text().splitlines()):
+                        raise RuntimeError('CAPACITY_UNMOUNT_UNCONFIRMED')
+                except (OSError, RuntimeError, subprocess.SubprocessError):
+                    removed = False
+        else:
+            removed = False
+        result['owned_volatile_mounts_removed'] = removed
+        result['owned_resources_removed'] = result['owned_resources_removed'] and removed
+        return result

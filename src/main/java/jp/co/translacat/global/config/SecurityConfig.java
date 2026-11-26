@@ -99,6 +99,11 @@ public class SecurityConfig {
                                 // 폐기한 로그인 대신 사전 저장한 256비트 receipt로 이 요청의 상태만 확인한다.
                                 .requestMatchers(HttpMethod.POST, "/api/v1/account-deletion/status")
                                 .permitAll()
+                                // 두 웹툰 자산 전송 경로는 동작·객체·만료를 묶은 서명을 검증한다.
+                                .requestMatchers(HttpMethod.PUT, "/api/v1/image-translation/jobs/*/files/*/upload")
+                                .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/v1/image-translation/jobs/*/files/*/original")
+                                .permitAll()
                                 // 외부 AI는 계획별 capability로 인증하며 나머지 계획 관리는 계정 인증을 요구한다.
                                 .requestMatchers(HttpMethod.POST, "/api/v1/language-learning/web-ai/external/prompt",
                                         "/api/v1/language-learning/web-ai/external/results")

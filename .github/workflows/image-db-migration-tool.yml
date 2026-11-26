@@ -1,0 +1,102 @@
+name: Image fixed JDBC migration tool acceptance
+on:
+  push:
+    branches: [ci/image-db-migration-tool-20261126]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [mysql, tidb]
+    env:
+      ENGINE: ${{ matrix.engine }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Pin inputs and compile the exact production and test classes
+        run: |
+          set -euo pipefail
+          mkdir -p prod-classes test-classes evidence
+          curl --fail --location --silent --show-error https://repo.maven.apache.org/maven2/com/mysql/mysql-connector-j/9.4.0/mysql-connector-j-9.4.0.jar -o driver.jar
+          echo '49ed93c8b2bea9cb0929b85a8a28837b191d0f8eac6919fdcef16e36e2cd53b3  driver.jar' | sha256sum --check
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          pins=json.loads(pathlib.Path('.codex-ci/image-db-migration/compiler-inputs.json').read_bytes())
+          for path,record in pins['inputs'].items():
+              assert hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()==record['ciSha256'],path
+          PY
+          javac --release 21 -encoding UTF-8 -d prod-classes .codex-ci/image-db-migration/ImageTranslationReleaseDb.java
+          javac --release 21 -encoding UTF-8 -cp prod-classes:driver.jar -d test-classes .codex-ci/image-db-migration/ImageTranslationReleaseDbSyntheticTest.java .codex-ci/image-db-migration/ImageTranslationReleaseDbIntegrationTest.java
+          jar --create --file evidence/ImageTranslationReleaseDb.jar --main-class ImageTranslationReleaseDb -C prod-classes .
+          java -cp prod-classes:test-classes ImageTranslationReleaseDbSyntheticTest > evidence/synthetic.log
+      - name: Start only this job's loopback database
+        run: |
+          set -euo pipefail
+          name="image-jdbc-${GITHUB_RUN_ID}-${ENGINE}"
+          if [ "$ENGINE" = mysql ]; then
+            container=$(docker run --detach --name "$name" --label "translacat.ci.run=$GITHUB_RUN_ID" --publish 127.0.0.1:13306:3306 --env MYSQL_ALLOW_EMPTY_PASSWORD=yes --env 'MYSQL_ROOT_HOST=%' mysql:8.4)
+          else
+            container=$(docker run --detach --name "$name" --label "translacat.ci.run=$GITHUB_RUN_ID" --publish 127.0.0.1:14000:4000 pingcap/tidb:v8.5.8 --store=unistore --path=/tmp/image-test --host=0.0.0.0 -L error)
+          fi
+          printf '%s\n' "$container" > evidence/container-id.txt
+          python3 - <<'PY'
+          import json,os,pathlib,re,subprocess
+          identifier=pathlib.Path('evidence/container-id.txt').read_text().strip()
+          assert re.fullmatch('[0-9a-f]{64}',identifier)
+          value=json.loads(subprocess.check_output(['docker','inspect',identifier]))[0]
+          internal,external=('3306/tcp','13306') if os.environ['ENGINE']=='mysql' else ('4000/tcp','14000')
+          assert value['Config']['Labels']['translacat.ci.run']==os.environ['GITHUB_RUN_ID']
+          assert value['HostConfig']['PortBindings']=={internal:[{'HostIp':'127.0.0.1','HostPort':external}]}
+          PY
+      - name: Verify real JDBC application, preservation, partial state and foreign keys
+        run: |
+          set -euo pipefail
+          port=13306
+          if [ "$ENGINE" = tidb ]; then port=14000; fi
+          java -cp prod-classes:test-classes:driver.jar ImageTranslationReleaseDbIntegrationTest "$port" .codex-ci/image-db-migration/20261122_image_translation.sql evidence/integration.json
+          python3 - <<'PY'
+          import base64,hashlib,json,pathlib,subprocess
+          sql=pathlib.Path('.codex-ci/image-db-migration/20261122_image_translation.sql').read_bytes()
+          body=b'\n'.join(base64.b64encode(x) for x in (b'synthetic',b'synthetic',b'synthetic'))+b'\n'
+          result=subprocess.run(['java','-cp','prod-classes','ImageTranslationReleaseDb','inspect',base64.b64encode(sql).decode()],input=body,capture_output=True,timeout=10)
+          assert result.returncode!=0 and not result.stderr
+          failure=json.loads(result.stdout)
+          assert failure.get('code',failure.get('reason'))=='DB_ENDPOINT_CHANGED'
+          jar=pathlib.Path('evidence/ImageTranslationReleaseDb.jar').read_bytes()
+          pins=json.loads(pathlib.Path('.codex-ci/image-db-migration/compiler-inputs.json').read_bytes())
+          report={'jarSha256':hashlib.sha256(jar).hexdigest(),'inputs':pins['inputs'],'jdkRelease':21,
+                  'wrongEndpointRejectedBeforeConnection':True,'productionCredentialsSupplied':False,
+                  'productionConnectionMade':False,'testClassesPackaged':False}
+          pathlib.Path('evidence/compiler-evidence.json').write_text(json.dumps(report,indent=2))
+          print(json.dumps(report))
+          PY
+      - name: Remove only the confirmed container created by this job
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib,re,subprocess
+          path=pathlib.Path('evidence/container-id.txt')
+          if path.exists():
+              identifier=path.read_text().strip()
+              assert re.fullmatch('[0-9a-f]{64}',identifier)
+              value=json.loads(subprocess.check_output(['docker','inspect',identifier]))[0]
+              assert value['Id']==identifier and value['Config']['Labels']['translacat.ci.run']==os.environ['GITHUB_RUN_ID']
+              subprocess.run(['docker','rm','--force','--volumes',identifier],check=True)
+              assert subprocess.run(['docker','inspect',identifier],capture_output=True).returncode!=0
+              pathlib.Path('evidence/container-cleanup.json').write_text(json.dumps({'removed':True,'containerId':identifier}))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: image-db-migration-tool-${{ matrix.engine }}
+          path: evidence/
+          if-no-files-found: error

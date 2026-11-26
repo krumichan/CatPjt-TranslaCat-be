@@ -1,0 +1,24 @@
+{
+  "inputs": {
+    ".codex-ci/image-db-migration/ImageTranslationReleaseDb.java": {
+      "originalSha256": "5f00d4cd891e7001fcb790562bca33943ae86ecfea73032ecc4442f07ba40208",
+      "ciSha256": "5f00d4cd891e7001fcb790562bca33943ae86ecfea73032ecc4442f07ba40208",
+      "normalization": "Java LF and one terminal newline only"
+    },
+    ".codex-ci/image-db-migration/ImageTranslationReleaseDbSyntheticTest.java": {
+      "originalSha256": "f731a7cd296ed90abf513dcddaab21a4b4cc3e4e2464def8d6aac6251271261b",
+      "ciSha256": "f731a7cd296ed90abf513dcddaab21a4b4cc3e4e2464def8d6aac6251271261b",
+      "normalization": "Java LF and one terminal newline only"
+    },
+    ".codex-ci/image-db-migration/ImageTranslationReleaseDbIntegrationTest.java": {
+      "originalSha256": "6ae07f226c2f26754ef46628759e5b0bc28e102e6480763980f28a54b8ef4f56",
+      "ciSha256": "6ae07f226c2f26754ef46628759e5b0bc28e102e6480763980f28a54b8ef4f56",
+      "normalization": "Java LF and one terminal newline only"
+    },
+    ".codex-ci/image-db-migration/20261122_image_translation.sql": {
+      "originalSha256": "8b4ac1370fa0dd34ee8d91e3e23431a343966614487bd6b5f26cc14137044c16",
+      "ciSha256": "8b4ac1370fa0dd34ee8d91e3e23431a343966614487bd6b5f26cc14137044c16",
+      "normalization": "NONE"
+    }
+  }
+}

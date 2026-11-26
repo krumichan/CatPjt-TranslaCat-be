@@ -40,6 +40,7 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
                 case "PUSH_INTERNAL_REDACTED" -> "/internal/v1/chat/push/[REDACTED]";
                 case "TEXT_READINGS_REDACTED" -> "/api/v1/text-readings/japanese";
                 case "SPENDING_ANALYSIS_REDACTED" -> "/api/v1/account-books/[REDACTED]/spending-analysis/[REDACTED]";
+                case "WORDBOOK_REDACTED" -> "/api/v1/wordbook/[REDACTED]";
                 case "IMAGE_TRANSLATION_REDACTED" -> "/api/v1/image-translation/jobs/[REDACTED]";
                 default -> request.getRequestURI();
             };
@@ -174,6 +175,9 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
         // Writing 응답에는 학습자 답변과 원문이 포함되므로 본문을 기록하지 않는다.
         if (uri.startsWith("/api/v1/language-learning/writing/")) {
             return "WRITING_REDACTED";
+        }
+        if ("/api/v1/wordbook/entries".equals(uri) || (uri != null && uri.startsWith("/api/v1/wordbook/entries/"))) {
+            return "WORDBOOK_REDACTED";
         }
         return null;
     }

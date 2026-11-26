@@ -135,6 +135,11 @@ public class SecurityConfig {
                         -> exception
                                 .defaultAuthenticationEntryPointFor(
                                         (request, response, authException)
+                                                -> writePersonalTranslationAuthRequired(response),
+                                        PathPatternRequestMatcher.withDefaults()
+                                                .matcher("/api/v1/wordbook/entries/**"))
+                                .defaultAuthenticationEntryPointFor(
+                                        (request, response, authException)
                                                 -> response.setStatus(HttpServletResponse.SC_NOT_FOUND),
                                         NOVEL_API_REQUESTS)
                                 .defaultAuthenticationEntryPointFor(

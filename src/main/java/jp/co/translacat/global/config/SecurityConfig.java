@@ -28,6 +28,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -40,6 +41,17 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
     private static final RequestMatcher NOVEL_API_REQUESTS = novelApiRequests();
+
+    // 인증 필터에서 거부될 때도 앱이 서버 본문 형식을 해석할 수 있게 한다.
+    private static void writePersonalTranslationAuthRequired(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        response.getWriter().write("""
+                {"resultCode":401,"message":"Unauthorized","body":{"errorCode":"AUTH_REQUIRED"}}
+                """);
+    }
 
     private static RequestMatcher novelApiRequests() {
         PathPatternRequestMatcher.Builder paths = PathPatternRequestMatcher.withDefaults();

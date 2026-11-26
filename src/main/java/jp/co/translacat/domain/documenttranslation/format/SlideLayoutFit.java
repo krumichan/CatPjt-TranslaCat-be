@@ -11,7 +11,7 @@ import static jp.co.translacat.domain.documenttranslation.format.OfficeParts.chi
 import static jp.co.translacat.domain.documenttranslation.format.OfficeParts.children;
 import static jp.co.translacat.domain.documenttranslation.format.OfficeParts.is;
 
-/** 도형과 글자 서식은 그대로 두고, 읽을 수 있는 범위에서 가로 텍스트의 자동 맞춤을 추가한다. */
+/** 도형의 원래 배치를 보존하며 일반 가로 본문의 글자 크기를 맞춘다. */
 final class SlideLayoutFit {
     private static final String PRESENTATION = "http://schemas.openxmlformats.org/presentationml/2006/main";
     private static final String DRAWING = "http://schemas.openxmlformats.org/drawingml/2006/main";
@@ -19,6 +19,7 @@ final class SlideLayoutFit {
     private static final double DEFAULT_SIDE_INSET = 91_440;
     private static final double DEFAULT_VERTICAL_INSET = 45_720;
     private static final double MIN_FONT_POINTS = 9;
+    private static final int MAX_FONT_HUNDREDTHS = 400_000;
     private static final double WIDTH_RESERVE = 1.05;
     private static final double LINE_HEIGHT = 1.24;
     private static final int FULL_SCALE = 100_000;
@@ -45,7 +46,7 @@ final class SlideLayoutFit {
         });
     }
 
-    // 배치에 필요한 글자 크기를 추정하고 가장 큰 안전 범위의 축소율만 기록한다.
+    // 고정된 도형 안에 들어가는 가장 큰 글자 크기를 기존 최소 크기 내에서 찾는다.
     static boolean apply(Element shape, Element body, Scale group) {
         Element properties = child(body, DRAWING, "bodyPr");
         Area area = area(shape, properties, group);
@@ -78,12 +79,52 @@ final class SlideLayoutFit {
             }
         }
 
-        // 글자 run과 도형 좌표를 바꾸지 않도록 본문 속성에만 표준 자동 맞춤을 추가한다.
+        // 자동 맞춤을 반영하지 않는 렌더러도 동일한 축소를 적용하도록 명시 크기를 사용한다.
+        // 모든 run의 크기를 반영한 경우에만 본문의 배율을 중립으로 놓는다.
+        int fontScale = applyExplicitSizes(body, lower) ? FULL_SCALE : lower;
         String prefix = properties.getPrefix();
         String name = prefix == null ? "normAutofit" : prefix + ":normAutofit";
         Element fit = properties.getOwnerDocument().createElementNS(DRAWING, name);
-        fit.setAttribute("fontScale", Integer.toString(lower));
+        fit.setAttribute("fontScale", Integer.toString(fontScale));
         properties.insertBefore(fit, properties.getFirstChild());
+        return true;
+    }
+
+    // 모든 문단이 직접 지정한 run 크기로만 구성된 경우 각 크기에 같은 배율을 적용한다.
+    private static boolean applyExplicitSizes(Element body, int fontScale) {
+        // 기본 스타일, 개행 또는 문단 끝의 크기가 필요한 경우 본문 전체를 자동 맞춤에 맡긴다.
+        var sizes = new ArrayList<RunSize>();
+        for (Element paragraph : children(body, DRAWING, "p")) {
+            List<Element> runs = children(paragraph, DRAWING, "r");
+            if (runs.isEmpty() || child(paragraph, DRAWING, "br") != null
+                    || child(paragraph, DRAWING, "endParaRPr") != null) {
+                return false;
+            }
+
+            boolean hasText = false;
+            for (Element run : runs) {
+                Element properties = child(run, DRAWING, "rPr");
+                double font = number(properties, "sz", Double.NaN);
+                if (!Double.isFinite(font) || font < 100 || font > MAX_FONT_HUNDREDTHS) {
+                    return false;
+                }
+                // 100분의 1 포인트로 내림하여 측정한 폭과 높이를 넘기지 않는다.
+                int scaled = (int) ((long) font * fontScale / FULL_SCALE);
+                if (scaled < MIN_FONT_POINTS * 100) {
+                    return false;
+                }
+                sizes.add(new RunSize(properties, scaled));
+                hasText |= !child(run, DRAWING, "t").getTextContent().isEmpty();
+            }
+            if (!hasText) {
+                return false;
+            }
+        }
+
+        // 본문 전체의 적합성을 확인한 뒤 크기만 갱신하여 부분 적용을 방지한다.
+        for (RunSize size : sizes) {
+            size.properties().setAttribute("sz", Integer.toString(size.hundredths()));
+        }
         return true;
     }
 
@@ -327,6 +368,9 @@ final class SlideLayoutFit {
     }
 
     private record Area(double width, double height) {
+    }
+
+    private record RunSize(Element properties, int hundredths) {
     }
 
     private record Paragraph(List<List<Double>> hardLines, double maximumFont, double minimumFont) {

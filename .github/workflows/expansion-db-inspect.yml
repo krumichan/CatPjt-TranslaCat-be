@@ -1,0 +1,47 @@
+name: Expansion database read only tool build
+on:
+  push:
+    branches: [ci/expansion-db-inspect-20261126]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile the fixed read only tool and check preconnection rejection
+        run: |
+          mkdir -p classes evidence
+          javac --release 21 -d classes .codex-ci/ExpansionDbInspect.java
+          jar --create --file evidence/expansion-db-inspect.jar -C classes .
+          python3 - <<'PY'
+          import base64, hashlib, json, pathlib, subprocess
+          source=pathlib.Path('.codex-ci/ExpansionDbInspect.java').read_bytes()
+          assert hashlib.sha256(source).hexdigest()=='0da236643412091b733c5a92a773b63f106737de39861a12df380d39f4bb0735'
+          args=['java','-cp','evidence/expansion-db-inspect.jar','ExpansionDbInspect']
+          invalid=subprocess.run(args+['invalid'],capture_output=True,timeout=10)
+          assert invalid.returncode!=0 and not invalid.stderr
+          assert json.loads(invalid.stdout)['reason']=='READONLY_MODE_REQUIRED'
+          body=b'\n'.join(base64.b64encode(x) for x in (b'jdbc:mysql://synthetic.invalid/translacat',b'synthetic',b'synthetic'))+b'\n'
+          wrong=subprocess.run(args+['inspect'],input=body,capture_output=True,timeout=10)
+          assert wrong.returncode!=0 and not wrong.stderr
+          assert json.loads(wrong.stdout)['reason']=='DB_ENDPOINT_CHANGED'
+          jar=pathlib.Path('evidence/expansion-db-inspect.jar').read_bytes()
+          report={'sourceSha256':hashlib.sha256(source).hexdigest(),'jarSha256':hashlib.sha256(jar).hexdigest(),
+                  'jdkRelease':21,'invalidModeRejected':True,'wrongEndpointRejectedBeforeConnection':True,
+                  'productionConnectionMade':False,'runtimeDatabaseDriverBundled':False}
+          pathlib.Path('evidence/compiler-evidence.json').write_text(json.dumps(report,indent=2))
+          print(json.dumps(report))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: expansion-db-inspection-tool
+          path: evidence/
+          if-no-files-found: error

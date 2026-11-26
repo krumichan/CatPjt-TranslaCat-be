@@ -1,0 +1,42 @@
+{
+  "request": {
+    "imageId": "c138cdbe-f01d-402a-9ffe-c6e9757af9e9",
+    "sourceLanguage": "ja",
+    "contentType": "image/jpeg",
+    "description": "EXIF 6, 800×600 before orientation. Pixels travel separately from this example metadata."
+  },
+  "recognition": {
+    "schemaVersion": 1,
+    "imageId": "c138cdbe-f01d-402a-9ffe-c6e9757af9e9",
+    "image": {"widthPx": 600, "heightPx": 800, "inputToImage": [0, -1, 600, 1, 0, 0]},
+    "coordinateSpace": "image-pixels-top-left",
+    "status": "OK",
+    "regions": [{
+      "segmentId": "balloon-0",
+      "readingOrder": 0,
+      "polygon": [[360, 100], [400, 100], [400, 240], [360, 240]],
+      "sourceText": "帰ろう。",
+      "writingMode": "vertical-rtl",
+      "confidence": null
+    }],
+    "engine": {"provider": "example", "model": "example-ocr", "version": "1"}
+  },
+  "empty": {
+    "schemaVersion": 1,
+    "imageId": "c6a378e0-3305-44e3-b559-d7390692ce68",
+    "image": {"widthPx": 600, "heightPx": 800, "inputToImage": [1, 0, 0, 0, 1, 0]},
+    "coordinateSpace": "image-pixels-top-left",
+    "status": "NO_TEXT",
+    "regions": [],
+    "engine": {"provider": "example", "model": "example-ocr", "version": "1"}
+  },
+  "uncertain": {
+    "schemaVersion": 1,
+    "imageId": "b306a62e-8b9b-4796-9c47-464518c0cd34",
+    "image": {"widthPx": 600, "heightPx": 800, "inputToImage": [1, 0, 0, 0, 1, 0]},
+    "coordinateSpace": "image-pixels-top-left",
+    "status": "UNCERTAIN",
+    "regions": [],
+    "engine": {"provider": "example", "model": "example-ocr", "version": "1"}
+  }
+}

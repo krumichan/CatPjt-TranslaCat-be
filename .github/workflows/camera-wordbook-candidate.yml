@@ -1,0 +1,62 @@
+name: Camera and wordbook candidate CI
+
+on:
+  push:
+    branches: [ci/camera-wordbook-operating-20261126]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    # main push와 수동 실행 모두 선택된 SHA를 먼저 검증한다.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+          lfs: true
+      - name: Select exact product source
+        run: |
+          test "$(git rev-parse HEAD^)" = "bb10a0d185d5d2f8211ab1363b2f19339c86a2be"
+          echo "51c32285b0434a3ecbf142973457e87c31690d36ffa4acc727e71f488672b4c0  .codex-ci/camera/ocr-contract-v1.examples.json" | sha256sum --check
+          cp .codex-ci/camera/ocr-contract-v1.examples.json "$RUNNER_TEMP/camera-contract.json"
+          echo "CAMERA_OCR_CONTRACT_EXAMPLES=$RUNNER_TEMP/camera-contract.json" >> "$GITHUB_ENV"
+          git checkout --detach bb10a0d185d5d2f8211ab1363b2f19339c86a2be
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify environment encoding with synthetic inputs
+        run: python -B scripts/check_release_env_encoding.py
+      - name: Verify public account deletion flag merging with synthetic inputs
+        run: python -B scripts/check_account_deletion_env_overrides.py
+      - name: Verify the exact release source
+        run: |
+          bash -n scripts/deploy-release.sh
+          python scripts/check_deploy_release.py
+          chmod +x gradlew
+          ./gradlew test bootJar --no-daemon
+      - name: Check exact camera and wordbook test counts
+        run: |
+          python3 - <<'PY'
+          import collections
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          tests = collections.defaultdict(list)
+          for path in Path('build/test-results/test').glob("*.xml"):
+              for case in ET.parse(path).iter("testcase"):
+                  tests[case.get("classname", "")].append(case)
+          camera = tests.get("jp.co.translacat.domain.cameratranslation.CameraProductFlowTest", [])
+          wordbook = tests.get("jp.co.translacat.domain.wordbook.WordbookFlowTest", [])
+          assert len(camera) == 6 and len(wordbook) == 7, (len(camera), len(wordbook))
+          chosen = camera + wordbook
+          assert all(case.find(tag) is None for case in chosen for tag in ("failure", "error", "skipped"))
+          print(f"Verified {len(chosen)} camera/wordbook tests, no skipped cases")
+          PY

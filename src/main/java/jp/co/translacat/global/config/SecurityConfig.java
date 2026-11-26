@@ -41,6 +41,14 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
     private static final RequestMatcher NOVEL_API_REQUESTS = novelApiRequests();
+    private static final RequestMatcher CAMERA_TRANSLATION_REQUESTS = cameraTranslationRequests();
+
+    // 카메라 번역과 OCR 작업에 공개 계약의 인증 응답을 적용한다.
+    private static RequestMatcher cameraTranslationRequests() {
+        PathPatternRequestMatcher.Builder paths = PathPatternRequestMatcher.withDefaults();
+        return new OrRequestMatcher(paths.matcher("/api/v1/image-translation/translations"),
+                paths.matcher("/api/v1/image-translation/ocr-jobs/**"));
+    }
 
     // 인증 필터에서 거부될 때도 앱이 서버 본문 형식을 해석할 수 있게 한다.
     private static void writePersonalTranslationAuthRequired(HttpServletResponse response) throws IOException {
@@ -142,6 +150,10 @@ public class SecurityConfig {
                                         (request, response, authException)
                                                 -> response.setStatus(HttpServletResponse.SC_NOT_FOUND),
                                         NOVEL_API_REQUESTS)
+                                .defaultAuthenticationEntryPointFor(
+                                        (request, response, authException)
+                                                -> writePersonalTranslationAuthRequired(response),
+                                        CAMERA_TRANSLATION_REQUESTS)
                                 .defaultAuthenticationEntryPointFor(
                                         (request, response, authException)
                                                 -> response.setStatus(HttpServletResponse.SC_UNAUTHORIZED),

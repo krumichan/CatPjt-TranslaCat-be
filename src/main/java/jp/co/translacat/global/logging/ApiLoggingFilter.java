@@ -36,6 +36,7 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
         if (redactionLabel != null) {
             // 민감 경로는 본문과 함께 인증 주체의 원문도 로그에서 제외한다.
             String loggedUri = switch (redactionLabel) {
+                case "CAMERA_TRANSLATION_REDACTED" -> "/api/v1/image-translation/[REDACTED]";
                 case "PUSH_INSTALLATION_REDACTED" -> "/api/v1/users/me/push-installations/[REDACTED]";
                 case "PUSH_INTERNAL_REDACTED" -> "/internal/v1/chat/push/[REDACTED]";
                 case "TEXT_READINGS_REDACTED" -> "/api/v1/text-readings/japanese";
@@ -116,6 +117,10 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
         if (uri != null && (uri.equals("/api/v1/image-translation/jobs")
                 || uri.startsWith("/api/v1/image-translation/jobs/"))) {
             return "IMAGE_TRANSLATION_REDACTED";
+        }
+        if ("/api/v1/image-translation/translations".equals(uri) || "/api/v1/image-translation/ocr-jobs".equals(uri)
+                || (uri != null && uri.startsWith("/api/v1/image-translation/ocr-jobs/"))) {
+            return "CAMERA_TRANSLATION_REDACTED";
         }
         // 읽기 요청·응답에는 비공개 채팅 번역문과 그 표면형이 들어간다.
         if (uri != null && uri.startsWith("/api/v1/text-readings/")) {

@@ -1,7 +1,7 @@
-name: Document isolated Linux capacity verification
+name: Document 512 MiB no-swap isolated experiment
 on:
   push:
-    branches: [ci/document-linux-capacity-20261126]
+    branches: [ci/document-linux-512mib-20261126]
 permissions:
   contents: read
 jobs:
@@ -62,17 +62,13 @@ jobs:
               images[role]=item['Id']
           pathlib.Path('control/.codex-ci/document-capacity/images.json').write_text(json.dumps(images))
           PY
-      - name: Measure full HTTP lifecycle with generous bounded memory
+      - name: Verify the same isolated lifecycle within 512 MiB
         run: |
-          sudo -E "$(command -v python3)" control/.codex-ci/document-capacity/run_linux_capacity.py --product-dir product --product-sha 4cc52ce63f665831e07cd7a8a099cb4d440a315e --phase generous --memory-mib 2048
-      - name: Verify the same lifecycle under a separate 768 MiB limit
-        run: |
-          sudo -E "$(command -v python3)" control/.codex-ci/document-capacity/run_linux_capacity.py --product-dir product --product-sha 4cc52ce63f665831e07cd7a8a099cb4d440a315e --phase bounded --memory-mib 768
+          sudo -E "$(command -v python3)" control/.codex-ci/document-capacity/run_linux_capacity.py --product-dir product --product-sha 4cc52ce63f665831e07cd7a8a099cb4d440a315e --phase bounded --memory-mib 512
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: document-linux-capacity-results
+          name: document-linux-512mib-results
           path: |
-            generous/evidence/*.json
             bounded/evidence/*.json
           if-no-files-found: error

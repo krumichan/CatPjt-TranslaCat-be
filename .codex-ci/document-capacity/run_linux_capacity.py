@@ -243,6 +243,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--product-dir', type=Path, required=True)
     parser.add_argument('--product-sha', required=True)
-    parser.add_argument('--memory-mib', type=int, choices=(2048, 768), required=True)
+    parser.add_argument('--memory-mib', type=int, choices=(2048, 768, 512), required=True)
     parser.add_argument('--phase', choices=('generous', 'bounded'), required=True)
     measure(parser.parse_args())

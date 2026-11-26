@@ -96,13 +96,17 @@ class CapacityHttp:
         require(self.sql("SELECT COUNT(*) FROM document_translation_job "
                          f"WHERE idempotency_key='{request_key}';") == [b"0"], "CAPACITY_DENIED_INSERTED")
 
-    def wait_status(self, token, job, state, seconds):
+    def wait_status(self, token, job, state, seconds, observe=None):
         """終端まで有限に待ち、失敗済みの仕事を成功扱いしない。"""
         limit = time.monotonic() + seconds
+        previous = None
         while time.monotonic() < limit:
             status, payload = self.call(token, "GET", BASE + "/" + job)
             data = json.loads(payload)
             require(status == 200 and data["jobId"] == job, "CAPACITY_STATUS_IDENTITY")
+            if observe is not None and data["status"] != previous:
+                previous = data["status"]
+                observe(previous)
             if data["status"] == state:
                 return data
             require(data["status"] not in {"FAILED", "EXPIRED", "CANCELLED"}, "CAPACITY_WRONG_TERMINAL")
@@ -115,9 +119,9 @@ class CapacityHttp:
         return {entry for entry in self.stack.workspace_entries()
                 if entry == base or entry.startswith(base + "/")}
 
-    def ready(self, token, job):
+    def ready(self, token, job, observe=None):
         """出力準備時の一つの結果と、元データの消滅を確認する。"""
-        row = self.wait_status(token, job, "SUCCEEDED", 175)
+        row = self.wait_status(token, job, "SUCCEEDED", 175, observe)
         files = self.entries(job)
         result = "job-" + job + "/result"
         require(result in files and files <= {result, "job-" + job}, "CAPACITY_READY_FILES")
@@ -140,7 +144,7 @@ class CapacityHttp:
             time.sleep(0.4)
         raise RuntimeError("CAPACITY_CLEANUP_TIMEOUT")
 
-    def save(self, token, other, job, ready):
+    def save(self, token, other, job, ready, first_headers=None):
         """最初の GET ヘッダー時点のパス不在、ZIP 実体、二度目の拒否を確認する。"""
         path = ready["downloadPath"]
         require(self.call(other, "GET", path)[0] == 404, "CAPACITY_NON_OWNER_STATUS")
@@ -150,6 +154,8 @@ class CapacityHttp:
                 require(response.status == 200 and response.getheader("Content-Type") == MEDIA[ready["format"]],
                         "CAPACITY_DOWNLOAD_HEADERS")
                 require(not self.entries(job), "CAPACITY_WORKSPACE_AT_FIRST_HEADERS")
+                if first_headers is not None:
+                    first_headers()
                 body = response.read(LIMIT + 1)
         require(len(body) == ready["outputSizeBytes"], "CAPACITY_DOWNLOAD_BYTES")
         with ZipFile(io.BytesIO(body)) as output:
@@ -180,7 +186,12 @@ def run_capacity_http(stack, *, port, input_dir, owner, other, checkpoint, isola
         code, _, job = api.submit(owner, name, source[name])
         require(code == 202 and job is not None, "CAPACITY_EXPECTED_ACCEPT")
         accepted.append(job)
-        report[label] = api.save(owner, other, job, api.ready(owner, job))
+        checkpoint(label + "_post_202")
+        # 通常文書は既存の status ポーリングで実際に得た段階だけを残す。
+        observe = (lambda state: checkpoint("normal_status_" + state)) if label == "normal" else None
+        first_headers = (lambda: checkpoint("normal_first_headers")) if label == "normal" else None
+        ready = api.ready(owner, job, observe)
+        report[label] = api.save(owner, other, job, ready, first_headers)
         checkpoint(label + "_end")
     checkpoint("expanded_over_start")
     code, _, job = api.submit(owner, "expanded-over.docx", source["expanded-over.docx"])

@@ -28,6 +28,7 @@ class LinuxStack(previous.Stack):
         self.relay = None
         self.relay_thread = None
         self.volatile_mounts = []
+        self.document_mount = None
 
     def docker(self, *args, data=None, environment=None, timeout=30, expected=(0,)):
         """CI の既知 daemon だけを使い、Mac ソケット・保存済み CLI 認証を使わない。"""
@@ -79,6 +80,7 @@ class LinuxStack(previous.Stack):
         mounts = self.work / 'volatile-mounts'
         mounts.mkdir(mode=0o700)
         doc = self.mount_volatile(mounts / 'document', 32, '0700')
+        self.document_mount = doc
         temporary = self.mount_volatile(mounts / 'temporary', 64, '1777')
         self.start_container('be', self.images['java'], [
             '--memory', str(self.memory_mib) + 'm', '--memory-swap', str(self.memory_mib) + 'm',
@@ -158,10 +160,30 @@ class LinuxStack(previous.Stack):
         self.relay_thread.start()
 
     def workspace_entries(self):
-        """同じ BE の専用領域の相対名だけを読み、本文を扱わない。"""
-        result = self.docker('exec', self.containers['be'], 'find',
-                             '/run/translacat-document-translation/work', '-maxdepth', '2', '-printf', '%P\n')
-        return {line for line in result.stdout.decode().splitlines() if line}
+        """自分が作った host tmpfs を読み、BE 内で観測用プロセスを作らない。"""
+        mount = self.document_mount
+        if (mount is None or mount not in self.volatile_mounts
+                or not mount.is_relative_to(self.work.resolve()) or mount.is_symlink()):
+            raise RuntimeError('CAPACITY_OWNED_MOUNT_CHANGED')
+        work = mount / 'work'
+        if work.is_symlink() or not work.is_dir():
+            raise RuntimeError('CAPACITY_WORKSPACE_UNAVAILABLE')
+
+        # アプリが消す途中の通常ファイルだけを読み、別の path や本文には触れない。
+        names = set()
+        for item in work.iterdir():
+            if item.is_symlink():
+                raise RuntimeError('CAPACITY_WORKSPACE_LINK')
+            names.add(item.name)
+            try:
+                if item.is_dir():
+                    for child in item.iterdir():
+                        if child.is_symlink():
+                            raise RuntimeError('CAPACITY_WORKSPACE_LINK')
+                        names.add(f'{item.name}/{child.name}')
+            except FileNotFoundError:
+                continue
+        return names
 
     def close(self):
         """host relay を終了し、既存の所有 ID/label 検証付き清掃を呼ぶ。"""

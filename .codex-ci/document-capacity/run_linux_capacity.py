@@ -1,14 +1,15 @@
 """実製品 bootJar を隔離 MySQL/合成モデルに接続し、HTTP と cgroup を同時に検査する。"""
 
 import argparse
-import ast
 from datetime import datetime, timezone
 from hashlib import file_digest
 import json
 import os
 import platform
 from pathlib import Path
+import re
 import shutil
+import stat
 import subprocess
 import sys
 import threading
@@ -18,8 +19,10 @@ import uuid
 import mac_runtime as previous
 from linux_stack import LinuxStack
 from linux_document_capacity_http import run_capacity_http
+from sample_container import group_for, inspect, product_process, require_outside
 
 ROOT = Path(__file__).resolve().parent
+HISTORICAL_JAR_SHA256 = '12b089388fb6af874a1dfb4183faf9a545585b2584e0ad70de7758b653858308'
 
 
 def digest(path):
@@ -38,6 +41,37 @@ def wait_file(path, process, seconds):
             raise RuntimeError('CAPACITY_SAMPLER_EXITED_EARLY')
         time.sleep(0.1)
     raise RuntimeError('CAPACITY_SAMPLER_READY_TIMEOUT')
+
+
+def perfdata_uri(pid, group):
+    """元の Java PID が公開した固定 tmpfs カウンタだけを file: で読む。"""
+    status = product_process(pid, group)
+    if status['NSpid'].split()[-1] != '1' or status['Uid'].split()[0] != '0':
+        raise RuntimeError('EXPECTED_BE_JAVA_PID_ONE')
+    path = Path(f'/proc/{pid}/root/tmp/hsperfdata_root/1')
+    if path.parent.is_symlink():
+        raise RuntimeError('BE_PERFDATA_SCOPE')
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or not 0 < info.st_size <= 1048576:
+        raise RuntimeError('BE_PERFDATA_SCOPE')
+    return path.as_uri()
+
+
+def diagnosis(report):
+    """機能・観測・コンテナ OOM の帰結を固定コードにする。"""
+    if report['passed']:
+        return 'ISOLATED_512MIB_PASS'
+    if report.get('backendExitState', {}).get('oomKilled') is True:
+        return 'BE_CONTAINER_OOM'
+    sampler_failure = report.get('sampling', {}).get('fixedFailure')
+    telemetry_failures = {'HOST_HEAP_TELEMETRY_UNAVAILABLE', 'CAPACITY_SAMPLER_READY_TIMEOUT',
+                          'CAPACITY_SAMPLER_EXITED_EARLY', 'OBSERVER_INSIDE_BE_CGROUP',
+                          'UNEXPECTED_BE_CGROUP_PROCESS', 'BE_PERFDATA_SCOPE'}
+    if report.get('fixedFailure') in telemetry_failures or sampler_failure in telemetry_failures:
+        return 'HOST_TELEMETRY_INCOMPLETE'
+    if report.get('harnessExitCode') != 0:
+        return 'FUNCTIONAL_OR_SETUP_FAILURE'
+    return 'ISOLATED_EVIDENCE_INCOMPLETE'
 
 
 def measure(args):
@@ -69,6 +103,9 @@ def measure(args):
     if len(jars) != 1:
         raise RuntimeError('EXACT_BOOT_JAR_REQUIRED')
     jar = jars[0]
+    jar_sha = digest(jar)
+    if jar.is_symlink() or not re.fullmatch('[a-f0-9]{64}', args.jar_sha256) or jar_sha != args.jar_sha256:
+        raise RuntimeError('BOOT_JAR_SHA_MISMATCH')
     required = {'20261019_auth_sessions.sql', '20261122_document_translation_jobs.sql',
                 '20261122_document_translation_object_writes.sql', '20261123_document_translation_multipart_uploads.sql'}
     selected = tuple(name for name in previous.MYSQL_MIGRATIONS if (product / 'scripts/sql' / name).is_file())
@@ -84,37 +121,85 @@ def measure(args):
     db_states = {'samples': 0, 'errors': 0, 'targetIntervalMs': 100,
                  'maxQueued': 0, 'maxRunning': 0, 'maxReady': 0, 'maxActiveOrReady': 0,
                  'maxQueryElapsedMs': 0}
-    heap = {'samples': 0, 'sampledPeakHeapUsedBytes': 0, 'jstatOverheadIncludedInCgroup': True}
+    heap = {'samples': 0, 'sampledPeakHeapUsedBytes': None,
+            'jstatOverheadIncludedInCgroup': False, 'jstatOutsideBeCgroup': False}
+    first_heap = threading.Event()
+    be_group = None
+    started = time.monotonic()
     report = {'atUtc': datetime.now(timezone.utc).isoformat(), 'phase': args.phase,
-              'productSha': args.product_sha, 'jarSha256': digest(jar), 'owner': owner,
+              'productSha': args.product_sha, 'jarSha256': jar_sha, 'owner': owner,
+              'historicalJarSha256': HISTORICAL_JAR_SHA256,
+              'historicalJarByteMatch': jar_sha == HISTORICAL_JAR_SHA256,
+              'comparison': ('HISTORICAL_JAR_BYTE_EXACT' if jar_sha == HISTORICAL_JAR_SHA256
+                             else 'SAME_SOURCE_REBUILT_JAR'),
+              'javaXmxMiB': 256, 'jstatMode': 'HOST_FILE_PERFDATA',
               'memoryLimitMiB': args.memory_mib, 'passed': False, 'operatingRequests': 0,
               'paidProviderCalls': 0, 'productionCapacityProven': False, 'checkpoints': [],
               'kernelRelease': platform.release(), 'cgroupVersion': 2,
               'dockerServerVersion': subprocess.check_output(
                   ['docker', 'version', '--format', '{{.Server.Version}}'], timeout=10).decode().strip()}
     completed = evidence / 'completed.json'
+
+    def checkpoint(label):
+        """実際に到達した段階とその時の kernel カウンタだけを記録する。"""
+        mark = {'phase': label, 'elapsedMs': round((time.monotonic() - started) * 1000)}
+        if be_group is not None:
+            try:
+                mark.update({field: int(be_group.joinpath(name).read_text())
+                             for field, name in (('memoryCurrentBytes', 'memory.current'),
+                                                 ('memoryPeakBytes', 'memory.peak'),
+                                                 ('swapCurrentBytes', 'memory.swap.current'))})
+            except FileNotFoundError:
+                mark['cgroupSnapshotAvailable'] = False
+        report['checkpoints'].append(mark)
+
     try:
         stack.start()
         stack.start_mysql(source)
         stack.start_provider(ROOT / 'fixture_provider.py')
         stack.prepare_be(source, jar)
+        if digest(jar) != jar_sha:
+            raise RuntimeError('BOOT_JAR_SHA_MISMATCH')
         stack.start_be()
+        report['containerId'] = stack.containers['be']
+        backend = inspect(report['containerId'], owner)
+        if (not backend['State']['Running'] or backend['Config']['Cmd'].count('-Xmx256m') != 1):
+            raise RuntimeError('EXACT_BE_RUNTIME_REQUIRED')
+        be_pid = backend['State']['Pid']
+        be_group = group_for(be_pid)
+        require_outside(os.getpid(), be_group)
+        report['harnessOutsideBeCgroup'] = True
+        checkpoint('be_started')
         stack.start_host_relay()
         stack.wait_be_ready()
+        checkpoint('be_health_ready')
         _login, token = stack.seed_account(Path(shutil.which('java')), source, jar, 'Owner')
         _other, other = stack.seed_account(Path(shutil.which('java')), source, jar, 'Other')
-        report['containerId'] = stack.containers['be']
+        checkpoint('synthetic_logins_complete')
         sampler = subprocess.Popen([
             sys.executable, str(ROOT / 'sample_container.py'), '--container-id', stack.containers['be'],
             '--owner', owner, '--product-sha', args.product_sha,
             '--completed-file', str(completed), '--output', str(evidence / 'sampling.json')],
             cwd=phase, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        wait_file(evidence / 'sampler-ready.json', sampler, 20)
+        ready = evidence / 'sampler-ready.json'
+        wait_file(ready, sampler, 20)
+        marker = json.loads(ready.read_text())
+        if (marker['owner'] != owner or marker['productSha'] != args.product_sha
+                or marker['containerId'] != report['containerId'] or marker['bePid'] != be_pid
+                or marker['samplingReady'] is not True):
+            raise RuntimeError('CAPACITY_SAMPLER_IDENTITY')
+        require_outside(sampler.pid, be_group)
+        checkpoint('baseline_before_jstat')
 
-        # 同じ JVM の perf counters を標本化する。計測プロセスの費用も cgroup に含む。
-        jstat = subprocess.Popen(['docker', 'exec', stack.containers['be'],
-                                  '/opt/java/openjdk/bin/jstat', '-gc', '1', '100', '6000'],
-                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        # BE を exec せず、host JVM の jstat が専用 /tmp の読み取り専用 PerfData を参照する。
+        executable = Path(os.environ['JAVA_HOME']) / 'bin/jstat'
+        try:
+            jstat = subprocess.Popen([str(executable), '-gc', perfdata_uri(be_pid, be_group), '100', '6000'],
+                                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+            require_outside(jstat.pid, be_group)
+        except OSError as unavailable:
+            raise RuntimeError('HOST_HEAP_TELEMETRY_UNAVAILABLE') from unavailable
+        heap['jstatOutsideBeCgroup'] = True
 
         def read_heap():
             """既知の heap 列の数値だけを残し、標本の生ログを保存しない。"""
@@ -129,11 +214,16 @@ def measure(args):
                         used = round(sum(float(record[key]) for key in ('S0U', 'S1U', 'EU', 'OU')) * 1024)
                     except (KeyError, ValueError, OverflowError):
                         continue
+                    peak = heap['sampledPeakHeapUsedBytes']
                     heap['samples'] += 1
-                    heap['sampledPeakHeapUsedBytes'] = max(heap['sampledPeakHeapUsedBytes'], used)
+                    heap['sampledPeakHeapUsedBytes'] = used if peak is None else max(peak, used)
+                    first_heap.set()
 
         reader = threading.Thread(target=read_heap, daemon=True)
         reader.start()
+        if not first_heap.wait(8):
+            raise RuntimeError('HOST_HEAP_TELEMETRY_UNAVAILABLE')
+        checkpoint('host_observers_ready')
 
         def read_db_states():
             """同じ合成 DB の状態件数だけを集計し、query の実所要時間も記録する。"""
@@ -159,15 +249,14 @@ def measure(args):
 
         db_reader = threading.Thread(target=read_db_states, daemon=True)
         db_reader.start()
-        started = time.monotonic()
-
-        def checkpoint(label):
-            """機能の固定段階と相対時刻だけを記録する。"""
-            report['checkpoints'].append({'phase': label, 'elapsedMs': round((time.monotonic() - started) * 1000)})
+        checkpoint('before_first_http_case')
 
         report['http'] = run_capacity_http(stack, port=previous.BE_PORT, input_dir=ROOT / 'fixtures',
                                            owner=token, other=other, checkpoint=checkpoint, isolated_fixture=True)
         report['harnessExitCode'] = 0
+        heap['jstatAliveAtHttpCompletion'] = jstat.poll() is None
+        if not heap['jstatAliveAtHttpCompletion']:
+            raise RuntimeError('HOST_HEAP_TELEMETRY_UNAVAILABLE')
     except Exception as failure:
         report['harnessExitCode'] = 1
         report['errorType'] = type(failure).__name__
@@ -220,20 +309,28 @@ def measure(args):
                 sampler.wait(timeout=5)
         if (evidence / 'sampling.json').is_file():
             report['sampling'] = json.loads((evidence / 'sampling.json').read_text())
-        report['cleanup'] = stack.close()
-        if jstat:
+        if jstat is not None and jstat.poll() is None:
+            jstat.terminate()
             try:
                 jstat.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                jstat.terminate()
+                jstat.kill()
                 jstat.wait(timeout=5)
         if reader:
             reader.join(timeout=5)
+        heap['jstatStopped'] = jstat is None or jstat.poll() is not None
         report['heap'] = heap
-        report['passed'] = (report.get('harnessExitCode') == 0 and report.get('sampling', {}).get('passed')
-                             and heap['samples'] > 0 and db_states['samples'] > 0
-                             and db_states['errors'] == 0 and db_states['maxActiveOrReady'] <= 1
-                             and report['cleanup']['owned_resources_removed'])
+        report['cleanup'] = stack.close()
+        sampling = report.get('sampling', {})
+        report['passed'] = (report.get('harnessExitCode') == 0 and sampling.get('passed') is True
+                             and sampling.get('observerOutsideBeCgroup') is True
+                             and sampling.get('finalCgroupCountersAvailable') is True
+                             and heap['jstatOutsideBeCgroup'] and heap['jstatStopped'] and heap['samples'] > 0
+                             and heap.get('jstatAliveAtHttpCompletion') is True
+                             and db_states['samples'] > 0 and db_states['errors'] == 0
+                             and db_states['maxActiveOrReady'] <= 1
+                             and report['cleanup']['owned_resources_removed']
+                             and report['cleanup']['owned_volatile_mounts_removed'])
         report['migrationNames'] = selected
         report['images'] = images
         (evidence / 'capacity-result.json').write_text(json.dumps(report, indent=2))
@@ -243,6 +340,8 @@ def measure(args):
         if report['cleanup']['owned_resources_removed']:
             shutil.rmtree(work)
         report['ownedWorkRemoved'] = not work.exists()
+        report['passed'] = report['passed'] and report['ownedWorkRemoved']
+        report['diagnosis'] = diagnosis(report)
         (evidence / 'capacity-result.json').write_text(json.dumps(report, indent=2))
     print(json.dumps({'phase': args.phase, 'passed': report['passed'],
                       'fixedFailure': report.get('fixedFailure'), 'cleanup': report['cleanup']}))
@@ -254,6 +353,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--product-dir', type=Path, required=True)
     parser.add_argument('--product-sha', required=True)
-    parser.add_argument('--memory-mib', type=int, choices=(2048, 768, 512), required=True)
+    parser.add_argument('--jar-sha256', required=True)
+    parser.add_argument('--memory-mib', type=int, choices=(512,), required=True)
     parser.add_argument('--phase', choices=('generous', 'bounded'), required=True)
     measure(parser.parse_args())

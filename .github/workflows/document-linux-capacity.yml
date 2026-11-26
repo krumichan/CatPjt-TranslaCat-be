@@ -1,7 +1,7 @@
-name: Document 512 MiB no-swap experiment with 256 MiB Java heap
+name: Document 512 MiB no-swap with host observers
 on:
   push:
-    branches: [ci/document-linux-512mib-xmx256-20261126]
+    branches: [ci/document-linux-512mib-host-observer-20261127]
 permissions:
   contents: read
 jobs:
@@ -23,12 +23,12 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '21.0.13+9'
           cache: gradle
           cache-dependency-path: product/**/*.gradle*
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.12.16'
       - name: Verify fixed source and synthetic input pins
         run: |
           set -euo pipefail
@@ -43,32 +43,46 @@ jobs:
               assert hashlib.sha256(path.read_bytes()).hexdigest()==expected,name
               if path.suffix=='.py': ast.parse(path.read_text())
           PY
-      - name: Compile the exact capacity candidate
+      - name: Build and pin one candidate bootJar
         working-directory: product
         run: |
           set -euo pipefail
           chmod +x gradlew
           ./gradlew bootJar --no-daemon
-      - name: Resolve and record public runtime images before isolation
+      - name: Resolve the three previously measured runtime images
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import json,pathlib,subprocess
+          references={
+              'java': ('eclipse-temurin@sha256:b2711c65970c1227197c29c46e669bfdbb137524e9da0e664703a140ec25a040',
+                       'sha256:1697f9573604a15ffdd147ac2d90c45e2df0334fc28124ad1b87bc6795c59b2b'),
+              'mysql': ('mysql@sha256:8c233bad33d520a7aae1c1e619c3a9775f4a1ba2d463d692fada04ec7f40be00',
+                        'sha256:0977972cb2d5dd2bb989213b9973a612df98d3d018c0473314475d69e9a3241f'),
+              'python': ('python@sha256:191083cdf6c7bda8c76158983163ead5d5cf7b77cf3033e805bb0f5296f51b4b',
+                         'sha256:d497f3e5689c500c07dd6c13dee73cd21ed4da604e09ecd99059843c09ab8cd6'),
+          }
           images={}
-          for role,tag in {'java':'eclipse-temurin:21-jdk-jammy','mysql':'mysql:8.4','python':'python:3.12-slim'}.items():
-              subprocess.run(['docker','pull',tag],check=True)
-              item=json.loads(subprocess.check_output(['docker','image','inspect',tag]))[0]
-              assert item['Os']=='linux' and item['Architecture']=='amd64'
-              images[role]=item['Id']
+          for role,(reference,expected) in references.items():
+              subprocess.run(['docker','pull','--platform','linux/amd64',reference],check=True)
+              item=json.loads(subprocess.check_output(['docker','image','inspect',reference]))[0]
+              assert item['Id']==expected and item['Os']=='linux' and item['Architecture']=='amd64',role
+              images[role]=expected
           pathlib.Path('control/.codex-ci/document-capacity/images.json').write_text(json.dumps(images))
           PY
-      - name: Verify the same isolated lifecycle within 512 MiB
+      - name: Run the isolated lifecycle with host observers
         run: |
-          sudo -E "$(command -v python3)" control/.codex-ci/document-capacity/run_linux_capacity.py --product-dir product --product-sha 4cc52ce63f665831e07cd7a8a099cb4d440a315e --phase bounded --memory-mib 512
+          set -euo pipefail
+          mapfile -t jars < <(find product/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' | sort)
+          test "${#jars[@]}" -eq 1
+          jar_sha="$(sha256sum "${jars[0]}" | cut -d' ' -f1)"
+          sudo -E "$(command -v python3)" control/.codex-ci/document-capacity/run_linux_capacity.py \
+            --product-dir product --product-sha 4cc52ce63f665831e07cd7a8a099cb4d440a315e \
+            --jar-sha256 "$jar_sha" --phase bounded --memory-mib 512
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: document-linux-512mib-xmx256-results
+          name: document-linux-512mib-host-observer-results
           path: |
             bounded/evidence/*.json
           if-no-files-found: error

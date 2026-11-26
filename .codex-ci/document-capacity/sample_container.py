@@ -48,7 +48,7 @@ def pairs(path, names):
     return result
 
 
-def group_for(pid):
+def group_for(pid, *, allow_root=False):
     """host PID の cgroup v2 を host の既知の mount 下に限定する。"""
     rows = Path(f'/proc/{pid}/cgroup').read_text().splitlines()
     paths = [row[3:] for row in rows if row.startswith('0::')]
@@ -56,9 +56,26 @@ def group_for(pid):
         raise RuntimeError('CGROUP_V2_REQUIRED')
     root = Path('/sys/fs/cgroup').resolve()
     group = (root / paths[0].lstrip('/')).resolve(strict=True)
-    if group == root or not group.is_relative_to(root):
+    if not group.is_relative_to(root) or (group == root and not allow_root):
         raise RuntimeError('CGROUP_SCOPE_INVALID')
     return group
+
+
+def require_outside(pid, target):
+    """観測 PID が対象 cgroup とその子にいないことを確認する。"""
+    if group_for(pid, allow_root=True).is_relative_to(target):
+        raise RuntimeError('OBSERVER_INSIDE_BE_CGROUP')
+
+
+def product_process(pid, group):
+    """元コンテナ PID だけが cgroup を使うことを、観測ごとに確認する。"""
+    if group.joinpath('cgroup.procs').read_text().split() != [str(pid)]:
+        raise RuntimeError('UNEXPECTED_BE_CGROUP_PROCESS')
+    lines = Path(f'/proc/{pid}/status').read_text().splitlines()
+    values = {key: value.strip() for key, value in (line.split(':', 1) for line in lines)}
+    if values.get('Name') != 'java' or group_for(pid) != group:
+        raise RuntimeError('PRODUCT_JAVA_IDENTITY_CHANGED')
+    return values
 
 
 def mount_for(pid):
@@ -118,27 +135,11 @@ def footprint(path):
             'tmpfsUsedInodes': volume.f_files - volume.f_ffree}
 
 
-def java_status(group):
-    """同じ cgroup の Java PID の status 集計だけを読む。共有ページの重複を含み得る。"""
-    totals = {'VmRSS': 0, 'VmHWM': 0, 'VmSwap': 0, 'javaProcesses': 0}
-    pids = group.joinpath('cgroup.procs').read_text().splitlines()
-    if len(pids) > 64:
-        raise RuntimeError('PROCESS_COUNT_BOUND')
-    for raw in pids:
-        if not raw.isdigit():
-            raise RuntimeError('PROCESS_ID_INVALID')
-        try:
-            lines = Path('/proc', raw, 'status').read_text().splitlines()
-        except FileNotFoundError:
-            continue
-        if not any(line.startswith('Name:') and line.split(':', 1)[1].strip() == 'java' for line in lines):
-            continue
-        totals['javaProcesses'] += 1
-        for line in lines:
-            key, value = line.split(':', 1)
-            if key in ('VmRSS', 'VmHWM', 'VmSwap'):
-                totals[key] += int(value.split()[0]) * 1024
-    return totals
+def java_status(pid, group):
+    """単一の製品 Java PID から resident の内訳だけを採る。"""
+    names = ('VmRSS', 'VmHWM', 'VmSwap', 'RssAnon', 'RssFile', 'RssShmem')
+    status = product_process(pid, group)
+    return {key: int(status[key].split()[0]) * 1024 for key in names} | {'javaProcesses': 1}
 
 
 def main():
@@ -172,19 +173,20 @@ def main():
             raise RuntimeError('CONTAINER_NOT_RUNNING')
         pid = value['State']['Pid']
         group = group_for(pid)
+        require_outside(os.getpid(), group)
+        report['observerOutsideBeCgroup'] = True
+        report['bePid'] = pid
         workspace, mount = mount_for(pid)
         report['mount'] = mount
         report['memoryMax'] = group.joinpath('memory.max').read_text().strip()
         report['swapMax'] = group.joinpath('memory.swap.max').read_text().strip()
-        if not report['memoryMax'].isdigit() or report['swapMax'] != '0':
+        if report['memoryMax'] != '536870912' or report['swapMax'] != '0':
             raise RuntimeError('BOUNDED_MEMORY_AND_ZERO_SWAP_REQUIRED')
         initial = pairs(group / 'memory.events', EVENTS)
         final = initial
         started = time.monotonic()
         maximum_swap = 0
-        # launcher は標本開始の後に Java を実行し、終了後も container を保持する。
-        ready.write_text(json.dumps({'owner': args.owner, 'productSha': args.product_sha,
-                                    'containerId': args.container_id, 'samplingReady': True}))
+        # jstat と最初の POST より先に、ホストから一つ目の標本を保存する。
         while time.monotonic() - started < 600:
             if not Path(f'/proc/{pid}/cgroup').is_file() or group_for(pid) != group:
                 raise RuntimeError('CONTAINER_EXITED_BEFORE_FINAL_OBSERVATION')
@@ -192,7 +194,7 @@ def main():
                 'memoryCurrent': int(group.joinpath('memory.current').read_text()),
                 'memoryPeak': int(group.joinpath('memory.peak').read_text()),
                 'swapCurrent': int(group.joinpath('memory.swap.current').read_text()),
-                **pairs(group / 'memory.stat', MEMORY), **java_status(group), **footprint(workspace),
+                **pairs(group / 'memory.stat', MEMORY), **java_status(pid, group), **footprint(workspace),
             }
             maximum_swap = max(maximum_swap, sample['swapCurrent'])
             final = pairs(group / 'memory.events', EVENTS)
@@ -200,6 +202,14 @@ def main():
                 report['peaks'][key] = max(report['peaks'].get(key, number), number)
                 report['minimums'][key] = min(report['minimums'].get(key, number), number)
             report['samples'] += 1
+            report['eventDeltas'] = {key: final[key] - initial[key] for key in EVENTS}
+            if report['samples'] == 1:
+                report['beforeJstatAndPost'] = sample
+                temporary = ready.with_suffix('.tmp')
+                temporary.write_text(json.dumps({'owner': args.owner, 'productSha': args.product_sha,
+                                                 'containerId': args.container_id, 'bePid': pid,
+                                                 'samplingReady': True, 'baseline': sample}))
+                temporary.replace(ready)
             if completed.is_file():
                 if completed.stat().st_size > 8192:
                     raise RuntimeError('COMPLETION_INPUT_BOUND')
@@ -219,6 +229,7 @@ def main():
                 if not last['State']['Running'] or last['State']['Pid'] != pid:
                     raise RuntimeError('CONTAINER_EXITED_BEFORE_FINAL_OBSERVATION')
                 report['containerOomKilled'] = last['State']['OOMKilled']
+                report['finalCgroupCountersAvailable'] = True
                 break
             time.sleep(0.1)
         else:
@@ -230,6 +241,8 @@ def main():
                             and not report.get('containerOomKilled')
                             and all(report['eventDeltas'][key] == 0 for key in ('oom', 'oom_kill')))
     except Exception as failure:
+        # cgroup が消えた場合は最後に成功した標本と区別して保持する。
+        report.setdefault('finalCgroupCountersAvailable', False)
         report['errorType'] = type(failure).__name__
         report['fixedFailure'] = (str(failure) if re.fullmatch('[A-Z_]+', str(failure))
                                   else 'SAMPLING_UNAVAILABLE')

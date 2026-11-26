@@ -47,6 +47,9 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
             Return each segment and piece exactly once in their original order with the same IDs.
             Preserve tabs, line breaks and non-text pieces. Never insert markup, comments or untranslated markers.
             """;
+    private static final String JA_EN_HANGUL_INSTRUCTION =
+            "Do not introduce Hangul (Korean script) into the English translation of a segment "
+                    + "if none of that segment's source pieces contains Hangul.";
     private static final String RESPONSE_SCHEMA = """
             {
               "type":"object","additionalProperties":false,"required":["segments"],
@@ -119,8 +122,10 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
         if (callMillis <= RESPONSE_RESERVE_MILLIS) {
             throw failure(Reason.TIMEOUT);
         }
+        boolean checkIntroducedHangul = "ja".equals(sourceLanguage) && "en".equals(targetLanguage);
         byte[] command = executionCommand(
-                jobId, batchNo, sourceLanguage, targetLanguage, segments, callMillis - RESPONSE_RESERVE_MILLIS);
+                jobId, batchNo, sourceLanguage, targetLanguage, segments, callMillis - RESPONSE_RESERVE_MILLIS,
+                checkIntroducedHangul);
 
         // 제한을 넘어 수신하거나 호출 스레드가 중단되면 구독을 취소한다.
         var future = client.post()
@@ -151,7 +156,7 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
         if (status != 200) {
             throw classifyFailure(status, response.getBody());
         }
-        return readBatch(response.getBody(), segments);
+        return readBatch(response.getBody(), segments, checkIntroducedHangul);
     }
 
     // 지시는 BE 고정 문장으로 보내고 문서 문자열은 user 메시지의 JSON 데이터에만 둔다.
@@ -161,7 +166,8 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
             String sourceLanguage,
             String targetLanguage,
             List<DocumentFormatPort.Segment> segments,
-            long providerMillis) throws Failure {
+            long providerMillis,
+            boolean checkIntroducedHangul) throws Failure {
         var payload = mapper.createObjectNode();
         payload.put("sourceLanguage", sourceLanguage);
         payload.put("targetLanguage", targetLanguage);
@@ -179,7 +185,8 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
             var command = mapper.createObjectNode();
             command.put("traceId", jobId + ":" + batchNo);
             command.put("taskName", "DOCUMENT_TRANSLATION_V1");
-            command.put("instructions", INSTRUCTIONS);
+            String instructions = checkIntroducedHangul ? INSTRUCTIONS + JA_EN_HANGUL_INSTRUCTION : INSTRUCTIONS;
+            command.put("instructions", instructions);
             command.putArray("messages").addObject()
                     .put("role", "user")
                     .put("content", mapper.writeValueAsString(payload));
@@ -232,7 +239,8 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
     }
 
     // 순서와 조각 ID를 보존했는지 확인하고 데이터에서 파트 이름이나 위치를 추론하지 않는다.
-    private Batch readBatch(byte[] body, List<DocumentFormatPort.Segment> requested) throws Failure {
+    private Batch readBatch(
+            byte[] body, List<DocumentFormatPort.Segment> requested, boolean checkIntroducedHangul) throws Failure {
         if (body == null || body.length == 0) {
             throw failure(Reason.INVALID_RESPONSE);
         }
@@ -272,18 +280,29 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
                     || !resultPieces.isArray() || resultPieces.size() != segment.pieces().size()) {
                 throw failure(Reason.INVALID_RESPONSE);
             }
+            // 원문 여러 조각 중 하나라도 한글이 있으면 해당 번역 단위의 한글은 허용한다.
+            boolean rejectHangul = checkIntroducedHangul
+                    && segment.pieces().stream().noneMatch(piece -> containsHangul(piece.text()));
             for (int pieceIndex = 0; pieceIndex < segment.pieces().size(); pieceIndex++) {
                 var source = segment.pieces().get(pieceIndex);
                 var translated = resultPieces.get(pieceIndex);
                 String text = translated.path("text").textValue();
                 if (!translated.isObject() || translated.size() != 2
                         || !source.id().equals(translated.path("pieceId").textValue())
-                        || !validTranslation(source.text(), text) || pieces.putIfAbsent(source.id(), text) != null) {
+                        || !validTranslation(source.text(), text)
+                        || (rejectHangul && containsHangul(text))
+                        || pieces.putIfAbsent(source.id(), text) != null) {
                     throw failure(Reason.INVALID_RESPONSE);
                 }
             }
         }
         return new Batch(pieces, model);
+    }
+
+    // 완성형과 자모를 포함해 텍스트 조각의 한글 코드 포인트를 찾는다.
+    private static boolean containsHangul(String text) {
+        return text.codePoints().anyMatch(codePoint -> Character.UnicodeScript.of(codePoint)
+                == Character.UnicodeScript.HANGUL);
     }
 
     // XML이 표현할 수 있는 문자만 받으며 줄 구조와 사용자 원문의 미번역 표식을 구분한다.

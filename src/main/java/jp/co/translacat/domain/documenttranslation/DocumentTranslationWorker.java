@@ -34,7 +34,6 @@ import java.util.stream.Collectors;
 /** 문서 접수와 번역을 실행 풀, 리스, 전체 마감으로 격리한다. */
 final class DocumentTranslationWorker implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(DocumentTranslationWorker.class);
-    private static final int WORKERS = 2;
     private static final int EFFECTIVE_BATCH_CONCURRENCY = 2;
     private static final int UNITS_PER_BATCH = 32;
     private static final int CHARACTERS_PER_BATCH = 4_000;
@@ -44,16 +43,22 @@ final class DocumentTranslationWorker implements AutoCloseable {
     private final DocumentFormatPort formats;
     private final DocumentTranslationGateway translator;
     private final Clock clock;
-    private final ExecutorService executor = Executors.newFixedThreadPool(WORKERS);
-    private final ExecutorService batchExecutor = Executors.newFixedThreadPool(WORKERS * EFFECTIVE_BATCH_CONCURRENCY);
+    private final ExecutorService executor;
+    private final ExecutorService batchExecutor;
     private final ScheduledExecutorService heartbeat = Executors.newSingleThreadScheduledExecutor();
     private final ExecutorService maintenance = Executors.newSingleThreadExecutor();
     private final AtomicBoolean cleaning = new AtomicBoolean();
-    private final Semaphore slots = new Semaphore(WORKERS);
+    private final Semaphore slots;
 
     // 각 포트를 모듈의 작업 처리 흐름으로 연결한다.
     DocumentTranslationWorker(DocumentJobRepository repository, DocumentTransientFiles files,
-            DocumentFormatPort formats, DocumentTranslationGateway translator, Clock clock) {
+            DocumentFormatPort formats, DocumentTranslationGateway translator, Clock clock, DocumentTranslationCapacity capacity) {
+        // 같은 처리 한도에서 문서별 작업 풀과 번역 배치 풀을 만든다.
+        int workers = capacity.workers();
+        this.executor = Executors.newFixedThreadPool(workers);
+        this.batchExecutor = Executors.newFixedThreadPool(workers * EFFECTIVE_BATCH_CONCURRENCY);
+        this.slots = new Semaphore(workers);
+
         this.repository = repository;
         this.files = files;
         this.formats = formats;

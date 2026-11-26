@@ -56,15 +56,19 @@ final class DocumentTransientFiles implements AutoCloseable {
     private final FileChannel lockChannel;
     private final FileLock runtimeLock;
     private final Map<UUID, Workspace> workspaces = new HashMap<>();
+    private final DocumentTranslationCapacity capacity;
+    private long reservedBytes;
     private boolean closing;
 
     /**
      * 전용 작업 루트를 열고 배타 잠금을 확보한 다음 이전 프로세스의 파일을 정리한다.
      *
      * @param configuredRoot 루트의 실제 부모 디렉터리가 존재하는 전용 경로
+     * @param capacity 문서 작업 수와 예약 바이트 한도
      * @throws IOException 루트 권한, 런타임 잠금, 시작 정리를 확인할 수 없을 때
      */
-    DocumentTransientFiles(Path configuredRoot) throws IOException {
+    DocumentTransientFiles(Path configuredRoot, DocumentTranslationCapacity capacity) throws IOException {
+        this.capacity = Objects.requireNonNull(capacity);
         root = prepareRoot(configuredRoot);
         Path lockPath = root.resolve(LOCK_FILE);
         if (attributes(lockPath) != null) {
@@ -96,16 +100,28 @@ final class DocumentTransientFiles implements AutoCloseable {
         lockChannel = channel;
     }
 
-    // 같은 작업 ID의 이전 파일을 재사용하지 않고 새 디렉터리를 등록한다.
-    synchronized Path create(UUID jobId) throws IOException {
+    // 새 작업의 원본과 최대 결과 바이트를 실제 삭제까지 함께 예약한다.
+    synchronized Path create(UUID jobId, long inputBytes) throws IOException {
         requireOpen();
         Objects.requireNonNull(jobId);
         if (workspaces.containsKey(jobId)) {
             throw new FileAlreadyExistsException("Document workspace is already registered.");
         }
+        long maxOutput = DocumentTranslationService.MAX_UPLOAD_BYTES;
+        if (inputBytes < 1 || inputBytes > maxOutput) {
+            throw new IOException("Invalid document workspace input size");
+        }
+        long reservation = inputBytes + maxOutput;
+        if (workspaces.size() >= capacity.workspaces()
+                || reservation > capacity.workspaceBytes() - reservedBytes) {
+            throw new IOException("Document workspace capacity is exhausted");
+        }
+
+        // 디렉터리를 만들 때만 예약을 등록하고 이후 실제 삭제를 확인할 때만 돌려준다.
         Path directory = root.resolve(JOB_PREFIX + jobId);
         Files.createDirectory(directory);
-        workspaces.put(jobId, new Workspace(directory));
+        workspaces.put(jobId, new Workspace(directory, reservation));
+        reservedBytes += reservation;
         return directory;
     }
 
@@ -328,6 +344,7 @@ final class DocumentTransientFiles implements AutoCloseable {
     private void discardIdle(UUID jobId, Workspace workspace) throws IOException {
         removeWorkspace(workspace.directory);
         workspaces.remove(jobId);
+        reservedBytes -= workspace.reservedBytes;
     }
 
     // 종료가 요청된 런타임의 마지막 사용권까지 반환되었을 때만 배타 잠금을 놓는다.
@@ -629,6 +646,7 @@ final class DocumentTransientFiles implements AutoCloseable {
     /** 런타임 잠금 아래 생성한 디렉터리의 현재 사용·만료 상태를 저장한다. */
     private static final class Workspace {
         private final Path directory;
+        private final long reservedBytes;
         private Instant expiresAt;
         private byte[] sourceFingerprint;
         private int borrowers;
@@ -636,8 +654,9 @@ final class DocumentTransientFiles implements AutoCloseable {
         private boolean resultClaimed;
         private boolean sourceErased;
 
-        private Workspace(Path directory) {
+        private Workspace(Path directory, long reservedBytes) {
             this.directory = directory;
+            this.reservedBytes = reservedBytes;
         }
     }
 }

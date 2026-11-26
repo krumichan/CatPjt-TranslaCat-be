@@ -27,7 +27,7 @@ final class DocumentTransientFilesTest {
     void startupReclaimsKnownFilesWithoutTouchingUnrelatedPaths() throws IOException {
         // 준비: 전용 루트, 이전 작업, 이름이 비슷한 다른 경로를 만든다.
         Path root = root();
-        try (var initialized = new DocumentTransientFiles(root)) {
+        try (var initialized = new DocumentTransientFiles(root, DocumentTranslationCapacity.DEFAULT)) {
             assertTrue(Files.isDirectory(root));
         }
         Path orphan = Files.createDirectory(root.resolve("job-" + UUID.randomUUID()));
@@ -41,7 +41,7 @@ final class DocumentTransientFilesTest {
         Path caseMarker = Files.writeString(otherCase.resolve("source"), "keep case");
 
         // 실행: 동일한 루트의 다음 런타임을 시작한다.
-        try (var files = new DocumentTransientFiles(root)) {
+        try (var files = new DocumentTransientFiles(root, DocumentTranslationCapacity.DEFAULT)) {
             // 검증: 명확한 이전 작업만 치우고 무관한 파일을 보존한다.
             assertFalse(Files.exists(orphan));
             assertEquals("keep", Files.readString(marker));
@@ -58,12 +58,12 @@ final class DocumentTransientFilesTest {
         // 준비: 잠금을 얻고 작업 원본을 만든다.
         Path root = root();
         UUID id = UUID.randomUUID();
-        try (var files = new DocumentTransientFiles(root)) {
-            Path job = files.create(id);
+        try (var files = new DocumentTransientFiles(root, DocumentTranslationCapacity.DEFAULT)) {
+            Path job = files.create(id, 1);
             Files.writeString(files.source(id), "active");
 
             // 실행 및 검증: 두 번째 소유자는 시작할 수 없다.
-            assertThrows(IOException.class, () -> new DocumentTransientFiles(root));
+            assertThrows(IOException.class, () -> new DocumentTransientFiles(root, DocumentTranslationCapacity.DEFAULT));
             assertTrue(Files.isDirectory(job));
             assertEquals("active", Files.readString(files.source(id)));
         }
@@ -75,8 +75,8 @@ final class DocumentTransientFilesTest {
         // 준비: 기한이 있는 작업에 두 사용권을 잡는다.
         UUID id = UUID.randomUUID();
         Instant expiry = Instant.parse("2026-11-23T12:00:00Z");
-        try (var files = new DocumentTransientFiles(root())) {
-            Path job = files.create(id);
+        try (var files = new DocumentTransientFiles(root(), DocumentTranslationCapacity.DEFAULT)) {
+            Path job = files.create(id, 1);
             Path source = Files.writeString(files.source(id), "active");
             files.retainUntil(id, expiry);
             try (var first = files.use(id); var last = files.use(id)) {
@@ -100,8 +100,8 @@ final class DocumentTransientFilesTest {
         // 준비: 결과를 쓰고 다운로드 스트림을 열어 일부만 읽는다.
         UUID id = UUID.randomUUID();
         Path root = root();
-        try (var files = new DocumentTransientFiles(root)) {
-            Path job = files.create(id);
+        try (var files = new DocumentTransientFiles(root, DocumentTranslationCapacity.DEFAULT)) {
+            Path job = files.create(id, 1);
             Files.writeString(files.source(id), "discard with result");
             Files.writeString(files.result(id), "aborted result");
             assertTrue(files.hasResult(id));
@@ -114,11 +114,11 @@ final class DocumentTransientFilesTest {
                 // 검증: 스트림을 닫기 전에는 다른 런타임도 파일을 회수할 수 없다.
                 assertFalse(files.hasResult(id));
                 assertTrue(files.hasWorkspace(id));
-                assertThrows(IOException.class, () -> new DocumentTransientFiles(root));
+                assertThrows(IOException.class, () -> new DocumentTransientFiles(root, DocumentTranslationCapacity.DEFAULT));
                 assertTrue(Files.isDirectory(job));
             }
             assertFalse(Files.exists(job));
-            try (var replacement = new DocumentTransientFiles(root)) {
+            try (var replacement = new DocumentTransientFiles(root, DocumentTranslationCapacity.DEFAULT)) {
                 assertFalse(replacement.hasResult(id));
             }
         }
@@ -131,8 +131,8 @@ final class DocumentTransientFilesTest {
         UUID id = UUID.randomUUID();
         String first = "a".repeat(64);
         String distinct = "b".repeat(64);
-        try (var files = new DocumentTransientFiles(root())) {
-            files.create(id);
+        try (var files = new DocumentTransientFiles(root(), DocumentTranslationCapacity.DEFAULT)) {
+            files.create(id, 1);
             Path source = Files.writeString(files.source(id), "synthetic source");
             assertFalse(files.matchesSource(id, first));
 
@@ -157,8 +157,8 @@ final class DocumentTransientFilesTest {
     void cleanupFailureDoesNotReportAnAbsentWorkspace() throws IOException {
         // 준비: 정상 결과 외에 현재 정책이 삭제할 수 없는 파일을 만든다.
         UUID id = UUID.randomUUID();
-        try (var files = new DocumentTransientFiles(root())) {
-            Path job = files.create(id);
+        try (var files = new DocumentTransientFiles(root(), DocumentTranslationCapacity.DEFAULT)) {
+            Path job = files.create(id, 1);
             Path result = Files.writeString(files.result(id), "owned");
             Path unrelated = Files.writeString(job.resolve("other"), "keep");
 
@@ -179,12 +179,58 @@ final class DocumentTransientFilesTest {
 
     // 파일 시스템이 허용하는 경우 외부 대상으로 향하는 결과 링크를 거부한다.
     @Test
+    void capacityIsReturnedAfterPhysicalCleanup() throws IOException {
+        // 준비: 최대 원본과 결과 한 건으로 공유 예약 바이트를 채운다.
+        long maxUpload = DocumentTranslationService.MAX_UPLOAD_BYTES;
+        var policy = new DocumentTranslationCapacity(1, 1, 1, 2, 2 * maxUpload);
+        UUID first = UUID.randomUUID();
+        UUID next = UUID.randomUUID();
+        try (var files = new DocumentTransientFiles(root(), policy)) {
+            Path workspace = files.create(first, maxUpload);
+            Files.write(files.result(first), new byte[]{1});
+            assertThrows(IOException.class, () -> files.create(next, maxUpload));
+
+            // 실행: 읽기 사용권이 살아 있으면 삭제와 다음 입장을 보류한다.
+            try (var stream = files.openResult(first)) {
+                files.discard(first);
+                assertTrue(Files.isDirectory(workspace));
+                assertThrows(IOException.class, () -> files.create(next, maxUpload));
+            }
+
+            // 검증: 물리 디렉터리 삭제 이후에 다시 입장할 수 있다.
+            assertFalse(Files.exists(workspace));
+            assertTrue(Files.isDirectory(files.create(next, maxUpload)));
+        }
+    }
+
+    @Test
+    void countLimitIncludesUnclaimedResults() throws IOException {
+        // 준비: 미수령 파일 한 건이 유일한 작업 슬롯을 사용한다.
+        long maxUpload = DocumentTranslationService.MAX_UPLOAD_BYTES;
+        var policy = new DocumentTranslationCapacity(1, 1, 1, 1, 4 * maxUpload);
+        UUID first = UUID.randomUUID();
+        UUID next = UUID.randomUUID();
+        try (var files = new DocumentTransientFiles(root(), policy)) {
+            files.create(first, 1);
+            Files.write(files.result(first), new byte[]{1});
+            Instant now = Instant.now();
+            files.retainUntil(first, now.plusSeconds(120));
+
+            // 실행 및 검증: 기한이 지난 작업 공간의 회수 뒤에만 슬롯을 다시 쓴다.
+            files.reap(now.plusSeconds(119));
+            assertThrows(IOException.class, () -> files.create(next, 1));
+            files.reap(now.plusSeconds(121));
+            assertTrue(Files.isDirectory(files.create(next, 1)));
+        }
+    }
+
+    @Test
     void resultLinkIsNeverFollowed() throws IOException {
         // 준비: 별도의 파일과 작업 내부의 연결을 만든다.
         UUID id = UUID.randomUUID();
         Path external = Files.writeString(temporary.resolve("external"), "outside");
-        try (var files = new DocumentTransientFiles(root())) {
-            Path job = files.create(id);
+        try (var files = new DocumentTransientFiles(root(), DocumentTranslationCapacity.DEFAULT)) {
+            Path job = files.create(id, 1);
             Path link = files.result(id);
             try {
                 Files.createSymbolicLink(link, external);

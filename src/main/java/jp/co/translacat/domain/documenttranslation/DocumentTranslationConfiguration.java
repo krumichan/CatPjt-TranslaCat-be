@@ -55,14 +55,25 @@ class DocumentTranslationConfiguration {
         return new DocumentJobRepository(jdbc, new TransactionTemplate(manager), mapper, writes);
     }
 
+    // 문서 API와 작업 저장소가 같은 운영 용량 계약을 사용한다.
+    @Bean
+    DocumentTranslationCapacity documentTranslationCapacity(
+            @Value("${translacat.document-translation.capacity.uploads:4}") int uploads,
+            @Value("${translacat.document-translation.capacity.downloads:8}") int downloads,
+            @Value("${translacat.document-translation.capacity.workers:2}") int workers,
+            @Value("${translacat.document-translation.capacity.workspaces:4}") int workspaces,
+            @Value("${translacat.document-translation.capacity.workspace-bytes:83886080}") long workspaceBytes) {
+        return new DocumentTranslationCapacity(uploads, downloads, workers, workspaces, workspaceBytes);
+    }
+
     // 전용 경로의 잠금과 이전 임시 파일 정리가 끝난 뒤 작업을 접수할 수 있다.
     @Bean(destroyMethod = "close")
     DocumentTransientFiles documentTransientFiles(DocumentJobRepository repository,
             @Value("${translacat.document-translation.temporary-directory:}") String configured,
             @Value("${translacat.document-translation.runtime-profile:volatile}") String runtimeProfile,
-            Environment environment) throws IOException {
+            Environment environment, DocumentTranslationCapacity capacity) throws IOException {
         Path root = temporaryRoot(configured, runtimeProfile, environment);
-        var files = new DocumentTransientFiles(root);
+        var files = new DocumentTransientFiles(root, capacity);
         try {
             var now = Clock.systemUTC().instant();
             repository.invalidateEphemeralJobs(now);
@@ -130,7 +141,8 @@ class DocumentTranslationConfiguration {
     // 워커는 공유 스케줄 호출에서 별도 제한된 실행 풀로 작업을 넘긴다.
     @Bean(destroyMethod = "close")
     DocumentTranslationWorker documentTranslationWorker(DocumentJobRepository repository, DocumentTransientFiles files,
-            DocumentFormatPort formats, DocumentTranslationGateway translations) {
-        return new DocumentTranslationWorker(repository, files, formats, translations, Clock.systemUTC());
+            DocumentFormatPort formats, DocumentTranslationGateway translations,
+            DocumentTranslationCapacity capacity) {
+        return new DocumentTranslationWorker(repository, files, formats, translations, Clock.systemUTC(), capacity);
     }
 }

@@ -40,13 +40,15 @@ public class DocumentTranslationController {
 
     private final DocumentTranslationService service;
     private final Clock clock;
-    private final Semaphore uploadTransfers = new Semaphore(4);
-    private final Semaphore downloadTransfers = new Semaphore(8);
+    private final Semaphore uploadTransfers;
+    private final Semaphore downloadTransfers;
 
     // 공용 인증 객체는 이 진입점에서만 사용한다.
-    DocumentTranslationController(DocumentTranslationService service) {
+    DocumentTranslationController(DocumentTranslationService service, DocumentTranslationCapacity capacity) {
         this.service = service;
         this.clock = Clock.systemUTC();
+        this.uploadTransfers = new Semaphore(capacity.uploads());
+        this.downloadTransfers = new Semaphore(capacity.downloads());
     }
 
     /** Office 파일 하나를 요청 본문에서 읽어 소유자의 작업으로 접수한다. */

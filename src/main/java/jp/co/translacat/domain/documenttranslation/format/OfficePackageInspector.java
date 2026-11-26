@@ -16,7 +16,7 @@ import java.util.zip.ZipFile;
 
 /** 문서 번역을 시작하기 전에 Transitional Office 패키지의 접수 형식과 크기를 검사한다. */
 public final class OfficePackageInspector {
-    private static final long MAX_COMPRESSED_BYTES = 10L * 1024 * 1024;
+    static final long MAX_COMPRESSED_BYTES = 10L * 1024 * 1024;
     private static final long MAX_EXPANDED_BYTES = 100L * 1024 * 1024;
     private static final int MAX_ENTRIES = 4096;
     private static final String CONTENT_TYPES = "[Content_Types].xml";

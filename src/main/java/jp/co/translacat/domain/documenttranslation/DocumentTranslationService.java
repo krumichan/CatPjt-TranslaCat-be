@@ -102,7 +102,7 @@ final class DocumentTranslationService {
         try {
             Instant now = clock.instant();
             Instant expiry = now.plusSeconds(JOB_SECONDS);
-            files.create(id);
+            files.create(id, body.length);
             files.retainUntil(id, expiry);
             try (var lease = files.use(id)) {
                 Files.write(files.source(id), body, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE,

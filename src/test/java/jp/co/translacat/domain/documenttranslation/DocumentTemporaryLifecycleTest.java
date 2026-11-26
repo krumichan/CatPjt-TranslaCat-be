@@ -58,14 +58,15 @@ class DocumentTemporaryLifecycleTest {
     // 실제 임시 저장소에 인증·DB의 제한된 응답을 연결한다.
     @BeforeEach
     void setUp() throws IOException {
-        files = new DocumentTransientFiles(directories.toRealPath().resolve("document-work"));
+        files = new DocumentTransientFiles(directories.toRealPath().resolve("document-work"),
+                DocumentTranslationCapacity.DEFAULT);
         repository = mock(DocumentJobRepository.class);
         accounts = mock(DocumentObjectWrites.class);
         when(accounts.whenActive(eq(OWNER), eq(false), any())).thenReturn(true);
         when(accounts.whenActive(eq(OWNER), isNull(), any()))
                 .thenAnswer(call -> call.<Supplier<?>>getArgument(2).get());
         service = new DocumentTranslationService(repository, files, accounts, Clock.fixed(NOW, ZoneOffset.UTC));
-        controller = new DocumentTranslationController(service);
+        controller = new DocumentTranslationController(service, DocumentTranslationCapacity.DEFAULT);
         owner = mock(UserPrincipal.class);
         when(owner.getId()).thenReturn(OWNER);
     }
@@ -225,7 +226,8 @@ class DocumentTemporaryLifecycleTest {
         doReturn(new ByteArrayInputStream(OFFICE_SAMPLE)).when(deletionFailure).openResult(id);
         doThrow(new IOException("Simulated removal failure")).when(deletionFailure).discard(id);
         var rejecting = new DocumentTranslationController(new DocumentTranslationService(
-                repository, deletionFailure, accounts, Clock.fixed(NOW, ZoneOffset.UTC)));
+                repository, deletionFailure, accounts, Clock.fixed(NOW, ZoneOffset.UTC)),
+                DocumentTranslationCapacity.DEFAULT);
         var request = new MockHttpServletRequest("GET", "/api/v1/document-translations/" + id + "/download");
         var response = new MockHttpServletResponse();
 
@@ -292,7 +294,7 @@ class DocumentTemporaryLifecycleTest {
     // 재패키징 직후처럼 결과 하나만 수령 가능한 소유 작업을 준비한다.
     private UUID readyResult() throws IOException {
         UUID id = UUID.randomUUID();
-        files.create(id);
+        files.create(id, OFFICE_SAMPLE.length);
         files.retainUntil(id, NOW.plusSeconds(120));
         Files.write(files.result(id), OFFICE_SAMPLE);
         var job = new DocumentJob(id, OWNER, null, UUID.randomUUID(), "request-shape", "xlsx", "document.xlsx",

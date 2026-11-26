@@ -14,7 +14,9 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import java.io.FilterOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -25,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -142,7 +145,8 @@ final class OfficeParts implements AutoCloseable {
         TransformerFactory factory = TransformerFactory.newDefaultInstance();
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
-        try (var destination = new ZipOutputStream(Files.newOutputStream(output))) {
+        try (var destination = new ZipOutputStream(new BoundedZipOutput(
+                Files.newOutputStream(output), OfficePackageInspector.MAX_COMPRESSED_BYTES))) {
             for (var indexed : entries.entrySet()) {
                 ZipEntry original = indexed.getValue();
                 ZipEntry copy = new ZipEntry(original.getName());
@@ -162,6 +166,38 @@ final class OfficeParts implements AutoCloseable {
             }
         } catch (TransformerException exception) {
             throw new IOException("Could not write Office XML part");
+        }
+    }
+
+    /** ZIP 헤더와 종료 레코드를 포함해 임시 파일에 기록하는 바이트를 제한한다. */
+    static final class BoundedZipOutput extends FilterOutputStream {
+        private long remaining;
+
+        BoundedZipOutput(OutputStream destination, long limit) {
+            super(destination);
+            remaining = limit;
+        }
+
+        @Override
+        public void write(int value) throws IOException {
+            requireSpace(1);
+            out.write(value);
+            remaining--;
+        }
+
+        @Override
+        public void write(byte[] bytes, int offset, int length) throws IOException {
+            Objects.checkFromIndexSize(offset, length, bytes.length);
+            requireSpace(length);
+            out.write(bytes, offset, length);
+            remaining -= length;
+        }
+
+        // 한도를 넘는 조각은 파일에 쓰기 전에 거부한다.
+        private void requireSpace(int bytes) throws IOException {
+            if (bytes > remaining) {
+                throw new IOException("Document ZIP output exceeds the size limit");
+            }
         }
     }
 

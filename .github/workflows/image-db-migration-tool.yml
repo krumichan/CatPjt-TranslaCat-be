@@ -34,10 +34,10 @@ jobs:
           for path,record in pins['inputs'].items():
               assert hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()==record['ciSha256'],path
           PY
-          javac --release 21 -encoding UTF-8 -d prod-classes .codex-ci/image-db-migration/ImageTranslationReleaseDb.java
+          javac --release 21 -encoding UTF-8 -cp driver.jar -d prod-classes .codex-ci/image-db-migration/ImageTranslationReleaseDb.java
           javac --release 21 -encoding UTF-8 -cp prod-classes:driver.jar -d test-classes .codex-ci/image-db-migration/ImageTranslationReleaseDbSyntheticTest.java .codex-ci/image-db-migration/ImageTranslationReleaseDbIntegrationTest.java
           jar --create --file evidence/ImageTranslationReleaseDb.jar --main-class ImageTranslationReleaseDb -C prod-classes .
-          java -cp prod-classes:test-classes ImageTranslationReleaseDbSyntheticTest > evidence/synthetic.log
+          java -cp prod-classes:test-classes:driver.jar ImageTranslationReleaseDbSyntheticTest > evidence/synthetic.log
       - name: Start only this job's loopback database
         run: |
           set -euo pipefail
@@ -67,7 +67,7 @@ jobs:
           import base64,hashlib,json,pathlib,subprocess
           sql=pathlib.Path('.codex-ci/image-db-migration/20261122_image_translation.sql').read_bytes()
           body=b'\n'.join(base64.b64encode(x) for x in (b'synthetic',b'synthetic',b'synthetic'))+b'\n'
-          result=subprocess.run(['java','-cp','prod-classes','ImageTranslationReleaseDb','inspect',base64.b64encode(sql).decode()],input=body,capture_output=True,timeout=10)
+          result=subprocess.run(['java','-cp','prod-classes:driver.jar','ImageTranslationReleaseDb','inspect',base64.b64encode(sql).decode()],input=body,capture_output=True,timeout=10)
           assert result.returncode!=0 and not result.stderr
           failure=json.loads(result.stdout)
           assert failure.get('code',failure.get('reason'))=='DB_ENDPOINT_CHANGED'

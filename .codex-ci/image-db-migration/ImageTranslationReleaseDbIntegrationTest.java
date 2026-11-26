@@ -1,3 +1,6 @@
+import com.mysql.cj.conf.PropertyKey;
+import com.mysql.cj.jdbc.JdbcConnection;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -403,6 +406,9 @@ public final class ImageTranslationReleaseDbIntegrationTest {
         try (Connection db = catalog.open()) {
             receipt.phase = Phase.HELPER_SET_READ_ONLY;
             var adapter = ImageTranslationReleaseDb.jdbcDatabase(db, ddl);
+            if (receipt.scenario == Scenario.ACCEPTANCE && mode == ImageTranslationReleaseDb.Mode.INSPECT) {
+                verifyReadOnlyIsolation(catalog, db, receipt);
+            }
             receipt.phase = Phase.HELPER_RUN;
             report = ImageTranslationReleaseDb.run(mode, ddl, expected, adapter);
             receipt.helperReport = report;
@@ -410,6 +416,46 @@ public final class ImageTranslationReleaseDbIntegrationTest {
         }
         receipt.phase = Phase.HELPER_RESULT;
         return report;
+    }
+
+    // 所有する合成カタログでドライバの設定と書き込み拒否を検証する。
+    private static void verifyReadOnlyIsolation(Catalog catalog, Connection db, Receipt receipt) throws SQLException {
+        receipt.phase = Phase.READ_ONLY_PROFILE;
+        boolean serverPropagation = catalog.engine == Engine.MYSQL_8_4;
+        var propagation = db.unwrap(JdbcConnection.class).getPropertySet()
+                .getBooleanProperty(PropertyKey.readOnlyPropagatesToServer);
+        require(Boolean.valueOf(serverPropagation).equals(propagation.getValue()) && db.isReadOnly(),
+                "SYNTHETIC_READ_ONLY_PROFILE");
+        if (serverPropagation) {
+            require(scalar(db, "SELECT @@SESSION.transaction_read_only") == 1, "SYNTHETIC_MYSQL_READ_ONLY");
+        }
+
+        // Production と同じ Statement.execute の経路で許可外 CREATE が JDBC に拒否されることを確認する。
+        receipt.phase = Phase.READ_ONLY_WRITE_GUARD;
+        try (var statement = db.createStatement()) {
+            statement.setQueryTimeout(QUERY_SECONDS);
+            try {
+                statement.execute("CREATE TABLE migration_read_only_guard (id INT PRIMARY KEY)");
+                throw new CheckFailed("SYNTHETIC_READ_ONLY_WRITE_ALLOWED");
+            } catch (SQLException error) {
+                if (error.getErrorCode() != 0 || !"S1009".equals(error.getSQLState())) {
+                    throw error;
+                }
+            }
+        }
+
+        // 別接続からも試験用の表が存在しないことを確認し、検証済み範囲のみ記録する。
+        try (Connection observer = catalog.open()) {
+            receipt.phase = Phase.READ_ONLY_WRITE_ABSENCE;
+            var observerPropagation = observer.unwrap(JdbcConnection.class).getPropertySet()
+                    .getBooleanProperty(PropertyKey.readOnlyPropagatesToServer);
+            require(Boolean.TRUE.equals(observerPropagation.getValue()), "SYNTHETIC_READ_ONLY_SCOPE_LEAK");
+            require(scalar(observer, """
+                    SELECT COUNT(*) FROM information_schema.TABLES
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'migration_read_only_guard'
+                    """) == 0, "SYNTHETIC_READ_ONLY_TABLE_PRESENT");
+        }
+        receipt.readOnlyScope = serverPropagation ? ReadOnlyScope.SERVER_PROPAGATED : ReadOnlyScope.CONNECTOR_LOCAL;
     }
 
     // 対象三名の状態と非対象指紋を一緒に照合する。
@@ -467,10 +513,15 @@ public final class ImageTranslationReleaseDbIntegrationTest {
         STARTUP, ACCEPTANCE, PARTIAL, DRIFT
     }
 
+    private enum ReadOnlyScope {
+        UNVERIFIED, SERVER_PROPAGATED, CONNECTOR_LOCAL
+    }
+
     private enum Phase {
         INPUT, SQL_PIN, SERVER_CONNECT, ENGINE_VERSION, ENGINE_DEFAULT, SERVER_CLOSE, CATALOG_CREATE,
         CATALOG_CONNECT, CATALOG_SELECT, CATALOG_OPEN_FAILURE_CLOSE, SEED_CREATE, SEED_INSERT, SEED_CHECK,
-        HELPER_SET_READ_ONLY, HELPER_RUN, HELPER_CONNECTION_CLOSE, HELPER_RESULT, TARGET_ENGINE_CHECK, SENTINEL_CHECK,
+        READ_ONLY_PROFILE, READ_ONLY_WRITE_GUARD, READ_ONLY_WRITE_ABSENCE, HELPER_SET_READ_ONLY, HELPER_RUN,
+        HELPER_CONNECTION_CLOSE, HELPER_RESULT, TARGET_ENGINE_CHECK, SENTINEL_CHECK,
         FIXTURE_CONNECTION_CLOSE, DRIFT_ALTER_SENTINEL, FK_ORPHAN, FK_INSERT_PAIRS, FK_PARENT_UPDATE,
         FK_CASCADE, CATALOG_DROP, CATALOG_DROP_VERIFY
     }
@@ -650,6 +701,7 @@ public final class ImageTranslationReleaseDbIntegrationTest {
     /** 合成動作の結果と、確認できた所有カタログの件数だけを保つ。 */
     private static final class Receipt {
         private Engine engine;
+        private ReadOnlyScope readOnlyScope = ReadOnlyScope.UNVERIFIED;
         private Scenario scenario = Scenario.STARTUP;
         private Phase phase = Phase.INPUT;
         private ImageTranslationReleaseDb.Mode helperMode;
@@ -761,12 +813,13 @@ public final class ImageTranslationReleaseDbIntegrationTest {
                     "reapplicationRejected":%b,"nonTargetFingerprintPreserved":%b,"sentinelPreserved":%b,\
                     "partialPreserved":%b,"driftRejected":%b,"orphanRejected":%b,"parentUpdateRejected":%b,\
                     "cascadeVerified":%b,"ownedCatalogsCreated":%d,"ownedCatalogsDropped":%d,\
-                    "productionConnectionMade":false,"productionCredentialsUsed":false,"diagnostics":%s}
+                    "productionConnectionMade":false,"productionCredentialsUsed":false,\
+                    "readOnlyScope":"%s","diagnostics":%s}
                     """,
                     "PASSED".equals(code), engine == null ? "UNSELECTED" : engine.name(), code,
                     applied, verified, replayRejected, fingerprintPreserved, sentinelPreserved,
                     partialPreserved, driftRejected, orphanRejected, parentUpdateRejected, cascadeVerified,
-                    created, dropped, diagnostics());
+                    created, dropped, readOnlyScope, diagnostics());
         }
     }
 

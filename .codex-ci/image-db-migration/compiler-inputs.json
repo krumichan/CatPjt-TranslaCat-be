@@ -1,19 +1,19 @@
 {
   "inputs": {
     ".codex-ci/image-db-migration/ImageTranslationReleaseDb.java": {
-      "originalSha256": "5f00d4cd891e7001fcb790562bca33943ae86ecfea73032ecc4442f07ba40208",
-      "ciSha256": "5f00d4cd891e7001fcb790562bca33943ae86ecfea73032ecc4442f07ba40208",
-      "normalization": "Java LF and one terminal newline only"
+      "originalSha256": "9528e142d16870bcf644fe8a0a181d7a443e49512d1a54a24e3956dee4360121",
+      "ciSha256": "9528e142d16870bcf644fe8a0a181d7a443e49512d1a54a24e3956dee4360121",
+      "normalization": "NONE"
     },
     ".codex-ci/image-db-migration/ImageTranslationReleaseDbSyntheticTest.java": {
-      "originalSha256": "f731a7cd296ed90abf513dcddaab21a4b4cc3e4e2464def8d6aac6251271261b",
-      "ciSha256": "f731a7cd296ed90abf513dcddaab21a4b4cc3e4e2464def8d6aac6251271261b",
-      "normalization": "Java LF and one terminal newline only"
+      "originalSha256": "319a9852b17b32414a529fd4e3ddb7843b9118f307755289d39632031980fbc5",
+      "ciSha256": "319a9852b17b32414a529fd4e3ddb7843b9118f307755289d39632031980fbc5",
+      "normalization": "NONE"
     },
     ".codex-ci/image-db-migration/ImageTranslationReleaseDbIntegrationTest.java": {
-      "originalSha256": "514d098f5486ea8568304b1657016bba88f5d68b48d7833f8afcb326a3626f3b",
-      "ciSha256": "514d098f5486ea8568304b1657016bba88f5d68b48d7833f8afcb326a3626f3b",
-      "normalization": "Java LF and one terminal newline only"
+      "originalSha256": "df12f7d58884b2d62bf68c43b259feffd86e795c799e97bb537a98297b05aa80",
+      "ciSha256": "df12f7d58884b2d62bf68c43b259feffd86e795c799e97bb537a98297b05aa80",
+      "normalization": "NONE"
     },
     ".codex-ci/image-db-migration/20261122_image_translation.sql": {
       "originalSha256": "8b4ac1370fa0dd34ee8d91e3e23431a343966614487bd6b5f26cc14137044c16",

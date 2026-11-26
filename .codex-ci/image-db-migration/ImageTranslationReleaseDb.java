@@ -1,3 +1,7 @@
+import com.mysql.cj.Constants;
+import com.mysql.cj.conf.PropertyKey;
+import com.mysql.cj.jdbc.JdbcConnection;
+
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -36,6 +40,12 @@ public final class ImageTranslationReleaseDb {
     private static final int CREDENTIAL_LINE_BYTES = 8192;
     private static final int SQL_BYTES = 1122;
     private static final int SQL_ARG_CHARS = 2048;
+    private static final int MYSQL_FEATURE_UNSUPPORTED = 1235;
+    private static final String MYSQL_FEATURE_SQL_STATE = "42000";
+    private static final String PINNED_DRIVER_VERSION =
+            Constants.CJ_FULL_NAME + " (Revision: " + Constants.CJ_REVISION + ")";
+    private static final String TIDB_SERVER_VERSION =
+            "[0-9]+\\.[0-9]+\\.[0-9]+-TiDB-v[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9._+-]+)?";
 
     private ImageTranslationReleaseDb() {
     }
@@ -60,8 +70,7 @@ public final class ImageTranslationReleaseDb {
             // 既存の三行フレームからだけ接続し、最初の確認は読み取り専用にする。
             try (Connection connection = connect()) {
                 tlsIdentityVerified = true;
-                connection.setReadOnly(true);
-                report = execute(plan, new JdbcDatabase(connection, plan.statements()));
+                report = execute(plan, openReadOnlyDatabase(connection, plan.statements()));
             }
         } catch (Stop error) {
             report = result(false, error.code, null, null, 0, 0, 0);
@@ -163,11 +172,45 @@ public final class ImageTranslationReleaseDb {
         }
     }
 
-    // 隔離 CI で既存 JDBC セッションを使う場合も、DDL のピンを緩和しない。
+    // 隔離 CI でも運用と同じ読み取り専用初期化と DDL ピンを適用する。
     static Database jdbcDatabase(Connection connection, byte[] pinnedSql) throws SQLException {
-        List<String> statements = statements(pinnedSql);
-        connection.setReadOnly(true);
+        return openReadOnlyDatabase(connection, statements(pinnedSql));
+    }
+
+    // 対応サーバーでは従来の JDBC 設定を維持し、既知の TiDB 拒否だけ個別に扱う。
+    private static Database openReadOnlyDatabase(Connection connection, List<String> statements) throws SQLException {
+        try {
+            connection.setReadOnly(true);
+        } catch (SQLException error) {
+            if (error.getErrorCode() != MYSQL_FEATURE_UNSUPPORTED
+                    || !MYSQL_FEATURE_SQL_STATE.equals(error.getSQLState())) {
+                throw error;
+            }
+
+            // JDBC のハンドシェイク情報と固定 Connector/J を確認してから接続単位で切り替える。
+            var metadata = connection.getMetaData();
+            String serverVersion = metadata.getDatabaseProductVersion();
+            if (serverVersion == null || !serverVersion.matches(TIDB_SERVER_VERSION)
+                    || !PINNED_DRIVER_VERSION.equals(metadata.getDriverVersion())) {
+                throw error;
+            }
+            enableConnectorReadOnly(connection);
+        }
         return new JdbcDatabase(connection, statements);
+    }
+
+    // TiDB 向けの JDBC 側ガードを同じ接続で有効にする。サーバー強制の代替にはならない。
+    private static void enableConnectorReadOnly(Connection connection) throws SQLException {
+        var propagation = connection.unwrap(JdbcConnection.class)
+                .getPropertySet()
+                .getBooleanProperty(PropertyKey.readOnlyPropagatesToServer);
+        propagation.setValue(false);
+
+        // 失敗した設定を無視せず、JDBC が読み取り専用状態を返すまで照会へ進まない。
+        connection.setReadOnly(true);
+        if (!Boolean.FALSE.equals(propagation.getValue()) || !connection.isReadOnly()) {
+            throw new SQLException("DB_READ_ONLY_UNCONFIRMED");
+        }
     }
 
     // 既存の運用基準指紋と、適用可能な固定三文を検証する。

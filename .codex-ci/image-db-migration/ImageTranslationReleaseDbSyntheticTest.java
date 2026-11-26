@@ -1,6 +1,11 @@
+import com.mysql.cj.Constants;
+
+import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,6 +67,7 @@ public final class ImageTranslationReleaseDbSyntheticTest {
         check(SQL_SHA256.equals(hash(SQL_BYTES)), "Embedded SQL bytes differ from the pinned migration");
         check(STATEMENTS.size() == 3, "Expected exactly three statements");
         rejectsChangedPins();
+        rejectsUnverifiedJdbcReadOnlyFallback();
         inspectsAndVerifiesWithoutDdl();
         appliesInOrderAndRejectsReplay();
         rejectsAnyExistingTarget();
@@ -89,6 +95,61 @@ public final class ImageTranslationReleaseDbSyntheticTest {
                 "Changed non-target fingerprint was accepted");
         checkNoDdl(changedBaseline);
         check(database.steps.isEmpty(), "Changed baseline caused DDL");
+    }
+
+    // 固定された拒否番号・TiDB 識別子・ドライバ以外では接続の設定を緩めない。
+    private static void rejectsUnverifiedJdbcReadOnlyFallback() {
+        String tiDb = "8.0.11-TiDB-v8.5.8";
+        String connector = Constants.CJ_FULL_NAME + " (Revision: " + Constants.CJ_REVISION + ")";
+        var unsupported = new SQLException("Synthetic transaction access failure", "42000", 1235);
+        var unwrapFailed = new SQLException("Synthetic unwrap failure", "08003");
+
+        // 一致しない番号や SQLState は、メタデータの確認にも進めない。
+        var differentCode = new SQLException("Synthetic different vendor code", "42000", 1193);
+        var differentState = new SQLException("Synthetic different SQLState", "08006", 1235);
+        checkJdbcSetupStops(tiDb, connector, differentCode, differentCode, List.of("setReadOnly"));
+        checkJdbcSetupStops(tiDb, connector, differentState, differentState, List.of("setReadOnly"));
+
+        // 別エンジンや未承認ドライバは拒否し、許容条件でも安全設定が失敗すれば中止する。
+        var metadataOnly = List.of("setReadOnly", "getMetaData", "getDatabaseProductVersion", "getDriverVersion");
+        checkJdbcSetupStops("8.4.7", connector, unsupported, unsupported,
+                List.of("setReadOnly", "getMetaData", "getDatabaseProductVersion"));
+        checkJdbcSetupStops(tiDb, "Unapproved driver", unsupported, unsupported, metadataOnly);
+        checkJdbcSetupStops(tiDb, connector, unsupported, unwrapFailed,
+                List.of("setReadOnly", "getMetaData", "getDatabaseProductVersion", "getDriverVersion", "unwrap"));
+    }
+
+    // 許可される JDBC 呼び出しの順序と、アダプターが生成されずに元の失敗が伝わることを確認する。
+    private static void checkJdbcSetupStops(
+            String server, String driver, SQLException initial, SQLException expected, List<String> expectedCalls) {
+        var calls = new ArrayList<String>();
+        var metadata = Proxy.newProxyInstance(DatabaseMetaData.class.getClassLoader(),
+                new Class<?>[]{DatabaseMetaData.class}, (proxy, method, args) -> {
+                    calls.add(method.getName());
+                    return switch (method.getName()) {
+                        case "getDatabaseProductVersion" -> server;
+                        case "getDriverVersion" -> driver;
+                        default -> throw new AssertionError("Unexpected JDBC metadata call");
+                    };
+                });
+        var connection = (Connection) Proxy.newProxyInstance(Connection.class.getClassLoader(),
+                new Class<?>[]{Connection.class}, (proxy, method, args) -> {
+                    calls.add(method.getName());
+                    return switch (method.getName()) {
+                        case "setReadOnly" -> throw initial;
+                        case "getMetaData" -> metadata;
+                        case "unwrap" -> throw expected;
+                        default -> throw new AssertionError("Unexpected JDBC connection call");
+                    };
+                });
+
+        try {
+            ImageTranslationReleaseDb.jdbcDatabase(connection, SQL_BYTES.clone());
+            throw new AssertionError("Unverified JDBC read-only fallback opened an adapter");
+        } catch (SQLException error) {
+            check(error == expected, "JDBC setup swallowed or replaced the expected failure");
+        }
+        check(calls.equals(expectedCalls), "Unexpected JDBC fallback call sequence");
     }
 
     // INSPECT は既存状態を読み取るだけで、VERIFY は三件とも定義一致かつ空の場合だけ成功する。

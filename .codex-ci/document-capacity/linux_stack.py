@@ -90,7 +90,7 @@ class LinuxStack(previous.Stack):
             '--mount', f'type=bind,source={self.be_settings},target=/review.properties,readonly',
             '--mount', f'type=bind,source={self.be_logback},target=/qa-logback.xml,readonly',
             '--entrypoint', '/opt/java/openjdk/bin/java',
-        ], ['-Xmx' + str(min(1300, self.memory_mib - 192)) + 'm', '-XX:ActiveProcessorCount=2',
+        ], ['-Xmx' + str(256 if self.memory_mib == 512 else min(1300, self.memory_mib - 192)) + 'm', '-XX:ActiveProcessorCount=2',
             '-Dlogging.config=file:/qa-logback.xml', '-jar', '/review.jar',
             '--spring.config.location=classpath:/application.properties,file:/review.properties'])
         row = json.loads(self.docker('inspect', self.containers['be']).stdout)[0]

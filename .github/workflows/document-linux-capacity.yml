@@ -1,7 +1,7 @@
-name: Document 512 MiB no-swap isolated experiment
+name: Document 512 MiB no-swap experiment with 256 MiB Java heap
 on:
   push:
-    branches: [ci/document-linux-512mib-20261126]
+    branches: [ci/document-linux-512mib-xmx256-20261126]
 permissions:
   contents: read
 jobs:
@@ -68,7 +68,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: document-linux-512mib-results
+          name: document-linux-512mib-xmx256-results
           path: |
             bounded/evidence/*.json
           if-no-files-found: error

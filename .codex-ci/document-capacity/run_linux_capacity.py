@@ -174,6 +174,17 @@ def measure(args):
         code = str(failure)
         report['fixedFailure'] = code if code.isascii() and code.replace('_', '').isalnum() else 'ISOLATED_CAPACITY_FAILURE'
         report['dockerDiagnostic'] = stack.docker_diagnostic
+        # 合成コンテナの終了状態だけを取得する。
+        if stack.containers.get('be'):
+            try:
+                state = json.loads(stack.docker('inspect', '--format', '{{json .State}}',
+                                                stack.containers['be']).stdout)
+                report['backendExitState'] = {
+                    'running': bool(state['Running']), 'oomKilled': bool(state['OOMKilled']),
+                    'exitCode': int(state['ExitCode']),
+                }
+            except (RuntimeError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+                report['backendExitState'] = {'available': False}
         if 'be' in stack.containers:
             try:
                 # 合成仕事の状態と NULL/zero フラグだけで失敗を分類する。本文や hash 値は読まない。

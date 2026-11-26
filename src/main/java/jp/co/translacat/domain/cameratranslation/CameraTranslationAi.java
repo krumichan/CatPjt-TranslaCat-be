@@ -3,6 +3,7 @@ package jp.co.translacat.domain.cameratranslation;
 import com.fasterxml.jackson.databind.JsonNode;
 import jp.co.translacat.domain.cameratranslation.CameraTranslationDtos.TranslationRequest;
 import jp.co.translacat.domain.cameratranslation.CameraTranslationDtos.TranslationResult;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
@@ -23,8 +24,8 @@ class CameraTranslationAi {
     private final String baseUrl;
     private final String apiKey;
 
-    /** 기존 AI 서버 설정과 WebClient만 공유한다. */
-    CameraTranslationAi(WebClient client, @Value("${ai-server.url}") String aiUrl,
+    /** AI 서버 호출에는 애플리케이션의 기본 WebClient 전송 설정을 사용한다. */
+    CameraTranslationAi(@Qualifier("webClient") WebClient client, @Value("${ai-server.url}") String aiUrl,
             @Value("${ai-server.api-key}") String apiKey) {
         this.client = client;
         this.baseUrl = aiUrl.replaceFirst("/+$", "") + "/api/v1/camera-translation";

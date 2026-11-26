@@ -1,0 +1,411 @@
+{
+  "migrationFiles": [
+    {
+      "path": "sql/20261122_document_translation_jobs.sql",
+      "sha256": "0eabc1a26e96369d7445673914a30430f911d3452fd8f67fa1f8a6d81d454726",
+      "statements": 2
+    },
+    {
+      "path": "sql/20261122_document_translation_object_writes.sql",
+      "sha256": "ea6f08cbe3f3d8d515258ad8d42d12907e50488508c1d80f472f0fc0c0d673ed",
+      "statements": 1
+    },
+    {
+      "path": "sql/20261123_document_translation_multipart_uploads.sql",
+      "sha256": "cdb8fdc9e02f90e30a13fc6993c0fddfd6d8a804d97bc1dcba33b80d06e79b20",
+      "statements": 4
+    }
+  ],
+  "expectedTables": {
+    "document_translation_job": {
+      "engine": "InnoDB",
+      "tableType": "BASE TABLE",
+      "emptyBeforeEnable": true,
+      "columns": [
+        {
+          "name": "id",
+          "columnType": "char(36)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "owner_id",
+          "columnType": "bigint",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "retry_of",
+          "columnType": "char(36)",
+          "nullable": true,
+          "default": null
+        },
+        {
+          "name": "idempotency_key",
+          "columnType": "char(36)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "request_hash",
+          "columnType": "char(64)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "format",
+          "columnType": "varchar(4)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "file_name",
+          "columnType": "varchar(180)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "source_language",
+          "columnType": "varchar(4)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "target_language",
+          "columnType": "varchar(2)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "status",
+          "columnType": "varchar(16)",
+          "nullable": false,
+          "default": "QUEUED"
+        },
+        {
+          "name": "input_key",
+          "columnType": "varchar(256)",
+          "nullable": true,
+          "default": null
+        },
+        {
+          "name": "input_sha256",
+          "columnType": "char(64)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "input_bytes",
+          "columnType": "bigint",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "output_key",
+          "columnType": "varchar(256)",
+          "nullable": true,
+          "default": null
+        },
+        {
+          "name": "output_sha256",
+          "columnType": "char(64)",
+          "nullable": true,
+          "default": null
+        },
+        {
+          "name": "output_bytes",
+          "columnType": "bigint",
+          "nullable": true,
+          "default": null
+        },
+        {
+          "name": "total_segments",
+          "columnType": "int",
+          "nullable": true,
+          "default": null
+        },
+        {
+          "name": "completed_segments",
+          "columnType": "int",
+          "nullable": false,
+          "default": "0"
+        },
+        {
+          "name": "warnings",
+          "columnType": "json",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "error_code",
+          "columnType": "varchar(48)",
+          "nullable": true,
+          "default": null
+        },
+        {
+          "name": "model_revision",
+          "columnType": "varchar(128)",
+          "nullable": true,
+          "default": null
+        },
+        {
+          "name": "lease_token",
+          "columnType": "char(36)",
+          "nullable": true,
+          "default": null
+        },
+        {
+          "name": "lease_until",
+          "columnType": "datetime(6)",
+          "nullable": true,
+          "default": null
+        },
+        {
+          "name": "recovery_count",
+          "columnType": "int",
+          "nullable": false,
+          "default": "0"
+        },
+        {
+          "name": "created_at",
+          "columnType": "datetime(6)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "updated_at",
+          "columnType": "datetime(6)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "expires_at",
+          "columnType": "datetime(6)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "finished_at",
+          "columnType": "datetime(6)",
+          "nullable": true,
+          "default": null
+        },
+        {
+          "name": "active_owner_id",
+          "columnType": "bigint",
+          "nullable": true,
+          "default": null,
+          "generated": "VIRTUAL",
+          "generationExpression": "CASE WHEN status IN ('QUEUED', 'VALIDATING', 'TRANSLATING', 'REPACKING', 'CANCELLING') THEN owner_id ELSE NULL END"
+        }
+      ],
+      "indexes": {
+        "PRIMARY": {
+          "unique": true,
+          "columns": [
+            "id"
+          ]
+        },
+        "uk_document_job_request": {
+          "unique": true,
+          "columns": [
+            "owner_id",
+            "idempotency_key"
+          ]
+        },
+        "uk_document_job_active_owner": {
+          "unique": true,
+          "columns": [
+            "active_owner_id"
+          ]
+        },
+        "idx_document_job_owner": {
+          "unique": false,
+          "columns": [
+            "owner_id",
+            "created_at"
+          ]
+        },
+        "idx_document_job_claim": {
+          "unique": false,
+          "columns": [
+            "status",
+            "lease_until",
+            "created_at",
+            "id"
+          ]
+        },
+        "idx_document_job_expiry": {
+          "unique": false,
+          "columns": [
+            "expires_at"
+          ]
+        },
+        "fk_document_retry": {
+          "unique": false,
+          "columns": [
+            "retry_of"
+          ],
+          "implicitInnoDbFkSupport": true
+        }
+      },
+      "foreignKeys": {
+        "fk_document_retry": {
+          "columns": [
+            "retry_of"
+          ],
+          "referencedTable": "document_translation_job",
+          "referencedColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdateDefault": [
+            "RESTRICT",
+            "NO ACTION"
+          ]
+        }
+      }
+    },
+    "document_translation_batch": {
+      "engine": "InnoDB",
+      "tableType": "BASE TABLE",
+      "emptyBeforeEnable": true,
+      "columns": [
+        {
+          "name": "job_id",
+          "columnType": "char(36)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "batch_no",
+          "columnType": "int",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "input_hash",
+          "columnType": "char(64)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "result_key",
+          "columnType": "varchar(256)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "completed_at",
+          "columnType": "datetime(6)",
+          "nullable": false,
+          "default": null
+        }
+      ],
+      "indexes": {
+        "PRIMARY": {
+          "unique": true,
+          "columns": [
+            "job_id",
+            "batch_no"
+          ]
+        }
+      },
+      "foreignKeys": {
+        "fk_document_batch_job": {
+          "columns": [
+            "job_id"
+          ],
+          "referencedTable": "document_translation_job",
+          "referencedColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdateDefault": [
+            "RESTRICT",
+            "NO ACTION"
+          ]
+        }
+      }
+    },
+    "document_translation_object_write": {
+      "engine": "InnoDB",
+      "tableType": "BASE TABLE",
+      "emptyBeforeEnable": true,
+      "columns": [
+        {
+          "name": "object_key",
+          "columnType": "varchar(180)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "owner_id",
+          "columnType": "bigint",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "job_id",
+          "columnType": "char(36)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "state",
+          "columnType": "varchar(12)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "started_at",
+          "columnType": "datetime(6)",
+          "nullable": false,
+          "default": null
+        },
+        {
+          "name": "settled_at",
+          "columnType": "datetime(6)",
+          "nullable": true,
+          "default": null
+        },
+        {
+          "name": "upload_id",
+          "columnType": "varbinary(2048)",
+          "nullable": true,
+          "default": null
+        }
+      ],
+      "indexes": {
+        "PRIMARY": {
+          "unique": true,
+          "columns": [
+            "object_key"
+          ]
+        },
+        "idx_document_object_owner": {
+          "unique": false,
+          "columns": [
+            "owner_id",
+            "state",
+            "started_at"
+          ]
+        },
+        "idx_document_object_settled": {
+          "unique": false,
+          "columns": [
+            "state",
+            "settled_at"
+          ]
+        }
+      },
+      "foreignKeys": {}
+    }
+  },
+  "readback": {
+    "sha256": "815d4e44e83a05e1b7bf6e9d994f945556d6a89646c497a7d57d5e2ece547607"
+  },
+  "verifyEmpty": {
+    "sha256": "177a1633107e3e6fa4ec356574b3356dc45d28a9ce0ec7ddb04f26ff62662f2f"
+  }
+}

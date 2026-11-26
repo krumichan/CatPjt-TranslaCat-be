@@ -1,0 +1,33 @@
+name: Document stepped DDL on synthetic TiDB
+on:
+  push:
+    branches:
+      - ci/document-ddl-stepped-tidb-20261126
+permissions:
+  contents: read
+jobs:
+  synthetic-tidb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Start the same isolated TiDB engine as the previous migration check
+        run: docker run --detach --name document-stepped-tidb --publish 127.0.0.1:14000:4000 pingcap/tidb:v8.5.8 --store=unistore --path=/tmp/document-test --host=0.0.0.0 -L error
+      - name: Verify wrapper inputs and run synthetic DDL
+        working-directory: .codex-ci/document-ddl-stepped
+        run: |
+          sha256sum --check fixture.sha256
+          python3 -m venv "$RUNNER_TEMP/document-stepped-venv"
+          "$RUNNER_TEMP/document-stepped-venv/bin/python" -m pip install --disable-pip-version-check --index-url https://pypi.org/simple --require-hashes --only-binary=:all: --no-deps -r requirements.txt
+          "$RUNNER_TEMP/document-stepped-venv/bin/python" -B verify_stepped_wrapper.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: document-stepped-tidb-evidence
+          path: .codex-ci/document-ddl-stepped/results
+          if-no-files-found: warn
+      - name: Remove the synthetic engine
+        if: always()
+        run: docker rm --force document-stepped-tidb

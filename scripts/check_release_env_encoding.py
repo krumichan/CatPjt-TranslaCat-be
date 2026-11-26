@@ -25,6 +25,8 @@ CORS_FRONTEND = 'https://web.example.test'
 CORS_NATIVE = 'https://native.example.test:8443'
 CALLBACK = 'translacat-dev://auth/callback'
 SYNTHETIC_KEY = 'synthetic-only-approval-key-2026-' + 'k' * 32
+OCR = 'CAMERA_TRANSLATION_OCR_KEY'
+SYNTHETIC_OCR_KEY = base64.b64encode(bytes(range(32))).decode('ascii')
 MARKER = b'EXISTING_MARKER=preserved\n'
 DRIVER = '''import json, os, sys
 payload = json.load(sys.stdin)
@@ -51,7 +53,7 @@ def workflow_encoder() -> str:
                 if lines[index].startswith('      - name:')), len(lines))
     step = lines[start:end]
     require('        shell: python' in step, 'workflow', 'encoder must execute Python')
-    for name in ('ENV_FILE_CONTENT', KEY, REDIRECT, CORS):
+    for name in ('ENV_FILE_CONTENT', KEY, REDIRECT, CORS, OCR):
         expected = '          ' + name + ': ${{ secrets.' + name + ' }}'
         require(expected in step, 'workflow', 'dedicated Secret input missing')
     for name in PUSH_NAMES:
@@ -111,7 +113,12 @@ def main() -> None:
     source = workflow_encoder()
     results = []
 
-    def accepted(name: str, original: str, overrides: dict[str, str], expected: str) -> None:
+    def accepted(name: str, original: str, overrides: dict[str, str], expected: str, *, ocr: bool = False) -> None:
+        # 기존 시나리오는 정상 OCR 키가 있는 번들을 사용하고 본문의 원래 비교를 유지한다.
+        if not ocr:
+            original = OCR + '=' + SYNTHETIC_OCR_KEY + '\n' + original
+            expected = OCR + '=' + SYNTHETIC_OCR_KEY + '\n' + expected
+
         # 검증: 실제 Base64 전달값과 마스킹 명령을 비교하고 raw 자격이 출력되지 않았는지 확인한다.
         process, output = probe(source, original, overrides, options.work_dir)
         encoded = base64.b64encode(expected.encode('utf-8'))
@@ -123,9 +130,12 @@ def main() -> None:
                 name, 'unexpected stdout or missing mask')
         require(process.stderr == b'', name, 'unexpected stderr')
         require(SYNTHETIC_KEY.encode() not in process.stdout + process.stderr, name, 'raw approval key was logged')
+        require(SYNTHETIC_OCR_KEY.encode() not in process.stdout + process.stderr, name, 'raw OCR key was logged')
         results.append({'case': name, 'status': 'PASS'})
 
-    def rejected(name: str, original: str, overrides: dict[str, str], code: str) -> None:
+    def rejected(name: str, original: str, overrides: dict[str, str], code: str, *, ocr: bool = False) -> None:
+        if not ocr:
+            overrides = {OCR: SYNTHETIC_OCR_KEY, **overrides}
         # 검증: 모든 입력 거부는 출력 env를 건드리기 전에 고정 오류로 끝나야 한다.
         process, output = probe(source, original, overrides, options.work_dir)
         require(process.returncode != 0, name, 'invalid input was accepted')
@@ -135,6 +145,41 @@ def main() -> None:
         require(process.stderr.replace(b'\r\n', b'\n') == expected,
                 name, 'failure disclosed input or returned an unstable error')
         results.append({'case': name, 'status': 'PASS'})
+
+    # OCR는 별도 Secret을 한 번만 추가하고 이미 유효한 번들의 키를 변경하지 않는다.
+    ocr_record = OCR + '=' + SYNTHETIC_OCR_KEY
+    ocr_existing = 'A=preserve\n# literal\n' + ocr_record + '\n'
+    other_ocr_key = base64.b64encode(bytes(reversed(range(32)))).decode('ascii')
+    accepted('ocr-add-to-bundle-with-lf', '# comment\nA=x=y\n', {OCR: SYNTHETIC_OCR_KEY},
+             '# comment\nA=x=y\n' + ocr_record + '\n', ocr=True)
+    accepted('ocr-add-to-bundle-without-lf', 'A=x=y', {OCR: SYNTHETIC_OCR_KEY},
+             'A=x=y\n' + ocr_record, ocr=True)
+    accepted('ocr-preserve-existing-without-separate', ocr_existing, {}, ocr_existing, ocr=True)
+    accepted('ocr-preserve-existing-when-identical', ocr_existing, {OCR: SYNTHETIC_OCR_KEY},
+             ocr_existing, ocr=True)
+    rejected('ocr-conflict', ocr_existing, {OCR: other_ocr_key}, 'CAMERA_OCR_KEY_CONFLICT', ocr=True)
+    rejected('ocr-missing', 'A=1\n', {}, 'CAMERA_OCR_KEY_MISSING', ocr=True)
+    rejected('ocr-invalid-existing-preserved-by-failure', 'A=1\n' + OCR + '=\n',
+             {OCR: SYNTHETIC_OCR_KEY}, 'INVALID_CAMERA_OCR_BUNDLE_KEY', ocr=True)
+    rejected('ocr-duplicate-existing', ocr_existing + ocr_record + '\n', {OCR: SYNTHETIC_OCR_KEY},
+             'DUPLICATE_ENV_FILE_KEY', ocr=True)
+    rejected('ocr-duplicate-other-key', 'A=1\nA=2\n', {OCR: SYNTHETIC_OCR_KEY},
+             'DUPLICATE_ENV_FILE_KEY', ocr=True)
+    rejected('ocr-malformed-docker-record', 'export A=1\n', {OCR: SYNTHETIC_OCR_KEY},
+             'INVALID_ENV_FILE_RECORD', ocr=True)
+    rejected('ocr-invalid-separate-with-valid-existing', ocr_existing, {OCR: '!' + SYNTHETIC_OCR_KEY},
+             'INVALID_CAMERA_OCR_SECRET', ocr=True)
+    for malformed, invalid_key in (
+        ('short', base64.b64encode(bytes(31)).decode('ascii')),
+        ('long', base64.b64encode(bytes(33)).decode('ascii')),
+        ('space', SYNTHETIC_OCR_KEY + ' '),
+        ('newline', SYNTHETIC_OCR_KEY + '\nINJECTED=1'),
+        ('no-padding', SYNTHETIC_OCR_KEY.rstrip('=')),
+        ('url-safe', base64.urlsafe_b64encode(b'\xff' * 32).decode('ascii')),
+        ('non-canonical', SYNTHETIC_OCR_KEY[:-2] + '9='),
+    ):
+        rejected('ocr-invalid-separate-' + malformed, 'A=1\n', {OCR: invalid_key},
+                 'INVALID_CAMERA_OCR_SECRET', ocr=True)
 
     # 빈 입력과 기존 값: 다른 값·주석·공백·구분자·마지막 LF를 재직렬화하지 않는다.
     unusual = '# ' + KEY + '=comment-only\n\nPASSWORD=  literal=$\'"+/\\=tail  \nOTHER=한글\n'

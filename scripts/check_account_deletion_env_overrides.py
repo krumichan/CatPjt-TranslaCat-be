@@ -171,9 +171,10 @@ def main() -> None:
     values['DB_URL'] = 'jdbc:log4jdbc:mysql://synthetic.tidbcloud.com:4000/translacat'
     for name in ('GOOGLE_PROXY_URL', 'CLOUDFLARE_R2_ENDPOINT', 'CLOUDFLARE_R2_PUBLIC_BASE_URL'):
         values[name] = 'https://synthetic.invalid'
+    encoder = modules['encoding']
+    values[encoder.OCR] = encoder.SYNTHETIC_OCR_KEY
     original = ''.join(name + '=' + value + '\n' for name, value in values.items())
     require(not validator.validate(original.encode()), 'chain', 'synthetic base environment is invalid')
-    encoder = modules['encoding']
     old_program = encoder.workflow_encoder()
 
     # 실행/검증: 실제 이전 step의 Base64를 새 step에 주고 SSH 직전 validator 계약까지 확인한다.

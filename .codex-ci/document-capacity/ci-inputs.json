@@ -1,0 +1,19 @@
+{
+  "productSha": "3bcac99480c94abbdca42330aa454a5cdc06ed63",
+  "files": {
+    "fixtures/input-manifest.json": "95762095afb0f8f16a4510304707f899de7fb458bccd6b84bcff162dd85c1ba7",
+    "fixtures/expanded-over.docx": "9e19183dd5baf0fa2ca54ea263eed15facea63229f2eae6dfeab9a32dfb2a18f",
+    "fixtures/expanded-under.docx": "d98bff056074dfed6f7cad570914c5d89664223e6d6fc738e1c30902b6807773",
+    "fixtures/normal.pptx": "77c702e5b9f93531d598170946f981493f767da17c3fb1876886ff8dae34f568",
+    "fixtures/transfer-near-cap.docx": "0157ae0ca75bbd531dd78e12d155dd4526b67ebbafd23d23821ed0c6e8ccf939",
+    "sample_container.py": "4be3d3b76dbb080f9a4bf6782253b6130c64a4650c708dd21897e301b0035496",
+    "linux_stack.py": "4a2da7556bc2d0da3d09acb0924c3d6037efdd1b0d2cc55e883d51eae865a156",
+    "run_linux_capacity.py": "99f2b533dc23397c4c39831eedb390ea52d2003f51f368c6ddeeb7fbb6c31a98",
+    "linux_document_capacity_http.py": "7099f92ecb3f748539fa5c55654f5b5ac49345d7fd9178643f86a03a3b4b67e8",
+    "mac_runtime.py": "f51343b77a7bbdfdfdf7782cfc8b689fd08693dece21e1fed3b1d186ce0cffc3",
+    "fixture_provider.py": "afae2362cc8cc277d696e5fc4ad4fb5426996f8980ca15b3059346debe2a4696",
+    "bootstrap-be-password.java": "5d249e4e3bb9ce63cb59ef8b29f90940569587e64428593ba07f88f79f54b8b4"
+  },
+  "productionCredentialsSupplied": false,
+  "modelCalls": "LOCAL_SYNTHETIC_FIXTURE_ONLY"
+}

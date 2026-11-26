@@ -1,0 +1,78 @@
+name: Document isolated Linux capacity verification
+on:
+  push:
+    branches: [ci/document-linux-capacity-20261126]
+permissions:
+  contents: read
+jobs:
+  capacity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: .codex-ci/document-capacity
+          path: control
+      - uses: actions/checkout@v4
+        with:
+          ref: 3bcac99480c94abbdca42330aa454a5cdc06ed63
+          persist-credentials: false
+          lfs: true
+          path: product
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+          cache-dependency-path: product/**/*.gradle*
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify fixed source and synthetic input pins
+        run: |
+          set -euo pipefail
+          test "$(git -C product rev-parse HEAD)" = '3bcac99480c94abbdca42330aa454a5cdc06ed63'
+          python3 - <<'PY'
+          import ast,hashlib,json,pathlib
+          root=pathlib.Path('control/.codex-ci/document-capacity')
+          pins=json.loads((root/'ci-inputs.json').read_bytes())
+          for name,expected in pins['files'].items():
+              path=root/name
+              assert path.is_file() and not path.is_symlink()
+              assert hashlib.sha256(path.read_bytes()).hexdigest()==expected,name
+              if path.suffix=='.py': ast.parse(path.read_text())
+          PY
+      - name: Compile the exact capacity candidate
+        working-directory: product
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew bootJar --no-daemon
+      - name: Resolve and record public runtime images before isolation
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,pathlib,subprocess
+          images={}
+          for role,tag in {'java':'eclipse-temurin:21-jdk-jammy','mysql':'mysql:8.4','python':'python:3.12-slim'}.items():
+              subprocess.run(['docker','pull',tag],check=True)
+              item=json.loads(subprocess.check_output(['docker','image','inspect',tag]))[0]
+              assert item['Os']=='linux' and item['Architecture']=='amd64'
+              images[role]=item['Id']
+          pathlib.Path('control/.codex-ci/document-capacity/images.json').write_text(json.dumps(images))
+          PY
+      - name: Measure full HTTP lifecycle with generous bounded memory
+        run: |
+          sudo -E "$(command -v python3)" control/.codex-ci/document-capacity/run_linux_capacity.py --product-dir product --product-sha 3bcac99480c94abbdca42330aa454a5cdc06ed63 --phase generous --memory-mib 2048
+      - name: Verify the same lifecycle under a separate 768 MiB limit
+        run: |
+          sudo -E "$(command -v python3)" control/.codex-ci/document-capacity/run_linux_capacity.py --product-dir product --product-sha 3bcac99480c94abbdca42330aa454a5cdc06ed63 --phase bounded --memory-mib 768
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: document-linux-capacity-results
+          path: |
+            generous/evidence/*.json
+            bounded/evidence/*.json
+          if-no-files-found: error

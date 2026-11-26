@@ -2,9 +2,9 @@ package jp.co.translacat.domain.documenttranslation;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jp.co.translacat.global.security.UserPrincipal;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.core.io.InputStreamResource;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
@@ -20,15 +20,16 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
-import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 
 /** JWT 사용자에게 문서 작업과 비공개 결과의 HTTP 진입점만 제공한다. */
 @RestController
@@ -36,10 +37,11 @@ import java.util.UUID;
 @ConditionalOnProperty(name = "translacat.document-translation.enabled", havingValue = "true")
 public class DocumentTranslationController {
     static final String BASE = "/api/v1/document-translations";
-    private static final long MAX_REQUEST_BYTES = 12L * 1024 * 1024;
 
     private final DocumentTranslationService service;
     private final Clock clock;
+    private final Semaphore uploadTransfers = new Semaphore(4);
+    private final Semaphore downloadTransfers = new Semaphore(8);
 
     // 공용 인증 객체는 이 진입점에서만 사용한다.
     DocumentTranslationController(DocumentTranslationService service) {
@@ -47,22 +49,36 @@ public class DocumentTranslationController {
         this.clock = Clock.systemUTC();
     }
 
-    /** 파일 한 개의 접수를 확인하고 소유자의 작업 상태를 반환한다. */
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    /** Office 파일 하나를 요청 본문에서 읽어 소유자의 작업으로 접수한다. */
+    @PostMapping(consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     public ResponseEntity<JobResponse> submit(@AuthenticationPrincipal UserPrincipal principal,
             @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
-            @RequestParam(name = "file", required = false) List<MultipartFile> files,
+            @RequestParam(name = "format", required = false) String format,
             @RequestParam(name = "sourceLanguage", required = false) String source,
             @RequestParam(name = "targetLanguage", required = false) String target, HttpServletRequest request) {
-        if (request.getContentLengthLong() > MAX_REQUEST_BYTES) {
+        // 길이를 생략한 요청도 서비스의 스트리밍 한도를 적용한다.
+        if (request.getContentLengthLong() > DocumentTranslationService.MAX_UPLOAD_BYTES) {
             throw new DocumentTranslationException(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE");
         }
-        if (files == null || files.size() != 1 || target == null
+        if (format == null || target == null || request.getParameterValues("format").length != 1
                 || request.getParameterValues("targetLanguage").length != 1
                 || source != null && request.getParameterValues("sourceLanguage").length != 1) {
             throw new DocumentTranslationException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
         }
-        return accepted(service.submit(principal.getId(), uuid(idempotencyKey), files.getFirst(), source, target));
+
+        // 느린 업로드가 응답 전송용 메모리나 처리 작업 슬롯까지 점유하지 못하게 한다.
+        if (!uploadTransfers.tryAcquire()) {
+            throw new DocumentTranslationException(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE");
+        }
+        long deadline = System.nanoTime() + DocumentTranslationService.TRANSFER_NANOS;
+        try (var input = request.getInputStream()) {
+            return accepted(service.submit(principal.getId(), uuid(idempotencyKey), input, format, source, target,
+                    deadline));
+        } catch (IOException disconnected) {
+            throw new DocumentTranslationException(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE");
+        } finally {
+            uploadTransfers.release();
+        }
     }
 
     /** 인증한 계정이 소유한 단일 작업의 현재 상태를 반환한다. */
@@ -82,28 +98,68 @@ public class DocumentTranslationController {
         return ResponseEntity.status(status).cacheControl(CacheControl.noStore()).body(response);
     }
 
-    /** 보관 중인 원본을 이용해 새로운 문서 작업을 접수한다. */
+    /** 기존 재시도 URL에는 원본을 다시 올려야 한다는 상태를 반환한다. */
     @PostMapping("/{jobId}/retry")
     public ResponseEntity<JobResponse> retry(@AuthenticationPrincipal UserPrincipal principal,
             @PathVariable String jobId, @RequestHeader(name = "Idempotency-Key", required = false) String key) {
-        return accepted(service.retry(principal.getId(), uuid(jobId), uuid(key)));
+        uuid(key);
+        service.get(principal.getId(), uuid(jobId));
+        throw new DocumentTranslationException(HttpStatus.GONE, "FILE_EXPIRED");
     }
 
-    /** 유효한 성공 작업의 같은 형식 파일 전체를 스트리밍한다. */
+    /** 소유자의 첫 전체 GET에 현재 응답용 메모리 사본을 보내고 다시 열 수 없는 파일은 정리한다. */
     @GetMapping("/{jobId}/download")
-    public ResponseEntity<InputStreamResource> download(@AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable String jobId) {
-        var file = service.download(principal.getId(), uuid(jobId));
-        String mime = switch (file.format()) {
-            case "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-            case "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-            case "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-            default -> throw new IllegalStateException("Unknown stored document format");
-        };
-        var name = ContentDisposition.attachment().filename(file.fileName(), StandardCharsets.UTF_8).build();
-        return ResponseEntity.ok().contentType(MediaType.parseMediaType(mime)).contentLength(file.bytes())
-                .header("Content-Disposition", name.toString()).header("Cache-Control", "private, no-store")
-                .body(new InputStreamResource(file.content()));
+    public void download(@AuthenticationPrincipal UserPrincipal principal, @PathVariable String jobId,
+            HttpServletRequest request, HttpServletResponse response) {
+        // 사전 확인과 부분 요청이 일회 수령 기회를 먼저 사용하지 않도록 한다.
+        if (!"GET".equals(request.getMethod())) {
+            response.setHeader("Allow", "GET");
+            throw new DocumentTranslationException(HttpStatus.METHOD_NOT_ALLOWED, "INVALID_REQUEST");
+        }
+        if (request.getHeader("Range") != null) {
+            throw new DocumentTranslationException(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE, "INVALID_REQUEST");
+        }
+        if (request.getHeader("If-Match") != null || request.getHeader("If-None-Match") != null
+                || request.getHeader("If-Modified-Since") != null || request.getHeader("If-Unmodified-Since") != null) {
+            throw new DocumentTranslationException(HttpStatus.PRECONDITION_FAILED, "INVALID_REQUEST");
+        }
+
+        // 파일 접근을 끝낸 뒤 보내므로 연결이 느려도 파일 사용권이 남지 않는다.
+        if (!downloadTransfers.tryAcquire()) {
+            throw new DocumentTranslationException(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE");
+        }
+        long deadline = System.nanoTime() + DocumentTranslationService.TRANSFER_NANOS;
+        try {
+            var file = service.download(principal.getId(), uuid(jobId));
+            response.setContentType(downloadMime(file.format()));
+            response.setContentLengthLong(file.content().length);
+            var name = ContentDisposition.attachment().filename(file.fileName(), StandardCharsets.UTF_8).build();
+            response.setHeader("Content-Disposition", name.toString());
+            response.setHeader("Cache-Control", "private, no-store");
+            response.setHeader("Accept-Ranges", "none");
+            sendBody(response.getOutputStream(), file.content(), deadline);
+            response.flushBuffer();
+        } catch (IOException disconnected) {
+            if (!response.isCommitted()) {
+                response.reset();
+                throw new DocumentTranslationException(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE");
+            }
+        } finally {
+            downloadTransfers.release();
+        }
+    }
+
+    // 소켓의 읽기·쓰기 유휴 제한과 별도로 반복 전송의 전체 기한을 확인한다.
+    private static void sendBody(OutputStream output, byte[] content, long deadline) throws IOException {
+        int offset = 0;
+        while (offset < content.length && System.nanoTime() - deadline < 0) {
+            int length = Math.min(64 * 1024, content.length - offset);
+            output.write(content, offset, length);
+            offset += length;
+        }
+        if (System.nanoTime() - deadline >= 0) {
+            throw new IOException("Document transfer deadline reached");
+        }
     }
 
     /** 문서 기능이 공개할 실패 코드만 응답으로 변환한다. */
@@ -111,12 +167,6 @@ public class DocumentTranslationController {
     public ResponseEntity<ErrorResponse> error(DocumentTranslationException failure) {
         return ResponseEntity.status(failure.status()).cacheControl(CacheControl.noStore())
                 .body(new ErrorResponse(failure.code(), failure.code()));
-    }
-
-    /** 서블릿의 파일 크기 초과를 문서 업로드 형식으로 반환한다. */
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ErrorResponse> fileTooLarge() {
-        return error(new DocumentTranslationException(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE"));
     }
 
     /** JDBC 장애를 파일과 SQL 정보가 없는 일시 오류로 반환한다. */
@@ -131,17 +181,29 @@ public class DocumentTranslationController {
                 .cacheControl(CacheControl.noStore()).body(view(job));
     }
 
-    // 파일 수명이 끝나면 청소 작업이 늦어져도 다운로드 경로를 숨긴다.
+    // 수령한 결과의 성공 메타데이터를 보존하고 수령 가능한 동안만 경로를 공개한다.
     private JobResponse view(DocumentJob job) {
-        boolean expired = !clock.instant().isBefore(job.expiresAt());
+        boolean ready = job.state() == DocumentJob.State.SUCCEEDED
+                && DocumentTranslationService.resultMarker(job.id()).equals(job.outputKey());
+        boolean expired = ready && !clock.instant().isBefore(job.expiresAt());
         DocumentJob.State state = expired ? DocumentJob.State.EXPIRED : job.state();
-        String downloadPath = state == DocumentJob.State.SUCCEEDED ? BASE + "/" + job.id() + "/download" : null;
-        return new JobResponse(job.id(), state.name(), job.format(), job.fileName(), job.sourceLanguage(),
+        String downloadPath = ready && !expired
+                ? BASE + "/" + job.id() + "/download" : null;
+        return new JobResponse(job.id(), state.name(), job.format(), "document." + job.format(), job.sourceLanguage(),
                 job.targetLanguage(), job.completedSegments(), job.totalSegments(), job.warnings(),
-                state == DocumentJob.State.FAILED ? job.errorCode() : null,
-                job.expiresAt().isAfter(clock.instant().plusSeconds(180)) && state.permitsRetry(job.errorCode()),
+                state == DocumentJob.State.FAILED ? job.errorCode() : null, false,
                 downloadPath, state == DocumentJob.State.SUCCEEDED ? job.outputBytes() : null,
                 job.createdAt(), job.expiresAt());
+    }
+
+    // 서버에서 검증한 Office 형식에 해당하는 다운로드 MIME을 선택한다.
+    private static String downloadMime(String format) {
+        return switch (format) {
+            case "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+            case "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            default -> throw new IllegalStateException("Unknown stored document format");
+        };
     }
 
     // 표준 UUID의 축약 표기나 누락값을 성공으로 해석하지 않는다.

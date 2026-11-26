@@ -3,6 +3,7 @@ package jp.co.translacat.domain.documenttranslation;
 import jp.co.translacat.domain.user.deletion.AccountDataLifecycleAccess;
 import jp.co.translacat.domain.user.deletion.AccountDeletionDomainCleanup;
 import jp.co.translacat.domain.user.deletion.AccountDeletionStore;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -29,17 +30,20 @@ final class DocumentAccountCleanup implements AccountDeletionDomainCleanup {
     private final AccountDataLifecycleAccess accounts;
     private final DocumentObjectWrites writes;
     private final DocumentStorageAccess storage;
+    private final ObjectProvider<DocumentTransientFiles> transientFiles;
     private final boolean enabled;
 
     // 문서 API가 비활성화된 상태에서도 계정 삭제 모듈은 유지한다.
     DocumentAccountCleanup(JdbcTemplate jdbc, PlatformTransactionManager manager, AccountDataLifecycleAccess accounts,
             DocumentObjectWrites writes, DocumentStorageAccess storage,
+            ObjectProvider<DocumentTransientFiles> transientFiles,
             @Value("${translacat.document-translation.enabled:false}") boolean enabled) {
         this.jdbc = jdbc;
         transactions = new TransactionTemplate(manager);
         this.accounts = accounts;
         this.writes = writes;
         this.storage = storage;
+        this.transientFiles = transientFiles;
         this.enabled = enabled;
     }
 
@@ -62,7 +66,7 @@ final class DocumentAccountCleanup implements AccountDeletionDomainCleanup {
         jdbc.queryForList("""
                 SELECT owner_id,job_id,object_key,state,upload_id FROM document_translation_object_write WHERE 1=0
                 """);
-        if ((enabled || hasObjects()) && storage.configured().isEmpty()) {
+        if (hasObjects() && storage.configured().isEmpty()) {
             throw new IllegalStateException("Document cleanup object store is not configured");
         }
     }
@@ -88,6 +92,9 @@ final class DocumentAccountCleanup implements AccountDeletionDomainCleanup {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
         // 파일을 여는 동안 DB 잠금을 보유하지 않는다. 확인된 삭제만 다음 재시도에서 제외한다.
         try {
+            if (!discardTransient(owner, deadline)) {
+                return false;
+            }
             var files = storage.configured();
             List<OwnedObject> confirmed = confirmedObjects(owner);
             List<OwnedObject> unconfirmed = unconfirmedObjects(owner);
@@ -107,7 +114,8 @@ final class DocumentAccountCleanup implements AccountDeletionDomainCleanup {
         // 객체가 남아 있으면 job 행을 지우지 않아 다음 worker에서도 계정 소유 키를 확인할 수 있다.
         return Boolean.TRUE.equals(transactions.execute(status -> {
             requireDeletion(owner);
-            if (!confirmedObjects(owner).isEmpty() || !unconfirmedObjects(owner).isEmpty()) {
+            if (!localWorkspaces(owner).isEmpty() || !confirmedObjects(owner).isEmpty()
+                    || !unconfirmedObjects(owner).isEmpty()) {
                 return false;
             }
             jdbc.update("DELETE FROM document_translation_job WHERE owner_id=?", owner);
@@ -139,13 +147,53 @@ final class DocumentAccountCleanup implements AccountDeletionDomainCleanup {
         throw new IllegalStateException("Document cleanup schema is incomplete");
     }
 
-    // 도메인 파일 저장이 사용된 적 있는지 확인하고 스위치 상태와 저장소 유무를 구분한다.
+    // 레거시 객체가 남은 경우에만 기존 스토리지의 정리 설정을 요구한다.
     private boolean hasObjects() {
         long rows = count("""
-                SELECT COUNT(*) FROM document_translation_job WHERE input_key IS NOT NULL OR output_key IS NOT NULL
+                SELECT COUNT(*) FROM document_translation_job
+                WHERE (input_key IS NOT NULL AND input_key <> CONCAT('ephemeral-', id))
+                   OR (output_key IS NOT NULL AND output_key <> CONCAT('ephemeral-result-', id))
                 """) + count("SELECT COUNT(*) FROM document_translation_batch")
                 + count("SELECT COUNT(*) FROM document_translation_object_write");
         return rows != 0;
+    }
+
+    // 이 계정의 작업별 공간만 지우며, 실제 전송 중이면 스트림의 닫힘까지 완료를 보류한다.
+    private boolean discardTransient(long owner, long deadline) throws IOException {
+        List<UUID> jobs = localWorkspaces(owner);
+        if (jobs.isEmpty()) {
+            return true;
+        }
+        DocumentTransientFiles files = transientFiles.getIfAvailable();
+        if (files == null) {
+            return false;
+        }
+
+        for (UUID job : jobs) {
+            if (System.nanoTime() >= deadline) {
+                return false;
+            }
+            files.discard(job);
+            if (files.hasWorkspace(job)) {
+                continue;
+            }
+            transactions.executeWithoutResult(status -> {
+                requireDeletion(owner);
+                jdbc.update("""
+                        UPDATE document_translation_job SET input_key=NULL, output_key=NULL, output_sha256=NULL
+                        WHERE owner_id=? AND id=? AND input_key=CONCAT('ephemeral-', id)
+                        """, owner, job.toString());
+            });
+        }
+        return localWorkspaces(owner).isEmpty();
+    }
+
+    // DB의 확인된 계정 소유 관계에서만 실제 로컬 작업 폴더 ID를 얻는다.
+    private List<UUID> localWorkspaces(long owner) {
+        return jdbc.query("""
+                SELECT id FROM document_translation_job
+                WHERE owner_id=? AND input_key=CONCAT('ephemeral-', id) ORDER BY id LIMIT 40
+                """, (row, index) -> UUID.fromString(row.getString(1)), owner);
     }
 
     // 삭제가 접수되지 않은 계정의 파일은 정리 요청이 와도 지우지 않는다.
@@ -159,10 +207,12 @@ final class DocumentAccountCleanup implements AccountDeletionDomainCleanup {
     private List<OwnedObject> confirmedObjects(long owner) {
         return jdbc.query("""
                  SELECT input_key AS object_key, id AS job_id, 'SOURCE' AS origin
-                 FROM document_translation_job WHERE owner_id=? AND input_key IS NOT NULL
+                 FROM document_translation_job
+                 WHERE owner_id=? AND input_key IS NOT NULL AND input_key <> CONCAT('ephemeral-', id)
                  UNION ALL
                  SELECT output_key, id, 'RESULT'
-                 FROM document_translation_job WHERE owner_id=? AND output_key IS NOT NULL
+                 FROM document_translation_job
+                 WHERE owner_id=? AND output_key IS NOT NULL AND output_key <> CONCAT('ephemeral-result-', id)
                  UNION ALL
                  SELECT batch.result_key, batch.job_id, 'BATCH'
                  FROM document_translation_batch batch

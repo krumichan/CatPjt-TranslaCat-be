@@ -1,6 +1,5 @@
 package jp.co.translacat.domain.documenttranslation;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.co.translacat.domain.documenttranslation.format.DocumentFormatPort;
 import jp.co.translacat.domain.documenttranslation.translation.DocumentTranslationGateway;
 import jp.co.translacat.domain.documenttranslation.translation.DocumentTranslationGateway.Batch;
@@ -19,7 +18,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,11 +40,9 @@ final class DocumentTranslationWorker implements AutoCloseable {
     private static final int CHARACTERS_PER_BATCH = 4_000;
 
     private final DocumentJobRepository repository;
-    private final DocumentFiles files;
+    private final DocumentTransientFiles files;
     private final DocumentFormatPort formats;
     private final DocumentTranslationGateway translator;
-    private final ObjectMapper mapper;
-    private final DocumentObjectWrites writes;
     private final Clock clock;
     private final ExecutorService executor = Executors.newFixedThreadPool(WORKERS);
     private final ExecutorService batchExecutor = Executors.newFixedThreadPool(WORKERS * EFFECTIVE_BATCH_CONCURRENCY);
@@ -56,14 +52,12 @@ final class DocumentTranslationWorker implements AutoCloseable {
     private final Semaphore slots = new Semaphore(WORKERS);
 
     // 각 포트를 모듈의 작업 처리 흐름으로 연결한다.
-    DocumentTranslationWorker(DocumentJobRepository repository, DocumentFiles files, DocumentFormatPort formats,
-            DocumentTranslationGateway translator, ObjectMapper mapper, DocumentObjectWrites writes, Clock clock) {
+    DocumentTranslationWorker(DocumentJobRepository repository, DocumentTransientFiles files,
+            DocumentFormatPort formats, DocumentTranslationGateway translator, Clock clock) {
         this.repository = repository;
         this.files = files;
         this.formats = formats;
         this.translator = translator;
-        this.mapper = mapper;
-        this.writes = writes;
         this.clock = clock;
     }
 
@@ -88,14 +82,16 @@ final class DocumentTranslationWorker implements AutoCloseable {
         }
     }
 
-    /** 미완료 요청이나 영속 작업과 무관한 만료 객체를 주기적으로 정리한다. */
-    @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
+    /** DB에 연결되지 못한 작업까지 로컬 만료 기한에 따라 주기적으로 회수한다. */
+    @Scheduled(fixedDelay = 5_000, initialDelay = 5_000)
     public void cleanExpired() {
-        // 원격 스토리지 I/O가 다른 업무의 공용 스케줄을 지연시키지 않게 한다.
+        // 로컬 파일 삭제가 다른 업무의 공용 스케줄을 막지 않도록 한다.
         if (cleaning.compareAndSet(false, true)) {
             maintenance.submit(() -> {
                 try {
-                    deleteExpiredFiles();
+                    files.reap(clock.instant());
+                } catch (IOException unavailable) {
+                    LOGGER.warn("Document transient cleanup deferred");
                 } finally {
                     cleaning.set(false);
                 }
@@ -103,34 +99,19 @@ final class DocumentTranslationWorker implements AutoCloseable {
         }
     }
 
-    // 원본을 공유하는 재시도를 포함해 기한이 끝난 파일과 체크포인트를 지운다.
-    private void deleteExpiredFiles() {
-        Instant now = clock.instant();
-        for (DocumentJob expired : repository.expiredWithFiles(now)) {
-            try {
-                remove(expired.inputKey());
-                remove(expired.outputKey());
-                for (String checkpoint : repository.checkpointKeys(expired.id())) {
-                    remove(checkpoint);
-                }
-                repository.clearExpired(expired, now);
-            } catch (IOException unavailable) {
-                LOGGER.warn("Document cleanup deferred jobId={}", expired.id());
-            }
-        }
-        repository.removeOldMetadata(now);
-        try {
-            writes.cleanOldOrphans(files);
-        } catch (IOException unavailable) {
-            LOGGER.warn("Document orphan cleanup deferred");
-        }
+    /** 파일 수명과 별개로 기한이 끝난 문서 상태 메타데이터를 회수한다. */
+    @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
+    public void cleanMetadata() {
+        repository.removeOldMetadata(clock.instant());
     }
 
     // 현재 시도에서 사용한 임대와 로컬 사본을 종료 상태와 함께 정리한다.
     private void execute(DocumentJob job) {
         var pulse = heartbeat.scheduleAtFixedRate(() -> renew(job), 10, 10, TimeUnit.SECONDS);
+        boolean published = false;
         try {
             translate(job);
+            published = true;
         } catch (JobFailure failure) {
             repository.fail(job, failure.code, clock.instant());
             LOGGER.info("Document job failed jobId={} code={}", job.id(), failure.code);
@@ -144,6 +125,10 @@ final class DocumentTranslationWorker implements AutoCloseable {
         } finally {
             pulse.cancel(false);
             try {
+                // 발행하지 못한 작업의 파일은 DB 정리 결과와 무관하게 회수한다.
+                if (!published) {
+                    discard(job);
+                }
                 repository.completeCancel(job, clock.instant());
             } finally {
                 slots.release();
@@ -165,34 +150,37 @@ final class DocumentTranslationWorker implements AutoCloseable {
         if (!repository.canRun(job, DocumentJob.State.VALIDATING, clock.instant())) {
             throw new LostLease();
         }
-        Path source = Files.createTempFile("translacat-document-", ".source");
-        Path output = null;
-        try {
-            // 비공개 저장소에서 원본의 크기와 지문을 확인한 뒤 처리기에 전달한다.
-            files.copyVerified(job.inputKey(), source, job.inputBytes(), job.inputHash());
+        long bytes;
+        List<DocumentJob.Warning> outputWarnings;
+        try (var lease = files.use(job.id())) {
+            // 업로드 때 만들어진 같은 작업의 원본만 읽고 검사한다.
+            Path source = files.source(job.id());
+            if (Files.size(source) != job.inputBytes()) {
+                throw new JobFailure("WORKER_UNAVAILABLE");
+            }
             DocumentFormatPort.Plan plan = read(job, source);
             List<List<DocumentFormatPort.Segment>> batches = split(plan.segments());
             int total = plan.segments().size();
             String model = job.modelRevision();
             advance(job, DocumentJob.State.TRANSLATING, total, 0, model);
 
-            // 이미 검증한 배치는 시도 재개에만 사용한다.
+            // 번역 조각의 검증과 선택 재시도는 현재 작업의 메모리에서만 수행한다.
             var completed = processBatches(job, batches, total, model);
 
-            // 완성된 파일을 검증하고 같은 상태·리스에서 확인된 결과만 공개한다.
+            // 재패키징과 무결성 확인을 마치면 응답용 결과를 공개하기 전에 원본을 지운다.
             advance(job, DocumentJob.State.REPACKING, total, total, completed.model());
-            output = Files.createTempFile("translacat-document-", ".result");
-            List<DocumentJob.Warning> warnings;
+            Path output = files.result(job.id());
             try {
-                warnings = warnings(plan.warnings(), formats.write(plan, completed.translatedPieces(), output));
+                outputWarnings = warnings(plan.warnings(), formats.write(plan, completed.translatedPieces(), output));
             } catch (IOException invalid) {
                 throw new JobFailure("OUTPUT_INTEGRITY_FAILED");
             }
-            publish(job, output, warnings);
-        } finally {
-            DocumentTranslationService.deleteTemp(output);
-            DocumentTranslationService.deleteTemp(source);
+            bytes = Files.size(output);
+            files.deleteSource(job.id());
         }
+
+        // 성공 응답을 조회하는 순간에는 더 이상 원본 또는 결과를 쓰는 처리 사용권이 없다.
+        publish(job, bytes, outputWarnings);
     }
 
     // 검사기의 실패 범위를 작업 오류로 변환하고 대상이 빈 파일도 안내한다.
@@ -303,39 +291,17 @@ final class DocumentTranslationWorker implements AutoCloseable {
         }
     }
 
-    // 배치 입력이 같을 때만 체크포인트를 재사용하고, 새 결과는 현재 토큰으로 기록한다.
+    // 현재 리스를 확인한 후 이 배치의 원문과 결과를 메모리 내 처리로 제한한다.
     private Batch batch(DocumentJob job, int number, List<DocumentFormatPort.Segment> units)
-            throws IOException, InterruptedException {
+            throws InterruptedException {
         checkRunning(job);
-        String hash = HexFormat.of().formatHex(DocumentFiles.sha256().digest(
-                mapper.writeValueAsBytes(units)));
-        var checkpoint = repository.checkpoint(job.id(), number, hash);
-        if (checkpoint.isPresent()) {
-            try (var stored = files.open(checkpoint.get().key())) {
-                return mapper.readValue(stored, Batch.class);
-            }
-        }
-
-        Batch result = call(job, number, units);
-        Path staged = Files.createTempFile("translacat-document-", ".batch");
-        String key = "batch-" + job.id() + "-" + job.leaseToken() + "-" + number;
-        try {
-            mapper.writeValue(staged.toFile(), result);
-            put(job, key, staged, DocumentJob.State.TRANSLATING);
-            if (!repository.saveCheckpoint(job, number, hash, key, clock.instant())) {
-                writes.removeOrphan(files, job.ownerId(), job.id(), key);
-                throw new LostLease();
-            }
-        } finally {
-            DocumentTranslationService.deleteTemp(staged);
-        }
-        return result;
+        return call(job, number, units);
     }
 
     // 기존 한 번의 재시도 안에서 유효한 응답의 일부가 실패하면 그 세그먼트만 다시 요청한다.
     private Batch call(DocumentJob job, int number, List<DocumentFormatPort.Segment> units)
             throws InterruptedException {
-        Instant deadline = job.createdAt().plusSeconds(180);
+        Instant deadline = job.createdAt().plusSeconds(DocumentTranslationService.JOB_SECONDS);
         String code = "TRANSLATION_UNAVAILABLE";
         RepairPlan repair = null;
         for (int attempt = 0; attempt < 2; attempt++) {
@@ -370,7 +336,7 @@ final class DocumentTranslationWorker implements AutoCloseable {
         throw new JobFailure(clock.instant().isBefore(deadline) ? code : "TRANSLATION_TIMEOUT");
     }
 
-    // 같은 모델과 빠짐없는 조각을 확인해 배치의 체크포인트가 부분 결과를 받지 않게 한다.
+    // 같은 모델과 빠짐없는 조각을 확인해 일부만 번역된 배치가 결과로 가지 않게 한다.
     private static Batch mergeRepair(List<DocumentFormatPort.Segment> original, RepairPlan plan, Batch repaired)
             throws Failure {
         if (!plan.accepted().model().equals(repaired.model())) {
@@ -409,7 +375,7 @@ final class DocumentTranslationWorker implements AutoCloseable {
     // 현재 상태를 교체할 수 없으면 남은 작업을 계속하지 않는다.
     private void advance(DocumentJob job, DocumentJob.State stage, int total, int completed, String model) {
         Instant now = clock.instant();
-        if (!now.isBefore(job.createdAt().plusSeconds(180))) {
+        if (!now.isBefore(job.createdAt().plusSeconds(DocumentTranslationService.JOB_SECONDS))) {
             throw new JobFailure("TRANSLATION_TIMEOUT");
         }
         if (!repository.progress(job, stage, total, completed, model, now)) {
@@ -417,53 +383,39 @@ final class DocumentTranslationWorker implements AutoCloseable {
         }
     }
 
-    // 현재 시도 전용 키에 보관한 다음 다운로드 가능 상태를 원자적으로 확정한다.
-    private void publish(DocumentJob job, Path output, List<DocumentJob.Warning> warnings) throws IOException {
-        String key = "result-" + job.id() + "-" + job.leaseToken();
-        long bytes = Files.size(output);
-        var digest = DocumentFiles.sha256();
-        try (var input = new java.security.DigestInputStream(Files.newInputStream(output), digest)) {
-            input.transferTo(java.io.OutputStream.nullOutputStream());
+    // 원본이 사라진 뒤 일회 수령 기한을 설정하고 현재 리스로 결과를 공개한다.
+    private void publish(DocumentJob job, long bytes, List<DocumentJob.Warning> warnings) throws IOException {
+        if (bytes <= 0) {
+            throw new JobFailure("OUTPUT_INTEGRITY_FAILED");
         }
-        String hash = HexFormat.of().formatHex(digest.digest());
-        put(job, key, output, DocumentJob.State.REPACKING);
+
         Instant now = clock.instant();
-        if (!now.isBefore(job.createdAt().plusSeconds(180))) {
-            writes.removeOrphan(files, job.ownerId(), job.id(), key);
+        if (!now.isBefore(job.createdAt().plusSeconds(DocumentTranslationService.JOB_SECONDS))) {
             throw new JobFailure("TRANSLATION_TIMEOUT");
         }
-        if (!repository.succeed(job, key, hash, bytes, warnings, now)) {
-            writes.removeOrphan(files, job.ownerId(), job.id(), key);
+        files.retainUntil(job.id(), now.plusSeconds(DocumentTranslationService.RESULT_SECONDS));
+        if (!repository.succeed(job, DocumentTranslationService.resultMarker(job.id()), bytes, warnings, now)) {
             throw new LostLease();
         }
     }
 
-    // 계정과 현재 시도의 권한을 함께 확인한 뒤 객체 쓰기 의도를 먼저 커밋한다.
-    private void put(DocumentJob job, String key, Path source, DocumentJob.State state) throws IOException {
-        if (!writes.store(files, job.ownerId(), job.id(), key, source,
-                () -> repository.hasLease(job, state, clock.instant()))) {
-            throw new LostLease();
+    // 파일 제거 실패 때도 다른 작업은 계속 실행하고 로컬 회수기가 다시 확인한다.
+    private void discard(DocumentJob job) {
+        try {
+            files.discard(job.id());
+        } catch (IOException unavailable) {
+            LOGGER.warn("Document transient cleanup deferred jobId={}", job.id());
         }
     }
 
-    // 동일 경고는 발생 횟수와 최대 열 곳의 대표 위치로 반환한다.
+    // 문서 내부 위치는 지속 저장하지 않고 사용자에게 경고 종류와 발생 횟수만 전달한다.
     private static List<DocumentJob.Warning> warnings(List<DocumentFormatPort.Warning> extraction,
             List<DocumentFormatPort.Warning> writing) {
         Map<String, List<DocumentFormatPort.Warning>> byCode = java.util.stream.Stream.concat(
                 extraction.stream(), writing.stream()).distinct().collect(Collectors.groupingBy(
                         DocumentFormatPort.Warning::code, LinkedHashMap::new, Collectors.toList()));
         return byCode.entrySet().stream().map(entry -> new DocumentJob.Warning(entry.getKey(),
-                entry.getValue().size(), entry.getValue().stream().map(DocumentFormatPort.Warning::location)
-                        .filter(location -> location != null && !location.isBlank())
-                        .distinct().limit(10).map(location -> location.substring(0, Math.min(120, location.length())))
-                        .toList())).toList();
-    }
-
-    // 저장소 청소는 누락된 키를 허용한다.
-    private void remove(String key) throws IOException {
-        if (key != null) {
-            files.delete(key);
-        }
+                entry.getValue().size(), List.of())).toList();
     }
 
     /** 애플리케이션 종료 시 워커와 리스 스레드에 정지 신호를 보낸다. */

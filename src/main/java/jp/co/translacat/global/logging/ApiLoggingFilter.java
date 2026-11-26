@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingResponseWrapper;
+import org.springframework.web.util.UrlPathHelper;
 
 import java.io.IOException;
 
@@ -25,6 +26,11 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
         String redactionLabel = sensitiveBodyLabel(request.getRequestURI());
         if (redactionLabel == null) {
             redactionLabel = sensitiveBodyLabel(request.getServletPath());
+        }
+        // 문서 라우터가 처리할 컨텍스트 경로와 행렬 매개변수 변형도 본문 로깅에서 제외한다.
+        if (redactionLabel == null && isDocumentTranslationPath(
+                UrlPathHelper.defaultInstance.getPathWithinApplication(request))) {
+            redactionLabel = "DOCUMENT_TRANSLATION_REDACTED";
         }
         // servlet이 해석한 동일 push 경로도 가린다. URL을 직접/중복 decode하지 않는다.
         if (isPushInstallationPath(request.getServletPath())) {
@@ -110,10 +116,16 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
                 "[RESPONSE] Status: {}, Length: {} bytes, Body: {}", response.getStatus(), content.length, trimmedBody);
     }
 
+    // 문서 경로와 다른 서비스의 비슷한 접두사를 구분한다.
+    private static boolean isDocumentTranslationPath(String uri) {
+        return uri != null && (uri.equals("/api/v1/document-translations")
+                || uri.startsWith("/api/v1/document-translations/"));
+    }
+
+    // 개인 데이터가 포함되는 경로는 본문 대신 고정 라벨만 기록한다.
     private String sensitiveBodyLabel(String uri) {
         // 비공개 문서 본문, 파일명과 사용자 식별자를 기록하거나 다운로드 응답을 캐시하지 않는다.
-        if (uri != null && (uri.equals("/api/v1/document-translations")
-                || uri.startsWith("/api/v1/document-translations/"))) {
+        if (isDocumentTranslationPath(uri)) {
             return "DOCUMENT_TRANSLATION_REDACTED";
         }
 

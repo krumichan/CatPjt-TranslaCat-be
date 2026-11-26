@@ -15,9 +15,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/** 문서 작업 테이블과 배치 체크포인트의 트랜잭션을 관리한다. */
+/** 임시 문서 작업의 상태, 처리 임대와 일회 다운로드 권한을 DB에서 관리한다. */
 final class DocumentJobRepository {
     private static final String TABLE = "document_translation_job";
+    private static final String UNUSED_CONTENT_HASH = "0".repeat(64);
+    private static final long RESULT_RETENTION_SECONDS = 120;
     private static final TypeReference<List<DocumentJob.Warning>> WARNINGS = new TypeReference<>() {};
 
     private final JdbcTemplate jdbc;
@@ -52,50 +54,48 @@ final class DocumentJobRepository {
                 this::read, ownerId, id.toString()).stream().findFirst();
     }
 
-    // DB 유일 제약으로 멱등 키와 활성 소유자 경합을 해결한다.
+    // DB에는 임시 작업 식별자와 요청 메타데이터만 기록하고 원본명과 파일 지문은 보관하지 않는다.
     boolean insert(DocumentJob job) {
+        if (job.retryOf() != null || !workspaceKey(job.id()).equals(job.inputKey())) {
+            throw new IllegalArgumentException("An independent transient document workspace is required");
+        }
         return writes.whenActive(job.ownerId(), false, () -> {
             jdbc.update("""
                     INSERT INTO document_translation_job
-                        (id, owner_id, retry_of, idempotency_key, request_hash, format, file_name, source_language,
+                        (id, owner_id, idempotency_key, request_hash, format, file_name, source_language,
                          target_language, input_key, input_sha256, input_bytes, warnings, created_at, updated_at,
                          expires_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?)
-                    """, job.id().toString(), job.ownerId(), value(job.retryOf()), job.idempotencyKey().toString(),
-                    job.requestHash(), job.format(), job.fileName(), job.sourceLanguage(), job.targetLanguage(),
-                    job.inputKey(), job.inputHash(), job.inputBytes(), time(job.createdAt()),
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?)
+                    """, job.id().toString(), job.ownerId(), job.idempotencyKey().toString(),
+                    job.requestHash(), job.format(), "document." + job.format(), job.sourceLanguage(), job.targetLanguage(),
+                    job.inputKey(), UNUSED_CONTENT_HASH, job.inputBytes(), time(job.createdAt()),
                     time(job.createdAt()), time(job.expiresAt()));
-            if (job.retryOf() == null) {
-                writes.link(job.ownerId(), job.id(), job.inputKey());
-            }
             return true;
         });
     }
 
-    // 아직 실행하지 않은 작업과 복구 가능한 만료 리스에서 먼저 접수한 항목을 가져온다.
+    // 같은 임시 공간을 동시에 쓰지 않도록 아직 실행하지 않은 작업만 가져온다.
     Optional<DocumentJob> claim(Instant now) {
         return transaction.execute(status -> {
             var candidates = jdbc.query("""
                     SELECT * FROM document_translation_job
                     WHERE expires_at > ?
                         AND created_at > ?
-                        AND (status = 'QUEUED' OR (
-                            status IN ('VALIDATING', 'TRANSLATING', 'REPACKING')
-                            AND lease_until < ? AND recovery_count = 0))
+                        AND input_key = CONCAT('ephemeral-', id)
+                        AND status = 'QUEUED'
                     ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
-                    """, this::read, time(now), time(now.minusSeconds(180)), time(now));
+                    """, this::read, time(now), time(now.minusSeconds(DocumentTranslationService.JOB_SECONDS)));
             if (candidates.isEmpty()) {
                 return Optional.empty();
             }
 
             var job = candidates.getFirst();
             UUID lease = UUID.randomUUID();
-            int recoveries = job.recoveryCount() + (job.state() == DocumentJob.State.QUEUED ? 0 : 1);
             jdbc.update("""
                     UPDATE document_translation_job SET status = 'VALIDATING', lease_token = ?, lease_until = ?,
-                        recovery_count = ?, updated_at = ?
+                        updated_at = ?
                     WHERE id = ?
-                    """, lease.toString(), time(now.plusSeconds(30)), recoveries, time(now), job.id().toString());
+                    """, lease.toString(), time(now.plusSeconds(30)), time(now), job.id().toString());
             return loadOwned(job.ownerId(), job.id());
         });
     }
@@ -106,7 +106,7 @@ final class DocumentJobRepository {
                 UPDATE document_translation_job
                 SET status = ?, total_segments = ?, completed_segments = GREATEST(completed_segments, ?),
                     model_revision = ?, updated_at = ?
-                WHERE id = ? AND lease_token = ? AND lease_until >= ?
+                WHERE id = ? AND lease_token = ? AND lease_until >= ? AND input_key = CONCAT('ephemeral-', id)
                     AND status IN ('VALIDATING', 'TRANSLATING', 'REPACKING')
                 """, stage.name(), total, completed, model, time(now), job.id().toString(),
                 value(job.leaseToken()), time(now)) == 1);
@@ -116,7 +116,7 @@ final class DocumentJobRepository {
     boolean renew(DocumentJob job, Instant now) {
         return writes.whenActive(job.ownerId(), false, () -> jdbc.update("""
                 UPDATE document_translation_job SET lease_until = ?
-                WHERE id = ? AND lease_token = ? AND lease_until >= ?
+                WHERE id = ? AND lease_token = ? AND lease_until >= ? AND input_key = CONCAT('ephemeral-', id)
                     AND status IN ('VALIDATING', 'TRANSLATING', 'REPACKING')
                 """, time(now.plusSeconds(30)), job.id().toString(), value(job.leaseToken()), time(now)) == 1);
     }
@@ -136,27 +136,38 @@ final class DocumentJobRepository {
         Integer count = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM document_translation_job
                 WHERE id = ? AND owner_id = ? AND lease_token = ? AND status = ? AND lease_until >= ?
+                    AND input_key = CONCAT('ephemeral-', id)
                 """, Integer.class, job.id().toString(), job.ownerId(), value(job.leaseToken()), stage.name(),
                 time(now));
         return count != null && count == 1;
     }
 
-    // 파일 저장이 끝난 뒤 REPACKING과 현재 리스가 모두 유효할 때만 다운로드를 공개한다.
-    boolean succeed(DocumentJob job, String key, String hash, long bytes,
-            List<DocumentJob.Warning> warnings, Instant now) {
-        return writes.whenActive(job.ownerId(), false, () -> {
-            boolean published = jdbc.update("""
-                UPDATE document_translation_job SET status = 'SUCCEEDED', output_key = ?, output_sha256 = ?,
-                    output_bytes = ?, warnings = ?, lease_token = NULL, lease_until = NULL,
-                    updated_at = ?, finished_at = ?
-                WHERE id = ? AND lease_token = ? AND status = 'REPACKING' AND lease_until >= ? AND expires_at > ?
-                """, key, hash, bytes, json(warnings), time(now), time(now), job.id().toString(),
-                    value(job.leaseToken()), time(now), time(now)) == 1;
-            if (published) {
-                writes.link(job.ownerId(), job.id(), key);
-            }
-            return published;
-        });
+    // 현재 임대가 만든 결과만 공개하고, 번역 완료부터 별도의 미수령 기한을 시작한다.
+    boolean succeed(DocumentJob job, String key, long bytes, List<DocumentJob.Warning> warnings, Instant now) {
+        if (!resultKey(job.id()).equals(key)) {
+            throw new IllegalArgumentException("A result from the same transient document workspace is required");
+        }
+        return writes.whenActive(job.ownerId(), false, () -> jdbc.update("""
+                UPDATE document_translation_job
+                SET status = 'SUCCEEDED', output_key = ?, output_sha256 = NULL, output_bytes = ?, warnings = ?,
+                    lease_token = NULL, lease_until = NULL, updated_at = ?, finished_at = ?, expires_at = ?
+                WHERE id = ? AND owner_id = ? AND input_key = ? AND lease_token = ?
+                    AND status = 'REPACKING' AND lease_until >= ? AND expires_at > ?
+                """, key, bytes, json(warnings), time(now), time(now), time(now.plusSeconds(RESULT_RETENTION_SECONDS)),
+                job.id().toString(), job.ownerId(), workspaceKey(job.id()), value(job.leaseToken()),
+                time(now), time(now)) == 1);
+    }
+
+    // 전송을 열기 전에 활성 소유자가 같은 결과의 다운로드 권한을 한 번만 획득한다.
+    boolean claimOutput(long ownerId, UUID id, String expectedOutputKey, Instant now) {
+        if (!resultKey(id).equals(expectedOutputKey)) {
+            return false;
+        }
+        return writes.whenActive(ownerId, false, () -> jdbc.update("""
+                UPDATE document_translation_job SET output_key = NULL, output_sha256 = NULL, updated_at = ?
+                WHERE owner_id = ? AND id = ? AND input_key = ? AND status = 'SUCCEEDED'
+                    AND output_key = ? AND expires_at > ?
+                """, time(now), ownerId, id.toString(), workspaceKey(id), expectedOutputKey, time(now)) == 1);
     }
 
     // 진행 중인 단계에서만 실패를 확정한다.
@@ -164,21 +175,23 @@ final class DocumentJobRepository {
         writes.whenActive(job.ownerId(), 0, () -> jdbc.update("""
                 UPDATE document_translation_job SET status = 'FAILED', error_code = ?, lease_token = NULL,
                     lease_until = NULL, updated_at = ?, finished_at = ?
-                WHERE id = ? AND lease_token = ? AND lease_until >= ?
+                WHERE id = ? AND lease_token = ? AND lease_until >= ? AND input_key = CONCAT('ephemeral-', id)
                     AND status IN ('VALIDATING', 'TRANSLATING', 'REPACKING')
                 """, errorCode, time(now), time(now), job.id().toString(), value(job.leaseToken()), time(now)));
     }
 
-    // 첫 상태 전이를 보존하면서 대기 중 작업은 즉시, 실행 중은 취소 요청으로 옮긴다.
-    void requestCancel(long ownerId, UUID id, Instant now) {
-        writes.whenActive(ownerId, 0, () -> jdbc.update("""
+    // 대기 작업과 미수령 결과만 즉시 취소하고 이미 전송 권한을 획득한 결과는 유지한다.
+    boolean requestCancel(long ownerId, UUID id, Instant now) {
+        return writes.whenActive(ownerId, false, () -> jdbc.update("""
                 UPDATE document_translation_job
                 SET finished_at = CASE WHEN status = 'QUEUED' THEN ? ELSE finished_at END,
-                    status = CASE WHEN status = 'QUEUED' THEN 'CANCELLED' ELSE 'CANCELLING' END,
+                    status = CASE WHEN status IN ('QUEUED', 'SUCCEEDED') THEN 'CANCELLED' ELSE 'CANCELLING' END,
+                    output_key = NULL, output_sha256 = NULL,
                     updated_at = ?
-                WHERE owner_id = ? AND id = ? AND expires_at > ?
-                    AND status IN ('QUEUED', 'VALIDATING', 'TRANSLATING', 'REPACKING')
-                """, time(now), time(now), ownerId, id.toString(), time(now)));
+                WHERE owner_id = ? AND id = ? AND input_key = ? AND expires_at > ?
+                    AND (status IN ('QUEUED', 'VALIDATING', 'TRANSLATING', 'REPACKING')
+                        OR (status = 'SUCCEEDED' AND output_key = ?))
+                """, time(now), time(now), ownerId, id.toString(), workspaceKey(id), time(now), resultKey(id)) == 1);
     }
 
     // 현재 워커가 취소 경계를 지난 작업을 정리한다.
@@ -186,85 +199,88 @@ final class DocumentJobRepository {
         writes.whenActive(job.ownerId(), 0, () -> jdbc.update("""
                 UPDATE document_translation_job SET status = 'CANCELLED', lease_token = NULL, lease_until = NULL,
                     updated_at = ?, finished_at = ?
-                WHERE id = ? AND lease_token = ? AND status = 'CANCELLING'
+                WHERE id = ? AND lease_token = ? AND status = 'CANCELLING' AND input_key = CONCAT('ephemeral-', id)
                 """, time(now), time(now), job.id().toString(), value(job.leaseToken())));
     }
 
     // 중단한 워커를 기다리지 않고 임대 만료 취소와 전체 마감을 확정한다.
     void sweep(Instant now) {
+        Instant jobLimit = now.minusSeconds(DocumentTranslationService.JOB_SECONDS);
         jdbc.update("""
                 UPDATE document_translation_job SET status = 'CANCELLED', lease_token = NULL, lease_until = NULL,
                     updated_at = ?, finished_at = ?
-                WHERE status = 'CANCELLING' AND lease_until < ?
+                WHERE status = 'CANCELLING' AND lease_until < ? AND input_key = CONCAT('ephemeral-', id)
                 """, time(now), time(now), time(now));
         jdbc.update("""
                 UPDATE document_translation_job SET status = 'FAILED',
                     error_code = CASE WHEN created_at <= ? THEN 'TRANSLATION_TIMEOUT' ELSE 'WORKER_UNAVAILABLE' END,
                     lease_token = NULL, lease_until = NULL, updated_at = ?, finished_at = ?
                 WHERE status IN ('QUEUED', 'VALIDATING', 'TRANSLATING', 'REPACKING')
-                    AND (created_at <= ? OR lease_until < ? AND recovery_count >= 1)
-                """, time(now.minusSeconds(180)), time(now), time(now), time(now.minusSeconds(180)), time(now));
+                    AND input_key = CONCAT('ephemeral-', id)
+                    AND (created_at <= ? OR lease_until < ?)
+                """, time(jobLimit), time(now), time(now), time(jobLimit), time(now));
+
+        // 내려받기 권한이 남은 성공 행만 만료한다. 전송 중인 결과의 물리 정리는 작업 공간이 소유한다.
+        jdbc.update("""
+                UPDATE document_translation_job
+                SET status = 'EXPIRED', output_key = NULL, output_sha256 = NULL, updated_at = ?
+                WHERE status = 'SUCCEEDED' AND expires_at <= ? AND input_key = CONCAT('ephemeral-', id)
+                    AND output_key = CONCAT('ephemeral-result-', id)
+                ORDER BY expires_at, id LIMIT 200
+                """, time(now), time(now));
     }
 
-    // 같은 입력 지문으로 전에 저장한 배치를 찾는다.
-    Optional<Checkpoint> checkpoint(UUID id, int number, String hash) {
-        return jdbc.query("""
-                SELECT batch_no, result_key FROM document_translation_batch
-                WHERE job_id = ? AND batch_no = ? AND input_hash = ?
-                """, (rs, row) -> new Checkpoint(rs.getInt(1), rs.getString(2)), id.toString(), number, hash)
-                .stream().findFirst();
+    // 이전 작업 공간을 소유 잠금 안에서 비운 뒤에만, 그 파일을 가리킨 상태를 종료한다.
+    void invalidateEphemeralJobs(Instant now) {
+        jdbc.update("""
+                UPDATE document_translation_job
+                SET error_code = CASE WHEN status IN ('QUEUED', 'VALIDATING', 'TRANSLATING', 'REPACKING')
+                        THEN 'WORKER_UNAVAILABLE' ELSE error_code END,
+                    finished_at = COALESCE(finished_at, ?),
+                    expires_at = CASE WHEN status = 'SUCCEEDED' AND output_key IS NOT NULL THEN ? ELSE expires_at END,
+                    status = CASE
+                        WHEN status IN ('QUEUED', 'VALIDATING', 'TRANSLATING', 'REPACKING') THEN 'FAILED'
+                        WHEN status = 'CANCELLING' THEN 'CANCELLED'
+                        WHEN status = 'SUCCEEDED' AND output_key IS NOT NULL THEN 'EXPIRED'
+                        ELSE status END,
+                    input_key = NULL, output_key = NULL, output_sha256 = NULL,
+                    lease_token = NULL, lease_until = NULL, updated_at = ?
+                WHERE input_key = CONCAT('ephemeral-', id)
+                """, time(now), time(now), time(now));
     }
 
-    // 검증한 배치 결과만 현재 리스에서 한 번 기록하도록 DB에서 조건을 확인한다.
-    boolean saveCheckpoint(DocumentJob job, int number, String hash, String key, Instant now) {
-        return writes.whenActive(job.ownerId(), false, () -> {
-            boolean saved = jdbc.update("""
-                INSERT IGNORE INTO document_translation_batch (job_id, batch_no, input_hash, result_key, completed_at)
-                SELECT id, ?, ?, ?, ? FROM document_translation_job
-                WHERE id = ? AND lease_token = ? AND status = 'TRANSLATING' AND lease_until >= ?
-                    """, number, hash, key, time(now), job.id().toString(), value(job.leaseToken()), time(now)) == 1;
-            if (saved) {
-                writes.link(job.ownerId(), job.id(), key);
-            }
-            return saved;
-        });
+    // 이전 저장 방식의 작업을 새 처리에서 차단하고, 별도 정리에 필요한 객체 참조는 유지한다.
+    void fenceLegacyJobs(Instant now) {
+        jdbc.update("""
+                UPDATE document_translation_job
+                SET status = 'EXPIRED', expires_at = LEAST(expires_at, ?), finished_at = COALESCE(finished_at, ?),
+                    lease_token = NULL, lease_until = NULL, updated_at = ?
+                WHERE status <> 'EXPIRED' AND (
+                    (input_key IS NOT NULL AND input_key <> CONCAT('ephemeral-', id))
+                    OR (input_key IS NULL AND (input_sha256 <> ? OR output_key IS NOT NULL)))
+                """, time(now), time(now), time(now), UNUSED_CONTENT_HASH);
     }
 
-    // 필요한 경우 다시 읽을 수 있게 파일을 지우기 전 작업과 배치 키를 조회한다.
-    List<DocumentJob> expiredWithFiles(Instant now) {
-        return jdbc.query("""
-                SELECT * FROM document_translation_job
-                WHERE expires_at <= ? AND (input_key IS NOT NULL OR output_key IS NOT NULL)
-                ORDER BY expires_at LIMIT 50
-                """, this::read, time(now));
+    // 호출자가 실제 파일 정리를 완료한 뒤 해당 작업 공간만 잊고 결과 통계는 유지한다.
+    void forgetWorkspace(long ownerId, UUID id, Instant now) {
+        jdbc.update("""
+                UPDATE document_translation_job SET input_key = NULL, updated_at = ?
+                WHERE owner_id = ? AND id = ? AND input_key = ? AND output_key IS NULL
+                    AND status IN ('SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED')
+                """, time(now), ownerId, id.toString(), workspaceKey(id));
     }
 
-    // TTL 정리에서 작업이 보유한 체크포인트 객체의 키를 가져온다.
-    List<String> checkpointKeys(UUID id) {
-        return jdbc.queryForList("SELECT result_key FROM document_translation_batch WHERE job_id = ?",
-                String.class, id.toString());
-    }
-
-    // 객체 삭제 후 조회할 수 없는 키를 비운다.
-    void clearExpired(DocumentJob job, Instant now) {
-        transaction.executeWithoutResult(status -> {
-            jdbc.update("DELETE FROM document_translation_batch WHERE job_id = ?", job.id().toString());
-            int cleared = jdbc.update("""
-                    UPDATE document_translation_job SET status = 'EXPIRED', input_key = NULL, output_key = NULL,
-                        lease_token = NULL, lease_until = NULL, error_code = NULL, updated_at = ?
-                    WHERE id = ? AND expires_at <= ?
-                    """, time(now), job.id().toString(), time(now));
-            if (cleared == 1) {
-                writes.clearExpiredSource(job.ownerId(), job.inputKey());
-            }
-        });
-    }
-
-    // 파일 정리가 끝난 작업만 접수 후 7일에 제거한다.
+    // 독립 정리가 담당하는 임시 표식은 7일 뒤 제거하고, 이전 객체의 정리 증거는 보존한다.
     void removeOldMetadata(Instant now) {
         jdbc.update("""
                 DELETE FROM document_translation_job
-                WHERE created_at <= ? AND status = 'EXPIRED' AND input_key IS NULL AND output_key IS NULL LIMIT 200
+                WHERE created_at <= ? AND status IN ('SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED')
+                    AND (input_key IS NULL OR input_key = CONCAT('ephemeral-', id)) AND output_key IS NULL
+                    AND NOT EXISTS (SELECT 1 FROM document_translation_batch
+                        WHERE job_id = document_translation_job.id)
+                    AND NOT EXISTS (SELECT 1 FROM document_translation_object_write
+                        WHERE job_id = document_translation_job.id)
+                LIMIT 200
                 """, time(now.minusSeconds(7L * 24 * 60 * 60)));
     }
 
@@ -316,5 +332,13 @@ final class DocumentJobRepository {
         return id == null ? null : id.toString();
     }
 
-    record Checkpoint(int number, String key) {}
+    // 작업과 같은 UUID를 가진 임시 디렉터리 표식만 DB 경계에 사용한다.
+    private static String workspaceKey(UUID id) {
+        return "ephemeral-" + id;
+    }
+
+    // 실제 경로 대신 해당 작업의 단일 결과 권한을 나타내는 표식이다.
+    private static String resultKey(UUID id) {
+        return "ephemeral-result-" + id;
+    }
 }

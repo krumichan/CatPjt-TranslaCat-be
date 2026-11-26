@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/** 문서 번역 모듈에서 보관하는 작업과 파일 식별자다. */
+/** 문서 작업 메타데이터와, 임시 작업 또는 레거시 정리를 식별하는 저장 참조다. */
 record DocumentJob(
         UUID id, long ownerId, UUID retryOf, UUID idempotencyKey, String requestHash,
         String format, String fileName, String sourceLanguage, String targetLanguage,
@@ -14,15 +14,7 @@ record DocumentJob(
         int recoveryCount, Instant createdAt, Instant expiresAt) {
 
     enum State {
-        QUEUED, VALIDATING, TRANSLATING, REPACKING, CANCELLING, SUCCEEDED, FAILED, CANCELLED, EXPIRED;
-
-        // 원본이 유효할 때 새 시도를 만들 수 있는 종료 상태인지 확인한다.
-        boolean permitsRetry(String errorCode) {
-            return this == CANCELLED || this == FAILED && errorCode != null && switch (errorCode) {
-                case "TRANSLATION_UNAVAILABLE", "TRANSLATION_TIMEOUT", "WORKER_UNAVAILABLE" -> true;
-                default -> false;
-            };
-        }
+        QUEUED, VALIDATING, TRANSLATING, REPACKING, CANCELLING, SUCCEEDED, FAILED, CANCELLED, EXPIRED
     }
 
     record Warning(String code, int count, List<String> locations) {}

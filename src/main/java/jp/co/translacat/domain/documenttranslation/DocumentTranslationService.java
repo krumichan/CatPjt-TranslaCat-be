@@ -1,312 +1,277 @@
 package jp.co.translacat.domain.documenttranslation;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.FilterInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.text.Normalizer;
+import java.nio.file.StandardOpenOption;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
-/** 인증 주체의 문서 접수와 결과 접근 정책을 실행한다. */
+/** 인증된 문서 작업과 한 번만 수령할 수 있는 로컬 결과를 관리한다. */
 final class DocumentTranslationService {
-    private static final long MAX_BYTES = 10L * 1024 * 1024;
-    private static final long RETENTION_SECONDS = 24L * 60 * 60;
+    static final long MAX_UPLOAD_BYTES = 10L * 1024 * 1024;
+    static final long JOB_SECONDS = 180;
+    static final long RESULT_SECONDS = 120;
+    static final long TRANSFER_NANOS = TimeUnit.SECONDS.toNanos(60);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DocumentTranslationService.class);
     private static final Set<String> FORMATS = Set.of("pptx", "docx", "xlsx");
     private static final Set<String> LANGUAGES = Set.of("ja", "ko", "en");
 
     private final DocumentJobRepository repository;
-    private final DocumentFiles files;
+    private final DocumentTransientFiles files;
     private final DocumentObjectWrites writes;
     private final Clock clock;
 
-    // 공유 업무 엔티티 없이 문서 전용 영속 경계만 연결한다.
-    DocumentTranslationService(DocumentJobRepository repository, DocumentFiles files, DocumentObjectWrites writes,
-            Clock clock) {
+    // 파일은 작업 전용 로컬 공간에만 쓰고 기존 계정 삭제 잠금 계약을 재사용한다.
+    DocumentTranslationService(DocumentJobRepository repository, DocumentTransientFiles files,
+            DocumentObjectWrites writes, Clock clock) {
         this.repository = repository;
         this.files = files;
         this.writes = writes;
         this.clock = clock;
     }
 
-    // 파일 해시로 멱등 접수를 판별하고 비공개 저장이 성공한 원본만 작업으로 기록한다.
-    DocumentJob submit(long owner, UUID key, MultipartFile file, String source, String target) {
+    // 외부 연결에서는 제한된 메모리만 사용하고, 계정 잠금 아래에서 완료된 원본을 접수한다.
+    DocumentJob submit(long owner, UUID key, InputStream input, String format, String source, String target,
+            long deadline) {
         requireActive(owner);
+        if (format == null || !FORMATS.contains(format)) {
+            throw error(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_FORMAT");
+        }
         String language = source == null ? "auto" : source;
         if (target == null || !LANGUAGES.contains(target) || !("auto".equals(language) || LANGUAGES.contains(language))
                 || target.equals(language)) {
             throw error(HttpStatus.BAD_REQUEST, "INVALID_LANGUAGE_PAIR");
         }
 
-        String name = safeFileName(file.getOriginalFilename());
-        String format = extension(name);
-        if (file.getSize() > MAX_BYTES) {
-            throw error(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE");
-        }
-        if (file.isEmpty()) {
-            throw error(HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
-        }
-
-        Path staged = null;
-        String inputKey = null;
-        UUID id = null;
-        boolean referencePossible = false;
+        // 연결 중단 또는 계정 삭제 중에는 네트워크 수신이 파일이나 계정 잠금을 보유하지 않는다.
+        UUID id = UUID.randomUUID();
+        boolean accepted = false;
         try {
-            // 해시를 계산하는 동안 실제 읽은 파일 크기를 제한한다.
-            staged = Files.createTempFile("translacat-document-", ".input");
-            String inputHash = stage(file, staged);
-            String signature = signature("submit", inputHash, name, language, target);
-            Optional<DocumentJob> previous = replay(owner, key, signature);
-            if (previous.isPresent()) {
-                return previous.get();
-            }
+            byte[] body = receive(input, deadline);
+            String requestShape = requestShape(format, language, target, body.length);
+            String fingerprint = HexFormat.of().formatHex(DocumentFiles.sha256().digest(body));
 
-            // 작업 생성 경합에 실패하는 경우 이 시도에만 속한 객체를 정리한다.
-            id = UUID.randomUUID();
-            inputKey = "source-" + id;
-            if (!writes.store(files, owner, id, inputKey, staged, () -> true)) {
+            // 원본 쓰기·작업 등록과 계정 삭제 승인은 같은 소유자 잠금 아래에서 순서를 정한다.
+            DocumentJob persisted = writes.whenActive(owner, null, () -> admit(
+                    owner, id, key, format, language, target, body, requestShape, fingerprint));
+            if (persisted == null) {
                 throw error(HttpStatus.NOT_FOUND, "JOB_NOT_FOUND");
             }
-            Instant now = clock.instant();
-            DocumentJob next = queued(id, owner, null, key, signature, format, name, language, target,
-                    inputKey, inputHash, Files.size(staged), now, now.plusSeconds(RETENTION_SECONDS));
-            // DB 연결이 끊겨 커밋을 확인하지 못하면 원본을 보존한다.
-            referencePossible = true;
-            try {
-                DocumentJob accepted = insert(next);
-                referencePossible = accepted.id().equals(id);
-                return accepted;
-            } catch (DocumentTranslationException rejected) {
-                referencePossible = false;
-                throw rejected;
-            }
+            accepted = id.equals(persisted.id());
+            return persisted;
         } catch (IOException unavailable) {
             throw error(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE");
         } finally {
-            deleteTemp(staged);
-            if (!referencePossible && inputKey != null) {
-                deleteObject(owner, id, inputKey);
+            if (!accepted) {
+                discardWorkspace(owner, id);
             }
         }
     }
 
-    // 소유자에게만 현재 상태를 보여 준다.
+    // 완전히 수신한 입력만 계정이 활성 상태인 같은 트랜잭션에서 파일과 작업으로 등록한다.
+    private DocumentJob admit(long owner, UUID id, UUID key, String format, String source, String target,
+            byte[] body, String requestShape, String fingerprint) {
+        Optional<DocumentJob> previous = repository.findByKey(owner, key);
+        if (previous.isPresent()) {
+            DocumentJob prior = previous.get();
+            if (!prior.requestHash().equals(requestShape) || !files.matchesSource(prior.id(), fingerprint)) {
+                throw error(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_CONFLICT");
+            }
+            return prior;
+        }
+
+        // 디스크 쓰기의 범위는 이미 제한된 바이트 사본 하나이며 네트워크 I/O를 기다리지 않는다.
+        try {
+            Instant now = clock.instant();
+            Instant expiry = now.plusSeconds(JOB_SECONDS);
+            files.create(id);
+            files.retainUntil(id, expiry);
+            try (var lease = files.use(id)) {
+                Files.write(files.source(id), body, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE,
+                        LinkOption.NOFOLLOW_LINKS);
+                files.identifySource(id, fingerprint);
+                DocumentJob job = queued(id, owner, key, requestShape, format, source, target, body.length, now, expiry);
+                if (!repository.insert(job)) {
+                    throw error(HttpStatus.NOT_FOUND, "JOB_NOT_FOUND");
+                }
+                return job;
+            }
+        } catch (DuplicateKeyException duplicate) {
+            throw error(HttpStatus.TOO_MANY_REQUESTS, "ACTIVE_JOB_LIMIT");
+        } catch (IOException unavailable) {
+            throw error(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE");
+        }
+    }
+
+    // 요청자가 소유하고 계정 삭제로 차단되지 않은 작업만 조회한다.
     DocumentJob get(long owner, UUID id) {
         return repository.findOwned(owner, id)
                 .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "JOB_NOT_FOUND"));
     }
 
-    // 경합 후 확정된 상태를 다시 읽어 취소의 실제 결과를 응답한다.
+    // 대기 작업과 미수령 결과는 즉시 정리하고 실행 중인 작업은 처리기에 취소를 전한다.
     DocumentJob cancel(long owner, UUID id) {
         Instant now = clock.instant();
         repository.requestCancel(owner, id, now);
         DocumentJob current = get(owner, id);
-        if (!current.expiresAt().isAfter(now)
-                || current.state() != DocumentJob.State.CANCELLED && current.state() != DocumentJob.State.CANCELLING) {
+        if (current.state() == DocumentJob.State.CANCELLED) {
+            if (inputMarker(id).equals(current.inputKey())) {
+                discardWorkspace(owner, id);
+            }
+        } else if (current.state() != DocumentJob.State.CANCELLING || !current.expiresAt().isAfter(now)) {
             throw error(HttpStatus.CONFLICT, "INVALID_JOB_STATE");
         }
         return current;
     }
 
-    // 만료 여유가 있는 원본을 공유하는 새 시도로 접수한다.
-    DocumentJob retry(long owner, UUID id, UUID key) {
-        String signature = signature("retry", id.toString());
-        Optional<DocumentJob> previous = replay(owner, key, signature);
-        if (previous.isPresent()) {
-            return previous.get();
-        }
-
-        Instant now = clock.instant();
-        DocumentJob prior = get(owner, id);
-        if (prior.inputKey() == null || !prior.expiresAt().isAfter(now.plusSeconds(180))) {
-            throw error(HttpStatus.GONE, "FILE_EXPIRED");
-        }
-        if (!prior.state().permitsRetry(prior.errorCode())) {
-            throw error(HttpStatus.CONFLICT, "INVALID_JOB_STATE");
-        }
-        return insert(queued(UUID.randomUUID(), owner, id, key, signature, prior.format(), prior.fileName(),
-                prior.sourceLanguage(), prior.targetLanguage(), prior.inputKey(), prior.inputHash(), prior.inputBytes(),
-                now, prior.expiresAt()));
-    }
-
-    // 파일 스트림은 소유자·성공 상태·공개 기한을 확인한 후에만 열 수 있다.
+    // 소유자가 수령을 확정하면 제한된 응답 메모리로만 가져오고 네트워크 전송 전 파일을 정리한다.
     Download download(long owner, UUID id) {
         DocumentJob job = get(owner, id);
-        if (!clock.instant().isBefore(job.expiresAt())) {
+        Instant now = clock.instant();
+        if (!job.expiresAt().isAfter(now) || job.state() == DocumentJob.State.EXPIRED
+                || job.state() == DocumentJob.State.SUCCEEDED && job.outputKey() == null) {
             throw error(HttpStatus.GONE, "FILE_EXPIRED");
         }
-        if (job.state() != DocumentJob.State.SUCCEEDED || job.outputKey() == null || job.outputBytes() == null) {
+        if (job.state() != DocumentJob.State.SUCCEEDED || !resultMarker(id).equals(job.outputKey())
+                || job.outputBytes() == null || job.outputBytes() <= 0 || job.outputBytes() > MAX_UPLOAD_BYTES) {
             throw error(HttpStatus.CONFLICT, "INVALID_JOB_STATE");
         }
 
-        Path verified = null;
+        // 조회 이후 취소·만료·다른 다운로드가 이겼다면 파일 사용권조차 얻지 않는다.
+        if (!repository.claimOutput(owner, id, resultMarker(id), clock.instant())) {
+            throw error(HttpStatus.GONE, "FILE_EXPIRED");
+        }
+        boolean removed = false;
         try {
-            String name = job.fileName().substring(0, job.fileName().lastIndexOf('.'))
-                    + "." + job.targetLanguage() + "." + job.format();
-            // 헤더를 보내기 전에 저장한 결과의 길이와 해시를 대조한다.
-            verified = Files.createTempFile("translacat-document-", ".download");
-            files.copyVerified(job.outputKey(), verified, job.outputBytes(), job.outputHash());
-            // 파일 검증 중에 탈퇴가 접수됐을 수 있으므로 응답 스트림을 넘기기 전에 계정 상태를 다시 확인한다.
             requireActive(owner);
-            InputStream content = downloadStream(verified);
-            verified = null;
-            return new Download(content, name, job.format(), job.outputBytes());
+            byte[] content;
+            try (var stream = files.openResult(id)) {
+                content = stream.readNBytes(Math.toIntExact(job.outputBytes() + 1));
+                if (content.length != job.outputBytes()) {
+                    throw error(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE");
+                }
+            }
+
+            // 실제 작업 공간이 사라졌음을 확인한 경우에만 응답에 바이트를 넘긴다.
+            files.discard(id);
+            if (files.hasWorkspace(id)) {
+                throw new IOException("Document result cleanup did not complete");
+            }
+            removed = true;
+            forgetWorkspace(owner, id);
+
+            // 로컬 복사 중 계정 삭제가 접수되었다면 파일은 지우고 응답은 제공하지 않는다.
+            requireActive(owner);
+            String fileName = "document." + job.targetLanguage() + "." + job.format();
+            return new Download(content, fileName, job.format());
+        } catch (NoSuchFileException missing) {
+            throw error(HttpStatus.GONE, "FILE_EXPIRED");
         } catch (IOException unavailable) {
             throw error(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE");
         } finally {
-            deleteTemp(verified);
+            if (!removed) {
+                discardWorkspace(owner, id);
+            }
         }
     }
 
-    // 응답을 완료하거나 수신이 중단되면 검증용 임시 파일을 지운다.
-    private static InputStream downloadStream(Path verified) throws IOException {
-        return new FilterInputStream(Files.newInputStream(verified)) {
-            @Override
-            public void close() throws IOException {
-                try {
-                    super.close();
-                } finally {
-                    deleteTemp(verified);
-                }
-            }
-        };
-    }
-
-    // 멱등 키가 같은 업무 의도에 쓰였는지 먼저 확인한다.
-    private Optional<DocumentJob> replay(long owner, UUID key, String signature) {
-        return repository.findByKey(owner, key).map(prior -> {
-            if (!prior.requestHash().equals(signature)) {
-                throw error(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_CONFLICT");
-            }
-            return prior;
-        });
-    }
-
-    // 키 재전송과 소유자의 다른 활성 작업을 DB 유일 제약에서 구분한다.
-    private DocumentJob insert(DocumentJob job) {
+    // 일회성 파일 생성 또는 정리가 끝난 작업의 로컬 참조를 없앤다.
+    void discardWorkspace(long owner, UUID id) {
         try {
-            if (!repository.insert(job)) {
-                throw error(HttpStatus.NOT_FOUND, "JOB_NOT_FOUND");
+            files.discard(id);
+            if (!files.hasWorkspace(id)) {
+                forgetWorkspace(owner, id);
             }
-            return job;
-        } catch (DuplicateKeyException duplicate) {
-            return replay(job.ownerId(), job.idempotencyKey(), job.requestHash())
-                    .orElseThrow(() -> error(HttpStatus.TOO_MANY_REQUESTS, "ACTIVE_JOB_LIMIT"));
+        } catch (IOException unavailable) {
+            LOGGER.warn("Document transient cleanup deferred jobId={}", id);
         }
     }
 
-    // 스트리밍으로 수신 바이트 수와 원본 해시를 동시에 확인한다.
-    private static String stage(MultipartFile file, Path destination) throws IOException {
-        MessageDigest digest = DocumentFiles.sha256();
-        long total = 0;
-        try (var input = file.getInputStream(); var output = Files.newOutputStream(destination)) {
-            byte[] buffer = new byte[64 * 1024];
-            int count;
-            while ((count = input.read(buffer)) != -1) {
-                total += count;
-                if (total > MAX_BYTES) {
-                    throw error(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE");
-                }
-                digest.update(buffer, 0, count);
-                output.write(buffer, 0, count);
-            }
-        }
-        if (total == 0) {
-            throw error(HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
-        }
-        return HexFormat.of().formatHex(digest.digest());
-    }
-
-    // 다운로드 헤더에도 사용할 UTF-8 이름에서 경로와 제어 문자를 제거한다.
-    private static String safeFileName(String original) {
-        if (original == null) {
-            throw error(HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
-        }
-        String path = original.replace('\\', '/');
-        String name = Normalizer.normalize(path.substring(path.lastIndexOf('/') + 1), Normalizer.Form.NFC)
-                .replaceAll("[\\p{Cntrl}\\p{Cf}]", "").strip();
-        if (name.isEmpty() || name.length() > 180) {
-            throw error(HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
-        }
-        return name;
-    }
-
-    // 원래 MIME 선언은 사용자 입력이므로 파일 이름과 이후 OOXML 검사로 형식을 결정한다.
-    private static String extension(String name) {
-        int dot = name.lastIndexOf('.');
-        if (dot <= 0) {
-            throw error(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_FORMAT");
-        }
-        String format = name.substring(dot + 1).toLowerCase(Locale.ROOT);
-        if (!FORMATS.contains(format)) {
-            throw error(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_FORMAT");
-        }
-        return format;
-    }
-
-    // 길이로 각 해시 재료를 구분해 조합 경계를 보존한다.
-    private static String signature(String... components) {
-        MessageDigest digest = DocumentFiles.sha256();
-        for (String component : components) {
-            byte[] bytes = component.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            digest.update(java.nio.ByteBuffer.allocate(4).putInt(bytes.length).array());
-            digest.update(bytes);
-        }
-        return HexFormat.of().formatHex(digest.digest());
-    }
-
-    // 신규 접수 시 진행·리스 필드는 아직 비어 있다.
-    private static DocumentJob queued(UUID id, long owner, UUID parent, UUID key, String signature,
-            String format, String name, String source, String target, String inputKey, String inputHash,
-            long inputBytes, Instant now, Instant expiry) {
-        return new DocumentJob(id, owner, parent, key, signature, format, name, source, target,
-                DocumentJob.State.QUEUED, inputKey, inputHash, inputBytes, null, null, null,
-                null, 0, List.of(), null, null, null, 0, now, expiry);
-    }
-
-    // 파일 정리 실패 때문에 사용자 접수 결과를 변경하지 않는다.
-    static void deleteTemp(Path path) {
-        if (path != null) {
-            try {
-                Files.deleteIfExists(path);
-            } catch (IOException ignored) {
-                // 워커의 임시 디렉터리 수명 정책에 따라 다시 정리한다.
-            }
-        }
-    }
-
-    // 작업 생성에 실패한 입력은 키가 다른 작업으로 연결될 수 없다.
-    private void deleteObject(long owner, UUID job, String key) {
+    // 이미 끝난 파일 삭제와 별개로, DB가 잠시 응답하지 않는 경우 메타데이터 정리만 다시 시도한다.
+    private void forgetWorkspace(long owner, UUID id) {
         try {
-            writes.removeOrphan(files, owner, job, key);
-        } catch (IOException | RuntimeException ignored) {
-            // 남아 있는 객체 쓰기 기록이 계정 삭제와 수명 정리에서 재시도 대상을 유지한다.
+            repository.forgetWorkspace(owner, id, clock.instant());
+        } catch (DataAccessException unavailable) {
+            LOGGER.warn("Document workspace metadata cleanup deferred jobId={}", id);
         }
     }
 
-    // 인증 이후 실제 접수와 다운로드가 탈퇴로 닫혔으면 다른 계정의 작업과 같은 응답을 반환한다.
+    // 선언된 길이와 무관하게 10 MiB 및 수신 기한을 적용하고 소켓 대기 중 작업 파일을 만들지 않는다.
+    private static byte[] receive(InputStream input, long deadline) throws IOException {
+        var body = new ByteArrayOutputStream();
+        byte[] buffer = new byte[64 * 1024];
+        while (System.nanoTime() - deadline < 0) {
+            int count = input.read(buffer);
+            if (System.nanoTime() - deadline >= 0) {
+                break;
+            }
+            if (count == -1) {
+                if (body.size() == 0) {
+                    throw error(HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
+                }
+                return body.toByteArray();
+            }
+            if (body.size() + count > MAX_UPLOAD_BYTES) {
+                throw error(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE");
+            }
+            body.write(buffer, 0, count);
+        }
+        throw error(HttpStatus.REQUEST_TIMEOUT, "TRANSFER_TIMEOUT");
+    }
+
+    // 멱등 충돌 확인에는 문서 내용이나 파일명에 의존하지 않는 요청 형태만 쓴다.
+    private static String requestShape(String format, String source, String target, long size) {
+        String description = "transient-v1:" + format + ":" + source + ":" + target + ":" + size;
+        byte[] digest = DocumentFiles.sha256().digest(description.getBytes(StandardCharsets.US_ASCII));
+        return HexFormat.of().formatHex(digest);
+    }
+
+    // 신규 작업 행에 사용할 범용 이름과 파일 내용이 없는 임시 작업 식별자를 정의한다.
+    private static DocumentJob queued(UUID id, long owner, UUID key, String requestShape, String format,
+            String source, String target, long size, Instant now, Instant expiry) {
+        return new DocumentJob(id, owner, null, key, requestShape, format, "document." + format, source, target,
+                DocumentJob.State.QUEUED, inputMarker(id), "0".repeat(64), size, null, null, null, null, 0,
+                List.of(), null, null, null, 0, now, expiry);
+    }
+
+    // 탈퇴가 진행 중인 계정은 로컬 파일 생성과 수령 모두를 차단한다.
     private void requireActive(long owner) {
         if (!Boolean.TRUE.equals(writes.whenActive(owner, false, () -> true))) {
             throw error(HttpStatus.NOT_FOUND, "JOB_NOT_FOUND");
         }
     }
 
-    // 응답 상태와 공개 코드만으로 문서 실패를 생성한다.
+    static String inputMarker(UUID id) {
+        return "ephemeral-" + id;
+    }
+
+    static String resultMarker(UUID id) {
+        return "ephemeral-result-" + id;
+    }
+
+    // 문서 응답에는 공급자나 파일시스템 오류의 원문을 포함하지 않는다.
     private static DocumentTranslationException error(HttpStatus status, String code) {
         return new DocumentTranslationException(status, code);
     }
 
-    record Download(InputStream content, String fileName, String format, long bytes) {}
+    /** DB에 재공개할 수 없는 현재 응답의 제한된 메모리 사본이다. */
+    record Download(byte[] content, String fileName, String format) {}
 }

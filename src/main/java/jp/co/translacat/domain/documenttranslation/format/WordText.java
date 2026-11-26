@@ -128,13 +128,14 @@ final class WordText {
                 if (is(element, WORD, "p")) {
                     if (++counts.paragraphs > MAX_PARAGRAPHS) {
                         throw new DocumentFormatPort.Rejected(
-                                DocumentFormatPort.Rejection.DOCUMENT_LIMIT_EXCEEDED, "Word paragraph limit exceeded");
+                                DocumentFormatPort.Rejection.DOCUMENT_WORD_PARAGRAPH_LIMIT,
+                                "Word paragraph limit exceeded");
                     }
                     paragraph(element, location + "/p:" + ++paragraphs);
                 } else if (is(element, WORD, "tbl")) {
                     if (++counts.tables > MAX_TABLES) {
                         throw new DocumentFormatPort.Rejected(
-                                DocumentFormatPort.Rejection.DOCUMENT_LIMIT_EXCEEDED, "Word table limit exceeded");
+                                DocumentFormatPort.Rejection.DOCUMENT_WORD_TABLE_LIMIT, "Word table limit exceeded");
                     }
                     walk(element);
                 } else if (is(element, WORD, "tr") || is(element, WORD, "tc")) {

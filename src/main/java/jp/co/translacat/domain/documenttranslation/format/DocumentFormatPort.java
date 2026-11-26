@@ -9,7 +9,20 @@ import java.util.Map;
 public interface DocumentFormatPort {
     /** 파일을 다시 준비할 때 사용자에게 설명할 수 있는 접수 거부 유형이다. */
     enum Rejection {
-        DOCUMENT_LIMIT_EXCEEDED, UNSUPPORTED_PACKAGE
+        DOCUMENT_LIMIT_EXCEEDED,
+        DOCUMENT_TEXT_LIMIT,
+        DOCUMENT_SEGMENT_LIMIT,
+        DOCUMENT_UNIT_TEXT_LIMIT,
+        DOCUMENT_ZIP_ENTRY_LIMIT,
+        DOCUMENT_EXPANDED_SIZE_LIMIT,
+        DOCUMENT_XML_SIZE_LIMIT,
+        DOCUMENT_XML_TEXT_LIMIT,
+        DOCUMENT_WORD_PARAGRAPH_LIMIT,
+        DOCUMENT_WORD_TABLE_LIMIT,
+        DOCUMENT_SLIDE_LIMIT,
+        DOCUMENT_SHEET_LIMIT,
+        DOCUMENT_SHEET_CELL_LIMIT,
+        UNSUPPORTED_PACKAGE
     }
 
     /** 손상 외의 이유로 형식 처리기가 입력을 거부했음을 보고한다. */

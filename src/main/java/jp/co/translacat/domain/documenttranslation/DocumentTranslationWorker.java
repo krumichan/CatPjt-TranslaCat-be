@@ -209,6 +209,9 @@ final class DocumentTranslationWorker implements AutoCloseable {
 
     // 문맥을 보존하는 세그먼트를 최대 개수 또는 입력 문자 수에서 나눈다.
     private static List<List<DocumentFormatPort.Segment>> split(List<DocumentFormatPort.Segment> segments) {
+        if (segments.size() > 2_000) {
+            throw new JobFailure(DocumentFormatPort.Rejection.DOCUMENT_SEGMENT_LIMIT.name());
+        }
         var batches = new ArrayList<List<DocumentFormatPort.Segment>>();
         var current = new ArrayList<DocumentFormatPort.Segment>();
         int documentsCharacters = 0;
@@ -217,8 +220,11 @@ final class DocumentTranslationWorker implements AutoCloseable {
             int length = segment.pieces().stream()
                     .mapToInt(piece -> piece.text().codePointCount(0, piece.text().length())).sum();
             documentsCharacters += length;
-            if (length > 2_000 || documentsCharacters > 30_000 || segments.size() > 2_000) {
-                throw new JobFailure("DOCUMENT_LIMIT_EXCEEDED");
+            if (length > 2_000) {
+                throw new JobFailure(DocumentFormatPort.Rejection.DOCUMENT_UNIT_TEXT_LIMIT.name());
+            }
+            if (documentsCharacters > 30_000) {
+                throw new JobFailure(DocumentFormatPort.Rejection.DOCUMENT_TEXT_LIMIT.name());
             }
             if (!current.isEmpty()
                     && (current.size() == UNITS_PER_BATCH || batchCharacters + length > CHARACTERS_PER_BATCH)) {

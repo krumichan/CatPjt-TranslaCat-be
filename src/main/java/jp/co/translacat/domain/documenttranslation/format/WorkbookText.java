@@ -31,13 +31,15 @@ final class WorkbookText {
     private final OfficeParts parts;
     private final OfficeTextPlan plan;
     private final SharedStrings shared;
+    private final WorkbookLayout layout;
     private int cells;
     private boolean hasFormula;
 
-    private WorkbookText(OfficeParts parts, OfficeTextPlan plan, SharedStrings shared) {
+    private WorkbookText(OfficeParts parts, OfficeTextPlan plan, SharedStrings shared, String main) {
         this.parts = parts;
         this.plan = plan;
         this.shared = shared;
+        layout = new WorkbookLayout(parts, plan, main);
     }
 
     // 통합 문서 순으로 모든 시트를 확인하되 표시 시트에서만 텍스트를 선택한다.
@@ -46,11 +48,11 @@ final class WorkbookText {
         List<Element> sheets = children(child(workbook, SHEET, "sheets"), SHEET, "sheet");
         if (sheets.size() > MAX_SHEETS) {
             throw new DocumentFormatPort.Rejected(
-                    DocumentFormatPort.Rejection.DOCUMENT_LIMIT_EXCEEDED, "Excel worksheet limit exceeded");
+                    DocumentFormatPort.Rejection.DOCUMENT_SHEET_LIMIT, "Excel worksheet limit exceeded");
         }
 
         SharedStrings shared = readSharedStrings(parts, main);
-        WorkbookText collection = new WorkbookText(parts, plan, shared);
+        WorkbookText collection = new WorkbookText(parts, plan, shared, main);
         Set<String> visited = new HashSet<>();
         for (int index = 0; index < sheets.size(); index++) {
             Element entry = sheets.get(index);
@@ -144,6 +146,8 @@ final class WorkbookText {
         private final String location;
         private final Document document;
         private final Element root;
+        private final BitSet mergedRows = new BitSet();
+        private WorkbookLayout.Columns columns;
 
         // 각 시트의 DOM을 따로 보유해 수정하지 않은 시트를 원본 바이트로 복사한다.
         private Sheet(String part, String location) throws IOException {
@@ -160,6 +164,7 @@ final class WorkbookText {
         private void collect(boolean visible) throws IOException {
             Addresses protection = visible ? protect() : null;
             BitSet hiddenColumns = visible ? hiddenColumns() : new BitSet();
+            columns = visible ? new WorkbookLayout.Columns(root, MAX_COLUMN) : null;
             Element rows = child(root, SHEET, "sheetData");
             int rowNumber = 0;
             for (Element row : children(rows, SHEET, "row")) {
@@ -172,12 +177,14 @@ final class WorkbookText {
                 if (display) {
                     protection.moveTo(rowNumber);
                 }
+                boolean wrapRow = display && !mergedRows.get(rowNumber) && columns.allowsAutoHeight(row);
 
                 int nextColumn = 1;
                 for (Element cell : children(row, SHEET, "c")) {
                     if (++cells > MAX_CELLS) {
                         throw new DocumentFormatPort.Rejected(
-                                DocumentFormatPort.Rejection.DOCUMENT_LIMIT_EXCEEDED, "Excel worksheet cell limit exceeded");
+                                DocumentFormatPort.Rejection.DOCUMENT_SHEET_CELL_LIMIT,
+                                "Excel worksheet cell limit exceeded");
                     }
                     String reference = cell.getAttribute("r");
                     Cell address = reference.isEmpty() ? new Cell(rowNumber, nextColumn) : cell(reference);
@@ -187,9 +194,10 @@ final class WorkbookText {
                     nextColumn = address.column() + 1;
                     if (child(cell, SHEET, "f") != null) {
                         hasFormula = true;
-                    } else if (display && !hiddenColumns.get(address.column()) && !protection.contains(address.column())) {
+                    } else if (display && !hiddenColumns.get(address.column())
+                            && !protection.contains(address.column())) {
                         String position = reference.isEmpty() ? rowNumber + ":" + address.column() : reference;
-                        collectCell(cell, location + "/" + position);
+                        collectCell(cell, address.column(), location + "/" + position, wrapRow);
                     }
                 }
             }
@@ -201,6 +209,7 @@ final class WorkbookText {
             protectFormulaRanges(protectedCells);
             for (Element merge : children(child(root, SHEET, "mergeCells"), SHEET, "mergeCell")) {
                 Range area = range(OfficeParts.required(merge, "ref"));
+                mergedRows.set(area.firstRow(), area.lastRow() + 1);
                 if (area.firstColumn() < area.lastColumn()) {
                     protectedCells.add(area.firstRow(), area.firstRow(), area.firstColumn() + 1, area.lastColumn());
                 }
@@ -271,17 +280,17 @@ final class WorkbookText {
         }
 
         // 숫자와 수식 결과를 쓰지 않도록 원래 타입이 실제 문자열인 셀만 선택한다.
-        private void collectCell(Element cell, String address) throws IOException {
+        private void collectCell(Element cell, int column, String address, boolean wrapRow) throws IOException {
             switch (cell.getAttribute("t")) {
                 case "inlineStr" -> {
                     Element inline = child(cell, SHEET, "is");
-                    collectString(address, stringRuns(inline, address));
+                    collectString(cell, column, address, wrapRow, stringRuns(inline, address));
                 }
                 case "str" -> {
                     // 수식과 해당 참조 범위는 위에서 제외했다. 일반 문자열의 기존 v 저장 방식과 타입을 유지한다.
                     Element value = child(cell, SHEET, "v");
                     if (value != null) {
-                        collectString(address, List.of(value));
+                        collectString(cell, column, address, wrapRow, List.of(value));
                     }
                 }
                 case "s" -> {
@@ -293,19 +302,28 @@ final class WorkbookText {
                     if (index < 0) {
                         throw new IOException("Excel shared string index is missing");
                     }
-                    shared.collect(WorkbookText.this, index, value, address, this);
+                    shared.collect(WorkbookText.this, index,
+                            new CellPatch(cell, value, this, column, address, wrapRow));
                 }
                 default -> { }
             }
         }
 
         // 셀의 기존 저장 표현을 바꾸지 않고 번역 결과의 길이를 확인한다.
-        private void collectString(String address, List<Element> runs) throws IOException {
+        private void collectString(Element cell, int column, String address, boolean wrapRow, List<Element> runs)
+                throws IOException {
             plan.add(address, runs, () -> {
                 validateCellString(runs);
-                parts.changed(part, document);
                 warnFormula();
+                applyLayout(cell, column, address, wrapRow, WorkbookLayout.measure(runs));
+                parts.changed(part, document);
             });
+        }
+
+        // 시트별 열 너비와 자동 행 높이 제약을 기존 셀 스타일에 맞춰 확인한다.
+        private void applyLayout(Element cell, int column, String address, boolean wrapRow,
+                WorkbookLayout.TextWidth text) {
+            layout.apply(cell, address, columns.width(column), wrapRow && columns.allowsStyle(column), text);
         }
     }
 
@@ -327,10 +345,8 @@ final class WorkbookText {
         }
 
         // 같은 원본 공유 인덱스의 표시 셀만 연결하고 숨겨진 셀의 인덱스는 원본으로 유지한다.
-        private void collect(WorkbookText workbook, int originalIndex, Element cellValue, String address, Sheet sheet)
-                throws IOException {
+        private void collect(WorkbookText workbook, int originalIndex, CellPatch patch) throws IOException {
             SharedEdit existing = edits.get(originalIndex);
-            CellPatch patch = new CellPatch(cellValue, sheet);
             if (existing != null) {
                 workbook.plan.charge(existing.usage());
                 existing.cells().add(patch);
@@ -338,6 +354,7 @@ final class WorkbookText {
             }
 
             Element copy = (Element) originals.get(originalIndex).cloneNode(true);
+            String address = patch.address();
             List<Element> runs = workbook.stringRuns(copy, address);
             List<CellPatch> cells = new ArrayList<>();
             cells.add(patch);
@@ -357,11 +374,13 @@ final class WorkbookText {
             }
 
             workbook.parts.changed(part, document);
+            workbook.warnFormula();
+            WorkbookLayout.TextWidth text = WorkbookLayout.measure(runs);
             for (CellPatch cell : cells) {
                 cell.value().setTextContent(index);
+                cell.sheet().applyLayout(cell.cell(), cell.column(), cell.address(), cell.wrapRow(), text);
                 workbook.parts.changed(cell.sheet().part, cell.sheet().document);
             }
-            workbook.warnFormula();
         }
     }
 
@@ -465,7 +484,7 @@ final class WorkbookText {
     private record Boundary(int row, int firstColumn, int lastColumn, int change) {
     }
 
-    private record CellPatch(Element value, Sheet sheet) {
+    private record CellPatch(Element cell, Element value, Sheet sheet, int column, String address, boolean wrapRow) {
     }
 
     private record SharedEdit(OfficeTextPlan.Usage usage, List<CellPatch> cells) {

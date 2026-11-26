@@ -123,7 +123,7 @@ final class OfficeParts implements AutoCloseable {
         ZipEntry entry = entry(part);
         if (entry.getSize() > OfficePackageXml.MAX_BYTES) {
             throw new DocumentFormatPort.Rejected(
-                    DocumentFormatPort.Rejection.DOCUMENT_LIMIT_EXCEEDED, "Office XML part is too large");
+                    DocumentFormatPort.Rejection.DOCUMENT_XML_SIZE_LIMIT, "Office XML part is too large");
         }
         try (var input = archive.getInputStream(entry)) {
             return builder.parse(input);

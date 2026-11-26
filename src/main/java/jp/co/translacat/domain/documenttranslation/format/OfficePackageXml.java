@@ -129,7 +129,7 @@ final class OfficePackageXml {
             throws IOException {
         if (part.getSize() > MAX_BYTES) {
             throw new DocumentFormatPort.Rejected(
-                    DocumentFormatPort.Rejection.DOCUMENT_LIMIT_EXCEEDED, "Office package XML size is out of bounds");
+                    DocumentFormatPort.Rejection.DOCUMENT_XML_SIZE_LIMIT, "Office package XML size is out of bounds");
         }
 
         try (var input = archive.getInputStream(part)) {
@@ -172,7 +172,8 @@ final class OfficePackageXml {
                             reader.getTextCharacters(), reader.getTextStart(), reader.getTextLength());
                     if (textCodePoints > MAX_TEXT_CODE_POINTS) {
                         throw new DocumentFormatPort.Rejected(
-                                DocumentFormatPort.Rejection.DOCUMENT_LIMIT_EXCEEDED, "Office package XML text is out of bounds");
+                                DocumentFormatPort.Rejection.DOCUMENT_XML_TEXT_LIMIT,
+                                "Office package XML text is out of bounds");
                     }
                     continue;
                 }

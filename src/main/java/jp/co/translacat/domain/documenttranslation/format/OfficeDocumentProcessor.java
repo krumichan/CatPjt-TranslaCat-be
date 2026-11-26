@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** 원본 OPC 패키지에서 허용된 텍스트만 골라 변경하고 출력 Office 형식을 다시 확인한다. */
+/** 허용된 번역 텍스트와 해당 표시 속성을 대체 사본에 반영하고 Office 패키지를 다시 검사한다. */
 public final class OfficeDocumentProcessor implements DocumentFormatPort {
     @Override
     public Plan read(Path source, String extension) throws IOException {

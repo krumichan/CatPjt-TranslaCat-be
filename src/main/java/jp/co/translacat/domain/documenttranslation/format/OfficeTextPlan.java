@@ -27,6 +27,7 @@ final class OfficeTextPlan {
 
     private final List<Segment> segments = new ArrayList<>();
     private final List<TextGroup> groups = new ArrayList<>();
+    private final List<ChangedAction> afterTranslationActions = new ArrayList<>();
     private final Map<String, Piece> originals = new LinkedHashMap<>();
     private final LinkedHashSet<Warning> warnings = new LinkedHashSet<>();
     private int totalCodePoints;
@@ -86,10 +87,19 @@ final class OfficeTextPlan {
     void charge(Usage usage) throws IOException {
         totalSegments += usage.segments();
         totalCodePoints += usage.codePoints();
-        if (totalSegments > MAX_SEGMENTS || totalCodePoints > MAX_CODE_POINTS) {
+        if (totalSegments > MAX_SEGMENTS) {
             throw new DocumentFormatPort.Rejected(
-                    DocumentFormatPort.Rejection.DOCUMENT_LIMIT_EXCEEDED, "Office translation text budget exceeded");
+                    DocumentFormatPort.Rejection.DOCUMENT_SEGMENT_LIMIT, "Office translation segment limit exceeded");
         }
+        if (totalCodePoints > MAX_CODE_POINTS) {
+            throw new DocumentFormatPort.Rejected(
+                    DocumentFormatPort.Rejection.DOCUMENT_TEXT_LIMIT, "Office translation text limit exceeded");
+        }
+    }
+
+    // 여러 문단이나 셀에 걸친 결과는 모든 텍스트와 기존 콜백을 반영한 뒤 한 번 처리한다.
+    void afterTranslation(ChangedAction action) {
+        afterTranslationActions.add(action);
     }
 
     // 사용자에게 도움이 되는 처음 몇 개의 서로 다른 위치만 남겨 응답 크기를 제한한다.
@@ -136,13 +146,17 @@ final class OfficeTextPlan {
                 }
             }
 
-            // 글자가 크게 늘어난 위치는 기존 폭과 자동 맞춤을 그대로 두므로 시각 검수 대상으로 표시한다.
+            // 번역문 길이가 크게 증가한 위치는 출력 형식에서 맞춤을 시도하더라도 검수 대상으로 남긴다.
             if (changed) {
                 group.changed().apply();
                 if (translatedLength > group.originalLength() + Math.max(8, group.originalLength() / 3)) {
                     warn("LAYOUT_REVIEW", group.location());
                 }
             }
+        }
+
+        for (ChangedAction action : afterTranslationActions) {
+            action.apply();
         }
         return warnings();
     }
@@ -189,7 +203,8 @@ final class OfficeTextPlan {
         while ((end = iterator.next()) != BreakIterator.DONE) {
             if (source.codePointCount(start, end) > MAX_SEGMENT_CODE_POINTS) {
                 throw new DocumentFormatPort.Rejected(
-                        DocumentFormatPort.Rejection.DOCUMENT_LIMIT_EXCEEDED, "Office translation contains an oversized sentence");
+                        DocumentFormatPort.Rejection.DOCUMENT_UNIT_TEXT_LIMIT,
+                        "Office translation contains an oversized sentence");
             }
             sentences.add(source.substring(start, end));
             start = end;

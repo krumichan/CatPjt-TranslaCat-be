@@ -102,7 +102,7 @@ public final class OfficePackageInspector {
     private static Map<String, ZipEntry> index(ZipFile archive) throws IOException {
         if (archive.size() > MAX_ENTRIES) {
             throw new DocumentFormatPort.Rejected(
-                    DocumentFormatPort.Rejection.DOCUMENT_LIMIT_EXCEEDED, "Office package contains too many ZIP entries");
+                    DocumentFormatPort.Rejection.DOCUMENT_ZIP_ENTRY_LIMIT, "Office package contains too many ZIP entries");
         }
 
         TreeMap<String, ZipEntry> entries = new TreeMap<>();
@@ -190,11 +190,7 @@ public final class OfficePackageInspector {
         long expanded = 0;
         for (Map.Entry<String, ZipEntry> indexed : entries.entrySet()) {
             ZipEntry entry = indexed.getValue();
-            long entryLimit = indexed.getKey().endsWith(".xml") || indexed.getKey().endsWith(".rels")
-                    ? OfficePackageXml.MAX_BYTES : MAX_EXPANDED_BYTES;
-            if (entry.isDirectory()) {
-                entryLimit = 0;
-            }
+            boolean xmlPart = indexed.getKey().endsWith(".xml") || indexed.getKey().endsWith(".rels");
 
             long entryBytes = 0;
             CRC32 crc = new CRC32();
@@ -203,9 +199,18 @@ public final class OfficePackageInspector {
                 while ((count = input.read(buffer)) != -1) {
                     entryBytes += count;
                     expanded += count;
-                    if (entryBytes > entryLimit || expanded > MAX_EXPANDED_BYTES) {
+                    if (entry.isDirectory() && entryBytes > 0) {
+                        throw new IOException("Office package ZIP directory contains data");
+                    }
+                    if (xmlPart && entryBytes > OfficePackageXml.MAX_BYTES) {
                         throw new DocumentFormatPort.Rejected(
-                                DocumentFormatPort.Rejection.DOCUMENT_LIMIT_EXCEEDED, "Office package expanded size is out of bounds");
+                                DocumentFormatPort.Rejection.DOCUMENT_XML_SIZE_LIMIT,
+                                "Office package XML part is too large");
+                    }
+                    if (expanded > MAX_EXPANDED_BYTES) {
+                        throw new DocumentFormatPort.Rejected(
+                                DocumentFormatPort.Rejection.DOCUMENT_EXPANDED_SIZE_LIMIT,
+                                "Office package expanded size is out of bounds");
                     }
                     crc.update(buffer, 0, count);
                 }

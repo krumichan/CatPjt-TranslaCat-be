@@ -31,7 +31,7 @@ final class SlideText {
         List<Element> slides = children(list, PRESENTATION, "sldId");
         if (slides.size() > MAX_SLIDES) {
             throw new DocumentFormatPort.Rejected(
-                    DocumentFormatPort.Rejection.DOCUMENT_LIMIT_EXCEEDED, "PowerPoint slide limit exceeded");
+                    DocumentFormatPort.Rejection.DOCUMENT_SLIDE_LIMIT, "PowerPoint slide limit exceeded");
         }
 
         Set<String> visited = new HashSet<>();
@@ -51,7 +51,8 @@ final class SlideText {
             if (!show.equals("0") && !show.equalsIgnoreCase("false")) {
                 Element core = child(slide, PRESENTATION, "cSld");
                 Element tree = child(core, PRESENTATION, "spTree");
-                new Slide(parts, plan, part, doc, "slide:" + (index + 1)).collectShapes(tree);
+                new Slide(parts, plan, part, doc, "slide:" + (index + 1))
+                        .collectShapes(tree, SlideLayoutFit.Scale.IDENTITY);
             }
         }
     }
@@ -74,16 +75,18 @@ final class SlideText {
         }
 
         // 그룹 확장, 기본 도형, 기본 표를 따라가며 노트나 다른 GraphicData에는 들어가지 않는다.
-        private void collectShapes(Element tree) throws IOException {
+        private void collectShapes(Element tree, SlideLayoutFit.Scale group) throws IOException {
             for (Element shape : children(tree)) {
                 if (is(shape, PRESENTATION, "sp")) {
                     String address = location + "/shape:" + ++shapes;
                     if (!hidden(shape, "nvSpPr")) {
-                        paragraphs(child(shape, PRESENTATION, "txBody"), address);
+                        Element body = child(shape, PRESENTATION, "txBody");
+                        paragraphs(body, address);
+                        SlideLayoutFit.track(plan, shape, body, group, address);
                     }
                 } else if (is(shape, PRESENTATION, "grpSp")) {
                     if (!hidden(shape, "nvGrpSpPr")) {
-                        collectShapes(shape);
+                        collectShapes(shape, group.forGroup(shape));
                     }
                 } else if (is(shape, PRESENTATION, "graphicFrame")) {
                     String address = location + "/shape:" + ++shapes;

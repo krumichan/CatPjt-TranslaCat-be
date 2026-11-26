@@ -31,6 +31,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -95,15 +96,27 @@ class WordbookFlowTest {
         authenticate(1);
     }
 
-    /** 다음 테스트에 인증 정보와 메모리 DB 상태를 전달하지 않는다. */
+    /**
+     * 다음 테스트에 인증 정보와 메모리 DB 상태를 전달하지 않는다.
+     *
+     * @throws SQLException 테스트용 H2 데이터베이스 종료에 실패한 경우
+     */
     @AfterEach
-    void tearDown() {
+    void tearDown() throws SQLException {
         SecurityContextHolder.clearContext();
-        if (jdbc != null) {
-            jdbc.execute("SHUTDOWN");
-        }
-        if (context != null) {
-            context.close();
+
+        try {
+            if (jdbc != null) {
+                // H2가 연결을 닫은 뒤 JdbcTemplate이 SQL 경고를 읽지 않도록 JDBC로 직접 종료한다.
+                try (var connection = context.getBean(DriverManagerDataSource.class).getConnection();
+                        var statement = connection.createStatement()) {
+                    statement.execute("SHUTDOWN");
+                }
+            }
+        } finally {
+            if (context != null) {
+                context.close();
+            }
         }
     }
 

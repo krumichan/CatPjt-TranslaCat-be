@@ -1,0 +1,53 @@
+name: Screenshot and wordbook isolated schema verification
+on:
+  push:
+    branches:
+      - ci/camera-wordbook-schema-20261126
+permissions:
+  contents: read
+jobs:
+  verify-schema:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [mysql, tidb]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Start isolated MySQL
+        if: matrix.engine == 'mysql'
+        run: docker run --detach --name camera-schema-db --publish 127.0.0.1:13306:3306 --env MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.4
+      - name: Start isolated TiDB
+        if: matrix.engine == 'tidb'
+        run: docker run --detach --name camera-schema-db --publish 127.0.0.1:14000:4000 pingcap/tidb:v8.5.8 --store=unistore --path=/tmp/camera-schema --host=0.0.0.0 -L error
+      - name: Compile and verify exact bounded schema helper
+        working-directory: .codex-ci/camera-wordbook-schema
+        env:
+          ENGINE: ${{ matrix.engine }}
+        run: |
+          set -euo pipefail
+          sha256sum --check fixture.sha256
+          mkdir -p results classes test-classes
+          curl --fail --silent --show-error --max-time 60 --output connector.jar https://repo.maven.apache.org/maven2/com/mysql/mysql-connector-j/9.4.0/mysql-connector-j-9.4.0.jar
+          echo '49ed93c8b2bea9cb0929b85a8a28837b191d0f8eac6919fdcef16e36e2cd53b3  connector.jar' | sha256sum --check
+          javac --release 21 -cp connector.jar -d classes CameraWordbookReleaseDb.java
+          javac --release 21 -cp classes:connector.jar -d test-classes CameraWordbookDbFixture.java
+          jar --create --file results/CameraWordbookReleaseDb.jar -C classes .
+          java -cp classes:test-classes:connector.jar CameraWordbookDbFixture "$ENGINE" camera-wordbook-create.sql > results/integration-result.json
+          sha256sum CameraWordbookReleaseDb.java camera-wordbook-create.sql results/CameraWordbookReleaseDb.jar > results/pins.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: camera-wordbook-schema-${{ matrix.engine }}
+          path: .codex-ci/camera-wordbook-schema/results
+          if-no-files-found: warn
+      - name: Remove the isolated database
+        if: always()
+        run: docker rm --force camera-schema-db

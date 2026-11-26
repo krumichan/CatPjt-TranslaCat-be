@@ -261,6 +261,21 @@ final class DocumentJobRepository {
                 """, time(now), time(now), time(now), UNUSED_CONTENT_HASH);
     }
 
+    // 출력 권한이 사라진 종료 작업에서 현재 방식의 작업 공간 참조만 순서대로 돌려준다.
+    List<WorkspaceCleanup> findWorkspaceCleanup(UUID afterId, int limit) {
+        return jdbc.query("""
+                SELECT id, owner_id, status FROM document_translation_job
+                WHERE id > ? AND input_key = CONCAT('ephemeral-', id) AND output_key IS NULL
+                    AND status IN ('SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED')
+                ORDER BY id LIMIT ?
+                """, (row, index) -> new WorkspaceCleanup(uuid(row, "id"), row.getLong("owner_id"),
+                        DocumentJob.State.valueOf(row.getString("status"))),
+                afterId == null ? "" : afterId.toString(), limit);
+    }
+
+    /** 파일 회수와 참조 확인에 필요한 작업 소유자와 종료 상태다. */
+    record WorkspaceCleanup(UUID id, long ownerId, DocumentJob.State state) {}
+
     // 호출자가 실제 파일 정리를 완료한 뒤 해당 작업 공간만 잊고 결과 통계는 유지한다.
     void forgetWorkspace(long ownerId, UUID id, Instant now) {
         jdbc.update("""
@@ -270,12 +285,12 @@ final class DocumentJobRepository {
                 """, time(now), ownerId, id.toString(), workspaceKey(id));
     }
 
-    // 독립 정리가 담당하는 임시 표식은 7일 뒤 제거하고, 이전 객체의 정리 증거는 보존한다.
+    // 파일 참조가 정리된 작업 행만 7일 뒤 제거하고 이전 객체의 정리 증거는 보존한다.
     void removeOldMetadata(Instant now) {
         jdbc.update("""
                 DELETE FROM document_translation_job
                 WHERE created_at <= ? AND status IN ('SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED')
-                    AND (input_key IS NULL OR input_key = CONCAT('ephemeral-', id)) AND output_key IS NULL
+                    AND input_key IS NULL AND output_key IS NULL
                     AND NOT EXISTS (SELECT 1 FROM document_translation_batch
                         WHERE job_id = document_translation_job.id)
                     AND NOT EXISTS (SELECT 1 FROM document_translation_object_write

@@ -8,6 +8,7 @@ import jp.co.translacat.domain.documenttranslation.translation.DocumentTranslati
 import jp.co.translacat.domain.documenttranslation.translation.DocumentTranslationGateway.RepairPlan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import java.io.IOException;
@@ -21,6 +22,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -37,6 +39,7 @@ final class DocumentTranslationWorker implements AutoCloseable {
     private static final int EFFECTIVE_BATCH_CONCURRENCY = 2;
     private static final int UNITS_PER_BATCH = 32;
     private static final int CHARACTERS_PER_BATCH = 4_000;
+    private static final int WORKSPACE_CLEANUP_PAGE_SIZE = 64;
 
     private final DocumentJobRepository repository;
     private final DocumentTransientFiles files;
@@ -49,6 +52,7 @@ final class DocumentTranslationWorker implements AutoCloseable {
     private final ExecutorService maintenance = Executors.newSingleThreadExecutor();
     private final AtomicBoolean cleaning = new AtomicBoolean();
     private final Semaphore slots;
+    private UUID workspaceCleanupCursor;
 
     // 각 포트를 모듈의 작업 처리 흐름으로 연결한다.
     DocumentTranslationWorker(DocumentJobRepository repository, DocumentTransientFiles files,
@@ -87,16 +91,14 @@ final class DocumentTranslationWorker implements AutoCloseable {
         }
     }
 
-    /** DB에 연결되지 못한 작업까지 로컬 만료 기한에 따라 주기적으로 회수한다. */
+    /** 만료 파일을 회수하고 실제로 사라진 작업 공간의 DB 참조를 정리한다. */
     @Scheduled(fixedDelay = 5_000, initialDelay = 5_000)
     public void cleanExpired() {
         // 로컬 파일 삭제가 다른 업무의 공용 스케줄을 막지 않도록 한다.
         if (cleaning.compareAndSet(false, true)) {
             maintenance.submit(() -> {
                 try {
-                    files.reap(clock.instant());
-                } catch (IOException unavailable) {
-                    LOGGER.warn("Document transient cleanup deferred");
+                    cleanWorkspaces(clock.instant());
                 } finally {
                     cleaning.set(false);
                 }
@@ -104,7 +106,35 @@ final class DocumentTranslationWorker implements AutoCloseable {
         }
     }
 
-    /** 파일 수명과 별개로 기한이 끝난 문서 상태 메타데이터를 회수한다. */
+    // 단일 정리 실행기에서 로컬 삭제를 먼저 재시도한 뒤 DB 참조를 한 페이지씩 대조한다.
+    void cleanWorkspaces(Instant now) {
+        // DB가 응답하지 않아도 로컬 파일의 만료 기한을 적용한다.
+        try {
+            files.reap(now);
+        } catch (IOException unavailable) {
+            LOGGER.warn("Document transient cleanup deferred");
+        }
+
+        // 삭제가 지연된 행이 뒤의 작업을 막지 않도록 한 순회가 끝날 때까지 다음 ID로 진행한다.
+        List<DocumentJobRepository.WorkspaceCleanup> candidates;
+        try {
+            candidates = repository.findWorkspaceCleanup(workspaceCleanupCursor, WORKSPACE_CLEANUP_PAGE_SIZE);
+        } catch (DataAccessException unavailable) {
+            LOGGER.warn("Document workspace metadata scan deferred");
+            return;
+        }
+        for (var candidate : candidates) {
+            // 수령권이 이미 확보된 결과는 파일을 열기 전일 수 있으므로 부재만 확인한다.
+            boolean discardAllowed = candidate.state() != DocumentJob.State.SUCCEEDED;
+            if (confirmWorkspaceRemoved(candidate.id(), discardAllowed)) {
+                forgetWorkspace(candidate.ownerId(), candidate.id(), now);
+            }
+        }
+        workspaceCleanupCursor = candidates.size() == WORKSPACE_CLEANUP_PAGE_SIZE
+                ? candidates.getLast().id() : null;
+    }
+
+    /** 파일 참조가 모두 정리된 상태 행을 보존 기한 이후에 회수한다. */
     @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
     public void cleanMetadata() {
         repository.removeOldMetadata(clock.instant());
@@ -130,11 +160,13 @@ final class DocumentTranslationWorker implements AutoCloseable {
         } finally {
             pulse.cancel(false);
             try {
-                // 발행하지 못한 작업의 파일은 DB 정리 결과와 무관하게 회수한다.
-                if (!published) {
-                    discard(job);
+                // 발행하지 못한 파일을 먼저 회수하고, 취소까지 확정된 뒤 참조를 정리한다.
+                boolean removed = !published && confirmWorkspaceRemoved(job.id(), true);
+                Instant now = clock.instant();
+                repository.completeCancel(job, now);
+                if (removed) {
+                    forgetWorkspace(job.ownerId(), job.id(), now);
                 }
-                repository.completeCancel(job, clock.instant());
             } finally {
                 slots.release();
             }
@@ -404,12 +436,25 @@ final class DocumentTranslationWorker implements AutoCloseable {
         }
     }
 
-    // 파일 제거 실패 때도 다른 작업은 계속 실행하고 로컬 회수기가 다시 확인한다.
-    private void discard(DocumentJob job) {
+    // 삭제 가능한 작업만 회수하며 파일 경로나 사용권이 남아 있으면 DB 참조를 유지한다.
+    private boolean confirmWorkspaceRemoved(UUID jobId, boolean discardAllowed) {
         try {
-            files.discard(job.id());
+            if (discardAllowed) {
+                files.discard(jobId);
+            }
+            return !files.hasWorkspace(jobId);
         } catch (IOException unavailable) {
-            LOGGER.warn("Document transient cleanup deferred jobId={}", job.id());
+            LOGGER.warn("Document transient cleanup deferred jobId={}", jobId);
+            return false;
+        }
+    }
+
+    // DB가 잠시 응답하지 않으면 작업 행을 그대로 두어 다음 순회에서 다시 확인한다.
+    private void forgetWorkspace(long ownerId, UUID jobId, Instant now) {
+        try {
+            repository.forgetWorkspace(ownerId, jobId, now);
+        } catch (DataAccessException unavailable) {
+            LOGGER.warn("Document workspace metadata cleanup deferred jobId={}", jobId);
         }
     }
 

@@ -19,6 +19,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -47,9 +50,21 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
             Return each segment and piece exactly once in their original order with the same IDs.
             Preserve tabs, line breaks and non-text pieces. Never insert markup, comments or untranslated markers.
             """;
-    private static final String JA_EN_HANGUL_INSTRUCTION =
-            "Do not introduce Hangul (Korean script) into the English translation of a segment "
-                    + "if none of that segment's source pieces contains Hangul.";
+    private static final String JA_EN_FIDELITY_INSTRUCTIONS = """
+            For Japanese-to-English, translate each segment from its own actors, actions, places and directions.
+            Guidance at a location means guide people there. Never infer that they must wait, stop, or queue.
+            If the same segment explicitly says they should wait, stop, or queue, translate that action.
+            Keep the cardinal direction attached to the same place or object, even when nearby segments differ.
+            Render Japanese guidance, information and signage terms in English when appropriate.
+            Distinguish equipment or installations (設備) from a whole facility (施設).
+            Translate a place's key (場所の鍵) as the key belonging to that place. Do not turn key ownership into a
+            return destination. If the source names an actual return destination, keep it distinct from the owner.
+            Translate a break room (休憩室) as a break room. Use restroom only when the source means a toilet.
+            Do not add Korean script. Preserve explicitly quoted Korean and English labels verbatim and translate
+            the surrounding text.
+            Distribute translated words across the original pieces that contain letters. Copy pieces containing
+            no letters exactly, including their punctuation, digits, or whitespace.
+            """;
     private static final String RESPONSE_SCHEMA = """
             {
               "type":"object","additionalProperties":false,"required":["segments"],
@@ -62,6 +77,16 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
               }}}
             }
             """;
+
+    private enum TextValidationFailure {
+        INVALID_XML_OR_LENGTH,
+        LAYOUT_CONTROLS,
+        NEW_MARKER,
+        NO_TRANSLATED_WORD,
+        ALTERED_NONLETTER,
+        HANGUL_GUARD,
+        SOURCE_LITERAL_CHANGED
+    }
 
     private final WebClient client;
     private final ObjectMapper mapper;
@@ -122,10 +147,10 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
         if (callMillis <= RESPONSE_RESERVE_MILLIS) {
             throw failure(Reason.TIMEOUT);
         }
-        boolean checkIntroducedHangul = "ja".equals(sourceLanguage) && "en".equals(targetLanguage);
+        boolean japaneseToEnglish = "ja".equals(sourceLanguage) && "en".equals(targetLanguage);
         byte[] command = executionCommand(
                 jobId, batchNo, sourceLanguage, targetLanguage, segments, callMillis - RESPONSE_RESERVE_MILLIS,
-                checkIntroducedHangul);
+                japaneseToEnglish);
 
         // 제한을 넘어 수신하거나 호출 스레드가 중단되면 구독을 취소한다.
         var future = client.post()
@@ -142,9 +167,10 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
         } catch (TimeoutException ignored) {
             throw failure(Reason.TIMEOUT);
         } catch (ExecutionException error) {
-            Reason reason = error.getCause() instanceof DataBufferLimitException
-                    ? Reason.INVALID_RESPONSE : Reason.TRANSIENT;
-            throw failure(reason);
+            if (error.getCause() instanceof DataBufferLimitException) {
+                throw failure(Reason.INVALID_RESPONSE);
+            }
+            throw failure(Reason.TRANSIENT);
         } finally {
             if (!future.isDone()) {
                 future.cancel(true);
@@ -156,7 +182,7 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
         if (status != 200) {
             throw classifyFailure(status, response.getBody());
         }
-        return readBatch(response.getBody(), segments, checkIntroducedHangul);
+        return readBatch(response.getBody(), segments, japaneseToEnglish);
     }
 
     // 지시는 BE 고정 문장으로 보내고 문서 문자열은 user 메시지의 JSON 데이터에만 둔다.
@@ -167,7 +193,7 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
             String targetLanguage,
             List<DocumentFormatPort.Segment> segments,
             long providerMillis,
-            boolean checkIntroducedHangul) throws Failure {
+            boolean japaneseToEnglish) throws Failure {
         var payload = mapper.createObjectNode();
         payload.put("sourceLanguage", sourceLanguage);
         payload.put("targetLanguage", targetLanguage);
@@ -185,7 +211,7 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
             var command = mapper.createObjectNode();
             command.put("traceId", jobId + ":" + batchNo);
             command.put("taskName", "DOCUMENT_TRANSLATION_V1");
-            String instructions = checkIntroducedHangul ? INSTRUCTIONS + JA_EN_HANGUL_INSTRUCTION : INSTRUCTIONS;
+            String instructions = japaneseToEnglish ? INSTRUCTIONS + JA_EN_FIDELITY_INSTRUCTIONS : INSTRUCTIONS;
             command.put("instructions", instructions);
             command.putArray("messages").addObject()
                     .put("role", "user")
@@ -238,9 +264,9 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
         return MissingNode.getInstance();
     }
 
-    // 순서와 조각 ID를 보존했는지 확인하고 데이터에서 파트 이름이나 위치를 추론하지 않는다.
+    // 전체 스키마가 정상일 때만 검사에 실패한 일본어→영어 세그먼트를 따로 재시도할 수 있다.
     private Batch readBatch(
-            byte[] body, List<DocumentFormatPort.Segment> requested, boolean checkIntroducedHangul) throws Failure {
+            byte[] body, List<DocumentFormatPort.Segment> requested, boolean japaneseToEnglish) throws Failure {
         if (body == null || body.length == 0) {
             throw failure(Reason.INVALID_RESPONSE);
         }
@@ -271,54 +297,120 @@ public final class AiDocumentTranslationGateway implements DocumentTranslationGa
         if (!output.isObject() || output.size() != 1 || !returned.isArray() || returned.size() != requested.size()) {
             throw failure(Reason.INVALID_RESPONSE);
         }
+        // 일본어→영어는 동일한 ID 집합의 순서 차이만 복구하고 원래 요청 순서로 검증한다.
+        Map<String, JsonNode> segmentsById = japaneseToEnglish ? indexResponseIds(returned, "segmentId") : Map.of();
         Map<String, String> pieces = new LinkedHashMap<>();
+        var seenPieces = new HashSet<String>();
+        var rejected = new ArrayList<DocumentFormatPort.Segment>();
+        TextValidationFailure firstRejection = null;
         for (int segmentIndex = 0; segmentIndex < requested.size(); segmentIndex++) {
             var segment = requested.get(segmentIndex);
-            var result = returned.get(segmentIndex);
-            JsonNode resultPieces = result.path("pieces");
-            if (!result.isObject() || result.size() != 2 || !segment.id().equals(result.path("segmentId").textValue())
-                    || !resultPieces.isArray() || resultPieces.size() != segment.pieces().size()) {
+            var result = japaneseToEnglish ? segmentsById.remove(segment.id()) : returned.get(segmentIndex);
+            if (result == null || !result.isObject() || result.size() != 2
+                    || !segment.id().equals(result.path("segmentId").textValue())) {
                 throw failure(Reason.INVALID_RESPONSE);
             }
-            // 원문 여러 조각 중 하나라도 한글이 있으면 해당 번역 단위의 한글은 허용한다.
-            boolean rejectHangul = checkIntroducedHangul
-                    && segment.pieces().stream().noneMatch(piece -> containsHangul(piece.text()));
+            JsonNode resultPieces = result.path("pieces");
+            if (!resultPieces.isArray() || resultPieces.size() != segment.pieces().size()) {
+                throw failure(Reason.INVALID_RESPONSE);
+            }
+            Map<String, JsonNode> piecesById = japaneseToEnglish ? indexResponseIds(resultPieces, "pieceId") : Map.of();
+            var sourceText = new StringBuilder();
+            var translatedText = new StringBuilder();
+            Map<String, String> segmentPieces = new LinkedHashMap<>();
+            TextValidationFailure rejectedValue = null;
             for (int pieceIndex = 0; pieceIndex < segment.pieces().size(); pieceIndex++) {
                 var source = segment.pieces().get(pieceIndex);
-                var translated = resultPieces.get(pieceIndex);
-                String text = translated.path("text").textValue();
-                if (!translated.isObject() || translated.size() != 2
-                        || !source.id().equals(translated.path("pieceId").textValue())
-                        || !validTranslation(source.text(), text)
-                        || (rejectHangul && containsHangul(text))
-                        || pieces.putIfAbsent(source.id(), text) != null) {
+                var translated = japaneseToEnglish ? piecesById.remove(source.id()) : resultPieces.get(pieceIndex);
+                if (translated == null || !translated.isObject() || translated.size() != 2
+                        || !source.id().equals(translated.path("pieceId").textValue())) {
                     throw failure(Reason.INVALID_RESPONSE);
                 }
+                String text = translated.path("text").textValue();
+                if (text == null || !seenPieces.add(source.id())) {
+                    throw failure(Reason.INVALID_RESPONSE);
+                }
+                TextValidationFailure invalidValue = invalidTranslation(source.text(), text);
+                if (invalidValue != null) {
+                    if (!japaneseToEnglish) {
+                        throw failure(Reason.INVALID_RESPONSE);
+                    }
+                    if (rejectedValue == null) {
+                        rejectedValue = invalidValue;
+                    }
+                } else if (japaneseToEnglish && segment.pieces().size() == 1) {
+                    String corrected = JapaneseDocumentFidelity.correctSinglePiece(source.text(), text);
+                    corrected = correctReservationLabel(source.text(), corrected);
+                    if (!corrected.equals(text) && invalidTranslation(source.text(), corrected) == null) {
+                        text = corrected;
+                    }
+                }
+                segmentPieces.put(source.id(), text);
+                sourceText.append(source.text());
+                translatedText.append(text);
+            }
+            if (japaneseToEnglish && rejectedValue == null
+                    && !JapaneseDocumentFidelity.preservesHangul(sourceText.toString(), translatedText.toString())) {
+                rejectedValue = TextValidationFailure.HANGUL_GUARD;
+            }
+            if (japaneseToEnglish && rejectedValue == null
+                    && !JapaneseDocumentFidelity.preservesQuotedLabels(sourceText.toString(), translatedText.toString())) {
+                rejectedValue = TextValidationFailure.SOURCE_LITERAL_CHANGED;
+            }
+
+            // 실패 건을 저장하지 않고, 같은 세그먼트의 좋은 조각도 재시도 때 다시 검사한다.
+            if (rejectedValue == null) {
+                pieces.putAll(segmentPieces);
+            } else {
+                if (firstRejection == null) {
+                    firstRejection = rejectedValue;
+                }
+                rejected.add(segment);
             }
         }
-        return new Batch(pieces, model);
-    }
 
-    // 완성형과 자모를 포함해 텍스트 조각의 한글 코드 포인트를 찾는다.
-    private static boolean containsHangul(String text) {
-        return text.codePoints().anyMatch(codePoint -> Character.UnicodeScript.of(codePoint)
-                == Character.UnicodeScript.HANGUL);
-    }
-
-    // XML이 표현할 수 있는 문자만 받으며 줄 구조와 사용자 원문의 미번역 표식을 구분한다.
-    private boolean validTranslation(String source, String translated) {
-        if (translated == null || translated.codePointCount(0, translated.length()) > MAX_PIECE_CODE_POINTS
-                || !translated.codePoints().allMatch(AiDocumentTranslationGateway::validXmlCodePoint)) {
-            return false;
+        Batch accepted = new Batch(pieces, model);
+        if (firstRejection != null) {
+            throw new Failure(Reason.INVALID_RESPONSE, Duration.ZERO, new RepairPlan(accepted, rejected));
         }
-        if (!layoutControls(source).equals(layoutControls(translated))
-                || occurrences(translated.toLowerCase(Locale.ROOT), "<unk>")
+        return accepted;
+    }
+
+    // 단독 업무 분류명은 시설명으로 좁히거나 일본어 뒷부분을 남기지 않고 두 의미 요소를 옮긴다.
+    static String correctReservationLabel(String source, String translated) {
+        return "予約受付".equals(source) ? "Reservation intake" : translated;
+    }
+
+    // 개수를 확인한 배열에서 문자열 ID를 한 번씩만 받고, 호출자는 요청 ID마다 항목을 꺼낸다.
+    private static Map<String, JsonNode> indexResponseIds(JsonNode returned, String idField) throws Failure {
+        Map<String, JsonNode> indexed = new HashMap<>();
+        for (JsonNode item : returned) {
+            String id = item.path(idField).textValue();
+            if (!item.isObject() || id == null || indexed.putIfAbsent(id, item) != null) {
+                throw failure(Reason.INVALID_RESPONSE);
+            }
+        }
+        return indexed;
+    }
+
+    // 기존 값 검증 순서에서 최초 실패의 분류를 반환하고 유효한 값은 null로 표시한다.
+    private static TextValidationFailure invalidTranslation(String source, String translated) {
+        if (translated.codePointCount(0, translated.length()) > MAX_PIECE_CODE_POINTS
+                || !translated.codePoints().allMatch(AiDocumentTranslationGateway::validXmlCodePoint)) {
+            return TextValidationFailure.INVALID_XML_OR_LENGTH;
+        }
+        if (!layoutControls(source).equals(layoutControls(translated))) {
+            return TextValidationFailure.LAYOUT_CONTROLS;
+        }
+        if (occurrences(translated.toLowerCase(Locale.ROOT), "<unk>")
                         > occurrences(source.toLowerCase(Locale.ROOT), "<unk>")
                 || occurrences(translated, "⁇") > occurrences(source, "⁇")) {
-            return false;
+            return TextValidationFailure.NEW_MARKER;
         }
-        return source.codePoints().anyMatch(Character::isLetter)
-                ? translated.codePoints().anyMatch(Character::isLetterOrDigit) : source.equals(translated);
+        if (source.codePoints().anyMatch(Character::isLetter)) {
+            return translated.codePoints().anyMatch(Character::isLetterOrDigit) ? null : TextValidationFailure.NO_TRANSLATED_WORD;
+        }
+        return source.equals(translated) ? null : TextValidationFailure.ALTERED_NONLETTER;
     }
 
     // 형식별 편집기에서 동일하게 쓸 수 있는 XML 1.0 코드 포인트 범위를 확인한다.

@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.co.translacat.domain.documenttranslation.format.DocumentFormatPort;
 import jp.co.translacat.domain.documenttranslation.translation.DocumentTranslationGateway;
 import jp.co.translacat.domain.documenttranslation.translation.DocumentTranslationGateway.Batch;
+import jp.co.translacat.domain.documenttranslation.translation.DocumentTranslationGateway.Failure;
+import jp.co.translacat.domain.documenttranslation.translation.DocumentTranslationGateway.Reason;
+import jp.co.translacat.domain.documenttranslation.translation.DocumentTranslationGateway.RepairPlan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -329,26 +332,34 @@ final class DocumentTranslationWorker implements AutoCloseable {
         return result;
     }
 
-    // 제공자 실패는 작업 전체 마감 안에서 한 번 더 시도할 수 있다.
+    // 기존 한 번의 재시도 안에서 유효한 응답의 일부가 실패하면 그 세그먼트만 다시 요청한다.
     private Batch call(DocumentJob job, int number, List<DocumentFormatPort.Segment> units)
             throws InterruptedException {
         Instant deadline = job.createdAt().plusSeconds(180);
         String code = "TRANSLATION_UNAVAILABLE";
+        RepairPlan repair = null;
         for (int attempt = 0; attempt < 2; attempt++) {
             if (!clock.instant().isBefore(deadline)) {
                 throw new JobFailure("TRANSLATION_TIMEOUT");
             }
             checkRunning(job);
             try {
-                return translator.translate(job.id(), number, job.sourceLanguage(), job.targetLanguage(),
-                        units, deadline);
-            } catch (DocumentTranslationGateway.Failure unavailable) {
-                code = unavailable.reason() == DocumentTranslationGateway.Reason.TIMEOUT
+                List<DocumentFormatPort.Segment> requested = repair == null ? units : repair.rejected();
+                Batch translated = translator.translate(job.id(), number, job.sourceLanguage(), job.targetLanguage(),
+                        requested, deadline);
+                if (repair != null) {
+                    translated = mergeRepair(units, repair, translated);
+                }
+                return translated;
+            } catch (Failure unavailable) {
+                code = unavailable.reason() == Reason.TIMEOUT
                         ? "TRANSLATION_TIMEOUT" : "TRANSLATION_UNAVAILABLE";
                 Duration delay = unavailable.retryAfter() == null ? Duration.ofMillis(300) : unavailable.retryAfter();
-                if (attempt == 1 || !unavailable.retryable() || !clock.instant().plus(delay).isBefore(deadline)) {
+                boolean retry = attempt == 0 && unavailable.retryable() && clock.instant().plus(delay).isBefore(deadline);
+                if (!retry) {
                     throw new JobFailure(code);
                 }
+                repair = unavailable.repairPlan();
                 Thread.sleep(delay);
             } catch (IOException unavailable) {
                 if (attempt == 0) {
@@ -357,6 +368,35 @@ final class DocumentTranslationWorker implements AutoCloseable {
             }
         }
         throw new JobFailure(clock.instant().isBefore(deadline) ? code : "TRANSLATION_TIMEOUT");
+    }
+
+    // 같은 모델과 빠짐없는 조각을 확인해 배치의 체크포인트가 부분 결과를 받지 않게 한다.
+    private static Batch mergeRepair(List<DocumentFormatPort.Segment> original, RepairPlan plan, Batch repaired)
+            throws Failure {
+        if (!plan.accepted().model().equals(repaired.model())) {
+            throw new Failure(Reason.CONFIGURATION, Duration.ZERO);
+        }
+        var expected = plan.rejected().stream()
+                .flatMap(segment -> segment.pieces().stream())
+                .map(DocumentFormatPort.Piece::id)
+                .collect(Collectors.toSet());
+        if (!expected.equals(repaired.translatedPieces().keySet())) {
+            throw new Failure(Reason.INVALID_RESPONSE, Duration.ZERO);
+        }
+        var complete = new LinkedHashMap<>(plan.accepted().translatedPieces());
+        for (var entry : repaired.translatedPieces().entrySet()) {
+            if (complete.putIfAbsent(entry.getKey(), entry.getValue()) != null) {
+                throw new Failure(Reason.INVALID_RESPONSE, Duration.ZERO);
+            }
+        }
+        var originalIds = original.stream()
+                .flatMap(segment -> segment.pieces().stream())
+                .map(DocumentFormatPort.Piece::id)
+                .collect(Collectors.toSet());
+        if (!originalIds.equals(complete.keySet())) {
+            throw new Failure(Reason.INVALID_RESPONSE, Duration.ZERO);
+        }
+        return new Batch(complete, repaired.model());
     }
 
     // 취소 또는 소유자 교체가 끝난 뒤 새 AI 요청을 시작하지 않는다.

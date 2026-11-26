@@ -39,6 +39,18 @@ public interface DocumentTranslationGateway {
         }
     }
 
+    /**
+     * 유효한 번역은 메모리에 보관하고 검사를 통과하지 못한 세그먼트만 다시 요청한다.
+     *
+     * @param accepted 구조와 내용 검사를 통과한 조각 및 응답 모델
+     * @param rejected 같은 배치에서 다시 요청할 원문 세그먼트
+     */
+    record RepairPlan(Batch accepted, List<DocumentFormatPort.Segment> rejected) {
+        public RepairPlan {
+            rejected = List.copyOf(rejected);
+        }
+    }
+
     /** 워커의 재호출 및 공개 오류 분류에 쓰는 기술 오류다. */
     enum Reason {
         TIMEOUT,
@@ -47,10 +59,11 @@ public interface DocumentTranslationGateway {
         CONFIGURATION
     }
 
-    /** 원문이나 외부 응답 본문을 포함하지 않는 모델 실행 실패다. */
+    /** 고정 오류와, 구조 검증을 마친 경우에만 반환할 수 있는 재시도 계획이다. */
     final class Failure extends IOException {
         private final Reason reason;
         private final Duration retryAfter;
+        private final transient RepairPlan repairPlan;
 
         /**
          * 제한된 실패 분류와 선택적인 재시도 대기 시간을 기록한다.
@@ -59,9 +72,20 @@ public interface DocumentTranslationGateway {
          * @param retryAfter 서버가 제안한 대기 시간 또는 0
          */
         public Failure(Reason reason, Duration retryAfter) {
+            this(reason, retryAfter, null);
+        }
+
+        // 구조가 올바른 응답에서 검사를 통과한 조각과 재시도 대상만 메모리에 보관한다.
+        Failure(Reason reason, Duration retryAfter, RepairPlan repairPlan) {
             super(reason.name());
             this.reason = reason;
             this.retryAfter = retryAfter;
+            this.repairPlan = repairPlan;
+        }
+
+        /** 검증된 부분 결과가 있으면 재시도 계획을 반환한다. */
+        public RepairPlan repairPlan() {
+            return repairPlan;
         }
 
         public Reason reason() {

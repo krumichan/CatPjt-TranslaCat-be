@@ -11,8 +11,8 @@
       "normalization": "Java LF and one terminal newline only"
     },
     ".codex-ci/image-db-migration/ImageTranslationReleaseDbIntegrationTest.java": {
-      "originalSha256": "6ae07f226c2f26754ef46628759e5b0bc28e102e6480763980f28a54b8ef4f56",
-      "ciSha256": "6ae07f226c2f26754ef46628759e5b0bc28e102e6480763980f28a54b8ef4f56",
+      "originalSha256": "514d098f5486ea8568304b1657016bba88f5d68b48d7833f8afcb326a3626f3b",
+      "ciSha256": "514d098f5486ea8568304b1657016bba88f5d68b48d7833f8afcb326a3626f3b",
       "normalization": "Java LF and one terminal newline only"
     },
     ".codex-ci/image-db-migration/20261122_image_translation.sql": {

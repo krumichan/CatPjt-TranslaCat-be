@@ -58,16 +58,21 @@ public final class ImageTranslationReleaseDbIntegrationTest {
             Settings settings = settings(args);
             receipt.engine = settings.engine();
             output = settings.output();
+            receipt.phase = Phase.SQL_PIN;
             byte[] ddl = fixedSql(settings.sql());
 
             // バージョンを照合するまで fixture の作成を始めない。
             DriverManager.setLoginTimeout(3);
+            receipt.phase = Phase.SERVER_CONNECT;
             try (Connection server = waitForServer(settings.engine())) {
+                receipt.phase = Phase.ENGINE_VERSION;
                 require(versionMatches(server, settings.engine()), "SYNTHETIC_ENGINE_VERSION");
                 integrate(server, settings.engine(), ddl, receipt);
+                receipt.phase = Phase.SERVER_CLOSE;
             }
             require(receipt.created == 3 && receipt.dropped == 3, "SYNTHETIC_CLEANUP_UNCONFIRMED");
         } catch (CheckFailed error) {
+            receipt.recordCheckFailure(error);
             code = error.code;
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
@@ -75,6 +80,7 @@ public final class ImageTranslationReleaseDbIntegrationTest {
         } catch (IOException error) {
             code = "SYNTHETIC_FILE_IO";
         } catch (SQLException error) {
+            receipt.recordSqlFailure(error);
             code = "SYNTHETIC_SQL_FAILURE";
         } catch (RuntimeException | LinkageError error) {
             code = "SYNTHETIC_HELPER_FAILURE";
@@ -179,17 +185,21 @@ public final class ImageTranslationReleaseDbIntegrationTest {
 
     // 正常、部分失敗、非対象ドリフトの各ケースを別の所有カタログに閉じ込める。
     private static void integrate(Connection server, Engine engine, byte[] ddl, Receipt receipt) throws SQLException {
+        receipt.phase = Phase.ENGINE_DEFAULT;
         require(scalar(server, """
                 SELECT COUNT(*) FROM information_schema.ENGINES WHERE ENGINE = 'InnoDB' AND SUPPORT = 'DEFAULT'
                 """) == 1, "SYNTHETIC_ENGINE_DEFAULT");
+        receipt.startCase(Scenario.ACCEPTANCE);
         try (var catalog = new Catalog(server, engine, receipt)) {
             catalog.create();
             applyAndVerify(catalog, ddl, receipt);
         }
+        receipt.startCase(Scenario.PARTIAL);
         try (var catalog = new Catalog(server, engine, receipt)) {
             catalog.create();
             partialCase(catalog, ddl, receipt);
         }
+        receipt.startCase(Scenario.DRIFT);
         try (var catalog = new Catalog(server, engine, receipt)) {
             catalog.create();
             driftCase(catalog, ddl, receipt);
@@ -218,6 +228,7 @@ public final class ImageTranslationReleaseDbIntegrationTest {
 
         // 三表のエンジン情報と実際の制約は、helper 出力とは別に合成 SQL で確認する。
         try (Connection db = catalog.open()) {
+            receipt.phase = Phase.TARGET_ENGINE_CHECK;
             require(scalar(db, """
                     SELECT COUNT(*) FROM information_schema.TABLES
                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE' AND ENGINE = 'InnoDB'
@@ -225,9 +236,12 @@ public final class ImageTranslationReleaseDbIntegrationTest {
                             'image_translation_owner','image_translation_job','image_translation_request'
                         )
                     """) == 3, "SYNTHETIC_TARGET_ENGINE");
+            receipt.phase = Phase.SENTINEL_CHECK;
             require(sentinelIntact(db), "SYNTHETIC_SENTINEL");
             foreignKeys(db, receipt);
+            receipt.phase = Phase.SENTINEL_CHECK;
             require(sentinelIntact(db), "SYNTHETIC_SENTINEL");
+            receipt.phase = Phase.FIXTURE_CONNECTION_CLOSE;
         }
         verifyEmpty(catalog, ddl, before);
         receipt.fingerprintPreserved = true;
@@ -238,13 +252,18 @@ public final class ImageTranslationReleaseDbIntegrationTest {
     private static void partialCase(Catalog catalog, byte[] ddl, Receipt receipt) throws SQLException {
         seed(catalog);
         String before = baseline(catalog, ddl);
+        receipt.beginHelper(ImageTranslationReleaseDb.Mode.APPLY);
         try (Connection session = catalog.open()) {
+            receipt.phase = Phase.HELPER_SET_READ_ONLY;
             var real = ImageTranslationReleaseDb.jdbcDatabase(session, ddl);
+            receipt.phase = Phase.HELPER_RUN;
             var partial = ImageTranslationReleaseDb.run(
                     ImageTranslationReleaseDb.Mode.APPLY, ddl, before, new FailBeforeSecond(real));
+            receipt.helperReport = partial;
             require(!partial.complete() && "DDL_RESULT_UNCONFIRMED".equals(partial.code())
                     && partial.ddlAttempted() == 2 && partial.ddlAcknowledged() == 1 && partial.uncertainStep() == 2
                     && matches(partial.after(), before, OWNER_ONLY), "SYNTHETIC_PARTIAL_STOP");
+            receipt.phase = Phase.HELPER_CONNECTION_CLOSE;
         }
 
         // 別接続で暗黙コミット済みの状態を読み、修復・再適用しないことを確認する。
@@ -262,7 +281,9 @@ public final class ImageTranslationReleaseDbIntegrationTest {
         seed(catalog);
         String before = baseline(catalog, ddl);
         try (Connection db = catalog.open()) {
+            receipt.phase = Phase.DRIFT_ALTER_SENTINEL;
             execute(db, "ALTER TABLE migration_sentinel ADD COLUMN synthetic_drift INT NULL");
+            receipt.phase = Phase.FIXTURE_CONNECTION_CLOSE;
         }
 
         var drift = run(catalog, ImageTranslationReleaseDb.Mode.APPLY, ddl, before);
@@ -270,13 +291,16 @@ public final class ImageTranslationReleaseDbIntegrationTest {
                 && !before.equals(drift.after().nonTargetSchemaFingerprint()) && ABSENT.equals(drift.after().tables()),
                 "SYNTHETIC_DRIFT_STOP");
         try (Connection db = catalog.open()) {
+            receipt.phase = Phase.SENTINEL_CHECK;
             require(sentinelIntact(db), "SYNTHETIC_DRIFT_SENTINEL");
+            receipt.phase = Phase.FIXTURE_CONNECTION_CLOSE;
         }
         receipt.driftRejected = true;
     }
 
     // 合成行のみに対し、孤児・親キー更新の拒否と二組のうち一組だけを消す CASCADE を確認する。
     private static void foreignKeys(Connection db, Receipt receipt) throws SQLException {
+        receipt.phase = Phase.FK_ORPHAN;
         failsWithForeignKey(db, """
                 INSERT INTO image_translation_request
                     (owner_id, operation_name, request_key_hash, fingerprint, job_id)
@@ -286,6 +310,7 @@ public final class ImageTranslationReleaseDbIntegrationTest {
         receipt.orphanRejected = true;
 
         // 二組の親子を作成し、親が実在する場合の挿入と更新制約を確認する。
+        receipt.phase = Phase.FK_INSERT_PAIRS;
         execute(db, """
                 INSERT INTO image_translation_job (job_id, owner_id, work_status, touched_ms,
                     expires_ms, cleanup_due_ms, snapshot_json) VALUES
@@ -298,12 +323,14 @@ public final class ImageTranslationReleaseDbIntegrationTest {
                     (32,'create',REPEAT('c',64),REPEAT('d',64),'fixture-parent-b')
                 """);
         require(scalar(db, "SELECT COUNT(*) FROM image_translation_request") == 2, "SYNTHETIC_CHILD_COUNT");
+        receipt.phase = Phase.FK_PARENT_UPDATE;
         failsWithForeignKey(db, """
                 UPDATE image_translation_job SET job_id = 'updated-parent' WHERE job_id = 'fixture-parent-a'
                 """, 1451);
         receipt.parentUpdateRejected = true;
 
         // 一組だけ消えることを確認した後、残りの合成行を消して verify の空条件に戻す。
+        receipt.phase = Phase.FK_CASCADE;
         execute(db, "DELETE FROM image_translation_job WHERE job_id = 'fixture-parent-a'");
         require(scalar(db, "SELECT COUNT(*) FROM image_translation_job") == 1
                 && scalar(db, "SELECT COUNT(*) FROM image_translation_job WHERE job_id='fixture-parent-b'") == 1
@@ -331,13 +358,18 @@ public final class ImageTranslationReleaseDbIntegrationTest {
 
     // 作成済みの所有カタログに、非対象保全の合成表と一行を準備する。
     private static void seed(Catalog catalog) throws SQLException {
+        Receipt receipt = catalog.receipt;
         try (Connection db = catalog.open()) {
+            receipt.phase = Phase.SEED_CREATE;
             execute(db, """
                     CREATE TABLE migration_sentinel (id BIGINT NOT NULL PRIMARY KEY,
                         fixture_text VARCHAR(32) NOT NULL)
                     """);
+            receipt.phase = Phase.SEED_INSERT;
             execute(db, "INSERT INTO migration_sentinel VALUES (1, 'preserve-ci-fixture')");
+            receipt.phase = Phase.SEED_CHECK;
             require(sentinelIntact(db), "SYNTHETIC_SENTINEL_SEED");
+            receipt.phase = Phase.FIXTURE_CONNECTION_CLOSE;
         }
     }
 
@@ -365,10 +397,19 @@ public final class ImageTranslationReleaseDbIntegrationTest {
     private static ImageTranslationReleaseDb.Report run(
             Catalog catalog, ImageTranslationReleaseDb.Mode mode, byte[] ddl, String expected)
             throws SQLException {
+        Receipt receipt = catalog.receipt;
+        receipt.beginHelper(mode);
+        ImageTranslationReleaseDb.Report report;
         try (Connection db = catalog.open()) {
+            receipt.phase = Phase.HELPER_SET_READ_ONLY;
             var adapter = ImageTranslationReleaseDb.jdbcDatabase(db, ddl);
-            return ImageTranslationReleaseDb.run(mode, ddl, expected, adapter);
+            receipt.phase = Phase.HELPER_RUN;
+            report = ImageTranslationReleaseDb.run(mode, ddl, expected, adapter);
+            receipt.helperReport = report;
+            receipt.phase = Phase.HELPER_CONNECTION_CLOSE;
         }
+        receipt.phase = Phase.HELPER_RESULT;
+        return report;
     }
 
     // 対象三名の状態と非対象指紋を一緒に照合する。
@@ -422,6 +463,59 @@ public final class ImageTranslationReleaseDbIntegrationTest {
         }
     }
 
+    private enum Scenario {
+        STARTUP, ACCEPTANCE, PARTIAL, DRIFT
+    }
+
+    private enum Phase {
+        INPUT, SQL_PIN, SERVER_CONNECT, ENGINE_VERSION, ENGINE_DEFAULT, SERVER_CLOSE, CATALOG_CREATE,
+        CATALOG_CONNECT, CATALOG_SELECT, CATALOG_OPEN_FAILURE_CLOSE, SEED_CREATE, SEED_INSERT, SEED_CHECK,
+        HELPER_SET_READ_ONLY, HELPER_RUN, HELPER_CONNECTION_CLOSE, HELPER_RESULT, TARGET_ENGINE_CHECK, SENTINEL_CHECK,
+        FIXTURE_CONNECTION_CLOSE, DRIFT_ALTER_SENTINEL, FK_ORPHAN, FK_INSERT_PAIRS, FK_PARENT_UPDATE,
+        FK_CASCADE, CATALOG_DROP, CATALOG_DROP_VERIFY
+    }
+
+    private enum SqlHint {
+        READ_ONLY_TRANSACTION_UNSUPPORTED, FEATURE_UNSUPPORTED, FEATURE_SQLSTATE, UNKNOWN_SYSTEM_VARIABLE,
+        ACCESS_DENIED, CATALOG_UNAVAILABLE, TABLE_UNAVAILABLE, TABLE_EXISTS, CONNECTION_FAILURE,
+        QUERY_INTERRUPTED, OTHER_SQL_FAILURE
+    }
+
+    /** SQLState の書式、数値と固定分類だけを保持し、SQLException の本文を扱わない。 */
+    private record SqlEvidence(Phase phase, String state, int vendorCode, SqlHint hint) {
+        // ドライバの文字列は SQLState の規定形式だけを採用する。
+        private static SqlEvidence capture(Phase phase, SQLException error) {
+            String returned = error.getSQLState();
+            String state = returned != null && returned.matches("[0-9A-Z]{5}") ? returned : null;
+            int vendorCode = error.getErrorCode();
+            return new SqlEvidence(phase, state, vendorCode, classify(phase, state, vendorCode));
+        }
+
+        // 既知の診断番号に供給者の生メッセージを含まない名前を付ける。
+        private static SqlHint classify(Phase phase, String state, int vendorCode) {
+            return switch (vendorCode) {
+                case 1235 -> phase == Phase.HELPER_SET_READ_ONLY
+                        ? SqlHint.READ_ONLY_TRANSACTION_UNSUPPORTED : SqlHint.FEATURE_UNSUPPORTED;
+                case 1193 -> SqlHint.UNKNOWN_SYSTEM_VARIABLE;
+                case 1044, 1045 -> SqlHint.ACCESS_DENIED;
+                case 1046, 1049 -> SqlHint.CATALOG_UNAVAILABLE;
+                case 1146 -> SqlHint.TABLE_UNAVAILABLE;
+                case 1050 -> SqlHint.TABLE_EXISTS;
+                case 1317, 1205 -> SqlHint.QUERY_INTERRUPTED;
+                default -> "0A000".equals(state) ? SqlHint.FEATURE_SQLSTATE
+                        : state != null && state.startsWith("08")
+                                ? SqlHint.CONNECTION_FAILURE : SqlHint.OTHER_SQL_FAILURE;
+            };
+        }
+
+        // JSON は列挙値、検査済み SQLState、数値だけで構成する。
+        private String json() {
+            return String.format(Locale.ROOT,
+                    "{\"phase\":\"%s\",\"sqlState\":%s,\"vendorCode\":%d,\"messageHint\":\"%s\"}",
+                    phase, state == null ? "null" : "\"" + state + "\"", vendorCode, hint);
+        }
+    }
+
     private enum Engine {
         MYSQL_8_4(13306), TIDB_8_5_8(14000);
 
@@ -471,6 +565,7 @@ public final class ImageTranslationReleaseDbIntegrationTest {
 
         // 既存名は採用せず、成功応答と警告なしを確認した場合だけ所有とする。
         private void create() throws SQLException {
+            receipt.phase = Phase.CATALOG_CREATE;
             require(!owned && validName(name), "SYNTHETIC_CATALOG_SCOPE");
             try (var statement = server.createStatement()) {
                 statement.setQueryTimeout(QUERY_SECONDS);
@@ -484,8 +579,10 @@ public final class ImageTranslationReleaseDbIntegrationTest {
         // 選択中カタログが自分の正確な名前の場合だけ接続を呼び出し元へ渡す。
         private Connection open() throws SQLException {
             require(owned, "SYNTHETIC_CATALOG_SCOPE");
+            receipt.phase = Phase.CATALOG_CONNECT;
             Connection db = connect(engine, name);
             try {
+                receipt.phase = Phase.CATALOG_SELECT;
                 try (var statement = db.createStatement()) {
                     statement.setQueryTimeout(QUERY_SECONDS);
                     try (var result = statement.executeQuery("SELECT DATABASE()")) {
@@ -495,7 +592,16 @@ public final class ImageTranslationReleaseDbIntegrationTest {
                 }
                 return db;
             } catch (SQLException | RuntimeException error) {
-                db.close();
+                // 後処理中の SQL 例外で最初の接続・スキーマ照合の診断を上書きしない。
+                if (error instanceof SQLException sql) {
+                    receipt.recordSqlFailure(sql);
+                }
+                try {
+                    db.close();
+                } catch (SQLException cleanup) {
+                    receipt.recordCleanup(Phase.CATALOG_OPEN_FAILURE_CLOSE, cleanup);
+                    error.addSuppressed(cleanup);
+                }
                 throw error;
             }
         }
@@ -512,24 +618,48 @@ public final class ImageTranslationReleaseDbIntegrationTest {
             if (!owned) {
                 return;
             }
-            execute(server, "DROP DATABASE " + identifier());
-            try (var check = server.prepareStatement(
-                    "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?")) {
-                check.setQueryTimeout(QUERY_SECONDS);
-                check.setString(1, name);
-                try (var result = check.executeQuery()) {
-                    require(result.next() && result.getLong(1) == 0 && !result.next(),
-                            "SYNTHETIC_DROP_UNCONFIRMED");
+            // 一次失敗の段階を保存し、DROP 自身の診断を別に記録する。
+            Phase prior = receipt.phase;
+            try {
+                receipt.phase = Phase.CATALOG_DROP;
+                execute(server, "DROP DATABASE " + identifier());
+                receipt.phase = Phase.CATALOG_DROP_VERIFY;
+                try (var check = server.prepareStatement(
+                        "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?")) {
+                    check.setQueryTimeout(QUERY_SECONDS);
+                    check.setString(1, name);
+                    try (var result = check.executeQuery()) {
+                        require(result.next() && result.getLong(1) == 0 && !result.next(),
+                                "SYNTHETIC_DROP_UNCONFIRMED");
+                    }
                 }
+                owned = false;
+                receipt.dropped++;
+            } catch (SQLException error) {
+                receipt.recordCleanup(receipt.phase, error);
+                throw error;
+            } catch (CheckFailed error) {
+                receipt.recordCleanupGuard(receipt.phase, error);
+                throw error;
+            } finally {
+                receipt.phase = prior;
             }
-            owned = false;
-            receipt.dropped++;
         }
     }
 
     /** 合成動作の結果と、確認できた所有カタログの件数だけを保つ。 */
     private static final class Receipt {
         private Engine engine;
+        private Scenario scenario = Scenario.STARTUP;
+        private Phase phase = Phase.INPUT;
+        private ImageTranslationReleaseDb.Mode helperMode;
+        private ImageTranslationReleaseDb.Report helperReport;
+        private SqlEvidence primarySql;
+        private SqlEvidence cleanupSql;
+        private SQLException cleanupCause;
+        private CheckFailed cleanupGuardCause;
+        private Phase cleanupGuardPhase;
+        private Phase primaryCheckPhase;
         private int applied;
         private int created;
         private int dropped;
@@ -543,6 +673,86 @@ public final class ImageTranslationReleaseDbIntegrationTest {
         private boolean parentUpdateRejected;
         private boolean cascadeVerified;
 
+        // 前のシナリオの helper の成功を、次の失敗の証拠として残さない。
+        private void startCase(Scenario value) {
+            scenario = value;
+            helperMode = null;
+            helperReport = null;
+        }
+
+        // 接続や setReadOnly で失敗しても、どのモードの試行かを記録する。
+        private void beginHelper(ImageTranslationReleaseDb.Mode value) {
+            helperMode = value;
+            helperReport = null;
+        }
+
+        // SQL の一次診断を一つ保持し、後続のクリーンアップ診断とは分ける。
+        private void recordSqlFailure(SQLException error) {
+            if (primarySql == null) {
+                primarySql = error == cleanupCause ? cleanupSql : SqlEvidence.capture(phase, error);
+            }
+        }
+
+        // 所有カタログまたは失敗接続の後処理で失敗した SQL の概要を保持する。
+        private void recordCleanup(Phase at, SQLException error) {
+            if (cleanupSql == null) {
+                cleanupCause = error;
+                cleanupSql = SqlEvidence.capture(at, error);
+            }
+        }
+
+        // DROP の確認条件自体に失敗した場合も、安全な固定コードだけで記録する。
+        private void recordCleanupGuard(Phase at, CheckFailed error) {
+            cleanupGuardPhase = at;
+            cleanupGuardCause = error;
+        }
+
+        // DROP 条件が主失敗の場合は、復元された直前の作業段階で上書きしない。
+        private void recordCheckFailure(CheckFailed error) {
+            primaryCheckPhase = error == cleanupGuardCause ? cleanupGuardPhase : phase;
+        }
+
+        // 固定モードと helper が公開した既知の状態だけを追加診断に含める。
+        private String diagnostics() {
+            return String.format(Locale.ROOT,
+                    """
+                    {"scenario":"%s","phase":"%s","sqlFailure":%s,"cleanupSqlFailure":%s,\
+                    "cleanupGuardFailure":%s,"helperMode":%s,"helperReport":%s}\
+                    """,
+                    scenario, failurePhase(), primarySql == null ? "null" : primarySql.json(),
+                    cleanupSql == null ? "null" : cleanupSql.json(), cleanupGuardEvidence(),
+                    helperMode == null ? "null" : "\"" + helperMode.name() + "\"", helperEvidence());
+        }
+
+        // 主失敗が存在する場合はその段階を返し、その他は進捗段階を返す。
+        private Phase failurePhase() {
+            if (primarySql != null) {
+                return primarySql.phase();
+            }
+            return primaryCheckPhase == null ? phase : primaryCheckPhase;
+        }
+
+        // DROP 条件の固定コードと段階だけを SQL 診断と分けて返す。
+        private String cleanupGuardEvidence() {
+            if (cleanupGuardCause == null) {
+                return "null";
+            }
+            return String.format(Locale.ROOT, "{\"phase\":\"%s\",\"code\":\"%s\"}",
+                    cleanupGuardPhase, cleanupGuardCause.code);
+        }
+
+        // 成功または失敗の固定コードと DDL 件数は、接続終了に失敗しても保持する。
+        private String helperEvidence() {
+            var report = helperReport;
+            if (report == null) {
+                return "null";
+            }
+            String code = report.code().matches("[A-Z0-9_]+") ? report.code() : "UNRECOGNIZED";
+            return String.format(Locale.ROOT,
+                    "{\"code\":\"%s\",\"ddlAttempted\":%d,\"ddlAcknowledged\":%d,\"uncertainStep\":%d}",
+                    code, report.ddlAttempted(), report.ddlAcknowledged(), report.uncertainStep());
+        }
+
         // 既知の分類と数値だけでエンジン個別の一行 JSON を構成する。
         private String json(String code) {
             return String.format(Locale.ROOT,
@@ -551,12 +761,12 @@ public final class ImageTranslationReleaseDbIntegrationTest {
                     "reapplicationRejected":%b,"nonTargetFingerprintPreserved":%b,"sentinelPreserved":%b,\
                     "partialPreserved":%b,"driftRejected":%b,"orphanRejected":%b,"parentUpdateRejected":%b,\
                     "cascadeVerified":%b,"ownedCatalogsCreated":%d,"ownedCatalogsDropped":%d,\
-                    "productionConnectionMade":false,"productionCredentialsUsed":false}
+                    "productionConnectionMade":false,"productionCredentialsUsed":false,"diagnostics":%s}
                     """,
                     "PASSED".equals(code), engine == null ? "UNSELECTED" : engine.name(), code,
                     applied, verified, replayRejected, fingerprintPreserved, sentinelPreserved,
                     partialPreserved, driftRejected, orphanRejected, parentUpdateRejected, cascadeVerified,
-                    created, dropped);
+                    created, dropped, diagnostics());
         }
     }
 

@@ -2,6 +2,7 @@ package jp.co.translacat.infrastructure.languagelearning.client;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelAnswerRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelTestStartRequestDto;
 import jp.co.translacat.domain.languagelearning.level.dto.request.LevelSelfSelectRequestDto;
@@ -165,7 +166,9 @@ public class LanguageLearningLevelTestClient {
                 if (bytes.length == 0 || bytes.length > MAX_BODY)
                     throw failure("LL_LEVEL_RESPONSE_INVALID", "레벨 테스트 응답 크기를 확인해 주세요.");
                 try {
-                    T value = HistoryLanguageMetadata.readValue(json, bytes, type);
+                    T value = type == LevelStatusResponseDto.class
+                            ? type.cast(readStatus(bytes))
+                            : HistoryLanguageMetadata.readValue(json, bytes, type);
                     if (value == null)
                         throw failure("LL_LEVEL_RESPONSE_INVALID", "레벨 테스트 응답이 비어 있습니다.");
                     return value;
@@ -176,6 +179,15 @@ public class LanguageLearningLevelTestClient {
         } catch (RestClientException error) {
             throw unavailable();
         }
+    }
+
+    // 순차 배포 중 이전 LL에는 이 필드만 없다. 기존 필수 응답 필드는 계속 엄격히 검증한다.
+    private LevelStatusResponseDto readStatus(byte[] bytes) throws IOException {
+        var value = json.readTree(bytes);
+        if (value instanceof ObjectNode object && !object.has("selfSelectionAvailable")) {
+            object.putNull("selfSelectionAvailable");
+        }
+        return json.treeToValue(value, LevelStatusResponseDto.class);
     }
 
     private void checkError(int status, java.io.InputStream body) throws IOException {

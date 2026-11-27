@@ -66,7 +66,7 @@ class LanguageLearningLevelTestFacadeTest {
         when(gateway.status(123L)).thenAnswer(call -> {
             promoted[0] = true;
             return new LevelStatusResponseDto(
-                    LearningProfileState.LEVEL_TEST_REQUIRED, false, false, null, null, null, null);
+                    LearningProfileState.LEVEL_TEST_REQUIRED, false, false, 7L, 1, null, null, true);
         });
         when(baseline.synchronize(123L)).thenAnswer(call -> promoted[0] ? null : LearningProfileState.ACTIVE);
 
@@ -75,6 +75,8 @@ class LanguageLearningLevelTestFacadeTest {
 
         // 검증: 새 언어의 INITIAL 필요 상태를 이전 언어 성장 상태로 덮어쓰지 않는다.
         assertEquals(LearningProfileState.LEVEL_TEST_REQUIRED, result.profileState());
+        assertEquals(7L, result.activeSessionId());
+        assertEquals(Boolean.TRUE, result.selfSelectionAvailable());
         var ordered = inOrder(gateway, baseline);
         ordered.verify(gateway).status(123L);
         ordered.verify(baseline).synchronize(123L);
@@ -92,7 +94,7 @@ class LanguageLearningLevelTestFacadeTest {
         when(gateway.result(123L, 1L)).thenReturn(result);
         when(gateway.status(123L))
                 .thenReturn(new LevelStatusResponseDto(
-                        LearningProfileState.LEVEL_TEST_REQUIRED, false, false, null, null, null, null));
+                        LearningProfileState.LEVEL_TEST_REQUIRED, false, false, null, null, null, null, null));
         when(growth.snapshot(123L)).thenReturn(new GrowthSnapshot(123, null, List.of(), Map.of()));
 
         // 실행

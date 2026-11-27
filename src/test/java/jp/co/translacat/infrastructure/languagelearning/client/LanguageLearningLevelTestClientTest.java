@@ -87,6 +87,42 @@ class LanguageLearningLevelTestClientTest {
         assertTrue(value.initialLevelTestCompleted());
         assertEquals(65.0, value.baseLevelScore());
         assertEquals("INTERMEDIATE", value.proficiencyBand());
+        assertNull(value.selfSelectionAvailable());
+        server.verify();
+    }
+
+    /** 첫 문항이 열린 상태에서도 LL의 직접 선택 판정을 그대로 읽는다. */
+    @Test
+    void statusReadsSelfSelectionEligibilityAlongsideTheActiveSession() {
+        // 준비
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/level-test/status"))
+                .andRespond(withSuccess("""
+                        {"profileState":"LEVEL_TEST_REQUIRED","initialLevelTestCompleted":false,
+                         "recheckRecommended":false,"activeSessionId":7,"currentQuestionNumber":1,
+                         "baseLevelScore":null,"proficiencyBand":null,
+                         "selfSelectionAvailable":true}
+                        """, MediaType.APPLICATION_JSON));
+
+        // 실행 및 검증
+        var value = client().status(123L);
+        assertEquals(7L, value.activeSessionId());
+        assertEquals(Boolean.TRUE, value.selfSelectionAvailable());
+        server.verify();
+    }
+
+    /** 단계적 배포를 위한 선택 필드 보완이 기존 필수 계약을 완화하지 않는지 확인한다. */
+    @Test
+    void statusStillRejectsMissingRequiredFields() {
+        // 준비: required activeSessionId와 신규 선택 필드가 모두 누락됐다.
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/level-test/status"))
+                .andRespond(withSuccess("""
+                        {"profileState":"LEVEL_TEST_REQUIRED","initialLevelTestCompleted":false,
+                         "recheckRecommended":false,"currentQuestionNumber":null,
+                         "baseLevelScore":null,"proficiencyBand":null}
+                        """, MediaType.APPLICATION_JSON));
+
+        // 실행 및 검증: 구버전 응답이라도 기존 필수 필드가 없으면 거부한다.
+        assertThrows(LanguageLearningServiceException.class, () -> client().status(123L));
         server.verify();
     }
 

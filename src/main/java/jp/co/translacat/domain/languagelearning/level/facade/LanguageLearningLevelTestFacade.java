@@ -25,13 +25,20 @@ public class LanguageLearningLevelTestFacade {
     private final LevelTestGateway gateway;
     private final LevelTestBaselineBridge baselineBridge;
 
+    /**
+     * LL의 테스트 상태와 직접 선택 가능 여부를 현재 언어의 성장 상태와 함께 반환한다.
+     *
+     * @param userId 인증된 사용자 ID
+     * @return 현재 언어쌍의 레벨 테스트 상태
+     */
     public LevelStatusResponseDto getStatus(Long userId) {
         // LL 상태 조회가 익일 예약 언어를 승격한 뒤 같은 현재 언어의 성장 상태를 읽는다.
         var value = gateway.status(userId);
         var state = baselineBridge.synchronize(userId);
         return new LevelStatusResponseDto(state == null ? value.profileState() : state,
                 value.initialLevelTestCompleted(), value.recheckRecommended(), value.activeSessionId(),
-                value.currentQuestionNumber(), value.baseLevelScore(), value.proficiencyBand());
+                value.currentQuestionNumber(), value.baseLevelScore(), value.proficiencyBand(),
+                value.selfSelectionAvailable());
     }
 
     public LevelSessionResponseDto start(Long userId, LevelTestStartRequestDto request) {

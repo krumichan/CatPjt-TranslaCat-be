@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@RestControllerAdvice(assignableTypes = {WebAiLearningController.class, WebAiExternalController.class})
+@RestControllerAdvice(assignableTypes = {
+        WebAiLearningController.class, WebAiExternalController.class, AutoPracticeController.class
+})
 public class WebAiExceptionAdvice {
     @ExceptionHandler(LanguageLearningServiceException.class)
     public ResponseEntity<ResponseDto<ErrorDto>> remoteFailure(LanguageLearningServiceException failure) {

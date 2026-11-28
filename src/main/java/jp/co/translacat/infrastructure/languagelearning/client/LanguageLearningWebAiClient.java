@@ -14,6 +14,7 @@ import java.io.IOException;
 /** Web AI 계획과 결과의 소유권·검증·저장은 LL이 처리한다. */
 public class LanguageLearningWebAiClient {
     private static final String ROOT = "/internal/v1/language-learning/web-ai";
+    private static final String AUTO_PRACTICE = "/internal/v1/language-learning/auto-practice";
     private static final int RESPONSE_LIMIT = 4 * 1024 * 1024;
     private final RestClient http;
     private final LanguageLearningInternalJwtProvider jwt;
@@ -27,6 +28,36 @@ public class LanguageLearningWebAiClient {
 
     public JsonNode plans(Long userId) {
         return read(userRequest(http.get().uri(ROOT + "/plans"), userId), "plans");
+    }
+
+    /** Reads one learner's automatic plans and prepared work without starting generation. */
+    public JsonNode autoPractice(Long userId) {
+        return read(userRequest(http.get().uri(AUTO_PRACTICE), userId), null);
+    }
+
+    /** Saves a learner's plan on the LL owner boundary. */
+    public JsonNode saveAutoPractice(Long userId, String planId, JsonNode body) {
+        var request = planId == null ? http.post().uri(AUTO_PRACTICE + "/plans")
+                : http.put().uri(AUTO_PRACTICE + "/plans/" + id(planId));
+        return write(request, userId, body);
+    }
+
+    /** Deletes the plan while keeping the learner's prepared work. */
+    public void deleteAutoPractice(Long userId, String planId) {
+        empty(userRequest(http.delete().uri(AUTO_PRACTICE + "/plans/" + id(planId)), userId));
+    }
+
+    /** Reads the current subtype limits with an authenticated administrator claim. */
+    public JsonNode autoPracticeLimits(Long userId) {
+        return read(http.get().uri(AUTO_PRACTICE + "/admin/limits")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.issueAdminToken(userId)), null);
+    }
+
+    /** Replaces all subtype limits in the same LL transaction. */
+    public JsonNode saveAutoPracticeLimits(Long userId, JsonNode body) {
+        return read(http.put().uri(AUTO_PRACTICE + "/admin/limits")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.issueAdminToken(userId))
+                .body(object(body)), null);
     }
 
     public JsonNode createPlan(Long userId, JsonNode body) {

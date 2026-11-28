@@ -57,6 +57,44 @@ class LanguageLearningWebAiClientTest {
         server.verify();
     }
 
+    /** 준비 목록 조회는 인증 사용자 전용 GET을 호출한다. */
+    @Test
+    void automaticPracticeReadUsesTheOwnerIdentity() {
+        // 준비
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/auto-practice"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(request -> {
+                    Claims claims = claims(request.getHeaders().getFirst("Authorization"));
+                    assertThat(claims.getSubject()).isEqualTo("123");
+                    assertThat(claims.get("roles")).isEqualTo(List.of("USER"));
+                })
+                .andRespond(withSuccess("{\"plans\":[],\"jobs\":[]}", MediaType.APPLICATION_JSON));
+
+        // 실행·검증
+        assertThat(client.autoPractice(123L).path("jobs").isArray()).isTrue();
+        server.verify();
+    }
+
+    /** 관리자 한도 변경에는 별도의 관리자 claim과 정확한 본문을 전달한다. */
+    @Test
+    void automaticPracticeLimitUpdateUsesTheAdministratorIdentity() throws Exception {
+        // 준비
+        var limits = json.readTree("{\"limits\":{\"WRITING_FREE\":4}}");
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/auto-practice/admin/limits"))
+                .andExpect(method(HttpMethod.PUT))
+                .andExpect(content().json(limits.toString(), true))
+                .andExpect(request -> {
+                    Claims claims = claims(request.getHeaders().getFirst("Authorization"));
+                    assertThat(claims.getSubject()).isEqualTo("41");
+                    assertThat(claims.get("roles")).isEqualTo(List.of("ADMIN"));
+                })
+                .andRespond(withSuccess(limits.toString(), MediaType.APPLICATION_JSON));
+
+        // 실행·검증
+        assertThat(client.saveAutoPracticeLimits(41L, limits)).isEqualTo(limits);
+        server.verify();
+    }
+
     @Test
     void externalPromptSeparatesServiceIdentityFromPlanCapability() throws Exception {
         // 준비

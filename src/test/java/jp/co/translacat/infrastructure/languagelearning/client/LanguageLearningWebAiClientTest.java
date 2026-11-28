@@ -75,6 +75,23 @@ class LanguageLearningWebAiClientTest {
         server.verify();
     }
 
+    /** 手動生成の要求には認証済み学習者の ID だけを結び付ける。 */
+    @Test
+    void manualPracticePostUsesTheOwnerIdentity() {
+        server.expect(requestTo("http://ll.test/internal/v1/language-learning/auto-practice/manual"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("{}", true))
+                .andExpect(request -> {
+                    Claims token = claims(request.getHeaders().getFirst("Authorization"));
+                    assertThat(token.getSubject()).isEqualTo("123");
+                    assertThat(token.get("roles")).isEqualTo(List.of("USER"));
+                })
+                .andRespond(withSuccess("{\"jobs\":[{\"id\":7}]}", MediaType.APPLICATION_JSON));
+
+        assertThat(client.preparePracticeManually(123L).path("jobs").get(0).path("id").asInt()).isEqualTo(7);
+        server.verify();
+    }
+
     /** 관리자 한도 변경에는 별도의 관리자 claim과 정확한 본문을 전달한다. */
     @Test
     void automaticPracticeLimitUpdateUsesTheAdministratorIdentity() throws Exception {

@@ -35,6 +35,11 @@ public class LanguageLearningWebAiClient {
         return read(userRequest(http.get().uri(AUTO_PRACTICE), userId), null);
     }
 
+    /** 学習者の ID を署名し、手動準備の重複判定を LL に任せる。 */
+    public JsonNode preparePracticeManually(Long userId) {
+        return write(http.post().uri(AUTO_PRACTICE + "/manual"), userId, json.createObjectNode());
+    }
+
     /** Saves a learner's plan on the LL owner boundary. */
     public JsonNode saveAutoPractice(Long userId, String planId, JsonNode body) {
         var request = planId == null ? http.post().uri(AUTO_PRACTICE + "/plans")

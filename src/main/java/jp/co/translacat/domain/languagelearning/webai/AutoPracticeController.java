@@ -25,6 +25,12 @@ public class AutoPracticeController {
         return ResponseUtil.ok(client.autoPractice(SecurityUtil.getLoginUserId(principal)));
     }
 
+    /** ログイン中のユーザーの有効なプランで手動準備を予約する。 */
+    @PostMapping("/manual")
+    public ResponseDto<JsonNode> prepareManually(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseUtil.ok(client.preparePracticeManually(SecurityUtil.getLoginUserId(principal)));
+    }
+
     /** Creates a saved plan and applies its activation preference. */
     @PostMapping("/plans")
     public ResponseDto<JsonNode> create(@AuthenticationPrincipal UserPrincipal principal, @RequestBody JsonNode body) {
